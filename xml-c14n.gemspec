@@ -3,7 +3,7 @@
 require_relative "lib/xml/c14n/version"
 
 Gem::Specification.new do |spec|
-  spec.name = "loc-mods"
+  spec.name = "xml-c14n"
   spec.version = Xml::C14n::VERSION
   spec.authors = ["Ribose Inc."]
   spec.email = ["open.source@ribose.com"]
