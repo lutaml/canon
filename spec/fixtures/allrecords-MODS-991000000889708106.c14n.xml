@@ -1,24 +1,20 @@
-<modsCollection xmlns="http://www.loc.gov/mods/v3"
-  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-  xsi:schemaLocation="http://www.loc.gov/mods/v3 http://www.loc.gov/standards/mods/v3/mods-3-7.xsd">
+<?xml version="1.0" encoding="utf-8"?>
+<modsCollection xmlns="http://www.loc.gov/mods/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xlink="http://www.w3.org/1999/xlink" xsi:schemaLocation="http://www.loc.gov/mods/v3 http://www.loc.gov/standards/mods/v3/mods-3-7.xsd">
   <mods version="3.7">
     <titleInfo>
       <title>Database-assisted design for wind</title>
       <subTitle>concepts, software, and examples for rigid and flexible buildings
 </subTitle>
     </titleInfo>
-    <name xmlns:xlink="http://www.w3.org/1999/xlink" type="personal" usage="primary"
-      xlink:href="https://id.loc.gov/authorities/names/no2011168767">
+    <name usage="primary" type="personal" xlink:href="https://id.loc.gov/authorities/names/no2011168767">
       <namePart>Main, Joseph A.</namePart>
       <nameIdentifier>https://id.loc.gov/authorities/names/no2011168767</nameIdentifier>
     </name>
-    <name xmlns:xlink="http://www.w3.org/1999/xlink" type="personal"
-      xlink:href="https://id.loc.gov/authorities/names/no2011168767">
+    <name type="personal" xlink:href="https://id.loc.gov/authorities/names/no2011168767">
       <namePart>Main, Joseph A.</namePart>
       <nameIdentifier>https://id.loc.gov/authorities/names/no2011168767</nameIdentifier>
     </name>
-    <name xmlns:xlink="http://www.w3.org/1999/xlink" type="personal"
-      xlink:href="https://id.loc.gov/authorities/names/no2011168774">
+    <name type="personal" xlink:href="https://id.loc.gov/authorities/names/no2011168774">
       <namePart>Fritz, William P.</namePart>
       <nameIdentifier>https://id.loc.gov/authorities/names/no2011168774</nameIdentifier>
     </name>
@@ -32,7 +28,7 @@
     <genre authority="fast">Technical reports.</genre>
     <originInfo>
       <place>
-        <placeTerm type="code" authority="marccountry">ot</placeTerm>
+        <placeTerm authority="marccountry" type="code">ot</placeTerm>
       </place>
       <dateIssued encoding="marc">2006</dateIssued>
       <issuance>monographic</issuance>
@@ -59,38 +55,30 @@
     <note>System requirements: Adobe Acrobat PDF reader.</note>
     <note type="bibliography">Includes bibliographical references.</note>
     <note type="system details">Mode of access: World Wide Web.</note>
-    <subject xmlns:xlink="http://www.w3.org/1999/xlink" authority="lcsh"
-      xlink:href="https://id.loc.gov/authorities/subjects/sh85146878">
+    <subject authority="lcsh" xlink:href="https://id.loc.gov/authorities/subjects/sh85146878">
       <topic>Wind-pressure</topic>
     </subject>
-    <subject xmlns:xlink="http://www.w3.org/1999/xlink" authority="fast"
-      xlink:href="https://id.worldcat.org/fast/1175736">
+    <subject authority="fast" xlink:href="https://id.worldcat.org/fast/1175736">
       <topic>Wind-pressure</topic>
     </subject>
-    <subject xmlns:xlink="http://www.w3.org/1999/xlink" authority="lcsh"
-      xlink:href="https://id.loc.gov/authorities/subjects/sh85129197">
+    <subject authority="lcsh" xlink:href="https://id.loc.gov/authorities/subjects/sh85129197">
       <topic>Structural dynamics</topic>
     </subject>
-    <subject xmlns:xlink="http://www.w3.org/1999/xlink" authority="fast"
-      xlink:href="https://id.worldcat.org/fast/1135648">
+    <subject authority="fast" xlink:href="https://id.worldcat.org/fast/1135648">
       <topic>Structural dynamics</topic>
     </subject>
-    <subject xmlns:xlink="http://www.w3.org/1999/xlink" authority="lcsh"
-      xlink:href="https://id.loc.gov/authorities/subjects/sh85017770">
+    <subject authority="lcsh" xlink:href="https://id.loc.gov/authorities/subjects/sh85017770">
       <topic>Buildings</topic>
       <topic>Aerodynamics</topic>
     </subject>
-    <subject xmlns:xlink="http://www.w3.org/1999/xlink" authority="fast"
-      xlink:href="https://id.worldcat.org/fast/840967">
+    <subject authority="fast" xlink:href="https://id.worldcat.org/fast/840967">
       <topic>Buildings</topic>
       <topic>Aerodynamics</topic>
     </subject>
-    <subject xmlns:xlink="http://www.w3.org/1999/xlink" authority="lcsh"
-      xlink:href="https://id.loc.gov/authorities/subjects/sh88004472">
+    <subject authority="lcsh" xlink:href="https://id.loc.gov/authorities/subjects/sh88004472">
       <topic>Database design</topic>
     </subject>
-    <subject xmlns:xlink="http://www.w3.org/1999/xlink" authority="fast"
-      xlink:href="https://id.worldcat.org/fast/888032">
+    <subject authority="fast" xlink:href="https://id.worldcat.org/fast/888032">
       <topic>Database design</topic>
     </subject>
     <location>
