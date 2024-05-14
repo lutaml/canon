@@ -3,11 +3,10 @@
 require_relative "c14n/version"
 require "nokogiri"
 
-if defined?(::RSpec)
-  require_relative 'c14n/rspec_matchers'
-end
+require_relative "c14n/rspec_matchers" if defined?(::RSpec)
 
 module Xml
+  # C14n stands for canonicalization
   module C14n
     # Source of XSLT
     # https://emmanueloga.wordpress.com/2009/09/29/pretty-printing-xhtml-with-nokogiri-and-xslt/
@@ -61,20 +60,9 @@ module Xml
 
     def self.format(xml)
       Nokogiri::XSLT(NOKOGIRI_C14N_XSL)
-              .transform(Nokogiri::XML(xml, &:noblanks))
-              .to_xml(indent: 2, pretty: true, encoding: "UTF-8")
+        .transform(Nokogiri::XML(xml, &:noblanks))
+        .to_xml(indent: 2, pretty: true, encoding: "UTF-8")
     end
-
-    # def self.diff(xml1, xml2)
-    #   Nokogiri::XML(format(xml1)).diff(Nokogiri::XML(format(xml2))) do |change, node|
-    #     # next if node.class ==
-    #     puts "CHANGE '#{change}' '#{node.inspect}'".ljust(30) + node.parent.path
-    #     yield change, node
-    #   end
-    #   # do |change,node|
-    #   #   puts "#{change} #{node.to_html}".ljust(30) + node.parent.path
-    #   # end
-    # end
 
     class Error < StandardError; end
     # Your code goes here...
