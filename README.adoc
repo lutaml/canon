@@ -1,0 +1,42 @@
+= XML pretty-print / canonicalizer
+
+== Purpose
+
+This gem provides `Xml::C14n` which is a library that uses Nokogiri
+to pretty-print and provide a canonicalized form of XML
+(https://www.w3.org/TR/xml-c14n11/[W3C Canonicalized XML]) suitable
+for signing and comparison.
+
+
+== Usage
+
+[source,ruby]
+----
+require 'xml/c14n'
+
+input = Xml::C14n.format(File.read(xml_raw))
+output = Xml::C14n.format(File.read(xml_c14n))
+
+input == output
+----
+
+In RSpecs:
+
+[source,ruby]
+----
+# In spec/spec_helper.rb
+require 'xml/c14n'
+
+# In spec/*_spec.rb
+it "canonicalizes #{File.basename(f)}" do
+  input = Xml::C14n.format(File.read(xml_raw))
+  output = Xml::C14n.format(File.read(xml_c14n))
+
+  expect(output).to eq(input)
+end
+----
+
+
+== License
+
+Copyright Ribose.
