@@ -30,6 +30,7 @@ Gem::Specification.new do |spec|
 
   # spec.add_runtime_dependency "liquid", "~> 5"
   spec.add_runtime_dependency "nokogiri"
+  spec.add_runtime_dependency "compare-xml"
 
   spec.add_development_dependency "rake"
   spec.add_development_dependency "rspec"
