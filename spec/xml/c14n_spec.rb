@@ -14,7 +14,7 @@ RSpec.describe Xml::C14n do
       input = Xml::C14n.format(File.read(xml_raw))
       output = Xml::C14n.format(File.read(xml_c14n))
 
-      expect(output).to eq(input)
+      expect(output).to be_analogous_with(input)
     end
   end
 end

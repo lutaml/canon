@@ -3,6 +3,10 @@
 require_relative "c14n/version"
 require "nokogiri"
 
+if defined?(::RSpec)
+  require_relative 'c14n/rspec_matchers'
+end
+
 module Xml
   module C14n
     # Source of XSLT
@@ -54,21 +58,23 @@ module Xml
         </xsl:template>
       </xsl:stylesheet>
     XSL
-    # NOKOGIRI_C14N_XSL = <<~XSL
-    #   <xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
-    #     <xsl:output method="xml" encoding="UTF-8" indent="yes"/>
-    #     <xsl:strip-space elements="*"/>
-    #     <xsl:template match="/">
-    #       <xsl:copy-of select="."/>
-    #     </xsl:template>
-    #   </xsl:stylesheet>
-    # XSL
 
     def self.format(xml)
       Nokogiri::XSLT(NOKOGIRI_C14N_XSL)
               .transform(Nokogiri::XML(xml, &:noblanks))
               .to_xml(indent: 2, pretty: true, encoding: "UTF-8")
     end
+
+    # def self.diff(xml1, xml2)
+    #   Nokogiri::XML(format(xml1)).diff(Nokogiri::XML(format(xml2))) do |change, node|
+    #     # next if node.class ==
+    #     puts "CHANGE '#{change}' '#{node.inspect}'".ljust(30) + node.parent.path
+    #     yield change, node
+    #   end
+    #   # do |change,node|
+    #   #   puts "#{change} #{node.to_html}".ljust(30) + node.parent.path
+    #   # end
+    # end
 
     class Error < StandardError; end
     # Your code goes here...

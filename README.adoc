@@ -1,4 +1,4 @@
-= XML pretty-print / canonicalizer
+= XML pretty-print / canonicalizer / RSpec comparator
 
 == Purpose
 
@@ -7,6 +7,9 @@ to pretty-print and provide a canonicalized form of XML
 (https://www.w3.org/TR/xml-c14n11/[W3C Canonicalized XML]) suitable
 for signing and comparison.
 
+This gem also provides the RSpec matcher `be_analogous_with` for comparing XML
+content. The matcher used is from the
+https://github.com/vkononov/compare-xml[`compare-xml`] gem.
 
 == Usage
 
@@ -33,6 +36,13 @@ it "canonicalizes #{File.basename(f)}" do
   output = Xml::C14n.format(File.read(xml_c14n))
 
   expect(output).to eq(input)
+end
+
+it "checks if analogous with #{File.basename(f)}" do
+  input = Xml::C14n.format(File.read(xml_raw))
+  output = Xml::C14n.format(File.read(xml_c14n))
+
+  expect(output).to be_analogous_with(input)
 end
 ----
 
