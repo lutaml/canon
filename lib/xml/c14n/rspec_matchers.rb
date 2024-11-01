@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require "xml-c14n" unless defined?(::Xml::C14n)
+require "xml-c14n" unless defined?(Xml::C14n)
 require "compare-xml"
 
 begin
@@ -35,10 +35,10 @@ module Xml
           index = 0
           @result.map do |hash|
             index += 1
-            "DIFF #{index}: expected node: #{hash[:node1]}\n" \
-                   "        actual node  : #{hash[:node2]}\n" \
-                   "        diff from    : #{hash[:diff1]}\n" \
-                   "        diff to      : #{hash[:diff2]}\n"
+            "DIFF #{index}: expected node: #{hash[:node1]}\n        " \
+              "actual node  : #{hash[:node2]}\n        " \
+              "diff from    : #{hash[:diff1]}\n        " \
+              "diff to      : #{hash[:diff2]}\n"
           end.join("\n")
         end
 

@@ -28,15 +28,11 @@ Gem::Specification.new do |spec| # rubocop:disable Metrics/BlockLength
   spec.required_ruby_version = ">= 2.7.0"
 
   # spec.add_runtime_dependency "liquid", "~> 5"
-  spec.add_runtime_dependency "compare-xml"
-  spec.add_runtime_dependency "nokogiri"
-
-  spec.add_development_dependency "rake"
-  spec.add_development_dependency "rspec"
-  spec.add_development_dependency "rubocop"
-  spec.add_development_dependency "rubocop-performance"
+  spec.add_dependency "compare-xml"
+  spec.add_dependency "nokogiri"
 
   spec.metadata["homepage_uri"] = spec.homepage
   spec.metadata["source_code_uri"] = spec.homepage
   spec.metadata["changelog_uri"] = spec.homepage
+  spec.metadata["rubygems_mfa_required"] = "true"
 end

@@ -3,7 +3,7 @@
 require_relative "c14n/version"
 require "nokogiri"
 
-require_relative "c14n/rspec_matchers" if defined?(::RSpec)
+require_relative "c14n/rspec_matchers" if defined?(RSpec)
 
 module Xml
   # C14n stands for canonicalization
