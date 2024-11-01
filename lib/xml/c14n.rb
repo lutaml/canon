@@ -12,11 +12,12 @@ module Xml
     # https://emmanueloga.wordpress.com/2009/09/29/pretty-printing-xhtml-with-nokogiri-and-xslt/
     NOKOGIRI_C14N_XSL = <<~XSL
       <xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
-        <xsl:output method="xml" encoding="ISO-8859-1"/>
+        <xsl:output method="xml" encoding="UTF-8" indent="yes"/>
+
         <xsl:param name="indent-increment" select="'   '"/>
+
         <xsl:template name="newline">
-          <xsl:text disable-output-escaping="yes">
-      </xsl:text>
+          <xsl:text disable-output-escaping="yes"></xsl:text>
         </xsl:template>
 
         <xsl:template match="comment() | processing-instruction()">
@@ -58,10 +59,32 @@ module Xml
       </xsl:stylesheet>
     XSL
 
-    def self.format(xml)
-      Nokogiri::XSLT(NOKOGIRI_C14N_XSL)
-        .transform(Nokogiri::XML(xml, &:noblanks))
-        .to_xml(indent: 2, pretty: true, encoding: "UTF-8")
+    NOKOGIRI_C14N_SORT_XSL = <<~XSL
+      <xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
+        <xsl:output method="xml" encoding="UTF-8" indent="yes"/>
+
+        <xsl:template match="@* | node()">
+          <xsl:copy>
+            <xsl:apply-templates select="@* | node()"/>
+          </xsl:copy>
+        </xsl:template>
+
+        <xsl:template match="*">
+          <xsl:copy>
+            <xsl:apply-templates select="@*"/>
+            <xsl:apply-templates select="*">
+              <xsl:sort select="name()" data-type="text" order="ascending"/>
+            </xsl:apply-templates>
+          </xsl:copy>
+        </xsl:template>
+      </xsl:stylesheet>
+    XSL
+
+    def self.format(xml, order_sensitive: true)
+      transformed = Nokogiri::XML(xml, &:noblanks)
+      transformed = Nokogiri::XSLT(NOKOGIRI_C14N_XSL).transform(transformed)
+      transformed = Nokogiri::XSLT(NOKOGIRI_C14N_SORT_XSL).transform(transformed) unless order_sensitive
+      transformed.to_xml(indent: 2, pretty: true, encoding: "UTF-8")
     end
 
     class Error < StandardError; end
