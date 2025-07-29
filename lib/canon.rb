@@ -37,5 +37,26 @@ module Canon
     end
   end
 
+  # Define shorthand methods for each supported format
+  # Creates parse_{format} and format_{format} methods
+  def self.define_format_methods
+    [:xml, :yaml, :json].each do |format|
+      # Define parse_{format} methods
+      # e.g., parse_xml(content) -> parse(content, :xml)
+      define_singleton_method("parse_#{format}") do |content|
+        parse(content, format)
+      end
+
+      # Define format_{format} methods
+      # e.g., format_xml(content) -> format(content, :xml)
+      define_singleton_method("format_#{format}") do |content|
+        format(content, format)
+      end
+    end
+  end
+
+  # Call the method to define all shorthand methods
+  define_format_methods
+
   class Error < StandardError; end
 end

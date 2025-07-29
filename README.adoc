@@ -67,6 +67,26 @@ The `format` method is used to pretty-print and canonicalize the input data,
 with the arguments of the method taking the content and the format type as
 arguments.
 
+Syntax:
+
+[source,ruby]
+----
+# Generic method
+Canon.format({content}, {format})
+
+# Format-specific method
+Canon.format_{format}({content})
+----
+
+Where,
+
+`{content}`:: is the input string
+`{format}`:: is the format type, which can be `:xml`, `:yaml`, or `:json`.
+
+
+.Demonstration of formatting methods
+[example]
+====
 [source,ruby]
 ----
 require 'canon'
@@ -75,17 +95,24 @@ require 'canon'
 xml_input = '<root><b>2</b><a>1</a></root>'
 formatted_xml = Canon.format(xml_input, :xml)
 # => Pretty-printed XML with consistent formatting
+# or
+formatted_xml = Canon.format_xml(xml_input)
 
 # YAML formatting
 yaml_input = "---\nz: 3\na: 1\nb: 2\n"
 formatted_yaml = Canon.format(yaml_input, :yaml)
 # => YAML with keys sorted alphabetically
+# or
+formatted_yaml = Canon.format_yaml(yaml_input)
 
 # JSON formatting
 json_input = '{"z":3,"a":1,"b":2}'
 formatted_json = Canon.format(json_input, :json)
 # => Pretty-printed JSON with keys sorted alphabetically
+# or
+formatted_json = Canon.format_json(json_input)
 ----
+====
 
 
 === Parsing
@@ -94,20 +121,44 @@ Canon can also parse XML, YAML, and JSON strings into Ruby objects. The `parse`
 method takes the content and the format type as arguments, returning a Ruby
 object (Hash, Array, etc.) for YAML and JSON, or a Nokogiri XML document for XML.
 
+Syntax:
+
+[source,ruby]
+----
+# Generic method
+Canon.parse({content}, {format})
+
+# Format-specific method
+Canon.parse_{format}({content})
+----
+
+Where,
+
+`{content}`:: is the input string
+`{format}`:: is the format type, which can be `:xml`, `:yaml`, or `:json`.
+
+.Demonstration of parsing methods
+[example]
+====
 [source,ruby]
 ----
 # Parse XML
 xml_doc = Canon.parse(xml_input, :xml)
+xml_doc = Canon.parse_xml(xml_input)
 # => Nokogiri::XML::Document
 
 # Parse YAML
 yaml_obj = Canon.parse(yaml_input, :yaml)
+yaml_obj = Canon.parse_yaml(yaml_input)
 # => Ruby object (Hash, Array, etc.)
 
 # Parse JSON
 json_obj = Canon.parse(json_input, :json)
+json_obj = Canon.parse_json(json_input)
 # => Ruby object (Hash, Array, etc.)
 ----
+====
+
 
 === RSpec matchers
 
@@ -166,4 +217,3 @@ https://github.com/lutaml/canon.
 == Copyright and license
 
 Copyright Ribose. https://opensource.org/licenses/BSD-2-Clause[BSD-2-Clause License].
-
