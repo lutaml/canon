@@ -1,16 +1,16 @@
 # frozen_string_literal: true
 
-require_relative "lib/xml/c14n/version"
+require_relative "lib/canon/version"
 
-Gem::Specification.new do |spec| # rubocop:disable Metrics/BlockLength
-  spec.name = "xml-c14n"
-  spec.version = Xml::C14n::VERSION
+Gem::Specification.new do |spec|
+  spec.name = "canon"
+  spec.version = Canon::VERSION
   spec.authors = ["Ribose Inc."]
   spec.email = ["open.source@ribose.com"]
 
-  spec.summary       = "Library for XML canonicalization"
-  spec.description   = "Library for XML canonicalization"
-  spec.homepage      = "https://github.com/metanorma/xml-c14n"
+  spec.summary       = "Library for canonicalization of serialization formats"
+  spec.description   = "Library for canonicalizing and pretty-printing XML, YAML, and JSON with RSpec matchers for equivalence testing"
+  spec.homepage      = "https://github.com/metanorma/canon"
   spec.license       = "BSD-2-Clause"
 
   gemspec = File.basename(__FILE__)
@@ -27,8 +27,9 @@ Gem::Specification.new do |spec| # rubocop:disable Metrics/BlockLength
   spec.require_paths = ["lib"]
   spec.required_ruby_version = ">= 2.7.0"
 
-  # spec.add_runtime_dependency "liquid", "~> 5"
   spec.add_runtime_dependency "compare-xml"
+  spec.add_runtime_dependency "diffy"
+  spec.add_runtime_dependency "json"
   spec.add_runtime_dependency "nokogiri"
 
   spec.add_development_dependency "rake"

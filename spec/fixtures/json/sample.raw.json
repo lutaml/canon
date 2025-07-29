@@ -1,0 +1,18 @@
+{
+  "z_key": "value3",
+  "a_key": "value1",
+  "nested": {
+    "z_nested_key": "nested_value3",
+    "a_nested_key": "nested_value1"
+  },
+  "array": [
+    {
+      "z_item": "z_value",
+      "a_item": "a_value"
+    },
+    {
+      "second_item": "value"
+    }
+  ],
+  "b_key": "value2"
+}

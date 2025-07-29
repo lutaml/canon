@@ -1,0 +1,11 @@
+---
+a_key: value1
+array:
+- a_item: a_value
+  z_item: z_value
+- second_item: value
+b_key: value2
+nested:
+  a_nested_key: nested_value1
+  z_nested_key: nested_value3
+z_key: value3
