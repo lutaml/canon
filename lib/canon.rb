@@ -8,6 +8,8 @@ require_relative "canon/formatters/json_formatter"
 require_relative "canon/rspec_matchers" if defined?(::RSpec)
 
 module Canon
+  SUPPORTED_FORMATS = %i[xml yaml json].freeze
+
   # Format content based on the specified format type
   # @param content [String] The content to format
   # @param format [Symbol] The format type (:xml, :yaml, :json)
@@ -39,24 +41,15 @@ module Canon
 
   # Define shorthand methods for each supported format
   # Creates parse_{format} and format_{format} methods
-  def self.define_format_methods
-    [:xml, :yaml, :json].each do |format|
-      # Define parse_{format} methods
-      # e.g., parse_xml(content) -> parse(content, :xml)
-      define_singleton_method("parse_#{format}") do |content|
-        parse(content, format)
-      end
+  SUPPORTED_FORMATS.each do |format|
+    define_singleton_method("parse_#{format}") do |content|
+      parse(content, format)
+    end
 
-      # Define format_{format} methods
-      # e.g., format_xml(content) -> format(content, :xml)
-      define_singleton_method("format_#{format}") do |content|
-        format(content, format)
-      end
+    define_singleton_method("format_#{format}") do |content|
+      format(content, format)
     end
   end
-
-  # Call the method to define all shorthand methods
-  define_format_methods
 
   class Error < StandardError; end
 end
