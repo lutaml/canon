@@ -58,4 +58,36 @@ RSpec.describe Canon do
       end.to raise_error(Canon::Error, "Unsupported format: unsupported")
     end
   end
+
+  describe "shorthand methods" do
+    let(:xml_input) { "<root><a>1</a><b>2</b></root>" }
+    let(:yaml_input) { "---\na: 1\nb: 2\n" }
+    let(:json_input) { '{"a":1,"b":2}' }
+
+    describe "parse shorthand methods" do
+      it "delegates to parse with correct format" do
+        expect(Canon).to receive(:parse).with(xml_input, :xml)
+        Canon.parse_xml(xml_input)
+
+        expect(Canon).to receive(:parse).with(yaml_input, :yaml)
+        Canon.parse_yaml(yaml_input)
+
+        expect(Canon).to receive(:parse).with(json_input, :json)
+        Canon.parse_json(json_input)
+      end
+    end
+
+    describe "format shorthand methods" do
+      it "delegates to format with correct format" do
+        expect(Canon).to receive(:format).with(xml_input, :xml)
+        Canon.format_xml(xml_input)
+
+        expect(Canon).to receive(:format).with(yaml_input, :yaml)
+        Canon.format_yaml(yaml_input)
+
+        expect(Canon).to receive(:format).with(json_input, :json)
+        Canon.format_json(json_input)
+      end
+    end
+  end
 end
