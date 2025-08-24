@@ -18,6 +18,7 @@ module Canon
         unless SUPPORTED_FORMATS.include?(format.to_sym)
           raise Canon::Error, "Unsupported format: #{format}"
         end
+
         @format = format.to_sym
         @result = nil
       end
