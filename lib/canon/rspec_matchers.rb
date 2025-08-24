@@ -15,14 +15,16 @@ module Canon
     class SerializationMatcher
       def initialize(expected, format = :xml)
         @expected = expected
+        unless SUPPORTED_FORMATS.include?(format.to_sym)
+          raise Canon::Error, "Unsupported format: #{format}"
+        end
         @format = format.to_sym
         @result = nil
       end
 
       def matches?(target)
         @target = target
-        send("match_#{@format}") ||
-          raise(Canon::Error, "Unsupported format: #{@format}")
+        send("match_#{@format}")
       rescue NoMethodError
         raise Canon::Error, "Unsupported format: #{@format}"
       end
