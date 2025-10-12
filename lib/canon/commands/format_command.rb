@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+require_relative "../xml/pretty_printer"
+require_relative "../json/pretty_printer"
+
 module Canon
   module Commands
     # Command for canonicalizing files
@@ -15,17 +18,14 @@ module Canon
         # Detect or use specified format
         format = detect_format(input_file)
 
-        # Canonicalize
-        result = if format == :xml && @options[:with_comments]
-                   Canon::Xml::C14n.canonicalize(content, with_comments: true)
-                 else
-                   Canon.format(content, format)
-                 end
+        # Format based on mode
+        result = format_content(content, format)
 
         # Output
         if @options[:output]
           File.write(@options[:output], result)
-          puts "Canonicalized #{format.upcase} written to #{@options[:output]}"
+          mode_name = @options[:mode] == "pretty" ? "Pretty-printed" : "Canonicalized"
+          puts "#{mode_name} #{format.upcase} written to #{@options[:output]}"
         else
           puts result
         end
@@ -38,6 +38,44 @@ module Canon
       end
 
       private
+
+      def format_content(content, format)
+        mode = @options[:mode] || "c14n"
+
+        case mode
+        when "pretty"
+          format_pretty(content, format)
+        when "c14n"
+          format_canonical(content, format)
+        else
+          abort "Error: Invalid mode '#{mode}'. Use 'c14n' or 'pretty'"
+        end
+      end
+
+      def format_pretty(content, format)
+        indent = (@options[:indent] || 2).to_i
+        indent_type = @options[:indent_type] || "space"
+
+        case format
+        when :xml
+          Canon::Xml::PrettyPrinter.new(indent: indent,
+                                        indent_type: indent_type).format(content)
+        when :json
+          Canon::Json::PrettyPrinter.new(indent: indent,
+                                         indent_type: indent_type).format(content)
+        when :yaml
+          # YAML formatter already pretty-prints
+          Canon.format(content, format)
+        end
+      end
+
+      def format_canonical(content, format)
+        if format == :xml && @options[:with_comments]
+          Canon::Xml::C14n.canonicalize(content, with_comments: true)
+        else
+          Canon.format(content, format)
+        end
+      end
 
       def detect_format(filename)
         return @options[:format].to_sym if @options[:format]
