@@ -1,14 +1,12 @@
 # frozen_string_literal: true
 
 RSpec.describe Canon::Formatters::XmlFormatter do
-  it "formats XML with consistent indentation" do
+  it "canonicalizes XML per C14N 1.1 spec" do
     input = "<root><a>1</a><b>2</b></root>"
-    "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<root>\n  <a>1</a>\n  <b>2</b>\n</root>\n"
 
     result = described_class.format(input)
-    expect(result).to include("<root>")
-    expect(result).to include("  <a>1</a>")
-    expect(result).to include("  <b>2</b>")
+    # C14N 1.1 produces compact output without indentation
+    expect(result).to eq("<root><a>1</a><b>2</b></root>")
   end
 
   it "parses XML into a Nokogiri document" do
