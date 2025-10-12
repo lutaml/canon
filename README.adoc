@@ -211,6 +211,85 @@ end
 ----
 
 
+== Command-line interface
+
+Canon provides a command-line interface for canonicalizing and comparing files.
+
+=== Installation
+
+After installing the gem, the `canon` command will be available:
+
+[source,bash]
+----
+$ gem install canon
+$ canon --help
+----
+
+=== Canonicalize files
+
+The `format` command canonicalizes files in XML, JSON, or YAML format.
+
+[source,bash]
+----
+# Canonicalize a file (format auto-detected from extension)
+$ canon format input.xml
+
+# Canonicalize and save to output file
+$ canon format input.json --output output.json
+$ canon format input.json -o output.json
+
+# Explicitly specify format
+$ canon format data.txt --format xml
+$ canon format data.txt -f yaml
+
+# Include comments in XML output
+$ canon format document.xml --with-comments
+$ canon format document.xml -c
+----
+
+.Format detection
+[cols="1,1"]
+|===
+|File Extension |Detected Format
+
+|`.xml`
+|XML
+
+|`.json`
+|JSON
+
+|`.yaml`, `.yml`
+|YAML
+|===
+
+=== Compare files
+
+The `diff` command compares two files after canonicalizing them.
+
+[source,bash]
+----
+# Compare two files (formats auto-detected)
+$ canon diff file1.xml file2.xml
+
+# Compare with explicit format
+$ canon diff data1.txt data2.txt --format xml
+$ canon diff data1.txt data2.txt -f json
+
+# Compare files of different formats
+$ canon diff data.xml data.json --format1 xml --format2 json
+
+# Disable colored output
+$ canon diff file1.xml file2.xml --no-color
+----
+
+The diff command:
+
+* Returns exit code 0 if files are canonically equivalent
+* Returns exit code 1 if files differ
+* Shows a unified diff of the differences
+* Uses colored output by default (disable with `--no-color`)
+
+
 == Development
 
 After checking out the repo, run `bin/setup` to install dependencies. Then, run
