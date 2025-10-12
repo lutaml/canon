@@ -63,6 +63,90 @@ RSpec.describe Canon::Cli do
         expect(output).to include("<root>")
       end
     end
+
+    it "uses c14n mode by default" do
+      with_temp_file("<root><b>2</b><a>1</a></root>", ".xml") do |input|
+        output = capture_stdout do
+          described_class.start(["format", input])
+        end
+
+        # C14N produces compact output with sorted elements
+        expect(output.strip).to eq("<root><b>2</b><a>1</a></root>")
+      end
+    end
+
+    it "uses pretty mode when specified" do
+      with_temp_file("<root><b>2</b><a>1</a></root>", ".xml") do |input|
+        output = capture_stdout do
+          described_class.start(["format", input, "--mode", "pretty"])
+        end
+
+        # Pretty mode includes indentation
+        expect(output).to include("  <a>")
+        expect(output).to include("  <b>")
+      end
+    end
+
+    it "respects --indent option in pretty mode" do
+      with_temp_file("<root><a>1</a></root>", ".xml") do |input|
+        output = capture_stdout do
+          described_class.start(["format", input, "--mode", "pretty",
+                                 "--indent", "4"])
+        end
+
+        # Should have 4 spaces of indentation
+        expect(output).to include("    <a>")
+      end
+    end
+
+    it "uses tab indentation for XML when indent_type is tab" do
+      with_temp_file("<root><a>1</a></root>", ".xml") do |input|
+        output = capture_stdout do
+          described_class.start(["format", input, "--mode", "pretty",
+                                 "--indent-type", "tab"])
+        end
+
+        # Should have tab indentation
+        expect(output).to include("\t<a>")
+      end
+    end
+
+    it "uses space indentation for XML by default" do
+      with_temp_file("<root><a>1</a></root>", ".xml") do |input|
+        output = capture_stdout do
+          described_class.start(["format", input, "--mode", "pretty"])
+        end
+
+        # Should have space indentation (2 spaces default)
+        expect(output).to include("  <a>")
+        expect(output).not_to include("\t<a>")
+      end
+    end
+
+    it "uses tab indentation for JSON when indent_type is tab" do
+      with_temp_file('{"z":3,"a":1}', ".json") do |input|
+        output = capture_stdout do
+          described_class.start(["format", input, "--mode", "pretty",
+                                 "--indent-type", "tab"])
+        end
+
+        # Should have tab indentation
+        expect(output).to include("\t\"a\"")
+      end
+    end
+
+    it "uses custom space indentation for JSON" do
+      with_temp_file('{"a":{"b":1}}', ".json") do |input|
+        output = capture_stdout do
+          described_class.start(["format", input, "--mode", "pretty",
+                                 "--indent", "4"])
+        end
+
+        # Should have 4-space indentation
+        expect(output).to include("    \"a\"")
+        expect(output).to include("        \"b\"")
+      end
+    end
   end
 
   describe "diff command" do

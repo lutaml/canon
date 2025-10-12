@@ -11,16 +11,21 @@ module Canon
       true
     end
 
-    desc "format FILE", "Canonicalize a file (XML, JSON, or YAML)"
+    desc "format FILE", "Canonicalize or pretty-print a file (XML, JSON, or YAML)"
     long_desc <<~DESC
-      Canonicalize a file in XML, JSON, or YAML format.
+      Canonicalize or pretty-print a file in XML, JSON, or YAML format.
 
       The format is auto-detected from the file extension (.xml, .json, .yaml, .yml),
       or can be explicitly specified with --format.
 
+      Mode options:
+      - c14n (default): Canonical XML 1.1 for XML, canonical form for JSON/YAML
+      - pretty: Pretty-printed with indentation
+
       Examples:
 
         $ canon format input.xml
+        $ canon format input.xml --mode pretty --indent 4
         $ canon format input.json --output output.json
         $ canon format data.xml --with-comments
         $ canon format file.txt --format xml
@@ -30,6 +35,22 @@ module Canon
                   type: :string,
                   enum: %w[xml json yaml],
                   desc: "Format type (xml, json, or yaml)"
+    method_option :mode,
+                  aliases: "-m",
+                  type: :string,
+                  enum: %w[c14n pretty],
+                  default: "c14n",
+                  desc: "Output mode: c14n (canonical) or pretty (indented)"
+    method_option :indent,
+                  aliases: "-i",
+                  type: :numeric,
+                  default: 2,
+                  desc: "Indentation amount for pretty mode (default: 2)"
+    method_option :indent_type,
+                  type: :string,
+                  enum: %w[space tab],
+                  default: "space",
+                  desc: "Indentation type: space or tab (default: space)"
     method_option :output,
                   aliases: "-o",
                   type: :string,

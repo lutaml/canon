@@ -13,11 +13,15 @@ standardized form suitable for comparison and testing.
 
 == Features
 
-XML canonicalization::
-Format XML documents according to the https://www.w3.org/TR/xml-c14n11/[W3C
-Canonical XML Version 1.1] specification. Produces a normalized form suitable
-for digital signatures and equivalence testing. Key features include:
-+
+=== XML canonicalization
+
+Format XML documents according to the
+https://www.w3.org/TR/xml-c14n11/[W3C Canonical XML Version 1.1] specification.
+Produces a normalized form suitable for digital signatures and equivalence
+testing.
+
+Key features include:
+
 * Namespace declaration ordering (lexicographic by prefix)
 * Attribute ordering (lexicographic by namespace URI, then local name)
 * Character encoding normalization to UTF-8
@@ -27,18 +31,22 @@ for digital signatures and equivalence testing. Key features include:
 * Processing instruction and comment handling
 * Document subset support with attribute inheritance
 
-YAML canonicalization::
+=== YAML canonicalization
+
 Format YAML documents with keys sorted alphabetically in a recursive manner at
 all levels of the YAML structure, with consistent indentation.
 
-JSON canonicalization::
+=== JSON canonicalization
+
 Format JSON documents with keys sorted alphabetically in a recursive manner at
 all levels of the JSON structure, with consistent indentation.
 
-RSpec matchers::
+=== RSpec matchers
+
 Provides matchers for testing equivalence between serialized formats.
 
-Unified interface::
+=== Unified interface
+
 Single API for working with all three formats.
 
 
@@ -129,7 +137,8 @@ formatted_json = Canon.format_json(json_input)
 
 Canon can also parse XML, YAML, and JSON strings into Ruby objects. The `parse`
 method takes the content and the format type as arguments, returning a Ruby
-object (Hash, Array, etc.) for YAML and JSON, or a Nokogiri XML document for XML.
+object (Hash, Array, etc.) for YAML and JSON, or a Nokogiri XML document for
+XML.
 
 Syntax:
 
@@ -229,6 +238,31 @@ $ canon --help
 
 The `format` command canonicalizes files in XML, JSON, or YAML format.
 
+The `format` command supports two output modes:
+
+`c14n`:: (default)
+Produces canonical form of the format. This mode produces compact output without
+indentation, suitable for digital signatures and equivalence testing.
+
+XML::: according to W3C C14N 1.1 for XML.
+
+JSON::: canonical form for JSON (sorted keys).
+
+YAML::: canonical form for YAML (sorted keys).
+
+
+`pretty`::
+Produces pretty-printed output with consistent indentation.
+The `--indent` (`-i`) option can be used to specify the number of spaces for
+indentation (default is 2 spaces).
+
+XML::: uses standard pretty-printing with configurable indentation.
+
+JSON::: uses a canonical form which already includes indentation.
+
+YAML::: uses a canonical form which already includes indentation.
+
+
 [source,bash]
 ----
 # Canonicalize a file (format auto-detected from extension)
@@ -245,7 +279,38 @@ $ canon format data.txt -f yaml
 # Include comments in XML output
 $ canon format document.xml --with-comments
 $ canon format document.xml -c
+
+# Use pretty-print mode with indentation (default: 2 spaces)
+$ canon format input.xml --mode pretty
+$ canon format input.xml -m pretty
+
+# Specify indentation for pretty-print mode
+$ canon format input.xml --mode pretty --indent 4
+$ canon format input.xml -m pretty -i 4
+
+# Use tab indentation instead of spaces
+$ canon format input.xml --mode pretty --indent-type tab
+$ canon format input.json --mode pretty --indent-type tab
 ----
+
+
+.Mode comparison for XML
+[example]
+====
+[source,bash]
+----
+# C14N mode (compact)
+$ canon format input.xml
+<root><a>1</a><b>2</b></root>
+
+# Pretty mode (indented)
+$ canon format input.xml --mode pretty
+<root>
+  <a>1</a>
+  <b>2</b>
+</root>
+----
+====
 
 .Format detection
 [cols="1,1"]
@@ -284,8 +349,8 @@ $ canon diff file1.xml file2.xml --no-color
 
 The diff command:
 
-* Returns exit code 0 if files are canonically equivalent
-* Returns exit code 1 if files differ
+* Returns exit code `0` if files are canonically equivalent
+* Returns exit code `1` if files differ
 * Shows a unified diff of the differences
 * Uses colored output by default (disable with `--no-color`)
 
