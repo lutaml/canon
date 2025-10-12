@@ -26,7 +26,7 @@ module Canon
       # @param xpath [String] XPath expression for subset selection
       # @param with_comments [Boolean] Include comments in canonical form
       # @return [String] Canonical form in UTF-8
-      def self.canonicalize_subset(xml, xpath, with_comments: false)
+      def self.canonicalize_subset(xml, _xpath, with_comments: false)
         # TODO: Implement XPath-based subset selection
         # For now, just canonicalize the whole document
         canonicalize(xml, with_comments: with_comments)

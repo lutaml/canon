@@ -80,7 +80,7 @@ module Canon
               result_parts[:path] = remove_dot_segments(ref_parts[:path])
             else
               result_parts[:path] = merge_paths(base_parts[:path],
-                                                 ref_parts[:path])
+                                                ref_parts[:path])
               result_parts[:path] = remove_dot_segments(result_parts[:path])
             end
             result_parts[:query] = ref_parts[:query]
@@ -111,7 +111,7 @@ module Canon
 
       # Merge paths per RFC 3986 section 5.2.3
       def merge_paths(base_path, ref_path)
-        if base_path && base_path.include?("/")
+        if base_path&.include?("/")
           base_path.sub(%r{/[^/]*$}, "/#{ref_path}")
         else
           ref_path
@@ -127,34 +127,33 @@ module Canon
         # Replace trailing ".." with "../"
         input = input.sub(%r{/\.\.$}, "/../")
 
-        while input.length > 0
+        while input.length.positive?
           # A: If input starts with "../" or "./"
           if input.start_with?("../")
-            input = input[3..]
+            input[3..]
           elsif input.start_with?("./")
-            input = input[2..]
+            input[2..]
           # B: If input starts with "/./" or is "/."
           elsif input.start_with?("/./")
-            input = "/" + input[3..]
+            "/#{input[3..]}"
           elsif input == "/."
-            input = "/"
+            "/"
           # C: If input starts with "/../" or is "/.."
           elsif input.start_with?("/../")
-            input = "/" + input[4..]
+            "/#{input[4..]}"
             output = output.sub(%r{/[^/]*$}, "")
           elsif input == "/.."
-            input = "/"
+            "/"
             output = output.sub(%r{/[^/]*$}, "")
           # D: If input is "." or ".."
-          elsif input == "." || input == ".."
-            input = ""
+          elsif [".", ".."].include?(input)
+            ""
           # E: Move first path segment to output
           else
             if input.start_with?("/")
-              seg_match = input.match(%r{^(/[^/]*)}
-)
+              seg_match = input.match(%r{^(/[^/]*)})
               seg = seg_match[1]
-              input = input[seg.length..]
+              input[seg.length..]
             else
               seg_match = input.match(/^([^\/]*)/)
               seg = seg_match[1]
@@ -165,7 +164,7 @@ module Canon
         end
 
         # Replace multiple consecutive "/" with single "/"
-        output = output.gsub(%r{/+}, "/")
+        output = output.squeeze("/")
 
         # Append "/" to trailing ".."
         output += "/" if output.end_with?("/..")

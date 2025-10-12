@@ -7,8 +7,8 @@ module Canon
     module Nodes
       # Element node in the XPath data model
       class ElementNode < Node
-        attr_reader :name, :namespace_uri, :prefix
-        attr_reader :namespace_nodes, :attribute_nodes
+        attr_reader :name, :namespace_uri, :prefix, :namespace_nodes,
+                    :attribute_nodes
 
         def initialize(name:, namespace_uri: nil, prefix: nil)
           super()

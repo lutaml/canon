@@ -92,7 +92,7 @@ module Canon
         element = Nodes::ElementNode.new(
           name: nokogiri_element.name,
           namespace_uri: nokogiri_element.namespace&.href,
-          prefix: nokogiri_element.namespace&.prefix
+          prefix: nokogiri_element.namespace&.prefix,
         )
 
         # Build namespace nodes (includes inherited namespaces)
@@ -118,7 +118,7 @@ module Canon
         namespaces.each do |prefix, uri|
           ns_node = Nodes::NamespaceNode.new(
             prefix: prefix,
-            uri: uri
+            uri: uri,
           )
           element.add_namespace(ns_node)
         end
@@ -158,7 +158,7 @@ module Canon
             name: attr.name,
             value: attr.value,
             namespace_uri: attr.namespace&.href,
-            prefix: attr.namespace&.prefix
+            prefix: attr.namespace&.prefix,
           )
           element.add_attribute(attr_node)
         end
@@ -184,7 +184,7 @@ module Canon
       def self.build_pi_node(nokogiri_pi)
         Nodes::ProcessingInstructionNode.new(
           target: nokogiri_pi.name,
-          data: nokogiri_pi.content
+          data: nokogiri_pi.content,
         )
       end
     end

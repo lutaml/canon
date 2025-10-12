@@ -56,7 +56,7 @@ RSpec.describe Canon::Xml::C14n do
     it "sorts namespace declarations lexicographically" do
       input = '<root xmlns:z="http://z.com" xmlns:a="http://a.com"/>'
       result = described_class.canonicalize(input)
-      expect(result.index('xmlns:a')).to be < result.index('xmlns:z')
+      expect(result.index("xmlns:a")).to be < result.index("xmlns:z")
     end
 
     it "removes superfluous namespace declarations" do
@@ -70,17 +70,17 @@ RSpec.describe Canon::Xml::C14n do
       input = '<root xmlns:xml="http://www.w3.org/XML/1998/namespace"/>'
       result = described_class.canonicalize(input)
       # xml namespace with standard URI should be omitted
-      expect(result).not_to include('xmlns:xml')
+      expect(result).not_to include("xmlns:xml")
     end
 
     it "processes processing instructions" do
-      input = '<?pi-target pi-data?><root/>'
+      input = "<?pi-target pi-data?><root/>"
       result = described_class.canonicalize(input)
       expect(result).to include("<?pi-target pi-data?>")
     end
 
     it "adds line breaks around PIs outside document element" do
-      input = '<?pi-before?><root/><?pi-after?>'
+      input = "<?pi-before?><root/><?pi-after?>"
       result = described_class.canonicalize(input)
       # PIs outside the document element get line breaks
       expect(result).to include("<?pi-before?>\n")
