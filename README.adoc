@@ -15,7 +15,17 @@ standardized form suitable for comparison and testing.
 
 XML canonicalization::
 Format XML documents according to the https://www.w3.org/TR/xml-c14n11/[W3C
-Canonicalized XML] format, with consistent indentation and ordering.
+Canonical XML Version 1.1] specification. Produces a normalized form suitable
+for digital signatures and equivalence testing. Key features include:
++
+* Namespace declaration ordering (lexicographic by prefix)
+* Attribute ordering (lexicographic by namespace URI, then local name)
+* Character encoding normalization to UTF-8
+* Special character encoding in text and attributes
+* Removal of superfluous namespace declarations
+* Support for xml:base, xml:lang, xml:space, and xml:id attributes
+* Processing instruction and comment handling
+* Document subset support with attribute inheritance
 
 YAML canonicalization::
 Format YAML documents with keys sorted alphabetically in a recursive manner at
