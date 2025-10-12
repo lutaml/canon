@@ -12,8 +12,10 @@ module Canon
 
       def run(file1, file2)
         # Read and canonicalize both files
-        content1 = canonicalize_file(file1, @options[:format1] || @options[:format])
-        content2 = canonicalize_file(file2, @options[:format2] || @options[:format])
+        content1 = canonicalize_file(file1,
+                                     @options[:format1] || @options[:format])
+        content2 = canonicalize_file(file2,
+                                     @options[:format2] || @options[:format])
 
         # Create diff
         diff = Diffy::Diff.new(content1, content2, context: 3)
@@ -28,7 +30,7 @@ module Canon
         if @options[:color]
           puts diff.to_s(:color)
         else
-          puts diff.to_s
+          puts diff
         end
 
         exit 1

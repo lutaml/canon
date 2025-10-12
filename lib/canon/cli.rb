@@ -11,7 +11,8 @@ module Canon
       true
     end
 
-    desc "format FILE", "Canonicalize or pretty-print a file (XML, JSON, or YAML)"
+    desc "format FILE",
+         "Canonicalize or pretty-print a file (XML, JSON, or YAML)"
     long_desc <<~DESC
       Canonicalize or pretty-print a file in XML, JSON, or YAML format.
 

@@ -17,7 +17,7 @@ module Canon
 
         # Check if we need to emit xmlns="" for empty default namespace
         if should_emit_empty_default_namespace?(element, namespaces,
-                                                 parent_element)
+                                                parent_element)
           output << ' xmlns=""'
         end
 
@@ -26,11 +26,11 @@ module Canon
           next if should_skip_namespace?(ns, element, parent_element)
 
           output << " "
-          if ns.default_namespace?
-            output << "xmlns"
-          else
-            output << "xmlns:#{ns.prefix}"
-          end
+          output << if ns.default_namespace?
+                      "xmlns"
+                    else
+                      "xmlns:#{ns.prefix}"
+                    end
           output << '="'
           output << @encoder.encode_attribute(ns.uri)
           output << '"'
@@ -60,7 +60,7 @@ module Canon
       end
 
       # Check if a namespace node should be skipped
-      def should_skip_namespace?(ns, element, parent_element)
+      def should_skip_namespace?(ns, _element, parent_element)
         # Skip xml namespace with standard URI
         return true if ns.xml_namespace?
 

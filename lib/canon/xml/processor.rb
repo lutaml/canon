@@ -94,7 +94,7 @@ module Canon
         # Then handle xml:base fixup if needed
         if omitted_ancestors.any?
           fixed_base = @xml_base_handler.fixup_xml_base(node,
-                                                         omitted_ancestors)
+                                                        omitted_ancestors)
           if fixed_base && !fixed_base.empty?
             # Check if element already has xml:base
             has_base = node.attribute_nodes.any?(&:xml_base?)
@@ -118,7 +118,7 @@ module Canon
         return unless node.in_node_set?
 
         # Add line break before comment if it's outside document element
-        output << "\n" if parent_element.nil? && output.length > 0
+        output << "\n" if parent_element.nil? && output.length.positive?
 
         output << "<!--" << node.value << "-->"
 
@@ -130,7 +130,7 @@ module Canon
         return unless node.in_node_set?
 
         # Add line break before PI if it's outside document element
-        output << "\n" if parent_element.nil? && output.length > 0
+        output << "\n" if parent_element.nil? && output.length.positive?
 
         output << "<?" << node.target
 

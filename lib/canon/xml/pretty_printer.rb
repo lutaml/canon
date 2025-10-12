@@ -13,9 +13,7 @@ module Canon
 
       # Pretty print XML with consistent indentation
       def format(xml_string)
-        doc = Nokogiri::XML(xml_string) do |config|
-          config.noblanks
-        end
+        doc = Nokogiri::XML(xml_string, &:noblanks)
 
         # Use Nokogiri's built-in pretty printing
         if @indent_type == "tab"

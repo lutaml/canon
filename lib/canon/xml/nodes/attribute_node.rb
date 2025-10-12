@@ -36,7 +36,7 @@ module Canon
 
         # Check if this is a simple inheritable attribute (xml:lang or xml:space)
         def simple_inheritable?
-          xml_attribute? && (name == "lang" || name == "space")
+          xml_attribute? && ["lang", "space"].include?(name)
         end
 
         # Check if this is xml:id
