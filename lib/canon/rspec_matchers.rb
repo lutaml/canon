@@ -53,6 +53,10 @@ module Canon
         canonicalize_and_compare(:json)
       end
 
+      def match_html
+        canonicalize_and_compare(:html)
+      end
+
       private
 
       def canonicalize_and_compare(format)
@@ -65,7 +69,7 @@ module Canon
         case @format
         when :xml
           xml_failure_message
-        when :yaml, :json
+        when :yaml, :json, :html
           generic_failure_message
         end
       end
@@ -130,6 +134,10 @@ module Canon
 
     def be_json_equivalent_to(expected)
       SerializationMatcher.new(expected, :json)
+    end
+
+    def be_html_equivalent_to(expected)
+      SerializationMatcher.new(expected, :html)
     end
 
     if defined?(::RSpec)
