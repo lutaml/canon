@@ -20,8 +20,8 @@ module Canon
       or can be explicitly specified with --format.
 
       Mode options:
-      - c14n (default): Canonical XML 1.1 for XML, canonical form for JSON/YAML
-      - pretty: Pretty-printed with indentation
+      - pretty (default): Pretty-printed with indentation
+      - c14n: Canonical XML 1.1 for XML, canonical form for JSON/YAML/HTML
 
       Examples:
 
@@ -40,7 +40,7 @@ module Canon
                   aliases: "-m",
                   type: :string,
                   enum: %w[c14n pretty],
-                  default: "c14n",
+                  default: "pretty",
                   desc: "Output mode: c14n (canonical) or pretty (indented)"
     method_option :indent,
                   aliases: "-i",
