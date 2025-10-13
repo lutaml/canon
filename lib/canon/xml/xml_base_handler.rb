@@ -52,6 +52,7 @@ module Canon
 
       # Join two URI references per RFC 3986 sections 5.2.1, 5.2.2, 5.2.4
       # with C14N 1.1 modifications
+      # rubocop:disable Metrics/MethodLength
       def join_uri_references(base, ref)
         # Parse reference (ignore fragment per C14N 1.1)
         ref_parts = parse_uri(ref)
@@ -120,6 +121,7 @@ module Canon
 
       # Remove dot segments per RFC 3986 section 5.2.4
       # with C14N 1.1 modifications
+      # rubocop:disable Metrics/MethodLength
       def remove_dot_segments(path)
         input = path.dup
         output = ""
@@ -130,35 +132,33 @@ module Canon
         while input.length.positive?
           # A: If input starts with "../" or "./"
           if input.start_with?("../")
-            input[3..]
+            input = input[3..]
           elsif input.start_with?("./")
-            input[2..]
+            input = input[2..]
           # B: If input starts with "/./" or is "/."
           elsif input.start_with?("/./")
-            "/#{input[3..]}"
+            input = "/#{input[3..]}"
           elsif input == "/."
-            "/"
+            input = "/"
           # C: If input starts with "/../" or is "/.."
           elsif input.start_with?("/../")
-            "/#{input[4..]}"
+            input = "/#{input[4..]}"
             output = output.sub(%r{/[^/]*$}, "")
           elsif input == "/.."
-            "/"
+            input = "/"
             output = output.sub(%r{/[^/]*$}, "")
           # D: If input is "." or ".."
           elsif [".", ".."].include?(input)
-            ""
+            input = ""
           # E: Move first path segment to output
           else
-            if input.start_with?("/")
-              seg_match = input.match(%r{^(/[^/]*)})
-              seg = seg_match[1]
-              input[seg.length..]
-            else
-              seg_match = input.match(/^([^\/]*)/)
-              seg = seg_match[1]
-              input = input[seg.length..]
-            end
+            seg_match = if input.start_with?("/")
+                          input.match(%r{^(/[^/]*)})
+                        else
+                          input.match(/^([^\/]*)/)
+                        end
+            seg = seg_match[1]
+            input = input[seg.length..]
             output += seg
           end
         end

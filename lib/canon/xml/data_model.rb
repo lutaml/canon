@@ -30,6 +30,7 @@ module Canon
       end
 
       # Check for relative namespace URIs (prohibited by C14N 1.1)
+      # rubocop:disable Metrics/MethodLength
       def self.check_for_relative_namespace_uris(doc)
         doc.traverse do |node|
           next unless node.is_a?(Nokogiri::XML::Element)
@@ -53,6 +54,7 @@ module Canon
       end
 
       # Build XPath data model from Nokogiri document
+      # rubocop:disable Metrics/MethodLength
       def self.build_from_nokogiri(nokogiri_doc)
         root = Nodes::RootNode.new
 
@@ -88,6 +90,7 @@ module Canon
       end
 
       # Build element node from Nokogiri element
+      # rubocop:disable Metrics/MethodLength
       def self.build_element_node(nokogiri_element)
         element = Nodes::ElementNode.new(
           name: nokogiri_element.name,
@@ -125,6 +128,7 @@ module Canon
       end
 
       # Collect all in-scope namespaces for an element
+      # rubocop:disable Metrics/MethodLength
       def self.collect_in_scope_namespaces(nokogiri_element)
         namespaces = {}
 

@@ -10,6 +10,7 @@ module Canon
         @options = options
       end
 
+      # rubocop:disable Metrics/MethodLength
       def run(file1, file2)
         # Read and canonicalize both files
         content1 = canonicalize_file(file1,
@@ -55,6 +56,7 @@ module Canon
         end
       end
 
+      # rubocop:disable Metrics/MethodLength
       def detect_format(filename)
         ext = File.extname(filename).downcase
         case ext

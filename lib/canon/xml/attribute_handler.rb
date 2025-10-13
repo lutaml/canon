@@ -11,6 +11,7 @@ module Canon
 
       # Process attribute axis of an element
       # Includes handling of simple inheritable attributes for document subsets
+      # rubocop:disable Metrics/MethodLength
       def process_attributes(element, output, omitted_ancestors = [])
         return unless element.in_node_set?
 
@@ -43,6 +44,7 @@ module Canon
       end
 
       # Collect simple inheritable attributes from omitted ancestors
+      # rubocop:disable Metrics/MethodLength
       def collect_inherited_attributes(element, omitted_ancestors)
         inherited = []
         seen = Set.new

@@ -10,6 +10,7 @@ module Canon
       end
 
       # Process namespace axis of an element
+      # rubocop:disable Metrics/MethodLength
       def process_namespaces(element, output, parent_element = nil)
         return unless element.in_node_set?
 

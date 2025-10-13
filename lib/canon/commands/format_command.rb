@@ -11,6 +11,7 @@ module Canon
         @options = options
       end
 
+      # rubocop:disable Metrics/MethodLength
       def run(input_file)
         # Read input file
         content = File.read(input_file)
@@ -52,17 +53,22 @@ module Canon
         end
       end
 
+      # rubocop:disable Metrics/MethodLength
       def format_pretty(content, format)
         indent = (@options[:indent] || 2).to_i
         indent_type = @options[:indent_type] || "space"
 
         case format
         when :xml
-          Canon::Xml::PrettyPrinter.new(indent: indent,
-                                        indent_type: indent_type).format(content)
+          Canon::Xml::PrettyPrinter.new(
+            indent: indent,
+            indent_type: indent_type,
+          ).format(content)
         when :json
-          Canon::Json::PrettyPrinter.new(indent: indent,
-                                         indent_type: indent_type).format(content)
+          Canon::Json::PrettyPrinter.new(
+            indent: indent,
+            indent_type: indent_type,
+          ).format(content)
         when :yaml
           # YAML formatter already pretty-prints
           Canon.format(content, format)
@@ -77,6 +83,7 @@ module Canon
         end
       end
 
+      # rubocop:disable Metrics/MethodLength
       def detect_format(filename)
         return @options[:format].to_sym if @options[:format]
 
