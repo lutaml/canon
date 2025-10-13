@@ -26,7 +26,7 @@ module Canon
       def xhtml?(html_string)
         # Check for XHTML DOCTYPE or xmlns attribute
         html_string.include?("XHTML") ||
-          html_string.match?(/xmlns="http:\/\/www\.w3\.org\/1999\/xhtml"/)
+          html_string.include?('xmlns="http://www.w3.org/1999/xhtml"')
       end
 
       def format_as_xhtml(html_string)

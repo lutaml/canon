@@ -27,6 +27,7 @@ module Canon
     get_formatter(format).parse(content)
   end
 
+  # rubocop:disable Metrics/MethodLength
   def self.get_formatter(format)
     case format.to_sym
     when :xml
@@ -41,6 +42,7 @@ module Canon
       raise Error, "Unsupported format: #{format}"
     end
   end
+  # rubocop:enable Metrics/MethodLength
 
   # Define shorthand methods for each supported format
   # Creates parse_{format} and format_{format} methods
