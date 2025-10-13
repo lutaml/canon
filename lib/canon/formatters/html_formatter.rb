@@ -34,7 +34,7 @@ module Canon
       # Check if HTML is XHTML
       def self.xhtml?(html)
         html.include?("XHTML") ||
-          html.match?(/xmlns="http:\/\/www\.w3\.org\/1999\/xhtml"/)
+          html.include?('xmlns="http://www.w3.org/1999/xhtml"')
       end
 
       # Format XHTML using XML canonicalization
