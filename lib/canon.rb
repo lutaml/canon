@@ -4,11 +4,12 @@ require_relative "canon/version"
 require_relative "canon/formatters/xml_formatter"
 require_relative "canon/formatters/yaml_formatter"
 require_relative "canon/formatters/json_formatter"
+require_relative "canon/formatters/html_formatter"
 
 require_relative "canon/rspec_matchers" if defined?(::RSpec)
 
 module Canon
-  SUPPORTED_FORMATS = %i[xml yaml json].freeze
+  SUPPORTED_FORMATS = %i[xml yaml json html].freeze
 
   # Format content based on the specified format type
   # @param content [String] The content to format
@@ -34,6 +35,8 @@ module Canon
       Formatters::YamlFormatter
     when :json
       Formatters::JsonFormatter
+    when :html
+      Formatters::HtmlFormatter
     else
       raise Error, "Unsupported format: #{format}"
     end

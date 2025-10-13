@@ -1,0 +1,29 @@
+<iso-standard xmlns="http://riboseinc.com/isoxml">
+      <preface><foreword id="fwd">
+      <figure id="figureA-1" keep-with-next="true" keep-lines-together="true">
+   <name>Overall title</name>
+   <figure id="note1">
+   <name>Subfigure 1</name>
+   <image src="rice_images/rice_image1.png" height="20" width="30" id="_8357ede4-6d44-4672-bac4-9a85e82ab7f0" mimetype="image/png" alt="alttext" title="titletxt"/>
+   </figure>
+   <figure id="note2">
+   <name>Subfigure 2</name>
+   <image src="rice_images/rice_image1.png" height="20" width="auto" id="_8357ede4-6d44-4672-bac4-9a85e82ab7f1" mimetype="image/png"/>
+   </figure>
+   </figure>
+   <figure id="figureA-2" keep-with-next="true" keep-lines-together="true" unnumbered='true'>
+   <name>Overall title</name>
+   <figure id="note3">
+   <name>Subfigure 1</name>
+   <image src="rice_images/rice_image1.png" height="20" width="30" id="_8357ede4-6d44-4672-bac4-9a85e82ab7f0" mimetype="image/png" alt="alttext" title="titletxt"/>
+   </figure>
+   </figure>
+   <figure id="figureA-3" keep-with-next="true" keep-lines-together="true">
+   <name>Overall title</name>
+   <figure id="note4" unnumbered="true">
+   <name>Subfigure 1</name>
+   <image src="rice_images/rice_image1.png" height="20" width="30" id="_8357ede4-6d44-4672-bac4-9a85e82ab7f0" mimetype="image/png" alt="alttext" title="titletxt"/>
+   </figure>
+   </figure>
+      </foreword></preface>
+      </iso-standard>

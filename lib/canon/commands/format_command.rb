@@ -2,6 +2,7 @@
 
 require_relative "../xml/pretty_printer"
 require_relative "../json/pretty_printer"
+require_relative "../html/pretty_printer"
 
 module Canon
   module Commands
@@ -69,6 +70,11 @@ module Canon
             indent: indent,
             indent_type: indent_type,
           ).format(content)
+        when :html
+          Canon::Html::PrettyPrinter.new(
+            indent: indent,
+            indent_type: indent_type,
+          ).format(content)
         when :yaml
           # YAML formatter already pretty-prints
           Canon.format(content, format)
@@ -95,9 +101,11 @@ module Canon
           :json
         when ".yaml", ".yml"
           :yaml
+        when ".html", ".htm"
+          :html
         else
           abort "Error: Cannot detect format from extension '#{ext}'. " \
-                "Please specify --format (xml, json, or yaml)"
+                "Please specify --format (xml, json, yaml, or html)"
         end
       end
     end

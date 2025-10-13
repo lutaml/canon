@@ -1,14 +1,14 @@
 = Canon: Canonicalization for serialization formats
 
-A Ruby library for canonicalizing and pretty-printing XML, YAML, and JSON with
-RSpec matchers for equivalence testing.
+A Ruby library for canonicalizing and pretty-printing XML, HTML, YAML, and JSON
+with RSpec matchers for equivalence testing.
 
 
 == Purpose
 
-This gem provides `Canon` which is a library for canonicalizing and
-pretty-printing various serialization formats (XML, YAML, JSON). It provides a
-standardized form suitable for comparison and testing.
+Canon provides canonicalization and pretty-printing for various serialization
+formats (XML, HTML, JSON, YAML), producing standardized forms suitable for
+comparison, testing, digital signatures, and human-readable output.
 
 
 == Features
@@ -28,6 +28,11 @@ Key features:
 * Support for xml:base, xml:lang, xml:space, and xml:id attributes
 * Processing instruction and comment handling
 * Document subset support with attribute inheritance
+
+=== HTML canonicalization
+
+Format HTML 4/5 and XHTML documents with consistent formatting. Automatically
+detects HTML vs XHTML and applies appropriate formatting.
 
 === YAML canonicalization
 
@@ -59,7 +64,7 @@ formatting differences don't affect test results.
 
 === Unified interface
 
-Single API for working with all three formats.
+Single API for working with all four formats (XML, HTML, JSON, YAML).
 
 
 == Installation
@@ -104,8 +109,8 @@ Canon.format_{format}({content})  # Format-specific shorthand
 
 Where,
 
-`{content}`:: is the input string
-`{format}`:: is the format type, which can be `:xml`, `:yaml`, or `:json`.
+`{content}`:: The input string
+`{format}`:: The format type (`:xml`, `:html`, `:json`, or `:yaml`)
 
 .Canonical formatting examples
 [example]
@@ -121,6 +126,11 @@ Canon.format(xml, :xml)
 
 Canon.format_xml(xml)  # Shorthand
 # => "<root><a>1</a><b>2</b></root>"
+
+# HTML - compact canonical form
+html = '<div><p>Hello</p></div>'
+Canon.format(html, :html)
+Canon.format_html(html)  # Shorthand
 
 # JSON - canonical with sorted keys
 json = '{"z":3,"a":1,"b":2}'
@@ -158,6 +168,7 @@ Where,
 [source,ruby]
 ----
 require 'canon/xml/pretty_printer'
+require 'canon/html/pretty_printer'
 require 'canon/json/pretty_printer'
 
 xml_input = '<root><b>2</b><a>1</a></root>'
@@ -179,6 +190,10 @@ Canon::Xml::PrettyPrinter.new(
   indent: 1,
   indent_type: 'tab'
 ).format(xml_input)
+
+# HTML with 2-space indentation
+html_input = '<div><p>Hello</p></div>'
+Canon::Html::PrettyPrinter.new(indent: 2).format(html_input)
 
 # JSON with 2-space indentation
 json_input = '{"z":3,"a":{"b":1}}'
@@ -218,31 +233,19 @@ Where,
 xml_doc = Canon.parse(xml_input, :xml)
 xml_doc = Canon.parse_xml(xml_input)
 
+# Parse HTML → Nokogiri::HTML5::Document (or XML::Document for XHTML)
+html_doc = Canon.parse(html_input, :html)
+html_doc = Canon.parse_html(html_input)
+
 # Parse JSON → Ruby Hash/Array
 json_obj = Canon.parse(json_input, :json)
 json_obj = Canon.parse_json(json_input)
-# => Ruby object (Hash, Array, etc.)
-----
-====
-[source,ruby]
-----
-# Parse XML
-xml_doc = Canon.parse(xml_input, :xml)
-xml_doc = Canon.parse_xml(xml_input)
-# => Nokogiri::XML::Document
 
 # Parse YAML → Ruby Hash/Array
 yaml_obj = Canon.parse(yaml_input, :yaml)
 yaml_obj = Canon.parse_yaml(yaml_input)
-# => Ruby object (Hash, Array, etc.)
-
-# Parse JSON
-json_obj = Canon.parse(json_input, :json)
-json_obj = Canon.parse_json(json_input)
-# => Ruby object (Hash, Array, etc.)
 ----
 ====
-
 
 === RSpec matchers
 
@@ -265,10 +268,10 @@ RSpec.describe 'Serialization equivalence' do
     expect(xml1).to be_serialization_equivalent_to(xml2, format: :xml)
   end
 
-  it 'compares equivalent YAML' do
-    yaml1 = "---\na: 1\nb: 2\n"
-    yaml2 = "---\nb: 2\na: 1\n"
-    expect(yaml1).to be_serialization_equivalent_to(yaml2, format: :yaml)
+  it 'compares HTML' do
+    html1 = '<div><p>Hello</p></div>'
+    html2 = '<div> <p> Hello </p> </div>'
+    expect(html1).to be_serialization_equivalent_to(html2, format: :html)
   end
 
   it 'compares JSON' do
@@ -287,6 +290,7 @@ RSpec.describe 'Serialization equivalence' do
   it 'uses format-specific matchers' do
     expect(xml1).to be_xml_equivalent_to(xml2)    # XML
     expect(xml1).to be_analogous_with(xml2)       # XML (legacy)
+    expect(html1).to be_html_equivalent_to(html2) # HTML
     expect(json1).to be_json_equivalent_to(json2) # JSON
     expect(yaml1).to be_yaml_equivalent_to(yaml2) # YAML
   end
@@ -440,6 +444,9 @@ $ canon diff data1.txt data2.txt --format xml
 
 # Compare different formats
 $ canon diff data.xml data.json --format1 xml --format2 json
+
+# Compare HTML files
+$ canon diff page1.html page2.html
 
 # Disable colors
 $ canon diff file1.xml file2.xml --no-color

@@ -34,8 +34,8 @@ module Canon
     method_option :format,
                   aliases: "-f",
                   type: :string,
-                  enum: %w[xml json yaml],
-                  desc: "Format type (xml, json, or yaml)"
+                  enum: %w[xml json yaml html],
+                  desc: "Format type (xml, json, yaml, or html)"
     method_option :mode,
                   aliases: "-m",
                   type: :string,
@@ -83,15 +83,15 @@ module Canon
     method_option :format,
                   aliases: "-f",
                   type: :string,
-                  enum: %w[xml json yaml],
+                  enum: %w[xml json yaml html],
                   desc: "Format type for both files"
     method_option :format1,
                   type: :string,
-                  enum: %w[xml json yaml],
+                  enum: %w[xml json yaml html],
                   desc: "Format type for first file"
     method_option :format2,
                   type: :string,
-                  enum: %w[xml json yaml],
+                  enum: %w[xml json yaml html],
                   desc: "Format type for second file"
     method_option :color,
                   type: :boolean,
