@@ -64,14 +64,16 @@ RSpec.describe Canon::Cli do
       end
     end
 
-    it "uses c14n mode by default" do
-      with_temp_file("<root><b>2</b><a>1</a></root>", ".xml") do |input|
+    it "uses pretty mode by default" do
+      with_temp_file("<root><b>2</b><a>1</a></root>", ".xml") do |input_file|
         output = capture_stdout do
-          described_class.start(["format", input])
+          described_class.start(["format", input_file])
         end
 
-        # C14N produces compact output with sorted elements
-        expect(output.strip).to eq("<root><b>2</b><a>1</a></root>")
+        # Default is now pretty mode with indentation
+        expect(output).to include("<root>")
+        expect(output).to include("  <b>2</b>")
+        expect(output).to include("  <a>1</a>")
       end
     end
 

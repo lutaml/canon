@@ -34,4 +34,26 @@ RSpec.describe Canon::Formatters::XmlFormatter do
       expect(output).to be_analogous_with(input)
     end
   end
+
+  context "with isodoc figure fixtures" do
+    %w[
+      isodoc-figures-spec-1-prex.xml
+      isodoc-figures-spec-1-semx.xml
+      isodoc-figures-spec-2-prex.xml
+      isodoc-figures-spec-2-semx.xml
+    ].each do |filename|
+      it "formats #{filename} without errors" do
+        xml = File.read("spec/fixtures/xml/#{filename}")
+        expect { Canon.format(xml, :xml) }.not_to raise_error
+      end
+
+      it "can parse and format #{filename} successfully" do
+        xml = File.read("spec/fixtures/xml/#{filename}")
+        formatted = Canon.format(xml, :xml)
+
+        # Should be able to parse the formatted output
+        expect { Canon.parse(formatted, :xml) }.not_to raise_error
+      end
+    end
+  end
 end

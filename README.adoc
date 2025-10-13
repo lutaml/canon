@@ -17,10 +17,8 @@ standardized form suitable for comparison and testing.
 
 Format XML documents according to the
 https://www.w3.org/TR/xml-c14n11/[W3C Canonical XML Version 1.1] specification.
-Produces a normalized form suitable for digital signatures and equivalence
-testing.
 
-Key features include:
+Key features:
 
 * Namespace declaration ordering (lexicographic by prefix)
 * Attribute ordering (lexicographic by namespace URI, then local name)
@@ -33,17 +31,31 @@ Key features include:
 
 === YAML canonicalization
 
-Format YAML documents with keys sorted alphabetically in a recursive manner at
-all levels of the YAML structure, with consistent indentation.
+Format YAML documents with keys sorted alphabetically at all levels of the
+structure.
 
 === JSON canonicalization
 
-Format JSON documents with keys sorted alphabetically in a recursive manner at
-all levels of the JSON structure, with consistent indentation.
+Format JSON documents with keys sorted alphabetically at all levels of the
+structure.
+
+=== Output modes
+
+Canon supports two output modes for all formats:
+
+`c14n` (canonical):: Compact output without indentation, suitable for digital
+signatures, hashing, and equivalence testing. Removes formatting whitespace.
+
+`pretty` (pretty-print):: Human-readable output with consistent indentation.
+Configurable indent size and type (spaces or tabs). This is the default mode for
+CLI commands.
 
 === RSpec matchers
 
 Provides matchers for testing equivalence between serialized formats.
+
+NOTE: RSpec matchers always use canonical (c14n) mode for comparison to ensure
+formatting differences don't affect test results.
 
 === Unified interface
 
@@ -76,24 +88,18 @@ $ gem install canon
 
 == Usage
 
-=== Formatting and canonicalization
+=== Ruby API
 
-Canon provides a unified interface for formatting and canonicalizing XML,
-YAML, and JSON.
+==== Basic formatting (c14n mode)
 
-The `format` method is used to pretty-print and canonicalize the input data,
-with the arguments of the method taking the content and the format type as
-arguments.
+The `Canon.format` method produces canonical output by default.
 
 Syntax:
 
 [source,ruby]
 ----
-# Generic method
 Canon.format({content}, {format})
-
-# Format-specific method
-Canon.format_{format}({content})
+Canon.format_{format}({content})  # Format-specific shorthand
 ----
 
 Where,
@@ -101,63 +107,122 @@ Where,
 `{content}`:: is the input string
 `{format}`:: is the format type, which can be `:xml`, `:yaml`, or `:json`.
 
-
-.Demonstration of formatting methods
+.Canonical formatting examples
 [example]
 ====
 [source,ruby]
 ----
 require 'canon'
 
-# XML formatting
-xml_input = '<root><b>2</b><a>1</a></root>'
-formatted_xml = Canon.format(xml_input, :xml)
-# => Pretty-printed XML with consistent formatting
-# or
-formatted_xml = Canon.format_xml(xml_input)
+# XML - compact canonical form
+xml = '<root><b>2</b><a>1</a></root>'
+Canon.format(xml, :xml)
+# => "<root><a>1</a><b>2</b></root>"
 
-# YAML formatting
-yaml_input = "---\nz: 3\na: 1\nb: 2\n"
-formatted_yaml = Canon.format(yaml_input, :yaml)
-# => YAML with keys sorted alphabetically
-# or
-formatted_yaml = Canon.format_yaml(yaml_input)
+Canon.format_xml(xml)  # Shorthand
+# => "<root><a>1</a><b>2</b></root>"
 
-# JSON formatting
-json_input = '{"z":3,"a":1,"b":2}'
-formatted_json = Canon.format(json_input, :json)
-# => Pretty-printed JSON with keys sorted alphabetically
-# or
-formatted_json = Canon.format_json(json_input)
+# JSON - canonical with sorted keys
+json = '{"z":3,"a":1,"b":2}'
+Canon.format(json, :json)
+# => {"a":1,"b":2,"z":3}
+
+# YAML - canonical with sorted keys
+yaml = "z: 3\na: 1\nb: 2"
+Canon.format(yaml, :yaml)
 ----
 ====
 
+==== Pretty-print mode
 
-=== Parsing
-
-Canon can also parse XML, YAML, and JSON strings into Ruby objects. The `parse`
-method takes the content and the format type as arguments, returning a Ruby
-object (Hash, Array, etc.) for YAML and JSON, or a Nokogiri XML document for
-XML.
+For human-readable output with indentation, use the format-specific pretty
+printer classes.
 
 Syntax:
 
 [source,ruby]
 ----
-# Generic method
-Canon.parse({content}, {format})
-
-# Format-specific method
-Canon.parse_{format}({content})
+Canon::{Format}::PrettyPrinter.new(indent: {n}, indent_type: {type}).format({content})
 ----
 
 Where,
 
-`{content}`:: is the input string
-`{format}`:: is the format type, which can be `:xml`, `:yaml`, or `:json`.
+`{Format}`:: The format module (`Xml`, `Html`, `Json`)
+`{n}`:: Number of spaces (default: 2) or tabs (use 1 for tabs)
+`{type}`:: Indentation type: `'space'` (default) or `'tab'`
+`{content}`:: The input string
 
-.Demonstration of parsing methods
+.Pretty-print examples
 [example]
+====
+[source,ruby]
+----
+require 'canon/xml/pretty_printer'
+require 'canon/json/pretty_printer'
+
+xml_input = '<root><b>2</b><a>1</a></root>'
+
+# XML with 2-space indentation (default)
+Canon::Xml::PrettyPrinter.new(indent: 2).format(xml_input)
+# =>
+# <?xml version="1.0" encoding="UTF-8"?>
+# <root>
+#   <a>1</a>
+#   <b>2</b>
+# </root>
+
+# XML with 4-space indentation
+Canon::Xml::PrettyPrinter.new(indent: 4).format(xml_input)
+
+# XML with tab indentation
+Canon::Xml::PrettyPrinter.new(
+  indent: 1,
+  indent_type: 'tab'
+).format(xml_input)
+
+# JSON with 2-space indentation
+json_input = '{"z":3,"a":{"b":1}}'
+Canon::Json::PrettyPrinter.new(indent: 2).format(json_input)
+
+# JSON with tab indentation
+Canon::Json::PrettyPrinter.new(
+  indent: 1,
+  indent_type: 'tab'
+).format(json_input)
+----
+====
+
+==== Parsing
+
+The `Canon.parse` method parses content into Ruby objects or Nokogiri documents.
+
+Syntax:
+
+[source,ruby]
+----
+Canon.parse({content}, {format})
+Canon.parse_{format}({content})  # Format-specific shorthand
+----
+
+Where,
+
+`{content}`:: The input string
+`{format}`:: The format type (`:xml`, `:html`, `:json`, or `:yaml`)
+
+.Parsing examples
+[example]
+====
+[source,ruby]
+----
+# Parse XML → Nokogiri::XML::Document
+xml_doc = Canon.parse(xml_input, :xml)
+xml_doc = Canon.parse_xml(xml_input)
+
+# Parse JSON → Ruby Hash/Array
+json_obj = Canon.parse(json_input, :json)
+json_obj = Canon.parse_json(json_input)
+# => Ruby object (Hash, Array, etc.)
+----
 ====
 [source,ruby]
 ----
@@ -166,7 +231,7 @@ xml_doc = Canon.parse(xml_input, :xml)
 xml_doc = Canon.parse_xml(xml_input)
 # => Nokogiri::XML::Document
 
-# Parse YAML
+# Parse YAML → Ruby Hash/Array
 yaml_obj = Canon.parse(yaml_input, :yaml)
 yaml_obj = Canon.parse_yaml(yaml_input)
 # => Ruby object (Hash, Array, etc.)
@@ -181,19 +246,22 @@ json_obj = Canon.parse_json(json_input)
 
 === RSpec matchers
 
-The library provides RSpec matchers for testing equivalence between serialized
-formats:
+RSpec matchers for testing equivalence between serialized formats. All matchers
+use canonical (c14n) mode for comparison.
 
+.RSpec matcher examples
+[example]
+====
 [source,ruby]
 ----
 require 'rspec'
 require 'canon'
 
-RSpec.describe 'Serialization tests' do
+RSpec.describe 'Serialization equivalence' do
   # Unified matcher with format parameter
-  it 'compares equivalent XML' do
+  it 'compares XML' do
     xml1 = '<root><a>1</a><b>2</b></root>'
-    xml2 = '<root><b>2</b><a>1</a></root>'
+    xml2 = '<root>  <b>2</b>  <a>1</a>  </root>'
     expect(xml1).to be_serialization_equivalent_to(xml2, format: :xml)
   end
 
@@ -203,26 +271,41 @@ RSpec.describe 'Serialization tests' do
     expect(yaml1).to be_serialization_equivalent_to(yaml2, format: :yaml)
   end
 
-  it 'compares equivalent JSON' do
+  it 'compares JSON' do
     json1 = '{"a":1,"b":2}'
     json2 = '{"b":2,"a":1}'
     expect(json1).to be_serialization_equivalent_to(json2, format: :json)
   end
 
+  it 'compares YAML' do
+    yaml1 = "a: 1\nb: 2"
+    yaml2 = "b: 2\na: 1"
+    expect(yaml1).to be_serialization_equivalent_to(yaml2, format: :yaml)
+  end
+
   # Format-specific matchers
   it 'uses format-specific matchers' do
     expect(xml1).to be_xml_equivalent_to(xml2)    # XML
-    expect(xml1).to be_analogous_with(xml2)       # XML (legacy matcher)
-    expect(yaml1).to be_yaml_equivalent_to(yaml2) # YAML
+    expect(xml1).to be_analogous_with(xml2)       # XML (legacy)
     expect(json1).to be_json_equivalent_to(json2) # JSON
+    expect(yaml1).to be_yaml_equivalent_to(yaml2) # YAML
   end
 end
 ----
+====
+
+[IMPORTANT]
+====
+RSpec matchers always canonicalize both sides before comparing, so:
+
+* Formatting differences (whitespace, indentation) are ignored
+* Attribute order in XML/HTML is normalized
+* Key order in JSON/YAML is normalized
+* Tests focus on content equality, not formatting
+====
 
 
 == Command-line interface
-
-Canon provides a command-line interface for canonicalizing and comparing files.
 
 === Installation
 
@@ -234,91 +317,86 @@ $ gem install canon
 $ canon --help
 ----
 
-=== Canonicalize files
+=== Format command
 
-The `format` command canonicalizes files in XML, JSON, or YAML format.
+The `format` command formats files in XML, HTML, JSON, or YAML.
 
-The `format` command supports two output modes:
+==== Output modes
 
-`c14n`:: (default)
-Produces canonical form of the format. This mode produces compact output without
-indentation, suitable for digital signatures and equivalence testing.
+`pretty` (default):: Human-readable output with indentation (2 spaces default)
+`c14n`:: Canonical form without indentation
 
-XML::: according to W3C C14N 1.1 for XML.
-
-JSON::: canonical form for JSON (sorted keys).
-
-YAML::: canonical form for YAML (sorted keys).
-
-
-`pretty`::
-Produces pretty-printed output with consistent indentation.
-The `--indent` (`-i`) option can be used to specify the number of spaces for
-indentation (default is 2 spaces).
-
-XML::: uses standard pretty-printing with configurable indentation.
-
-JSON::: uses a canonical form which already includes indentation.
-
-YAML::: uses a canonical form which already includes indentation.
-
+==== Command syntax
 
 [source,bash]
 ----
-# Canonicalize a file (format auto-detected from extension)
-$ canon format input.xml
-
-# Canonicalize and save to output file
-$ canon format input.json --output output.json
-$ canon format input.json -o output.json
-
-# Explicitly specify format
-$ canon format data.txt --format xml
-$ canon format data.txt -f yaml
-
-# Include comments in XML output
-$ canon format document.xml --with-comments
-$ canon format document.xml -c
-
-# Use pretty-print mode with indentation (default: 2 spaces)
-$ canon format input.xml --mode pretty
-$ canon format input.xml -m pretty
-
-# Specify indentation for pretty-print mode
-$ canon format input.xml --mode pretty --indent 4
-$ canon format input.xml -m pretty -i 4
-
-# Use tab indentation instead of spaces
-$ canon format input.xml --mode pretty --indent-type tab
-$ canon format input.json --mode pretty --indent-type tab
+canon format FILE [OPTIONS]
 ----
 
+==== Options
 
-.Mode comparison for XML
-[example]
-====
+`-f, --format FORMAT`:: Specify format: `xml`, `html`, `json`, or `yaml`
+(auto-detected from extension if not specified)
+
+`-m, --mode MODE`:: Output mode: `pretty` (default) or `c14n`
+
+`-i, --indent N`:: Indentation spaces for pretty mode (default: 2)
+
+`--indent-type TYPE`:: Indentation type: `space` (default) or `tab`
+
+`-o, --output FILE`:: Write output to file instead of stdout
+
+`-c, --with-comments`:: Include comments in canonical XML output
+
+==== Examples
+
 [source,bash]
 ----
-# C14N mode (compact)
+# Pretty-print (default mode)
 $ canon format input.xml
-<root><a>1</a><b>2</b></root>
-
-# Pretty mode (indented)
-$ canon format input.xml --mode pretty
+<?xml version="1.0" encoding="UTF-8"?>
 <root>
   <a>1</a>
   <b>2</b>
 </root>
-----
-====
 
-.Format detection
+# Canonical mode (compact)
+$ canon format input.xml --mode c14n
+<root><a>1</a><b>2</b></root>
+
+# Custom indentation
+$ canon format input.xml --mode pretty --indent 4
+$ canon format input.json --indent 4
+
+# Tab indentation
+$ canon format input.xml --indent-type tab
+$ canon format input.html --mode pretty --indent-type tab
+
+# Specify format explicitly
+$ canon format data.txt --format xml
+
+# Save to file
+$ canon format input.xml --output formatted.xml
+
+# Include XML comments in canonical output
+$ canon format doc.xml --mode c14n --with-comments
+
+# HTML files
+$ canon format page.html
+$ canon format page.html --mode c14n
+----
+
+==== Format detection
+
 [cols="1,1"]
 |===
 |File Extension |Detected Format
 
 |`.xml`
 |XML
+
+|`.html`, `.htm`
+|HTML
 
 |`.json`
 |JSON
@@ -327,32 +405,50 @@ $ canon format input.xml --mode pretty
 |YAML
 |===
 
-=== Compare files
+=== Diff command
 
-The `diff` command compares two files after canonicalizing them.
+Compare two files after canonicalizing them.
+
+==== Command syntax
 
 [source,bash]
 ----
-# Compare two files (formats auto-detected)
+canon diff FILE1 FILE2 [OPTIONS]
+----
+
+==== Options
+
+`-f, --format FORMAT`:: Format for both files: `xml`, `html`, `json`, or `yaml`
+
+`--format1 FORMAT`:: Format for first file
+
+`--format2 FORMAT`:: Format for second file
+
+`--color / --no-color`:: Enable/disable colored output (default: enabled)
+
+`-c, --with-comments`:: Include comments in canonical XML comparison
+
+==== Examples
+
+[source,bash]
+----
+# Compare two XML files
 $ canon diff file1.xml file2.xml
 
 # Compare with explicit format
 $ canon diff data1.txt data2.txt --format xml
-$ canon diff data1.txt data2.txt -f json
 
-# Compare files of different formats
+# Compare different formats
 $ canon diff data.xml data.json --format1 xml --format2 json
 
-# Disable colored output
+# Disable colors
 $ canon diff file1.xml file2.xml --no-color
 ----
 
-The diff command:
+==== Exit codes
 
-* Returns exit code `0` if files are canonically equivalent
-* Returns exit code `1` if files differ
-* Shows a unified diff of the differences
-* Uses colored output by default (disable with `--no-color`)
+* `0` - Files are canonically equivalent
+* `1` - Files differ
 
 
 == Development
@@ -370,4 +466,5 @@ https://github.com/lutaml/canon.
 
 == Copyright and license
 
-Copyright Ribose. https://opensource.org/licenses/BSD-2-Clause[BSD-2-Clause License].
+Copyright Ribose.
+https://opensource.org/licenses/BSD-2-Clause[BSD-2-Clause License].
