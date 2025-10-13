@@ -6,6 +6,11 @@ require "canon/json/pretty_printer"
 require "canon/html/pretty_printer"
 
 RSpec.describe "Fixture Files Integrity" do
+  def xhtml?(content)
+    content.match?(/<!DOCTYPE\s+html\s+PUBLIC.*XHTML/i) ||
+      content.include?('xmlns="http://www.w3.org/1999/xhtml"')
+  end
+
   describe "XML fixtures" do
     context "with c14n mode" do
       Dir.glob("spec/fixtures/xml/*.xml").each do |fixture_file|
@@ -17,8 +22,17 @@ RSpec.describe "Fixture Files Integrity" do
           formatted_content = Canon.format(original_content, :xml)
           formatted_doc = Nokogiri::XML(formatted_content)
 
-          # Use Canon's own XML equivalence matcher
-          expect(formatted_content).to be_xml_equivalent_to(original_content)
+          # Use CompareXML directly (don't trust our own matchers)
+          result = CompareXML.equivalent?(
+            original_doc,
+            formatted_doc,
+            {
+              collapse_whitespace: true,
+              ignore_attr_order: true,
+              verbose: true,
+            },
+          )
+          expect(result).to be_empty, "XML structures differ: #{result.inspect}"
         end
       end
     end
@@ -34,8 +48,17 @@ RSpec.describe "Fixture Files Integrity" do
           formatted_content = pretty_printer.format(original_content)
           formatted_doc = Nokogiri::XML(formatted_content)
 
-          # Use Canon's own XML equivalence matcher
-          expect(formatted_content).to be_xml_equivalent_to(original_content)
+          # Use CompareXML directly (don't trust our own matchers)
+          result = CompareXML.equivalent?(
+            original_doc,
+            formatted_doc,
+            {
+              collapse_whitespace: true,
+              ignore_attr_order: true,
+              verbose: true,
+            },
+          )
+          expect(result).to be_empty, "XML structures differ: #{result.inspect}"
         end
       end
     end
@@ -50,9 +73,14 @@ RSpec.describe "Fixture Files Integrity" do
           # Format with c14n mode
           formatted_content = Canon.format(original_content, :html)
 
-          # Parse both with Nokogiri to compare DOM trees
-          original_doc = Canon.parse(original_content, :html)
-          formatted_doc = Canon.parse(formatted_content, :html)
+          # Parse both with Nokogiri directly (not Canon.parse)
+          if xhtml?(original_content)
+            original_doc = Nokogiri::XML(original_content)
+            formatted_doc = Nokogiri::XML(formatted_content)
+          else
+            original_doc = Nokogiri::HTML5(original_content)
+            formatted_doc = Nokogiri::HTML5(formatted_content)
+          end
 
           # Compare text content (main verification)
           expect(formatted_doc.text.gsub(/\s+/, " ").strip)
@@ -74,9 +102,14 @@ RSpec.describe "Fixture Files Integrity" do
           pretty_printer = Canon::Html::PrettyPrinter.new(indent: 2)
           formatted_content = pretty_printer.format(original_content)
 
-          # Parse both with Nokogiri to compare DOM trees
-          original_doc = Canon.parse(original_content, :html)
-          formatted_doc = Canon.parse(formatted_content, :html)
+          # Parse both with Nokogiri directly (not Canon.parse)
+          if xhtml?(original_content)
+            original_doc = Nokogiri::XML(original_content)
+            formatted_doc = Nokogiri::XML(formatted_content)
+          else
+            original_doc = Nokogiri::HTML5(original_content)
+            formatted_doc = Nokogiri::HTML5(formatted_content)
+          end
 
           # Compare text content (main verification)
           expect(formatted_doc.text.gsub(/\s+/, " ").strip)
@@ -95,13 +128,13 @@ RSpec.describe "Fixture Files Integrity" do
       Dir.glob("spec/fixtures/json/*.json").each do |fixture_file|
         it "preserves all information in #{File.basename(fixture_file)}" do
           original_content = File.read(fixture_file)
-          original_obj = Canon.parse(original_content, :json)
+          original_obj = JSON.parse(original_content)
 
           # Format with c14n mode
           formatted_content = Canon.format(original_content, :json)
-          formatted_obj = Canon.parse(formatted_content, :json)
+          formatted_obj = JSON.parse(formatted_content)
 
-          # Deep comparison of objects
+          # Deep comparison of objects (using Ruby's JSON parser, not Canon)
           expect(formatted_obj).to eq(original_obj)
         end
       end
@@ -111,14 +144,14 @@ RSpec.describe "Fixture Files Integrity" do
       Dir.glob("spec/fixtures/json/*.json").each do |fixture_file|
         it "preserves all information in #{File.basename(fixture_file)}" do
           original_content = File.read(fixture_file)
-          original_obj = Canon.parse(original_content, :json)
+          original_obj = JSON.parse(original_content)
 
           # Format with pretty mode
           pretty_printer = Canon::Json::PrettyPrinter.new(indent: 2)
           formatted_content = pretty_printer.format(original_content)
-          formatted_obj = Canon.parse(formatted_content, :json)
+          formatted_obj = JSON.parse(formatted_content)
 
-          # Deep comparison of objects
+          # Deep comparison of objects (using Ruby's JSON parser, not Canon)
           expect(formatted_obj).to eq(original_obj)
         end
       end
@@ -130,13 +163,13 @@ RSpec.describe "Fixture Files Integrity" do
       Dir.glob("spec/fixtures/yaml/*.yaml").each do |fixture_file|
         it "preserves all information in #{File.basename(fixture_file)}" do
           original_content = File.read(fixture_file)
-          original_obj = Canon.parse(original_content, :yaml)
+          original_obj = YAML.safe_load(original_content)
 
           # Format with c14n mode
           formatted_content = Canon.format(original_content, :yaml)
-          formatted_obj = Canon.parse(formatted_content, :yaml)
+          formatted_obj = YAML.safe_load(formatted_content)
 
-          # Deep comparison of objects
+          # Deep comparison of objects (using Ruby's YAML parser, not Canon)
           expect(formatted_obj).to eq(original_obj)
         end
       end
@@ -172,9 +205,14 @@ RSpec.describe "Fixture Files Integrity" do
           # Second format
           second_formatted = Canon.format(first_formatted, :html)
 
-          # Parse both to compare (HTML formatting may vary slightly)
-          first_doc = Canon.parse(first_formatted, :html)
-          second_doc = Canon.parse(second_formatted, :html)
+          # Parse both with Nokogiri directly (not Canon.parse)
+          if xhtml?(original_content)
+            first_doc = Nokogiri::XML(first_formatted)
+            second_doc = Nokogiri::XML(second_formatted)
+          else
+            first_doc = Nokogiri::HTML5(first_formatted)
+            second_doc = Nokogiri::HTML5(second_formatted)
+          end
 
           # Text content should be identical
           expect(second_doc.text.strip).to eq(first_doc.text.strip)
