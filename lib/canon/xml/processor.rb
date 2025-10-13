@@ -27,6 +27,7 @@ module Canon
 
       private
 
+      # rubocop:disable Metrics/MethodLength
       def process_node(node, output, parent_element = nil,
                        omitted_ancestors = [])
         case node.node_type
@@ -65,6 +66,7 @@ module Canon
         end
       end
 
+      # rubocop:disable Metrics/MethodLength
       def render_element(node, output, parent_element, omitted_ancestors)
         # Opening tag
         output << "<" << node.qname
@@ -86,6 +88,7 @@ module Canon
         output << "</" << node.qname << ">"
       end
 
+      # rubocop:disable Metrics/MethodLength
       def process_element_attributes(node, output, omitted_ancestors)
         # First process regular attributes
         @attribute_handler.process_attributes(node, output,
