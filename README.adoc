@@ -272,6 +272,8 @@ yaml_obj = Canon.parse_yaml(yaml_input)
 
 ==== Comparison
 
+===== General
+
 The `Canon::Comparison.equivalent?` method compares two HTML or XML documents.
 
 The Comparison module uses a depth-first comparison based on the two DOM trees
@@ -300,6 +302,8 @@ The comparison module is automatically used by Canon's RSpec matchers
 semantic comparison in tests.
 ====
 
+===== Basic usage
+
 Syntax:
 
 [source,ruby]
@@ -322,14 +326,14 @@ Returns:
 * `false` if documents differ
 * `Array` of differences if `verbose: true` option is set
 
-.Comparison examples
+.Basic comparison examples
 [example]
 ====
 [source,ruby]
 ----
 require 'canon/comparison'
 
-# HTML comparison - ignores whitespace and comments
+# HTML comparison - ignores whitespace and comments by default
 html1 = '<div><p>Hello</p></div>'
 html2 = '<div> <p> Hello </p> </div>'
 Canon::Comparison.equivalent?(html1, html2)
@@ -355,42 +359,375 @@ Canon::Comparison.equivalent?(doc1, doc2)
 ====
 
 
+
+===== Options at a glance
+
+The `Canon::Comparison.equivalent?` method has a variety of options that tailor
+comparison behavior.
+
 The following options control comparison behavior:
 
-`collapse_whitespace`:: Normalize whitespace in text nodes (default: `true`)
-`ignore_comments`:: Ignore HTML/XML comments (default: `true`)
-`ignore_attr_order`:: Ignore attribute ordering (default: `true`)
-`verbose`:: Return array of differences instead of boolean (default: `false`)
+`collapse_whitespace`:: (default: `true`) when `true`, trims and collapses whitespace
+(<<collapse_whitespace>>)
 
-.Using comparison options
-[example]
-====
+`ignore_comments`:: (default: `true`) when `true`, ignores HTML/XML comments
+(<<ignore_comments>>)
+
+`ignore_attr_order`:: (default: `true`) when `true`, ignores attribute ordering
+(<<ignore_attr_order>>)
+
+`ignore_text_nodes`:: (default: `false`) when `true`, ignores all text content
+(<<ignore_text_nodes>>)
+
+`verbose`:: (default: `false`) when `true`, returns array of differences instead of boolean
+(<<verbose>>)
+
+
+[[collapse_whitespace]]
+==== collapse_whitespace
+
+`collapse_whitespace: {true|false}` default: `true`
+
+When `true`, all text content within the document is trimmed (i.e. space removed
+from left and right) and whitespace is collapsed (i.e. tabs, new lines, multiple
+whitespace characters are replaced by a single whitespace).
+
+XML mode:: Whitespace is collapsed in text nodes only. Whitespace within
+attribute values is preserved.
+
+HTML mode:: Whitespace is collapsed in text nodes only. Whitespace within
+attribute values is preserved. Additionally, empty text nodes between elements
+are removed.
+
+Usage:
+
 [source,ruby]
 ----
-# Keep comments in comparison
-html_with_comments = '<!-- comment --><div>text</div>'
-html_no_comments = '<div>text</div>'
+Canon::Comparison.equivalent?(doc1, doc2, collapse_whitespace: true)
+----
 
-Canon::Comparison.equivalent?(
-  html_with_comments,
-  html_no_comments,
-  ignore_comments: false
-)
-# => false (comments are considered)
+.HTML examples with collapse_whitespace
+[example]
+====
+When `true` the following HTML strings are considered equal:
 
-Canon::Comparison.equivalent?(
-  html_with_comments,
-  html_no_comments,
-  ignore_comments: true  # default
-)
-# => true (comments are ignored)
+[source,html]
+----
+<a href="/admin">   SOME TEXT CONTENT   </a>
+<a href="/admin">SOME    TEXT    CONTENT</a>
+----
+
+[source,ruby]
+----
+html1 = '<a href="/admin">   SOME TEXT CONTENT   </a>'
+html2 = '<a href="/admin">SOME    TEXT    CONTENT</a>'
+Canon::Comparison.equivalent?(html1, html2, collapse_whitespace: true)
+# => true
+----
+
+When `true` the following HTML strings are considered equal:
+
+[source,html]
+----
+<html>
+  <title>
+    This is my title
+  </title>
+</html>
+
+<html><title>This is my title</title></html>
+----
+
+[source,ruby]
+----
+html1 = <<~HTML
+  <html>
+    <title>
+      This is my title
+    </title>
+  </html>
+HTML
+html2 = '<html><title>This is my title</title></html>'
+Canon::Comparison.equivalent?(html1, html2, collapse_whitespace: true)
+# => true
 ----
 ====
 
+.XML examples with collapse_whitespace
+[example]
+====
+When `true` the following XML strings are considered equal:
 
-When `verbose: true` is set, `Canon::Comparison.equivalent?` returns an array of
-difference objects instead of a boolean. This is useful for debugging test
-failures or understanding exactly what differs between documents.
+[source,xml]
+----
+<root>
+  <item>   Some text   </item>
+</root>
+
+<root><item>Some text</item></root>
+----
+
+[source,ruby]
+----
+xml1 = "<root>\n  <item>   Some text   </item>\n</root>"
+xml2 = '<root><item>Some text</item></root>'
+Canon::Comparison.equivalent?(xml1, xml2, collapse_whitespace: true)
+# => true
+----
+====
+
+[[ignore_attr_order]]
+==== ignore_attr_order
+
+`ignore_attr_order: {true|false}` default: `true`
+
+When `true`, all attributes are sorted before comparison and only attributes of
+the same type are compared.
+
+Usage:
+
+[source,ruby]
+----
+Canon::Comparison.equivalent?(doc1, doc2, ignore_attr_order: true)
+----
+
+.HTML examples with ignore_attr_order
+[example]
+====
+When `true` the following HTML strings are considered equal:
+
+[source,html]
+----
+<a href="/admin" class="button" target="_blank">Link</a>
+<a class="button" target="_blank" href="/admin">Link</a>
+----
+
+[source,ruby]
+----
+html1 = '<a href="/admin" class="button" target="_blank">Link</a>'
+html2 = '<a class="button" target="_blank" href="/admin">Link</a>'
+Canon::Comparison.equivalent?(html1, html2, ignore_attr_order: true)
+# => true
+----
+
+When `false` attributes are compared in order:
+
+[source,ruby]
+----
+html1 = '<a href="/admin" class="button">Link</a>'
+html2 = '<a class="button" href="/admin">Link</a>'
+Canon::Comparison.equivalent?(html1, html2, ignore_attr_order: false)
+# => false
+----
+====
+
+.XML examples with ignore_attr_order
+[example]
+====
+When `true` the following XML strings are considered equal:
+
+[source,xml]
+----
+<item id="1" name="Widget" price="10.00"/>
+<item price="10.00" id="1" name="Widget"/>
+----
+
+[source,ruby]
+----
+xml1 = '<item id="1" name="Widget" price="10.00"/>'
+xml2 = '<item price="10.00" id="1" name="Widget"/>'
+Canon::Comparison.equivalent?(xml1, xml2, ignore_attr_order: true)
+# => true
+----
+====
+
+[[ignore_comments]]
+==== ignore_comments
+
+`ignore_comments: {true|false}` default: `true`
+
+When `true`, ignores comments such as `<!-- This is a comment -->`.
+
+Usage:
+
+[source,ruby]
+----
+Canon::Comparison.equivalent?(doc1, doc2, ignore_comments: true)
+----
+
+.HTML examples with ignore_comments
+[example]
+====
+When `true` the following HTML strings are considered equal:
+
+[source,html]
+----
+<!-- This is a comment -->
+<!-- This is another comment -->
+----
+
+[source,ruby]
+----
+html1 = '<!-- This is a comment -->'
+html2 = '<!-- This is another comment -->'
+Canon::Comparison.equivalent?(html1, html2, ignore_comments: true)
+# => true
+----
+
+When `true` the following HTML strings are considered equal:
+
+[source,html]
+----
+<a href="/admin"><!-- This is a comment -->Link</a>
+<a href="/admin">Link</a>
+----
+
+[source,ruby]
+----
+html1 = '<a href="/admin"><!-- This is a comment -->Link</a>'
+html2 = '<a href="/admin">Link</a>'
+Canon::Comparison.equivalent?(html1, html2, ignore_comments: true)
+# => true
+----
+
+When `false` comments are compared:
+
+[source,ruby]
+----
+html1 = '<div><!-- comment 1 --><p>Text</p></div>'
+html2 = '<div><!-- comment 2 --><p>Text</p></div>'
+Canon::Comparison.equivalent?(html1, html2, ignore_comments: false)
+# => false
+----
+====
+
+.XML examples with ignore_comments
+[example]
+====
+When `true` the following XML strings are considered equal:
+
+[source,xml]
+----
+<root>
+  <!-- First comment -->
+  <item>Data</item>
+</root>
+
+<root>
+  <!-- Different comment -->
+  <item>Data</item>
+</root>
+----
+
+[source,ruby]
+----
+xml1 = '<root><!-- First comment --><item>Data</item></root>'
+xml2 = '<root><!-- Different comment --><item>Data</item></root>'
+Canon::Comparison.equivalent?(xml1, xml2, ignore_comments: true)
+# => true
+----
+====
+
+[[ignore_text_nodes]]
+==== ignore_text_nodes
+
+`ignore_text_nodes: {true|false}` default: `false`
+
+When `true`, ignores all text content. Text content is anything that is included
+between an opening and a closing tag, e.g. `<tag>THIS IS TEXT CONTENT</tag>`.
+
+Usage:
+
+[source,ruby]
+----
+Canon::Comparison.equivalent?(doc1, doc2, ignore_text_nodes: true)
+----
+
+.HTML examples with ignore_text_nodes
+[example]
+====
+When `true` the following HTML strings are considered equal:
+
+[source,html]
+----
+<a href="/admin">SOME TEXT CONTENT</a>
+<a href="/admin">DIFFERENT TEXT CONTENT</a>
+----
+
+[source,ruby]
+----
+html1 = '<a href="/admin">SOME TEXT CONTENT</a>'
+html2 = '<a href="/admin">DIFFERENT TEXT CONTENT</a>'
+Canon::Comparison.equivalent?(html1, html2, ignore_text_nodes: true)
+# => true
+----
+
+When `true` the following HTML strings are considered equal:
+
+[source,html]
+----
+<i class="icon"></i><b>Warning:</b>
+<i class="icon"></i><b>Message:</b>
+----
+
+[source,ruby]
+----
+html1 = '<i class="icon"></i><b>Warning:</b>'
+html2 = '<i class="icon"></i><b>Message:</b>'
+Canon::Comparison.equivalent?(html1, html2, ignore_text_nodes: true)
+# => true
+----
+
+When `false` text content is compared:
+
+[source,ruby]
+----
+html1 = '<p>Hello</p>'
+html2 = '<p>Goodbye</p>'
+Canon::Comparison.equivalent?(html1, html2, ignore_text_nodes: false)
+# => false
+----
+====
+
+.XML examples with ignore_text_nodes
+[example]
+====
+When `true` the following XML strings are considered equal:
+
+[source,xml]
+----
+<item>First value</item>
+<item>Second value</item>
+----
+
+[source,ruby]
+----
+xml1 = '<item>First value</item>'
+xml2 = '<item>Second value</item>'
+Canon::Comparison.equivalent?(xml1, xml2, ignore_text_nodes: true)
+# => true
+----
+====
+
+[[verbose]]
+==== verbose
+
+`verbose: {true|false}` default: `false`
+
+When `true`, instead of returning a boolean value `Canon::Comparison.equivalent?`
+returns an array of all errors encountered when performing a comparison.
+
+WARNING: When `true`, the comparison takes longer! Not only because more
+processing is required to produce meaningful differences, but also because in
+this mode, comparison does **NOT** stop when a first difference is encountered,
+because the goal is to capture as many differences as possible.
+
+Usage:
+
+[source,ruby]
+----
+Canon::Comparison.equivalent?(doc1, doc2, verbose: true)
+----
 
 Return values in verbose mode:
 
@@ -415,7 +752,7 @@ Difference codes:
 * `Canon::Comparison::UNEQUAL_NODES_TYPES` (8) - Node types differ
 * `Canon::Comparison::UNEQUAL_TEXT_CONTENTS` (9) - Text content differs
 
-.Using verbose mode
+.Verbose mode examples
 [example]
 ====
 [source,ruby]
@@ -477,7 +814,6 @@ else
 end
 ----
 ====
-
 
 
 === RSpec matchers
