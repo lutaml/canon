@@ -13,6 +13,11 @@ comparison, testing, digital signatures, and human-readable output.
 
 == Features
 
+=== Ruby API
+
+Single API for working with all four formats (XML, HTML, JSON, YAML).
+
+
 === XML canonicalization
 
 Format XML documents according to the
@@ -44,6 +49,7 @@ structure.
 Format JSON documents with keys sorted alphabetically at all levels of the
 structure.
 
+
 === Output modes
 
 Canon supports two output modes for all formats:
@@ -55,6 +61,7 @@ signatures, hashing, and equivalence testing. Removes formatting whitespace.
 Configurable indent size and type (spaces or tabs). This is the default mode for
 CLI commands.
 
+
 === RSpec matchers
 
 Provides matchers for testing equivalence between serialized formats.
@@ -62,9 +69,25 @@ Provides matchers for testing equivalence between serialized formats.
 NOTE: RSpec matchers always use canonical (c14n) mode for comparison to ensure
 formatting differences don't affect test results.
 
-=== Unified interface
+=== Comparison API
 
-Single API for working with all four formats (XML, HTML, JSON, YAML).
+Canon provides a `Canon::Comparison` module for semantic comparison of HTML and
+XML documents.
+
+The `Canon::Comparison.equivalent?` method compares two documents for semantic
+equivalence, ignoring formatting differences that don't affect meaning.
+
+Key features:
+
+* Semantic comparison (content, not formatting)
+* Whitespace normalization
+* Comment handling (can ignore or include)
+* Attribute sorting
+* Support for both HTML and XML documents
+* Optional verbose diff output
+
+NOTE: `Canon::Comparison.equivalent?` adopts option names used by the excellent
+https://github.com/vkononov/compare-xml[`compare-xml` gem].
 
 
 == Installation
@@ -246,6 +269,124 @@ yaml_obj = Canon.parse(yaml_input, :yaml)
 yaml_obj = Canon.parse_yaml(yaml_input)
 ----
 ====
+
+==== Comparison
+
+The `Canon::Comparison.equivalent?` method compares two HTML or XML documents.
+
+The Comparison module uses a depth-first comparison based on the two DOM trees
+by traversing them in parallel and comparing nodes.
+
+In XML mode:
+
+* Parsing: accepts Moxml (`Moxml::Document`) or Nokogiri
+(`Nokogiri::XML::Document`)
+* Comments: normalized and compared unless `ignore_comments: true`
+* Whitespace: collapses whitespace in text nodes unless `collapse_whitespace: false`
+* Sorts attributes alphabetically before comparison
+
+In HTML mode:
+
+* Parsing: accepts Nokogiri (`Nokogiri::HTML5` or `Nokogiri::HTML`)
+* Normalizes HTML comments in `<style>` and `<script>` tags
+* Sorts attributes alphabetically before comparison
+* Collapses whitespace for text content comparison
+* Removes empty text nodes between elements
+
+[NOTE]
+====
+The comparison module is automatically used by Canon's RSpec matchers
+(`be_html_equivalent_to`, `be_xml_equivalent_to`, etc.) to provide reliable
+semantic comparison in tests.
+====
+
+Syntax:
+
+[source,ruby]
+----
+Canon::Comparison.equivalent?({doc1}, {doc2}, {options})
+----
+
+Where,
+
+`{doc1}`:: First document object (String, Nokogiri::HTML::Document, or supported XML document)
+`{doc2}`:: Second document object (String, Nokogiri::HTML::Document, or supported XML document)
+`{options}`:: Hash of comparison options (optional)
+
+Canon::Comparison for XML supports Moxml::Document and Nokogiri::XML::Document
+as input.
+
+Returns:
+
+* `true` if documents are equivalent
+* `false` if documents differ
+* `Array` of differences if `verbose: true` option is set
+
+.Comparison examples
+[example]
+====
+[source,ruby]
+----
+require 'canon/comparison'
+
+# HTML comparison - ignores whitespace and comments
+html1 = '<div><p>Hello</p></div>'
+html2 = '<div> <p> Hello </p> </div>'
+Canon::Comparison.equivalent?(html1, html2)
+# => true
+
+# HTML with different content
+html3 = '<div><p>Goodbye</p></div>'
+Canon::Comparison.equivalent?(html1, html3)
+# => false
+
+# XML comparison
+xml1 = '<root><a>1</a><b>2</b></root>'
+xml2 = '<root>  <b>2</b>  <a>1</a>  </root>'
+Canon::Comparison.equivalent?(xml1, xml2)
+# => true
+
+# With Nokogiri documents
+doc1 = Nokogiri::HTML5(html1)
+doc2 = Nokogiri::HTML5(html2)
+Canon::Comparison.equivalent?(doc1, doc2)
+# => true
+----
+====
+
+
+The following options control comparison behavior:
+
+`collapse_whitespace`:: Normalize whitespace in text nodes (default: `true`)
+`ignore_comments`:: Ignore HTML/XML comments (default: `true`)
+`ignore_attr_order`:: Ignore attribute ordering (default: `true`)
+`verbose`:: Return array of differences instead of boolean (default: `false`)
+
+.Using comparison options
+[example]
+====
+[source,ruby]
+----
+# Keep comments in comparison
+html_with_comments = '<!-- comment --><div>text</div>'
+html_no_comments = '<div>text</div>'
+
+Canon::Comparison.equivalent?(
+  html_with_comments,
+  html_no_comments,
+  ignore_comments: false
+)
+# => false (comments are considered)
+
+Canon::Comparison.equivalent?(
+  html_with_comments,
+  html_no_comments,
+  ignore_comments: true  # default
+)
+# => true (comments are ignored)
+----
+====
+
 
 === RSpec matchers
 
