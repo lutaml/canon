@@ -52,10 +52,12 @@ module Canon
         node1 = parse_node(n1)
         node2 = parse_node(n2)
 
-        result = compare_nodes(node1, node2, opts, child_opts, diff_children)
+        differences = []
+        result = compare_nodes(node1, node2, opts, child_opts, diff_children,
+                               differences)
 
         if opts[:verbose]
-          result == EQUIVALENT ? [] : result
+          differences
         else
           result == EQUIVALENT
         end
@@ -96,53 +98,68 @@ module Canon
       end
 
       # Main comparison dispatcher
-      def compare_nodes(n1, n2, opts, child_opts, diff_children)
+      def compare_nodes(n1, n2, opts, child_opts, diff_children, differences)
         # Check if nodes should be excluded
         return EQUIVALENT if node_excluded?(n1, opts) &&
                              node_excluded?(n2, opts)
-        return MISSING_NODE if node_excluded?(n1, opts) ||
-                               node_excluded?(n2, opts)
+
+        if node_excluded?(n1, opts) || node_excluded?(n2, opts)
+          add_difference(n1, n2, MISSING_NODE, MISSING_NODE, opts,
+                         differences)
+          return MISSING_NODE
+        end
 
         # Check node types match
-        return UNEQUAL_NODES_TYPES unless same_node_type?(n1, n2)
+        unless same_node_type?(n1, n2)
+          add_difference(n1, n2, UNEQUAL_NODES_TYPES, UNEQUAL_NODES_TYPES,
+                         opts, differences)
+          return UNEQUAL_NODES_TYPES
+        end
 
         # Dispatch based on node type
         if n1.respond_to?(:element?) && n1.element?
-          compare_element_nodes(n1, n2, opts, child_opts, diff_children)
+          compare_element_nodes(n1, n2, opts, child_opts, diff_children,
+                                differences)
         elsif n1.respond_to?(:text?) && n1.text?
-          compare_text_nodes(n1, n2, opts)
+          compare_text_nodes(n1, n2, opts, differences)
         elsif n1.respond_to?(:comment?) && n1.comment?
-          compare_comment_nodes(n1, n2, opts)
+          compare_comment_nodes(n1, n2, opts, differences)
         elsif n1.respond_to?(:cdata?) && n1.cdata?
-          compare_text_nodes(n1, n2, opts)
+          compare_text_nodes(n1, n2, opts, differences)
         elsif n1.respond_to?(:processing_instruction?) &&
               n1.processing_instruction?
-          compare_processing_instruction_nodes(n1, n2, opts)
+          compare_processing_instruction_nodes(n1, n2, opts, differences)
         elsif n1.respond_to?(:root)
           # Document node
-          compare_document_nodes(n1, n2, opts, child_opts, diff_children)
+          compare_document_nodes(n1, n2, opts, child_opts, diff_children,
+                                 differences)
         else
           EQUIVALENT
         end
       end
 
       # Compare two element nodes
-      def compare_element_nodes(n1, n2, opts, child_opts, diff_children)
+      def compare_element_nodes(n1, n2, opts, child_opts, diff_children,
+                                differences)
         # Compare element names
-        return UNEQUAL_ELEMENTS unless n1.name == n2.name
+        unless n1.name == n2.name
+          add_difference(n1, n2, UNEQUAL_ELEMENTS, UNEQUAL_ELEMENTS, opts,
+                         differences)
+          return UNEQUAL_ELEMENTS
+        end
 
         # Compare attributes
-        attr_result = compare_attribute_sets(n1, n2, opts)
+        attr_result = compare_attribute_sets(n1, n2, opts, differences)
         return attr_result unless attr_result == EQUIVALENT
 
         # Compare children if not ignored
         return EQUIVALENT if opts[:ignore_children]
 
-        compare_children(n1, n2, opts, child_opts, diff_children)
+        compare_children(n1, n2, opts, child_opts, diff_children, differences)
       end
 
       # Compare attribute sets
-      def compare_attribute_sets(n1, n2, opts)
+      def compare_attribute_sets(n1, n2, opts, differences)
         attrs1 = filter_attributes(n1.attributes, opts)
         attrs2 = filter_attributes(n2.attributes, opts)
 
@@ -152,10 +169,18 @@ module Canon
           attrs2 = attrs2.sort.to_h
         end
 
-        return MISSING_ATTRIBUTE unless attrs1.keys.sort == attrs2.keys.sort
+        unless attrs1.keys.sort == attrs2.keys.sort
+          add_difference(n1, n2, MISSING_ATTRIBUTE, MISSING_ATTRIBUTE, opts,
+                         differences)
+          return MISSING_ATTRIBUTE
+        end
 
         attrs1.each do |name, value|
-          return UNEQUAL_ATTRIBUTES unless attrs2[name] == value
+          unless attrs2[name] == value
+            add_difference(n1, n2, UNEQUAL_ATTRIBUTES, UNEQUAL_ATTRIBUTES,
+                           opts, differences)
+            return UNEQUAL_ATTRIBUTES
+          end
         end
 
         EQUIVALENT
@@ -195,7 +220,7 @@ module Canon
       end
 
       # Compare text nodes
-      def compare_text_nodes(n1, n2, opts)
+      def compare_text_nodes(n1, n2, opts, differences)
         return EQUIVALENT if opts[:ignore_text_nodes]
 
         text1 = node_text(n1)
@@ -206,50 +231,83 @@ module Canon
           text2 = collapse(text2)
         end
 
-        text1 == text2 ? EQUIVALENT : UNEQUAL_TEXT_CONTENTS
+        if text1 == text2
+          EQUIVALENT
+        else
+          add_difference(n1, n2, UNEQUAL_TEXT_CONTENTS, UNEQUAL_TEXT_CONTENTS,
+                         opts, differences)
+          UNEQUAL_TEXT_CONTENTS
+        end
       end
 
       # Compare comment nodes
-      def compare_comment_nodes(n1, n2, opts)
+      def compare_comment_nodes(n1, n2, opts, differences)
         return EQUIVALENT if opts[:ignore_comments]
 
         content1 = n1.content.to_s.strip
         content2 = n2.content.to_s.strip
 
-        content1 == content2 ? EQUIVALENT : UNEQUAL_COMMENTS
+        if content1 == content2
+          EQUIVALENT
+        else
+          add_difference(n1, n2, UNEQUAL_COMMENTS, UNEQUAL_COMMENTS, opts,
+                         differences)
+          UNEQUAL_COMMENTS
+        end
       end
 
       # Compare processing instruction nodes
-      def compare_processing_instruction_nodes(n1, n2, _opts)
-        return UNEQUAL_NODES_TYPES unless n1.target == n2.target
+      def compare_processing_instruction_nodes(n1, n2, opts, differences)
+        unless n1.target == n2.target
+          add_difference(n1, n2, UNEQUAL_NODES_TYPES, UNEQUAL_NODES_TYPES,
+                         opts, differences)
+          return UNEQUAL_NODES_TYPES
+        end
 
         content1 = n1.content.to_s.strip
         content2 = n2.content.to_s.strip
 
-        content1 == content2 ? EQUIVALENT : UNEQUAL_TEXT_CONTENTS
+        if content1 == content2
+          EQUIVALENT
+        else
+          add_difference(n1, n2, UNEQUAL_TEXT_CONTENTS, UNEQUAL_TEXT_CONTENTS,
+                         opts, differences)
+          UNEQUAL_TEXT_CONTENTS
+        end
       end
 
       # Compare document nodes
-      def compare_document_nodes(n1, n2, opts, child_opts, diff_children)
+      def compare_document_nodes(n1, n2, opts, child_opts, diff_children,
+                                 differences)
         # Compare root elements
         root1 = n1.root
         root2 = n2.root
 
-        return MISSING_NODE if root1.nil? || root2.nil?
+        if root1.nil? || root2.nil?
+          add_difference(n1, n2, MISSING_NODE, MISSING_NODE, opts,
+                         differences)
+          return MISSING_NODE
+        end
 
-        compare_nodes(root1, root2, opts, child_opts, diff_children)
+        compare_nodes(root1, root2, opts, child_opts, diff_children,
+                      differences)
       end
 
       # Compare children of two nodes
-      def compare_children(n1, n2, opts, child_opts, diff_children)
+      def compare_children(n1, n2, opts, child_opts, diff_children,
+                           differences)
         children1 = filter_children(n1.children, opts)
         children2 = filter_children(n2.children, opts)
 
-        return MISSING_NODE unless children1.length == children2.length
+        unless children1.length == children2.length
+          add_difference(n1, n2, MISSING_NODE, MISSING_NODE, opts,
+                         differences)
+          return MISSING_NODE
+        end
 
         children1.zip(children2).each do |child1, child2|
           result = compare_nodes(child1, child2, child_opts, child_opts,
-                                 diff_children)
+                                 diff_children, differences)
           return result unless result == EQUIVALENT
         end
 
@@ -316,6 +374,19 @@ module Canon
       # Collapse whitespace in text
       def collapse(text)
         text.to_s.gsub(/\s+/, " ").strip
+      end
+
+      # Add a difference to the differences array
+      # Format: {node1:, node2:, diff1:, diff2:}
+      def add_difference(node1, node2, diff1, diff2, opts, differences)
+        return unless opts[:verbose]
+
+        differences << {
+          node1: node1,
+          node2: node2,
+          diff1: diff1,
+          diff2: diff2,
+        }
       end
     end
   end

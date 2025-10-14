@@ -388,6 +388,98 @@ Canon::Comparison.equivalent?(
 ====
 
 
+When `verbose: true` is set, `Canon::Comparison.equivalent?` returns an array of
+difference objects instead of a boolean. This is useful for debugging test
+failures or understanding exactly what differs between documents.
+
+Return values in verbose mode:
+
+* Empty array `[]` if documents are equivalent
+* Array of difference hashes if documents differ
+
+Each difference hash contains:
+
+`node1`:: The first node involved in the difference
+`node2`:: The second node involved in the difference
+`diff1`:: Difference code for the first node
+`diff2`:: Difference code for the second node
+
+Difference codes:
+
+* `Canon::Comparison::EQUIVALENT` (1) - Nodes are equivalent
+* `Canon::Comparison::MISSING_ATTRIBUTE` (2) - Attribute missing
+* `Canon::Comparison::MISSING_NODE` (3) - Node missing
+* `Canon::Comparison::UNEQUAL_ATTRIBUTES` (4) - Attributes differ
+* `Canon::Comparison::UNEQUAL_COMMENTS` (5) - Comments differ
+* `Canon::Comparison::UNEQUAL_ELEMENTS` (7) - Element names differ
+* `Canon::Comparison::UNEQUAL_NODES_TYPES` (8) - Node types differ
+* `Canon::Comparison::UNEQUAL_TEXT_CONTENTS` (9) - Text content differs
+
+.Using verbose mode
+[example]
+====
+[source,ruby]
+----
+# Verbose mode with equivalent documents
+html1 = '<div>Hello</div>'
+html2 = '<div>Hello</div>'
+result = Canon::Comparison.equivalent?(html1, html2, verbose: true)
+# => [] (empty array indicates equivalence)
+
+# Verbose mode with different text content
+html1 = '<div>Hello</div>'
+html2 = '<div>Goodbye</div>'
+result = Canon::Comparison.equivalent?(html1, html2, verbose: true)
+# => [{
+#   node1: <Nokogiri::XML::Text>,
+#   node2: <Nokogiri::XML::Text>,
+#   diff1: 9,  # UNEQUAL_TEXT_CONTENTS
+#   diff2: 9   # UNEQUAL_TEXT_CONTENTS
+# }]
+
+# Verbose mode with different element names
+html1 = '<div>Test</div>'
+html2 = '<span>Test</span>'
+result = Canon::Comparison.equivalent?(html1, html2, verbose: true)
+# => [{
+#   node1: <Nokogiri::XML::Element: div>,
+#   node2: <Nokogiri::XML::Element: span>,
+#   diff1: 7,  # UNEQUAL_ELEMENTS
+#   diff2: 7   # UNEQUAL_ELEMENTS
+# }]
+
+# Verbose mode with missing attributes
+html1 = '<div class="foo" id="bar">Test</div>'
+html2 = '<div class="foo">Test</div>'
+result = Canon::Comparison.equivalent?(html1, html2, verbose: true)
+# => [{
+#   node1: <Nokogiri::XML::Element: div>,
+#   node2: <Nokogiri::XML::Element: div>,
+#   diff1: 2,  # MISSING_ATTRIBUTE
+#   diff2: 2   # MISSING_ATTRIBUTE
+# }]
+
+# Check difference type programmatically
+result = Canon::Comparison.equivalent?(html1, html2, verbose: true)
+if result.empty?
+  puts "Documents are equivalent"
+else
+  result.each do |diff|
+    case diff[:diff1]
+    when Canon::Comparison::UNEQUAL_TEXT_CONTENTS
+      puts "Text content differs"
+    when Canon::Comparison::UNEQUAL_ELEMENTS
+      puts "Element names differ"
+    when Canon::Comparison::MISSING_ATTRIBUTE
+      puts "Attributes differ"
+    end
+  end
+end
+----
+====
+
+
+
 === RSpec matchers
 
 RSpec matchers for testing equivalence between serialized formats. All matchers
