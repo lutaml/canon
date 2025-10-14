@@ -79,5 +79,124 @@ RSpec.describe Canon::Comparison do
                                              { collapse_whitespace: true })).to be true
       end
     end
+
+    context "with verbose mode" do
+      it "returns empty array for equivalent HTML documents" do
+        html1 = "<html><body><p>Test</p></body></html>"
+        html2 = "<html><body><p>Test</p></body></html>"
+
+        result = Canon::Comparison.equivalent?(html1, html2,
+                                               { verbose: true })
+        expect(result).to be_an(Array)
+        expect(result).to be_empty
+      end
+
+      it "returns array of differences for different element names" do
+        html1 = "<html><body><p>Test</p></body></html>"
+        html2 = "<html><body><div>Test</div></body></html>"
+
+        result = Canon::Comparison.equivalent?(html1, html2,
+                                               { verbose: true })
+        expect(result).to be_an(Array)
+        expect(result).not_to be_empty
+        expect(result.first).to have_key(:node1)
+        expect(result.first).to have_key(:node2)
+        expect(result.first).to have_key(:diff1)
+        expect(result.first).to have_key(:diff2)
+        expect(result.first[:diff1]).to eq(Canon::Comparison::UNEQUAL_ELEMENTS)
+      end
+
+      it "returns array of differences for different text content" do
+        html1 = "<html><body><p>Test 1</p></body></html>"
+        html2 = "<html><body><p>Test 2</p></body></html>"
+
+        result = Canon::Comparison.equivalent?(html1, html2,
+                                               { verbose: true })
+        expect(result).to be_an(Array)
+        expect(result).not_to be_empty
+        expect(result.first[:diff1]).to eq(Canon::Comparison::UNEQUAL_TEXT_CONTENTS)
+      end
+
+      it "returns array of differences for different attributes" do
+        html1 = '<html><body><p class="foo">Test</p></body></html>'
+        html2 = '<html><body><p class="bar">Test</p></body></html>'
+
+        result = Canon::Comparison.equivalent?(html1, html2,
+                                               { verbose: true })
+        expect(result).to be_an(Array)
+        expect(result).not_to be_empty
+        expect(result.first[:diff1]).to eq(Canon::Comparison::UNEQUAL_ATTRIBUTES)
+      end
+
+      it "returns array of differences for missing nodes" do
+        html1 = "<html><body><p>Test</p><div>Extra</div></body></html>"
+        html2 = "<html><body><p>Test</p></body></html>"
+
+        result = Canon::Comparison.equivalent?(html1, html2,
+                                               { verbose: true })
+        expect(result).to be_an(Array)
+        expect(result).not_to be_empty
+        expect(result.first[:diff1]).to eq(Canon::Comparison::MISSING_NODE)
+      end
+
+      it "returns array of differences for missing attributes" do
+        html1 = '<html><body><p class="foo" id="bar">Test</p></body></html>'
+        html2 = '<html><body><p class="foo">Test</p></body></html>'
+
+        result = Canon::Comparison.equivalent?(html1, html2,
+                                               { verbose: true })
+        expect(result).to be_an(Array)
+        expect(result).not_to be_empty
+        expect(result.first[:diff1]).to eq(Canon::Comparison::MISSING_ATTRIBUTE)
+      end
+
+      it "returns multiple differences when multiple things differ" do
+        html1 = '<html><body><p class="foo">Test 1</p><div>Extra</div></body></html>'
+        html2 = '<html><body><p class="bar">Test 2</p></body></html>'
+
+        result = Canon::Comparison.equivalent?(html1, html2,
+                                               { verbose: true })
+        expect(result).to be_an(Array)
+        expect(result.length).to be >= 1
+      end
+
+      it "returns empty array for equivalent XML documents" do
+        xml1 = "<root><item>Test</item></root>"
+        xml2 = "<root><item>Test</item></root>"
+
+        result = Canon::Comparison.equivalent?(xml1, xml2,
+                                               { verbose: true })
+        expect(result).to be_an(Array)
+        expect(result).to be_empty
+      end
+
+      it "returns array of differences for different XML elements" do
+        xml1 = "<root><item>Test</item></root>"
+        xml2 = "<root><other>Test</other></root>"
+
+        result = Canon::Comparison.equivalent?(xml1, xml2,
+                                               { verbose: true })
+        expect(result).to be_an(Array)
+        expect(result).not_to be_empty
+        expect(result.first[:diff1]).to eq(Canon::Comparison::UNEQUAL_ELEMENTS)
+      end
+
+      it "respects other options when in verbose mode" do
+        html1 = "<html><body><!-- comment --><p>Test</p></body></html>"
+        html2 = "<html><body><p>Test</p></body></html>"
+
+        # With ignore_comments: true, should return empty array
+        result = Canon::Comparison.equivalent?(html1, html2,
+                                               { verbose: true, ignore_comments: true })
+        expect(result).to be_an(Array)
+        expect(result).to be_empty
+
+        # With ignore_comments: false, should return differences
+        result = Canon::Comparison.equivalent?(html1, html2,
+                                               { verbose: true, ignore_comments: false })
+        expect(result).to be_an(Array)
+        expect(result).not_to be_empty
+      end
+    end
   end
 end
