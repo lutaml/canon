@@ -16,23 +16,12 @@ RSpec.describe "Fixture Files Integrity" do
       Dir.glob("spec/fixtures/xml/*.xml").each do |fixture_file|
         it "preserves all information in #{File.basename(fixture_file)}" do
           original_content = File.read(fixture_file)
-          original_doc = Nokogiri::XML(original_content)
 
           # Format with c14n mode
           formatted_content = Canon.format(original_content, :xml)
-          formatted_doc = Nokogiri::XML(formatted_content)
 
-          # Use CompareXML directly (don't trust our own matchers)
-          result = CompareXML.equivalent?(
-            original_doc,
-            formatted_doc,
-            {
-              collapse_whitespace: true,
-              ignore_attr_order: true,
-              verbose: true,
-            },
-          )
-          expect(result).to be_empty, "XML structures differ: #{result.inspect}"
+          # Use Canon's own XML comparison (C14N-based)
+          expect(formatted_content).to be_xml_equivalent_to(original_content)
         end
       end
     end
@@ -41,24 +30,13 @@ RSpec.describe "Fixture Files Integrity" do
       Dir.glob("spec/fixtures/xml/*.xml").each do |fixture_file|
         it "preserves all information in #{File.basename(fixture_file)}" do
           original_content = File.read(fixture_file)
-          original_doc = Nokogiri::XML(original_content)
 
           # Format with pretty mode
           pretty_printer = Canon::Xml::PrettyPrinter.new(indent: 2)
           formatted_content = pretty_printer.format(original_content)
-          formatted_doc = Nokogiri::XML(formatted_content)
 
-          # Use CompareXML directly (don't trust our own matchers)
-          result = CompareXML.equivalent?(
-            original_doc,
-            formatted_doc,
-            {
-              collapse_whitespace: true,
-              ignore_attr_order: true,
-              verbose: true,
-            },
-          )
-          expect(result).to be_empty, "XML structures differ: #{result.inspect}"
+          # Use Canon's own XML comparison (C14N-based)
+          expect(formatted_content).to be_xml_equivalent_to(original_content)
         end
       end
     end

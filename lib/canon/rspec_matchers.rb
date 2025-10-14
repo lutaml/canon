@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 require "canon" unless defined?(::Canon)
-require "compare-xml"
+require "canon/comparison"
 require "diffy"
 
 begin
@@ -31,17 +31,12 @@ module Canon
       end
 
       def match_xml
-        @result = CompareXML.equivalent?(
-          Nokogiri::XML(@target),
-          Nokogiri::XML(@expected),
-          {
-            collapse_whitespace: true,
-            ignore_attr_order: true,
-            verbose: true,
-          },
-        )
-
-        @result.empty?
+        # Use C14N for comparison (not pretty printing)
+        @actual_sorted = Canon::Xml::C14n.canonicalize(@target,
+                                                        with_comments: false)
+        @expected_sorted = Canon::Xml::C14n.canonicalize(@expected,
+                                                          with_comments: false)
+        @actual_sorted == @expected_sorted
       end
 
       # Canonicalize and check string equivalence for YAML/JSON
@@ -54,7 +49,15 @@ module Canon
       end
 
       def match_html
-        canonicalize_and_compare(:html)
+        html_semantic_compare(:html)
+      end
+
+      def match_html4
+        html_semantic_compare(:html4)
+      end
+
+      def match_html5
+        html_semantic_compare(:html5)
       end
 
       private
@@ -65,26 +68,44 @@ module Canon
         @actual_sorted == @expected_sorted
       end
 
-      def failure_message
-        case @format
-        when :xml
-          xml_failure_message
-        when :yaml, :json, :html
-          generic_failure_message
-        end
+      def html_semantic_compare(format)
+        # Use Canon::Comparison for HTML comparison
+        opts = {
+          collapse_whitespace: true,
+          ignore_attr_order: true,
+          ignore_comments: true,
+        }
+
+        # Parse and normalize HTML for error messages
+        actual_doc = parse_html_for_display(@target, format)
+        expected_doc = parse_html_for_display(@expected, format)
+
+        @actual_sorted = actual_doc
+        @expected_sorted = expected_doc
+
+        # Use Canon::Comparison for actual comparison
+        Canon::Comparison.equivalent?(@target, @expected, opts)
       end
 
-      def xml_failure_message
-        index = 0
-        @result.map do |hash|
-          index += 1
-          index_str = index.to_s.rjust(2, "0")
-          "DIFF #{index_str}:\n" \
-          "    expected node: #{hash[:node1]}\n" \
-          "    actual node  : #{hash[:node2]}\n" \
-          "    diff from    : #{hash[:diff1]}\n" \
-          "    diff to      : #{hash[:diff2]}\n"
-        end.join("\n")
+      def parse_html_for_display(html, format)
+        require "nokogiri"
+
+        # Parse with Nokogiri
+        doc = if format == :html5
+                Nokogiri::HTML5(html)
+              else
+                Nokogiri::HTML(html)
+              end
+
+        # Return normalized HTML string for display
+        doc.to_html
+      rescue StandardError
+        # Fallback to original string if parsing fails
+        html
+      end
+
+      def failure_message
+        generic_failure_message
       end
 
       def generic_failure_message
@@ -140,7 +161,15 @@ module Canon
       SerializationMatcher.new(expected, :html)
     end
 
-    if defined?(::RSpec)
+    def be_html4_equivalent_to(expected)
+      SerializationMatcher.new(expected, :html4)
+    end
+
+    def be_html5_equivalent_to(expected)
+      SerializationMatcher.new(expected, :html5)
+    end
+
+    if defined?(::RSpec) && ::RSpec.respond_to?(:configure)
       RSpec.configure do |config|
         config.include(Canon::RSpecMatchers)
       end

@@ -4,9 +4,18 @@ RSpec.describe Canon::Formatters::XmlFormatter do
   it "canonicalizes XML per C14N 1.1 spec" do
     input = "<root><a>1</a><b>2</b></root>"
 
-    result = described_class.format(input)
+    result = described_class.format(input, pretty: false)
     # C14N 1.1 produces compact output without indentation
     expect(result).to eq("<root><a>1</a><b>2</b></root>")
+  end
+
+  it "pretty prints XML by default" do
+    input = "<root><a>1</a><b>2</b></root>"
+
+    result = described_class.format(input)
+    # Default is pretty printing with 2-space indentation
+    expect(result).to include("  <a>1</a>")
+    expect(result).to include("  <b>2</b>")
   end
 
   it "parses XML into a Nokogiri document" do
