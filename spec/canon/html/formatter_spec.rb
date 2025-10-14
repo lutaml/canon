@@ -104,7 +104,8 @@ RSpec.describe Canon::Formatters::HtmlFormatter do
       doc2 = described_class.parse(formatted)
 
       # Content should be preserved (normalize whitespace for comparison)
-      expect(doc1.text.gsub(/\s+/, " ").strip).to eq(doc2.text.gsub(/\s+/, " ").strip)
+      expect(doc1.text.gsub(/\s+/,
+                            " ").strip).to eq(doc2.text.gsub(/\s+/, " ").strip)
     end
   end
 end

@@ -101,7 +101,7 @@ module Canon
       def compare_nodes(n1, n2, opts, child_opts, diff_children, differences)
         # Check if nodes should be excluded
         return EQUIVALENT if node_excluded?(n1, opts) &&
-                             node_excluded?(n2, opts)
+          node_excluded?(n2, opts)
 
         if node_excluded?(n1, opts) || node_excluded?(n2, opts)
           add_difference(n1, n2, MISSING_NODE, MISSING_NODE, opts,
@@ -127,7 +127,7 @@ module Canon
         elsif n1.respond_to?(:cdata?) && n1.cdata?
           compare_text_nodes(n1, n2, opts, differences)
         elsif n1.respond_to?(:processing_instruction?) &&
-              n1.processing_instruction?
+            n1.processing_instruction?
           compare_processing_instruction_nodes(n1, n2, opts, differences)
         elsif n1.respond_to?(:root)
           # Document node
@@ -325,15 +325,15 @@ module Canon
       def node_excluded?(node, opts)
         # Ignore comments if specified
         return true if opts[:ignore_comments] &&
-                       node.respond_to?(:comment?) && node.comment?
+          node.respond_to?(:comment?) && node.comment?
 
         # Ignore text nodes if specified
         return true if opts[:ignore_text_nodes] &&
-                       node.respond_to?(:text?) && node.text?
+          node.respond_to?(:text?) && node.text?
 
         # Ignore whitespace-only text nodes when collapsing whitespace
         if opts[:collapse_whitespace] &&
-           node.respond_to?(:text?) && node.text?
+            node.respond_to?(:text?) && node.text?
           text = node_text(node)
           return true if collapse(text).empty?
         end
@@ -344,17 +344,17 @@ module Canon
       # Check if two nodes are the same type
       def same_node_type?(n1, n2)
         return true if n1.respond_to?(:element?) && n1.element? &&
-                       n2.respond_to?(:element?) && n2.element?
+          n2.respond_to?(:element?) && n2.element?
         return true if n1.respond_to?(:text?) && n1.text? &&
-                       n2.respond_to?(:text?) && n2.text?
+          n2.respond_to?(:text?) && n2.text?
         return true if n1.respond_to?(:comment?) && n1.comment? &&
-                       n2.respond_to?(:comment?) && n2.comment?
+          n2.respond_to?(:comment?) && n2.comment?
         return true if n1.respond_to?(:cdata?) && n1.cdata? &&
-                       n2.respond_to?(:cdata?) && n2.cdata?
+          n2.respond_to?(:cdata?) && n2.cdata?
         return true if n1.respond_to?(:processing_instruction?) &&
-                       n1.processing_instruction? &&
-                       n2.respond_to?(:processing_instruction?) &&
-                       n2.processing_instruction?
+          n1.processing_instruction? &&
+          n2.respond_to?(:processing_instruction?) &&
+          n2.processing_instruction?
         return true if n1.respond_to?(:root) && n2.respond_to?(:root)
 
         false
