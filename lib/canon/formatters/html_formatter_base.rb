@@ -48,8 +48,7 @@ module Canon
         # Post-process: ensure spaces between block element tags
         # This is needed because Nokogiri's serialization may remove
         # whitespace text nodes between block elements
-        html = ensure_block_element_spacing(html)
-        html
+        ensure_block_element_spacing(html)
       end
 
       # Sort element attributes alphabetically throughout document
@@ -60,7 +59,7 @@ module Canon
           next if node.attributes.empty?
 
           sorted_attrs = node.attributes.sort_by { |name, _| name }
-          node.attributes.each { |name, _| node.remove_attribute(name) }
+          node.attributes.each_key { |name| node.remove_attribute(name) }
           sorted_attrs.each { |name, attr| node[name] = attr.value }
         end
       end
@@ -81,8 +80,8 @@ module Canon
 
             # If between block elements, preserve one space
             if block_element?(prev_sibling) || block_element?(next_sibling) ||
-               block_element?(node.parent)
-              node.content = ' '
+                block_element?(node.parent)
+              node.content = " "
             else
               # Otherwise remove it
               node.remove
@@ -90,11 +89,11 @@ module Canon
           else
             # Collapse multiple whitespace characters into single spaces
             # but preserve leading/trailing single spaces for inline content
-            normalized = node.text.gsub(/\s+/, ' ')
+            normalized = node.text.gsub(/\s+/, " ")
             # Only strip if the entire parent chain suggests it's appropriate
             # (e.g., at document boundaries)
-            if node.parent&.name == 'body' &&
-               (node.previous_sibling.nil? || node.next_sibling.nil?)
+            if node.parent&.name == "body" &&
+                (node.previous_sibling.nil? || node.next_sibling.nil?)
               normalized = normalized.strip
             end
             node.content = normalized
@@ -107,7 +106,7 @@ module Canon
       # @return [String] HTML with proper spacing between block elements
       def self.ensure_block_element_spacing(html)
         # Build regex pattern for block element tags
-        block_tags = BLOCK_ELEMENTS.join('|')
+        block_tags = BLOCK_ELEMENTS.join("|")
 
         # Add space between closing and opening block element tags
         # Match: ><opening_block_tag or </closing_block_tag><opening_block_tag
@@ -121,7 +120,8 @@ module Canon
         node&.element? && BLOCK_ELEMENTS.include?(node.name.downcase)
       end
 
-      private_class_method :sort_attributes, :normalize_whitespace, :ensure_block_element_spacing, :block_element?
+      private_class_method :sort_attributes, :normalize_whitespace,
+                           :ensure_block_element_spacing, :block_element?
     end
   end
 end

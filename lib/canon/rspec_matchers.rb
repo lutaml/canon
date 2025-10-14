@@ -33,9 +33,9 @@ module Canon
       def match_xml
         # Use C14N for comparison (not pretty printing)
         @actual_sorted = Canon::Xml::C14n.canonicalize(@target,
-                                                        with_comments: false)
+                                                       with_comments: false)
         @expected_sorted = Canon::Xml::C14n.canonicalize(@expected,
-                                                          with_comments: false)
+                                                         with_comments: false)
         @actual_sorted == @expected_sorted
       end
 

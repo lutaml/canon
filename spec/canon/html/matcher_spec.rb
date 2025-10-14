@@ -4,10 +4,12 @@ require "spec_helper"
 
 RSpec.describe "Canon HTML matchers" do
   let(:actual_html) do
-    File.read(File.join(__dir__, "../../fixtures/html/blocks-notes-actual.html"))
+    File.read(File.join(__dir__,
+                        "../../fixtures/html/blocks-notes-actual.html"))
   end
   let(:expected_html) do
-    File.read(File.join(__dir__, "../../fixtures/html/blocks-notes-expected.html"))
+    File.read(File.join(__dir__,
+                        "../../fixtures/html/blocks-notes-expected.html"))
   end
 
   describe "be_html4_equivalent_to" do
@@ -36,7 +38,7 @@ RSpec.describe "Canon HTML matchers" do
     it "ignores whitespace differences in text nodes" do
       html_with_spaces = expected_html.gsub(
         "Table of contents",
-        "Table  of   contents"
+        "Table  of   contents",
       )
       expect(html_with_spaces).to be_html4_equivalent_to(expected_html)
     end
@@ -44,13 +46,14 @@ RSpec.describe "Canon HTML matchers" do
     it "ignores comment nodes entirely" do
       html_with_comments = expected_html.gsub(
         "<!--\n      -->",
-        "<!-- This is a different comment with lots of content -->"
+        "<!-- This is a different comment with lots of content -->",
       )
       expect(html_with_comments).to be_html4_equivalent_to(expected_html)
     end
 
     it "compares element names" do
-      html_different_element = expected_html.gsub("<h1", "<h2").gsub("</h1>", "</h2>")
+      html_different_element = expected_html.gsub("<h1", "<h2").gsub("</h1>",
+                                                                     "</h2>")
       expect(html_different_element).not_to be_html4_equivalent_to(expected_html)
     end
 
