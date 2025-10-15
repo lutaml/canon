@@ -163,7 +163,7 @@ RSpec.describe Canon::Cli do
             end
           end
 
-          expect(output).to include("canonically equivalent")
+          expect(output).to include("semantically equivalent")
         end
       end
     end
@@ -173,14 +173,13 @@ RSpec.describe Canon::Cli do
         with_temp_file("<root><a>2</a></root>", ".xml") do |file2|
           output = capture_stdout do
             expect do
-              described_class.start(["diff", file1, file2])
+              described_class.start(["diff", file1, file2, "--verbose"])
             end.to raise_error(SystemExit) do |error|
               expect(error.status).to eq(1)
             end
           end
 
-          expect(output).to include("-") # diff markers
-          expect(output).to include("+") # diff markers
+          expect(output).to include("Visual Diff:")
         end
       end
     end

@@ -65,43 +65,88 @@ module Canon
       Commands::FormatCommand.new(options).run(file)
     end
 
-    desc "diff FILE1 FILE2", "Compare two canonicalized files"
+    desc "diff FILE1 FILE2", "Compare two files semantically"
     long_desc <<~DESC
-      Compare two files after canonicalizing them.
+      Compare two files using semantic comparison (not text-based line diffs).
 
-      The format is auto-detected from file extensions, or can be explicitly
-      specified with --format (for both files) or --format1 and --format2
-      (for different formats).
+      Supports XML, HTML, JSON, and YAML formats with intelligent structural
+      comparison. The format is auto-detected from file extensions, or can be
+      explicitly specified with --format (for both files) or --format1 and
+      --format2 (for different formats).
+
+      Comparison options:
+      - Whitespace handling (--collapse-whitespace / --no-collapse-whitespace)
+      - Attribute/key ordering (--ignore-attr-order / --no-ignore-attr-order)
+      - Comments (--with-comments / --no-with-comments, --ignore-comments)
+      - Text nodes (--ignore-text-nodes)
+      - Verbose mode (--verbose) for detailed diff output
 
       Examples:
 
+        # Basic semantic comparison
         $ canon diff file1.xml file2.xml
-        $ canon diff data1.json data2.json --color
-        $ canon diff file1.txt file2.txt --format xml
-        $ canon diff data.xml data.json --format1 xml --format2 json
+
+        # Verbose mode with detailed differences
+        $ canon diff file1.json file2.json --verbose
+
+        # Include comments in comparison (default: ignore)
+        $ canon diff file1.xml file2.xml --with-comments
+
+        # Ignore text node content entirely
+        $ canon diff template1.html template2.html --ignore-text-nodes
+
+        # Compare different formats (same structure)
+        $ canon diff config.json config.yaml --format1 json --format2 yaml
+
+        # Disable color output
+        $ canon diff file1.xml file2.xml --no-color
     DESC
     method_option :format,
                   aliases: "-f",
                   type: :string,
-                  enum: %w[xml json yaml html],
+                  enum: %w[xml html json yaml],
                   desc: "Format type for both files"
     method_option :format1,
                   type: :string,
-                  enum: %w[xml json yaml html],
+                  enum: %w[xml html json yaml],
                   desc: "Format type for first file"
     method_option :format2,
                   type: :string,
-                  enum: %w[xml json yaml html],
+                  enum: %w[xml html json yaml],
                   desc: "Format type for second file"
     method_option :color,
                   type: :boolean,
                   default: true,
                   desc: "Colorize diff output"
+    method_option :verbose,
+                  aliases: "-v",
+                  type: :boolean,
+                  default: false,
+                  desc: "Show detailed differences"
+    method_option :by_line,
+                  type: :boolean,
+                  default: false,
+                  desc: "Use line-by-line diff for XML (default: by-object)"
+    method_option :collapse_whitespace,
+                  type: :boolean,
+                  default: true,
+                  desc: "Collapse whitespace in text nodes"
+    method_option :ignore_attr_order,
+                  type: :boolean,
+                  default: true,
+                  desc: "Ignore attribute/key ordering"
+    method_option :ignore_comments,
+                  type: :boolean,
+                  desc: "Ignore XML/HTML comments (overrides --with-comments)"
+    method_option :ignore_text_nodes,
+                  type: :boolean,
+                  default: false,
+                  desc: "Ignore all text node content"
     method_option :with_comments,
                   aliases: "-c",
                   type: :boolean,
                   default: false,
-                  desc: "Include comments in canonical XML output"
+                  desc: "Include comments in comparison (sets ignore_comments: false)"
     def diff(file1, file2)
       Commands::DiffCommand.new(options).run(file1, file2)
     end

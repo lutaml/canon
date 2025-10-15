@@ -980,7 +980,10 @@ $ canon format page.html --mode c14n
 
 === Diff command
 
-Compare two files after canonicalizing them.
+Compare two files using **semantic comparison** that understands the structure of
+XML, HTML, JSON, and YAML formats. Unlike traditional text-based diff tools,
+`canon diff` compares the meaning and structure of your data, not just the
+characters.
 
 ==== Command syntax
 
@@ -989,42 +992,437 @@ Compare two files after canonicalizing them.
 canon diff FILE1 FILE2 [OPTIONS]
 ----
 
+==== Diff modes
+
+Canon supports two diff modes optimized for different use cases:
+
+===== by-object mode (default for JSON/YAML)
+
+Compares files **semantically** by their data structure and displays differences
+as a visual tree showing what changed in the structure.
+
+Best for::
+* Configuration files where you care about what values changed
+* API responses where structure matters
+* Comparing semantic equivalence across formats
+
+Features::
+* Tree visualization with box-drawing characters
+* Shows only what changed (additions, removals, modifications)
+* Ignores formatting differences automatically
+* Color-coded output (red=removed, green=added, yellow=changed)
+
+===== by-line mode (default for HTML, optional for XML)
+
+Compares files **line-by-line** after canonicalization, showing traditional
+diff-style output.
+
+Best for::
+* HTML markup where line-level changes matter
+* Reviewing exact textual differences
+* When you need to see the full document context
+
+Features::
+* Traditional diff format with line numbers
+* Shows before/after for each change
+* Better for understanding markup structure changes
+
+[NOTE]
+* JSON and YAML always use **by-object** mode
+* HTML always uses **by-line** mode
+* XML uses **by-object** mode by default, but can use **by-line** with `--by-line`
+
 ==== Options
 
+===== Format options
+
 `-f, --format FORMAT`:: Format for both files: `xml`, `html`, `json`, or `yaml`
+(auto-detected from extension if not specified)
 
-`--format1 FORMAT`:: Format for first file
+`--format1 FORMAT`:: Format for first file (when comparing different formats)
 
-`--format2 FORMAT`:: Format for second file
+`--format2 FORMAT`:: Format for second file (when comparing different formats)
 
-`--color / --no-color`:: Enable/disable colored output (default: enabled)
+===== Comparison options
 
-`-c, --with-comments`:: Include comments in canonical XML comparison
+`-v, --verbose`:: Show detailed differences in tree format (default: just show
+if files differ)
+
+`--by-line`:: Use line-by-line diff for XML (default: by-object mode)
+
+`--collapse-whitespace` / `--no-collapse-whitespace`:: Control whitespace
+normalization in text nodes (default: collapse)
+
+`--ignore-attr-order` / `--no-ignore-attr-order`:: Control whether attribute/key
+ordering matters (default: ignore order)
+
+`--ignore-comments`:: Ignore XML/HTML comments during comparison (overrides
+`--with-comments`)
+
+`--ignore-text-nodes`:: Ignore all text node content, only compare structure
+
+`-c, --with-comments`:: Include comments in comparison (sets `ignore_comments: false`)
+
+===== Output options
+
+`--color` / `--no-color`:: Enable/disable colored output (default: enabled)
 
 ==== Examples
 
+===== Basic comparison
+
 [source,bash]
 ----
+# Compare two JSON files (shows if equivalent or different)
+$ canon diff config1.json config2.json
+Files are semantically different
+
 # Compare two XML files
 $ canon diff file1.xml file2.xml
-
-# Compare with explicit format
-$ canon diff data1.txt data2.txt --format xml
-
-# Compare different formats
-$ canon diff data.xml data.json --format1 xml --format2 json
-
-# Compare HTML files
-$ canon diff page1.html page2.html
-
-# Disable colors
-$ canon diff file1.xml file2.xml --no-color
+✅ Files are semantically equivalent
 ----
 
-==== Exit codes
+===== Verbose mode examples
 
-* `0` - Files are canonically equivalent
-* `1` - Files differ
+====== JSON comparison (by-object mode)
+
+[example]
+Given these two JSON files:
+
+.config1.json
+[source,json]
+----
+{
+  "name": "myapp",
+  "version": "1.0.0",
+  "settings": {
+    "debug": true,
+    "port": 8080
+  }
+}
+----
+
+.config2.json
+[source,json]
+----
+{
+  "version": "2.0.0",
+  "name": "myapp",
+  "settings": {
+    "debug": false,
+    "port": 8080
+  }
+}
+----
+
+Running with `--verbose`:
+
+[source,bash]
+----
+$ canon diff config1.json config2.json --verbose
+Visual Diff:
+├── settings.debug:
+│   ├── - true
+│   └── + false
+└── version:
+    ├── - "1.0.0"
+    └── + "2.0.0"
+----
+
+The tree shows:
+* Key order difference (`version` moved) is ignored
+* Only semantic changes are shown: `debug` and `version` values changed
+
+====== XML comparison (by-object mode with DOM-guided semantic matching)
+
+Canon's XML diff uses **hybrid DOM-guided line diff** that semantically matches
+elements across documents using identity attributes (such as `id`, `ref`, `name`,
+`key`) and element paths. This ensures that corresponding elements are compared
+even when they appear at different line positions in the files.
+
+[example]
+Given these two XML files:
+
+.document1.xml
+[source,xml]
+----
+<standard-document>
+  <preface>
+    <foreword id="fwd">
+      <p>First paragraph</p>
+    </foreword>
+  </preface>
+  <sections>
+    <clause id="scope">
+      <title>Scope</title>
+    </clause>
+  </sections>
+</standard-document>
+----
+
+.document2.xml
+[source,xml]
+----
+<standard-document>
+  <preface>
+    <foreword displayorder="2" id="fwd">
+      <p>First paragraph</p>
+    </foreword>
+  </preface>
+  <sections>
+    <clause id="scope">
+      <title>Scope</title>
+      <p>New content</p>
+    </clause>
+  </sections>
+</standard-document>
+----
+
+Running with `--verbose` using by-object mode (default):
+
+[source,bash]
+----
+$ canon diff document1.xml document2.xml --verbose
+Visual Diff:
+├── preface.foreword:
+│   └── + displayorder="2"
+└── sections.clause.p:
+    └── + "New content"
+----
+
+The DOM-guided diff shows:
+
+* The `<foreword id="fwd">` elements are **semantically matched** by their `id`
+attribute, even though they may be at different positions
+* Only the **added** `displayorder` attribute is shown for foreword
+* The **added** `<p>` element in clause is shown
+* Unchanged content is not displayed
+
+[example]
+Example with element matching when positions differ:
+
+.file1.xml
+[source,xml]
+----
+<root>
+  <item id="1" name="Widget" price="10.00"/>
+  <item id="2" name="Gadget" price="20.00"/>
+</root>
+----
+
+.file2.xml
+[source,xml]
+----
+<root>
+  <item price="20.00" name="Gadget" id="2"/>
+  <item id="1" name="Widget" price="15.00"/>
+</root>
+----
+
+Running with `--verbose`:
+
+[source,bash]
+----
+$ canon diff file1.xml file2.xml --verbose
+Visual Diff:
+└── root.item[id="1"].price:
+    ├── - "10.00"
+    └── + "15.00"
+----
+
+The semantic matching shows:
+
+* Elements are matched by `id` attribute (`id="1"` with `id="1"`, `id="2"` with `id="2"`)
+* Position changes are ignored (item with `id="2"` moved from second to first)
+* Attribute reordering is ignored (price/name order changed)
+* Only the semantic change is shown: `price` value changed for item `id="1"`
+
+[NOTE]
+DOM-guided semantic matching features:
+
+* **Identity attributes**: Matches elements using `id`, `ref`, `name`, or `key` attributes
+* **Element paths**: Uses full element path for matching (e.g., `root.item`)
+* **Token-level highlighting**: Shows differences at semantic token level (element
+names, attribute names, attribute values)
+* **Parent filtering**: Skips parent elements that only differ in children to
+avoid redundant output
+* **Line range mapping**: Maps DOM elements to exact line ranges in pretty-printed
+output for accurate diff display
+
+====== XML comparison (by-line mode)
+
+The `--by-line` option switches to traditional line-by-line diff after
+canonicalization, useful when you need to see exact line-level changes.
+
+[example]
+Using the previous example files, but with `--by-line`:
+
+[source,bash]
+----
+$ canon diff document1.xml document2.xml --by-line --verbose
+Line-by-line diff:
+   4 - |     <foreword id="fwd">
+   4 + |     <foreword displayorder="2" id="fwd">
+   5   |       <p>First paragraph</p>
+  10 + |       <p>New content</p>
+  11   |     </clause>
+----
+
+The by-line mode shows:
+
+* Traditional diff format with line numbers
+* Full line context after canonicalization
+* All changes at line level (not semantic level)
+* Useful for reviewing exact textual differences
+
+====== YAML comparison (by-object mode)
+
+YAML comparison uses by-object mode to show semantic differences in the data
+structure, ignoring formatting and key ordering differences.
+
+[example]
+Given these two YAML files:
+
+.config1.yaml
+[source,yaml]
+----
+database:
+  host: localhost
+  port: 5432
+  name: mydb
+logging:
+  level: info
+  format: json
+----
+
+.config2.yaml
+[source,yaml]
+----
+logging:
+  level: debug
+  format: json
+database:
+  port: 5432
+  host: localhost
+  name: production
+----
+
+Running with `--verbose`:
+
+[source,bash]
+----
+$ canon diff config1.yaml config2.yaml --verbose
+Visual Diff:
+├── database.name:
+│   ├── - "mydb"
+│   └── + "production"
+└── logging.level:
+    ├── - "info"
+    └── + "debug"
+----
+
+The by-object mode shows:
+
+* Section reordering (`logging` before `database`) is ignored
+* Key reordering within sections (`port` before `host`) is ignored
+* Only semantic value changes are displayed
+* Tree structure clearly shows the path to each change
+
+===== Comparison options examples
+
+[source,bash]
+----
+# Include comments in XML comparison
+$ canon diff doc1.xml doc2.xml --with-comments --verbose
+
+# Ignore all text content, only compare structure
+$ canon diff template1.html template2.html --ignore-text-nodes
+
+# Don't collapse whitespace (exact whitespace comparison)
+$ canon diff file1.xml file2.xml --no-collapse-whitespace
+
+# Compare different formats (must have same structure)
+$ canon diff config.json config.yaml --format1 json --format2 yaml --verbose
+----
+
+===== HTML comparison (by-line mode only)
+
+HTML comparison always uses by-line mode after canonicalization, which is ideal
+for reviewing markup structure changes.
+
+[example]
+Given these two HTML files:
+
+.page1.html
+[source,html]
+----
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>My Page</title>
+  </head>
+  <body>
+    <div class="header">
+      <h1>Welcome</h1>
+      <p>Introduction text</p>
+    </div>
+    <div class="content">
+      <p>Main content</p>
+    </div>
+  </body>
+</html>
+----
+
+.page2.html
+[source,html]
+----
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>My Updated Page</title>
+  </head>
+  <body>
+    <nav class="header">
+      <h1>Welcome</h1>
+      <p>Updated introduction</p>
+    </nav>
+    <div class="content">
+      <p>Main content</p>
+      <p>Additional paragraph</p>
+    </div>
+  </body>
+</html>
+----
+
+Running with `--verbose`:
+
+[source,bash]
+----
+$ canon diff page1.html page2.html --verbose
+Line-by-line diff:
+   4 - |     <title>My Page</title>
+   4 + |     <title>My Updated Page</title>
+   7 - |     <div class="header">
+   7 + |     <nav class="header">
+   9 - |       <p>Introduction text</p>
+   9 + |       <p>Updated introduction</p>
+  10 - |     </div>
+  10 + |     </nav>
+  13 + |       <p>Additional paragraph</p>
+  14   |     </div>
+----
+
+The line-by-line mode shows:
+
+* Element name changes (`<div>` to `<nav>`)
+* Text content changes
+* Added elements with proper indentation context
+* Line numbers help locate changes in the document
+
+===== Exit codes
+
+* `0` - Files are semantically equivalent
+* `1` - Files are semantically different
 
 
 == Development

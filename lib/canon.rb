@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative "canon/version"
+require_relative "canon/errors"
 require_relative "canon/formatters/xml_formatter"
 require_relative "canon/formatters/yaml_formatter"
 require_relative "canon/formatters/json_formatter"
@@ -62,6 +63,4 @@ module Canon
       format(content, format)
     end
   end
-
-  class Error < StandardError; end
 end
