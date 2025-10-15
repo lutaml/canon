@@ -1,0 +1,18 @@
+{
+  "version": "1.0.1",
+  "name": "test-app",
+  "config": {
+    "database": {
+      "host": "localhost",
+      "port": 5432
+    },
+    "features": [
+      "feature-a",
+      "feature-x",
+      "feature-c"
+    ],
+    "cache": {
+      "enabled": true
+    }
+  }
+}

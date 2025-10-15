@@ -27,10 +27,11 @@ Gem::Specification.new do |spec|
   spec.require_paths = ["lib"]
   spec.required_ruby_version = ">= 2.7.0"
 
-  spec.add_dependency "diffy"
+  spec.add_dependency "diff-lcs"
   spec.add_dependency "json"
   spec.add_dependency "moxml"
   spec.add_dependency "nokogiri"
+  spec.add_dependency "paint"
   spec.add_dependency "thor"
 
   spec.metadata["homepage_uri"] = spec.homepage

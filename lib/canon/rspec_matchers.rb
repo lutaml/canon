@@ -2,7 +2,7 @@
 
 require "canon" unless defined?(::Canon)
 require "canon/comparison"
-require "diffy"
+require "canon/diff_formatter"
 
 begin
   require "rspec/expectations"
@@ -11,6 +11,23 @@ end
 
 module Canon
   module RSpecMatchers
+    # Configuration for RSpec matchers
+    class << self
+      attr_accessor :diff_mode, :use_color
+
+      def configure
+        yield self
+      end
+
+      def reset_config
+        @diff_mode = :by_line
+        @use_color = true
+      end
+    end
+
+    # Initialize default configuration
+    reset_config
+
     # Base matcher class for serialization equivalence
     class SerializationMatcher
       def initialize(expected, format = :xml)
@@ -104,35 +121,94 @@ module Canon
         html
       end
 
+      public
+
       def failure_message
-        generic_failure_message
-      end
+        msg = "expected #{@format.to_s.upcase} to be equivalent\n\n"
 
-      def generic_failure_message
-        diff = Diffy::Diff.new(
-          @expected_sorted,
-          @actual_sorted,
-          include_diff_info: false,
-          include_plus_and_minus_in_html: true,
-          diff_options: "-u",
-        )
-
-        "expected #{@format.to_s.upcase} to be equivalent\n\n" \
-          "Diff:\n" +
-          diff.to_s(:color)
+        # Generate visual diff
+        diff_output = generate_visual_diff
+        msg + diff_output if diff_output
       end
 
       def failure_message_when_negated
-        [
-          "expected:",
-          @target.to_s,
-          "not be equivalent to:",
-          @expected.to_s,
-        ].join("\n")
+        "expected #{@format.to_s.upcase} not to be equivalent"
+      end
+
+      def expected
+        @expected_sorted || @expected
+      end
+
+      def actual
+        @actual_sorted || @target
       end
 
       def diffable
-        true
+        # Disable RSpec's built-in diff - we use our own
+        false
+      end
+
+      private
+
+      def compare_for_diff_mode
+        # Use format-specific comparison modules for by_object mode
+        case @format
+        when :json
+          Canon::Comparison::Json.equivalent?(@expected_sorted, @actual_sorted,
+                                              verbose: true)
+        when :yaml
+          Canon::Comparison::Yaml.equivalent?(@expected_sorted, @actual_sorted,
+                                              verbose: true)
+        when :xml
+          Canon::Comparison::Xml.equivalent?(@expected_sorted, @actual_sorted,
+                                             verbose: true)
+        when :html, :html4, :html5
+          Canon::Comparison::Html.equivalent?(@expected_sorted, @actual_sorted,
+                                              verbose: true)
+        else
+          []
+        end
+      end
+
+      def generate_visual_diff
+        return nil unless @actual_sorted && @expected_sorted
+
+        # Get configuration settings
+        diff_mode = Canon::RSpecMatchers.diff_mode || :by_line
+        use_color = Canon::RSpecMatchers.use_color.nil? || Canon::RSpecMatchers.use_color
+
+        # Show diff of the actual canonicalized versions being compared
+        # This ensures we see exactly what the comparison algorithm sees
+        formatter = Canon::DiffFormatter.new(use_color: use_color,
+                                             mode: diff_mode)
+
+        # For by_object mode, compute actual differences using Comparison
+        # For by_line mode, pass empty array and let formatter do line-by-line diff
+        differences = if diff_mode == :by_object
+                        compare_for_diff_mode
+                      else
+                        []
+                      end
+
+        case @format
+        when :xml
+          # For XML, show diff of the RAW C14N versions (what's actually compared)
+          # Split into lines for readability
+          doc1 = @expected_sorted.gsub(/></, ">\n<")
+          doc2 = @actual_sorted.gsub(/></, ">\n<")
+          formatter.format(differences, :xml, doc1: doc1, doc2: doc2)
+        when :html, :html4, :html5
+          formatter.format(differences, @format, doc1: @expected_sorted,
+                                                 doc2: @actual_sorted)
+        when :json
+          formatter.format(differences, :json, doc1: @expected_sorted,
+                                               doc2: @actual_sorted)
+        when :yaml
+          formatter.format(differences, :yaml, doc1: @expected_sorted,
+                                               doc2: @actual_sorted)
+        end
+      rescue StandardError => e
+        "\nError generating visual diff: #{e.message}"
       end
     end
 
