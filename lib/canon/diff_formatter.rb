@@ -574,6 +574,12 @@ module Canon
         end
       end
 
+      # Sort diff_sections by line number to ensure proper ordering
+      diff_sections.sort_by! do |section|
+        # Use whichever line number is available, preferring file 1
+        section[:start_line1] || section[:start_line2] || 0
+      end
+
       # Group diffs by proximity if diff_grouping_lines is set
       if @diff_grouping_lines
         groups = group_diff_sections(diff_sections, @diff_grouping_lines)
@@ -687,39 +693,78 @@ module Canon
     def format_diff_groups(groups, lines1, lines2)
       output = []
 
-      groups.each do |group|
+      groups.each_with_index do |group, group_idx|
+        # Add spacing between groups (but not before the first group)
+        output << "" if group_idx > 0
+
         if group.length > 1
-          # Multiple diffs - add context block header
+          # Multiple diffs - show as contiguous code block
           output << colorize("Context block has #{group.length} diffs", :yellow, :bold)
           output << ""
-
-          # Add diffs with context lines between them
-          group.each_with_index do |section, idx|
-            output << section[:formatted]
-
-            # Add context lines between diffs (but not after the last one)
-            if idx < group.length - 1
-              next_section = group[idx + 1]
-              start_context = section[:end_line] + 1
-              end_context = next_section[:start_line] - 1
-
-              if start_context <= end_context
-                # Show context lines between diffs
-                (start_context..end_context).each do |line_idx|
-                  if line_idx < lines1.length && line_idx < lines2.length
-                    output << format_unified_line(line_idx + 1, line_idx + 1, " ", lines1[line_idx])
-                  end
-                end
-              end
-            end
-          end
+          output << format_contiguous_context_block(group, lines1, lines2)
         else
           # Single diff - no header needed
           output << group[0][:formatted]
         end
       end
 
-      output.join("\n\n")
+      output.join("\n")
+    end
+
+    # Format a contiguous code block showing all lines in range with diffs highlighted
+    def format_contiguous_context_block(group, lines1, lines2)
+      # Find the min/max line range across all diffs in the group
+      min_line1 = group.map { |s| s[:start_line1] }.compact.min
+      max_line1 = group.map { |s| s[:end_line1] }.compact.max
+      min_line2 = group.map { |s| s[:start_line2] }.compact.min
+      max_line2 = group.map { |s| s[:end_line2] }.compact.max
+
+      return "" unless min_line1 && max_line1 && min_line2 && max_line2
+
+      # Extract the line ranges
+      range1_lines = lines1[min_line1..max_line1]
+      range2_lines = lines2[min_line2..max_line2]
+
+      # Run LCS diff on this range
+      diffs = Diff::LCS.sdiff(range1_lines, range2_lines)
+
+      # Format as unified diff
+      output = []
+      line1 = min_line1
+      line2 = min_line2
+
+      diffs.each do |change|
+        case change.action
+        when "="
+          # Unchanged line
+          output << format_unified_line(line1 + 1, line2 + 1, " ", change.old_element)
+          line1 += 1
+          line2 += 1
+        when "-"
+          # Deletion
+          output << format_unified_line(line1 + 1, nil, "-", change.old_element, :red)
+          line1 += 1
+        when "+"
+          # Addition
+          output << format_unified_line(nil, line2 + 1, "+", change.new_element, :green)
+          line2 += 1
+        when "!"
+          # Change - show with token-level highlighting
+          old_tokens = tokenize_xml(change.old_element)
+          new_tokens = tokenize_xml(change.new_element)
+          token_diffs = Diff::LCS.sdiff(old_tokens, new_tokens)
+
+          old_highlighted = build_token_highlighted_text(token_diffs, :old)
+          new_highlighted = build_token_highlighted_text(token_diffs, :new)
+
+          output << "#{'%4d' % (line1 + 1)}|    - | #{old_highlighted}"
+          output << "    |#{'%4d' % (line2 + 1)}+ | #{new_highlighted}"
+          line1 += 1
+          line2 += 1
+        end
+      end
+
+      output.join("\n")
     end
 
     # Check if elements only differ in their children (not in attributes or direct content)
