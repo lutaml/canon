@@ -5,6 +5,9 @@ require "diff/lcs"
 require "diff/lcs/hunk"
 require "strscan"
 require "set"
+require_relative "diff/diff_block"
+require_relative "diff/diff_context"
+require_relative "diff/diff_report"
 
 module Canon
   # Formatter for displaying semantic differences with color support
@@ -186,7 +189,7 @@ diff_grouping_lines: nil, visualization_map: nil)
         lines2 = pretty2.split("\n")
 
         # Get LCS diff
-        diffs = Diff::LCS.sdiff(lines1, lines2)
+        diffs = ::Diff::LCS.sdiff(lines1, lines2)
 
         # Format with semantic token highlighting
         output << format_semantic_diff(diffs, lines1, lines2, :json)
@@ -213,7 +216,7 @@ diff_grouping_lines: nil, visualization_map: nil)
         lines2 = pretty2.split("\n")
 
         # Get LCS diff
-        diffs = Diff::LCS.sdiff(lines1, lines2)
+        diffs = ::Diff::LCS.sdiff(lines1, lines2)
 
         # Format with semantic token highlighting
         output << format_semantic_diff(diffs, lines1, lines2, :yaml)
@@ -268,7 +271,7 @@ diff_grouping_lines: nil, visualization_map: nil)
           new_tokens = tokenize_semantic(new_text, format)
 
           # Get token-level diff
-          token_diffs = Diff::LCS.sdiff(old_tokens, new_tokens)
+          token_diffs = ::Diff::LCS.sdiff(old_tokens, new_tokens)
 
           # Build highlighted versions
           old_highlighted = build_token_highlighted_text(token_diffs, :old)
@@ -436,7 +439,7 @@ diff_grouping_lines: nil, visualization_map: nil)
       lines2 = doc2.split("\n")
 
       # Get LCS diff
-      diffs = Diff::LCS.sdiff(lines1, lines2)
+      diffs = ::Diff::LCS.sdiff(lines1, lines2)
 
       # Group into hunks with context
       hunks = build_hunks(diffs, lines1, lines2, context_lines: @context_lines)
@@ -560,7 +563,7 @@ diff_grouping_lines: nil, visualization_map: nil)
       new_tokens = tokenize_xml(new_text)
 
       # Get token-level diff
-      token_diffs = Diff::LCS.sdiff(old_tokens, new_tokens)
+      token_diffs = ::Diff::LCS.sdiff(old_tokens, new_tokens)
 
       # Build highlighted versions
       old_highlighted = build_token_highlighted_text(token_diffs, :old)
@@ -669,18 +672,72 @@ diff_grouping_lines: nil, visualization_map: nil)
 
     # Format element matches for display
     def format_element_matches(matches, map1, map2, lines1, lines2)
-      # Build set of all elements that have matched descendants
-      elements_with_matched_descendants = Set.new
+      # Build a set of elements that should be skipped because an ancestor will show the diff
+      # Strategy: Find all elements with diffs, then mark all their ancestors for skipping
+      elements_to_skip = Set.new
+
+      # First pass: identify all elements that have line differences
+      elements_with_diffs = Set.new
       matches.each do |match|
         next unless match.status == :matched
 
-        # Mark all ancestors of this matched element
-        current = match.elem1.parent if match.elem1.respond_to?(:parent)
-        while current.respond_to?(:name)
-          elements_with_matched_descendants.add(current)
-          break unless current.respond_to?(:parent)
+        range1 = map1[match.elem1]
+        range2 = map2[match.elem2]
+        next unless range1 && range2
 
-          current = current.parent
+        elem_lines1 = lines1[range1.start_line..range1.end_line]
+        elem_lines2 = lines2[range2.start_line..range2.end_line]
+
+        if elem_lines1 != elem_lines2
+          elements_with_diffs.add(match.elem1)
+        end
+      end
+
+      # Second pass: skip elements that are children of other elements with diffs
+      # This shows only the outermost elements with changes, not their descendants
+      elements_with_diffs.each do |elem|
+        # Check if this element has a parent that also has diffs
+        has_parent_with_diff = false
+        if elem.respond_to?(:parent)
+          current = elem.parent
+          while current
+            if current.respond_to?(:name) && elements_with_diffs.include?(current)
+              has_parent_with_diff = true
+              break
+            end
+            current = current.respond_to?(:parent) ? current.parent : nil
+          end
+        end
+
+        # If this element has a parent with diffs, skip it (show the parent instead)
+        if has_parent_with_diff
+          elements_to_skip.add(elem)
+        end
+      end
+
+      # Now replace the old variable name with the new one in the rest of the method
+      children_with_matched_parents_showing_diff = elements_to_skip
+
+      # Build a set of all elements that are children of matched parents
+      # These deleted/inserted children will be shown within their parent's diff
+      children_of_matched_parents = Set.new
+      matches.each do |match|
+        next unless match.status == :matched
+
+        # Get all children of this matched element
+        elem = match.elem1 || match.elem2
+        next unless elem.respond_to?(:children)
+
+        elem.children.each do |child|
+          children_of_matched_parents.add(child) if child.respond_to?(:name)
+        end
+
+        # Also check the other side
+        other_elem = match.elem1 ? match.elem2 : match.elem1
+        next unless other_elem&.respond_to?(:children)
+
+        other_elem.children.each do |child|
+          children_of_matched_parents.add(child) if child.respond_to?(:name)
         end
       end
 
@@ -689,17 +746,23 @@ diff_grouping_lines: nil, visualization_map: nil)
       matches.each do |match|
         case match.status
         when :matched
-          # Skip if this element has matched descendants - only show the leaf elements
-          next if elements_with_matched_descendants.include?(match.elem1)
+          # Skip if this element is a child of a parent that will show the diff
+          next if children_with_matched_parents_showing_diff.include?(match.elem1)
 
           # Format and collect diff section
           section = format_matched_element_with_metadata(match, map1, map2,
                                                          lines1, lines2)
           diff_sections << section if section
         when :deleted
+          # Skip if this is a child of a matched parent (will be shown in parent's diff)
+          next if children_of_matched_parents.include?(match.elem1)
+
           section = format_deleted_element_with_metadata(match, map1, lines1)
           diff_sections << section if section
         when :inserted
+          # Skip if this is a child of a matched parent (will be shown in parent's diff)
+          next if children_of_matched_parents.include?(match.elem2)
+
           section = format_inserted_element_with_metadata(match, map2, lines2)
           diff_sections << section if section
         end
@@ -833,10 +896,13 @@ diff_grouping_lines: nil, visualization_map: nil)
           output << colorize("Context block has #{group.length} diffs",
                              :yellow, :bold)
           output << ""
-          output << format_contiguous_context_block(group, lines1, lines2)
+          # Show each diff's pre-formatted output
+          group.each do |section|
+            output << section[:formatted] if section[:formatted]
+          end
         else
-          # Single diff - no header needed
-          output << group[0][:formatted]
+          # Single diff - use the pre-formatted output with token highlighting
+          output << group[0][:formatted] if group[0][:formatted]
         end
       end
 
@@ -844,18 +910,32 @@ diff_grouping_lines: nil, visualization_map: nil)
     end
 
     # Format a contiguous code block showing all lines in range with diffs highlighted
-    def format_contiguous_context_block(group, lines1, lines2)
-      # Find the min/max line range across all diffs in the group
-      min_line1 = group.map { |s| s[:start_line1] }.compact.min
-      max_line1 = group.map { |s| s[:end_line1] }.compact.max
-      min_line2 = group.map { |s| s[:start_line2] }.compact.min
-      max_line2 = group.map { |s| s[:end_line2] }.compact.max
+      def format_contiguous_context_block(group, lines1, lines2)
+        # Find the min/max line range across all diffs in the group
+        # These ranges come directly from the DOM matcher which has already
+        # identified the correct elements that differ
+        min_line1 = group.map { |s| s[:start_line1] }.compact.min
+        max_line1 = group.map { |s| s[:end_line1] }.compact.max
+        min_line2 = group.map { |s| s[:start_line2] }.compact.min
+        max_line2 = group.map { |s| s[:end_line2] }.compact.max
 
-      return "" unless min_line1 && max_line1 && min_line2 && max_line2
+        return "" unless min_line1 || min_line2
 
-      # Extract the line ranges
-      range1_lines = lines1[min_line1..max_line1]
-      range2_lines = lines2[min_line2..max_line2]
+        # Expand to include complete parent elements
+        # The DOM matcher provides leaf-level differences, but we need to show
+        # complete parent context for readability
+        if min_line1 && max_line1
+          min_line1, max_line1 = expand_to_parent_elements(lines1, min_line1, max_line1)
+        end
+        if min_line2 && max_line2
+          min_line2, max_line2 = expand_to_parent_elements(lines2, min_line2, max_line2)
+        end
+
+      # Use the DOM-identified ranges directly without expansion
+      # The DOM matcher has already found the correct elements to compare
+      # Extract the line ranges (handle cases where one side might be nil)
+      range1_lines = min_line1 && max_line1 ? lines1[min_line1..max_line1] : []
+      range2_lines = min_line2 && max_line2 ? lines2[min_line2..max_line2] : []
 
       # Detect non-ASCII characters in the diff range
       all_text = (range1_lines + range2_lines).join
@@ -870,60 +950,197 @@ diff_grouping_lines: nil, visualization_map: nil)
         output << ""
       end
 
-      # Run LCS diff on this range
-      diffs = Diff::LCS.sdiff(range1_lines, range2_lines)
+      # Use DOM-based diff information from the group sections
+      # Build a map of which lines belong to which sections
+      line1_to_section = {}
+      line2_to_section = {}
 
-      line1 = min_line1
-      line2 = min_line2
-
-      diffs.each do |change|
-        case change.action
-        when "="
-          # Unchanged line
-          output << format_unified_line(line1 + 1, line2 + 1, " ",
-                                        change.old_element)
-          line1 += 1
-          line2 += 1
-        when "-"
-          # Deletion
-          output << format_unified_line(line1 + 1, nil, "-",
-                                        change.old_element, :red)
-          line1 += 1
-        when "+"
-          # Addition
-          output << format_unified_line(nil, line2 + 1, "+",
-                                        change.new_element, :green)
-          line2 += 1
-        when "!"
-          # Change - show with token-level highlighting
-          old_tokens = tokenize_xml(change.old_element)
-          new_tokens = tokenize_xml(change.new_element)
-          token_diffs = Diff::LCS.sdiff(old_tokens, new_tokens)
-
-          old_highlighted = build_token_highlighted_text(token_diffs, :old)
-          new_highlighted = build_token_highlighted_text(token_diffs, :new)
-
-          if @use_color
-            yellow_old = Paint["%4d" % (line1 + 1), :yellow]
-            yellow_pipe1 = Paint["|", :yellow]
-            yellow_new = Paint["%4d" % (line2 + 1), :yellow]
-            yellow_pipe2 = Paint["|", :yellow]
-            red_marker = Paint["-", :red]
-            green_marker = Paint["+", :green]
-
-            output << "#{yellow_old}#{yellow_pipe1}    #{red_marker} #{yellow_pipe2} #{old_highlighted}"
-            output << "    #{yellow_pipe1}#{yellow_new}#{green_marker} #{yellow_pipe2} #{new_highlighted}"
-          else
-            output << "#{'%4d' % (line1 + 1)}|    - | #{old_highlighted}"
-            output << "    |#{'%4d' % (line2 + 1)}+ | #{new_highlighted}"
+      group.each do |section|
+        if section[:start_line1] && section[:end_line1]
+          (section[:start_line1]..section[:end_line1]).each do |line_num|
+            line1_to_section[line_num] = section
           end
+        end
+        if section[:start_line2] && section[:end_line2]
+          (section[:start_line2]..section[:end_line2]).each do |line_num|
+            line2_to_section[line_num] = section
+          end
+        end
+      end
 
-          line1 += 1
-          line2 += 1
+      # Process lines based on DOM diff information
+      # When elements are grouped together, we show ALL lines in the range
+      # The grouping logic already determined these lines should be shown together
+
+      # Show all lines from file1 in the range as deletions
+      # This ensures multi-line elements that get compressed are fully shown
+      if min_line1 && max_line1
+        (min_line1..max_line1).each do |i|
+          line_content = lines1[i]
+          output << format_unified_line(i + 1, nil, "-", line_content, :red)
+        end
+      end
+
+      # Show all lines from file2 in the range as additions
+      # This ensures single-line elements that expand are fully shown
+      if min_line2 && max_line2
+        (min_line2..max_line2).each do |i|
+          line_content = lines2[i]
+          output << format_unified_line(nil, i + 1, "+", line_content, :green)
         end
       end
 
       output.join("\n")
+    end
+
+    # Expand line range to include the immediate parent element that contains changes
+    # Only includes lines from parent opening tag to the last changed line's closing tag
+    def expand_to_parent_elements(lines, min_line, max_line)
+      return [min_line, max_line] if lines.empty?
+
+      expanded_min = min_line
+      expanded_max = max_line
+
+      # Track tag stack as we scan backwards to find the immediate parent
+      tag_stack = []
+
+      # Scan backwards from min_line - 1 to find the immediate parent opening tag
+      i = min_line - 1
+      scan_limit = [min_line - 10, 0].max  # Limit backward scan to 10 lines
+
+      while i >= scan_limit
+        line = lines[i]
+
+        # Process this line to update tag stack
+        # We scan the line in reverse to properly handle tag nesting
+        # Find all tags in this line (both opening and closing)
+        tags_in_line = []
+
+        # Find closing tags (these would have been opened before this line)
+        line.scan(/<\/([\w:-]+)>/) do |match|
+          tags_in_line << { type: :closing, name: match[0], pos: Regexp.last_match.begin(0) }
+        end
+
+        # Find opening tags (but skip self-closing ones)
+        line.scan(/<([\w:-]+)(?:\s[^>]*)?>/) do |match|
+          tag_name = match[0]
+          match_start = Regexp.last_match.begin(0)
+          match_full = Regexp.last_match[0]
+
+          # Skip self-closing tags
+          next if match_full.end_with?("/>")
+
+          # Check if closing tag exists on same line after this opening tag
+          closing_match = line[match_start..].match(/<\/#{Regexp.escape(tag_name)}>/)
+          next if closing_match
+
+          tags_in_line << { type: :opening, name: tag_name, pos: match_start }
+        end
+
+        # Sort tags by position (in reverse order for this line)
+        tags_in_line.sort_by! { |t| -t[:pos] }
+
+        # Process tags in reverse order (right to left on the line)
+        tags_in_line.each do |tag_info|
+          if tag_info[:type] == :closing
+            # Add to stack - we're moving backwards so closing tags mean we need to find their opening
+            tag_stack << tag_info[:name]
+          elsif tag_info[:type] == :opening
+            # This is an opening tag
+            if tag_stack.empty?
+              # No matching closing tag in our range - this is a parent element!
+              # Expand to include this line
+              expanded_min = i
+            elsif tag_stack.last == tag_info[:name]
+              # This opening tag matches the last closing tag we saw
+              tag_stack.pop
+            else
+              # Mismatched - still a parent element
+              expanded_min = i
+            end
+          end
+        end
+
+        # If we found parent elements and the stack is now empty, we can stop
+        # (but only if we've expanded)
+        break if tag_stack.empty? && expanded_min < min_line
+
+        i -= 1
+      end
+
+      # Now scan forwards from max_line + 1 to find closing tags
+      # We need to find closing tags for any elements opened in our expanded range
+      tag_stack = []
+
+      # First, build the tag stack from our expanded range
+      (expanded_min..max_line).each do |line_idx|
+        line = lines[line_idx]
+
+        # Find all tags in this line
+        tags_in_line = []
+
+        # Find opening tags (but skip self-closing ones)
+        line.scan(/<([\w:-]+)(?:\s[^>]*)?>/) do |match|
+          tag_name = match[0]
+          match_start = Regexp.last_match.begin(0)
+          match_full = Regexp.last_match[0]
+
+          # Skip self-closing tags
+          next if match_full.end_with?("/>")
+
+          # Check if closing tag exists on same line after this opening tag
+          closing_match = line[match_start..].match(/<\/#{Regexp.escape(tag_name)}>/)
+          next if closing_match
+
+          tags_in_line << { type: :opening, name: tag_name, pos: match_start }
+        end
+
+        # Find closing tags
+        line.scan(/<\/([\w:-]+)>/) do |match|
+          tags_in_line << { type: :closing, name: match[0], pos: Regexp.last_match.begin(0) }
+        end
+
+        # Sort tags by position (left to right)
+        tags_in_line.sort_by! { |t| t[:pos] }
+
+        # Process tags in order
+        tags_in_line.each do |tag_info|
+          if tag_info[:type] == :opening
+            tag_stack << tag_info[:name]
+          elsif tag_info[:type] == :closing
+            # Remove from stack if present
+            if tag_stack.include?(tag_info[:name])
+              # Remove the last occurrence
+              idx = tag_stack.rindex(tag_info[:name])
+              tag_stack.delete_at(idx) if idx
+            end
+          end
+        end
+      end
+
+      # Now scan forward to find closing tags for remaining open tags
+      j = max_line + 1
+      scan_limit = [max_line + 50, lines.length - 1].min
+
+      while j <= scan_limit && !tag_stack.empty?
+        line = lines[j]
+
+        # Check for closing tags
+        line.scan(/<\/([\w:-]+)>/) do |match|
+          tag_name = match[0]
+          if tag_stack.include?(tag_name)
+            # Found a closing tag we need
+            expanded_max = j
+            # Remove from stack
+            idx = tag_stack.rindex(tag_name)
+            tag_stack.delete_at(idx) if idx
+          end
+        end
+
+        j += 1
+      end
+
+      [expanded_min, expanded_max]
     end
 
     # Check if elements only differ in their children (not in attributes or direct content)
@@ -945,6 +1162,7 @@ _all_matched_elements)
     end
 
     # Format a matched element showing differences
+    # Uses object-oriented approach: identify diff blocks, group by proximity, expand with context
     def format_matched_element(match, map1, map2, lines1, lines2)
       range1 = map1[match.elem1]
       range2 = map2[match.elem2]
@@ -958,43 +1176,252 @@ _all_matched_elements)
       # Skip if identical
       return nil if elem_lines1 == elem_lines2
 
+      # Run line diff on the element's lines
+      diffs = ::Diff::LCS.sdiff(elem_lines1, elem_lines2)
+
+      # Step 1: Identify diff blocks (contiguous runs of changes)
+      diff_blocks = identify_diff_blocks(diffs)
+
+      # If no diff blocks found, skip this element
+      return nil if diff_blocks.empty?
+
+      # Step 2: Group diff blocks into contexts based on diff_grouping_lines
+      contexts = group_diff_blocks_into_contexts(diff_blocks, @diff_grouping_lines || 0)
+
+      # Step 3: Expand each context with context_lines
+      expanded_contexts = expand_contexts_with_context_lines(contexts, @context_lines, diffs.length)
+
+      # Step 4: Format each context separately
       output = []
       path_str = match.path.join("/")
-      output << colorize("Element: #{path_str}", :cyan, :bold)
 
-      # For elements with only opening tag changes (like attribute additions)
-      # show just the opening tag line
-      if elem_lines1.length == elem_lines2.length &&
-          elem_lines1[1..] == elem_lines2[1..] &&
-          elem_lines1[0] != elem_lines2[0]
-        # Only first line differs - show token-level diff for opening tag
-        old_tokens = tokenize_xml(elem_lines1[0])
-        new_tokens = tokenize_xml(elem_lines2[0])
-        token_diffs = Diff::LCS.sdiff(old_tokens, new_tokens)
-
-        old_highlighted = build_token_highlighted_text(token_diffs, :old)
-        new_highlighted = build_token_highlighted_text(token_diffs, :new)
-
-        output << "#{'%4d' % (range1.start_line + 1)}|    - | #{old_highlighted}"
-        output << "    |#{'%4d' % (range2.start_line + 1)}+ | #{new_highlighted}"
-
-        return output.join("\n")
+      # Only show element header if there are multiple contexts or if explicitly needed
+      if expanded_contexts.length > 1
+        output << colorize("Element: #{path_str}", :cyan, :bold)
+        output << colorize("Context block has #{expanded_contexts.length} diffs", :yellow, :bold)
+        output << ""
       end
 
-      # Run line diff on the element's lines
-      diffs = Diff::LCS.sdiff(elem_lines1, elem_lines2)
+      expanded_contexts.each_with_index do |context, idx|
+        # Add spacing between contexts (but not before the first)
+        output << "" if idx > 0
 
-      # Format line-by-line within element, grouping consecutive changes
-      line1 = range1.start_line
-      line2 = range2.start_line
+        # Format the context
+        output << format_context(context, diffs, range1.start_line, range2.start_line)
+      end
 
-      i = 0
-      while i < diffs.length
-        change = diffs[i]
+      output.join("\n")
+    end
+
+    # Identify contiguous diff blocks in a diff array
+    # A diff block is a contiguous run of changes (-, +, !)
+    # Returns array of DiffBlock objects
+    def identify_diff_blocks(diffs)
+      blocks = []
+      current_start = nil
+      current_types = []
+
+      diffs.each_with_index do |change, idx|
+        if change.action != "="
+          # This is a change
+          if current_start.nil?
+            # Start new block
+            current_start = idx
+            current_types = [change.action]
+          else
+            # Extend current block
+            current_types << change.action unless current_types.include?(change.action)
+          end
+        else
+          # This is context (unchanged)
+          if current_start
+            # End current block
+            blocks << Canon::Diff::DiffBlock.new(
+              start_idx: current_start,
+              end_idx: idx - 1,
+              types: current_types
+            )
+            current_start = nil
+            current_types = []
+          end
+        end
+      end
+
+      # Don't forget the last block if it extends to the end
+      if current_start
+        blocks << Canon::Diff::DiffBlock.new(
+          start_idx: current_start,
+          end_idx: diffs.length - 1,
+          types: current_types
+        )
+      end
+
+      blocks
+    end
+
+    # Group diff blocks into contexts based on proximity (diff_grouping_lines)
+    # Returns array of arrays: [[block1, block2], [block3], ...]
+    def group_diff_blocks_into_contexts(blocks, grouping_lines)
+      return [] if blocks.empty?
+
+      contexts = []
+      current_context = [blocks[0]]
+
+      blocks[1..].each do |block|
+        last_block = current_context.last
+        gap = block.start_idx - last_block.end_idx - 1
+
+        if gap <= grouping_lines
+          # Within grouping distance - add to current context
+          current_context << block
+        else
+          # Too far - start new context
+          contexts << current_context
+          current_context = [block]
+        end
+      end
+
+      # Add final context
+      contexts << current_context unless current_context.empty?
+
+      contexts
+    end
+
+    # Expand each context with context_lines before/after
+    # Returns array of DiffContext objects
+    def expand_contexts_with_context_lines(contexts, context_lines, total_lines)
+      contexts.map do |context|
+        first_block = context.first
+        last_block = context.last
+
+        # Expand with context_lines, but don't go out of bounds
+        start_idx = [first_block.start_idx - context_lines, 0].max
+        end_idx = [last_block.end_idx + context_lines, total_lines - 1].min
+
+        Canon::Diff::DiffContext.new(
+          start_idx: start_idx,
+          end_idx: end_idx,
+          blocks: context
+        )
+      end
+    end
+
+    # Format a context (a group of diff blocks with surrounding context lines)
+    def format_context(context, diffs, base_line1, base_line2)
+      output = []
+
+      # Process each diff item in the context range
+      (context.start_idx..context.end_idx).each do |idx|
+        change = diffs[idx]
+
+        # Get absolute line numbers from the diff positions
+        line1 = change.old_position ? base_line1 + change.old_position + 1 : nil
+        line2 = change.new_position ? base_line2 + change.new_position + 1 : nil
 
         case change.action
         when "="
-          # Unchanged line
+          # Unchanged line (context)
+          output << format_unified_line(line1, line2, " ", change.old_element)
+        when "-"
+          # Deletion
+          output << format_unified_line(line1, nil, "-", change.old_element, :red)
+        when "+"
+          # Addition
+          output << format_unified_line(nil, line2, "+", change.new_element, :green)
+        when "!"
+          # Change - show with token-level highlighting
+          old_tokens = tokenize_xml(change.old_element)
+          new_tokens = tokenize_xml(change.new_element)
+          token_diffs = ::Diff::LCS.sdiff(old_tokens, new_tokens)
+
+          old_highlighted = build_token_highlighted_text(token_diffs, :old)
+          new_highlighted = build_token_highlighted_text(token_diffs, :new)
+
+          if @use_color
+            yellow_old = Paint["%4d" % line1, :yellow]
+            yellow_pipe1 = Paint["|", :yellow]
+            yellow_new = Paint["%4d" % line2, :yellow]
+            yellow_pipe2 = Paint["|", :yellow]
+            red_marker = Paint["-", :red]
+            green_marker = Paint["+", :green]
+
+            output << "#{yellow_old}#{yellow_pipe1}    #{red_marker} #{yellow_pipe2} #{old_highlighted}"
+            output << "    #{yellow_pipe1}#{yellow_new}#{green_marker} #{yellow_pipe2} #{new_highlighted}"
+          else
+            output << "#{'%4d' % line1}|    - | #{old_highlighted}"
+            output << "    |#{'%4d' % line2}+ | #{new_highlighted}"
+          end
+        end
+      end
+
+      output.join("\n")
+    end
+
+    # Build hunks from diffs with context and grouping
+    def build_hunks_from_diffs(diffs, context_lines, diff_grouping_lines)
+      return [] if diffs.empty?
+
+      hunks = []
+      current_hunk = []
+      last_change_index = -context_lines - 1
+
+      # Use diff_grouping_lines if set, otherwise use context_lines * 2 for grouping
+      grouping_distance = diff_grouping_lines || (context_lines * 2)
+
+      diffs.each_with_index do |change, index|
+        # Check if we should start a new hunk based on grouping distance
+        if !current_hunk.empty? && index - last_change_index > grouping_distance + 1
+          hunks << current_hunk
+          current_hunk = []
+        end
+
+        # Add context before first change in hunk
+        if current_hunk.empty? && change.action != "="
+          start_context = [index - context_lines, 0].max
+          (start_context...index).each do |i|
+            current_hunk << diffs[i] if i < diffs.length
+          end
+        end
+
+        current_hunk << change
+
+        # Track last change for hunk grouping
+        last_change_index = index if change.action != "="
+      end
+
+      # Add context after last change in final hunk
+      unless current_hunk.empty?
+        # Find the last change index in current hunk
+        last_change_idx = current_hunk.rindex { |c| c.action != "=" }
+        if last_change_idx
+          # Add context lines after the last change
+          context_start = last_change_idx + 1
+          context_end = [last_change_idx + context_lines, current_hunk.length - 1].min
+          # Context lines are already in the hunk, we just need to make sure
+          # we don't add more than needed
+        end
+        hunks << current_hunk
+      end
+
+      hunks
+    end
+
+    # Format a hunk within an element
+    def format_element_hunk(hunk, base_line1, base_line2)
+      output = []
+
+      # Find the first change to determine starting line numbers
+      first_change = hunk.first
+      line1 = base_line1 + (first_change.old_position || 0)
+      line2 = base_line2 + (first_change.new_position || 0)
+
+      i = 0
+      while i < hunk.length
+        change = hunk[i]
+
+        case change.action
+        when "="
+          # Unchanged line (context)
           output << format_unified_line(line1 + 1, line2 + 1, " ",
                                         change.old_element)
           line1 += 1
@@ -1003,8 +1430,8 @@ _all_matched_elements)
         when "-"
           # Collect consecutive deletions
           del_lines = []
-          while i < diffs.length && diffs[i].action == "-"
-            del_lines << { line_num: line1 + 1, text: diffs[i].old_element }
+          while i < hunk.length && hunk[i].action == "-"
+            del_lines << { line_num: line1 + 1, text: hunk[i].old_element }
             line1 += 1
             i += 1
           end
@@ -1017,8 +1444,8 @@ _all_matched_elements)
         when "+"
           # Collect consecutive additions
           add_lines = []
-          while i < diffs.length && diffs[i].action == "+"
-            add_lines << { line_num: line2 + 1, text: diffs[i].new_element }
+          while i < hunk.length && hunk[i].action == "+"
+            add_lines << { line_num: line2 + 1, text: hunk[i].new_element }
             line2 += 1
             i += 1
           end
@@ -1031,12 +1458,12 @@ _all_matched_elements)
         when "!"
           # Collect consecutive changes
           change_pairs = []
-          while i < diffs.length && diffs[i].action == "!"
+          while i < hunk.length && hunk[i].action == "!"
             change_pairs << {
               old_line: line1 + 1,
               new_line: line2 + 1,
-              old_text: diffs[i].old_element,
-              new_text: diffs[i].new_element,
+              old_text: hunk[i].old_element,
+              new_text: hunk[i].new_element,
             }
             line1 += 1
             line2 += 1
@@ -1047,7 +1474,7 @@ _all_matched_elements)
           change_pairs.each do |pair|
             old_tokens = tokenize_xml(pair[:old_text])
             new_tokens = tokenize_xml(pair[:new_text])
-            token_diffs = Diff::LCS.sdiff(old_tokens, new_tokens)
+            token_diffs = ::Diff::LCS.sdiff(old_tokens, new_tokens)
 
             old_highlighted = build_token_highlighted_text(token_diffs, :old)
             new_highlighted = build_token_highlighted_text(token_diffs, :new)

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root>
+  <section>
+    <paragraph>
+      <text>
+        This is a long text
+        with multiple lines
+        containing a <bold>highlighted</bold> word
+        in the middle of
+        the paragraph content.
+      </text>
+    </paragraph>
+  </section>
+</root>

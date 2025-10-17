@@ -1,0 +1,11 @@
+<?xml version="1.0"?>
+<iso-standard xmlns="http://riboseinc.com/isoxml" type="presentation">
+    <preface><clause type="toc" id="_" displayorder="1"><fmt-title depth="1" id="_">Table of contents</fmt-title></clause>
+<foreword id="fwd" displayorder="2"><title id="_">Foreword</title><fmt-title depth="1" id="_"><semx element="title" source="_">Foreword</semx></fmt-title>
+    <quote id="_">
+  <source type="inline" bibitemid="ISO7301" citeas="ISO 7301:2011" id="_"><locality type="clause"><referenceFrom>1</referenceFrom></locality></source>
+  <author id="_">ISO</author>
+  <p id="_">This International Standard gives the minimum specifications for rice (<em>Oryza sativa</em> L.) which is subject to international trade. It is applicable to the following types: husked rice and milled rice, parboiled or not, intended for direct human consumption. It is neither applicable to other products derived from rice, nor to waxy rice (glutinous rice).</p>
+<attribution><p>&#x2014; <semx element="author" source="_">ISO</semx>, <semx element="source" source="_"><fmt-eref type="inline" bibitemid="ISO7301" citeas="ISO 7301:2011"><locality type="clause"><referenceFrom>1</referenceFrom></locality>ISO&#xA0;7301:2011,  Clause 1</fmt-eref></semx></p></attribution></quote>
+    </foreword></preface>
+    </iso-standard>

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root>
+  <section>
+    <paragraph>
+      <text>First <em>word</em> and second <strong>phrase</strong> here and third <code>item</code> as well.</text>
+    </paragraph>
+  </section>
+</root>

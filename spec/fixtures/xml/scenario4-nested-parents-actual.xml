@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root>
+  <section>
+    <outer>
+      <middle>
+        <inner>
+          <text>Some content with <em>nested</em> element and more lines that continue here.</text>
+        </inner>
+      </middle>
+    </outer>
+    <unrelated>
+      <content>This should not appear in diff</content>
+    </unrelated>
+  </section>
+</root>
