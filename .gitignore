@@ -11,4 +11,9 @@
 .rspec_status
 .rubocop-https*
 Gemfile.lock
+
+# Temporary/planning files (not part of repository)
 *.md
+!README.adoc
+!CODE_OF_CONDUCT.md
+debug_*.rb
