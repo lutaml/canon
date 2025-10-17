@@ -69,7 +69,7 @@ module Canon
             ignore_comments: true,
             ignore_attr_order: true,
           }
-          Canon::Comparison::Xml.equivalent?(@target, @expected, opts)
+          Canon::Comparison::XmlComparator.equivalent?(@target, @expected, opts)
         else
           @actual_sorted == @expected_sorted
         end
@@ -170,19 +170,19 @@ module Canon
       private
 
       def compare_for_diff_mode
-        # Use format-specific comparison modules for by_object mode
+        # Use format-specific comparison classes for by_object mode
         case @format
         when :json
-          Canon::Comparison::Json.equivalent?(@expected_sorted, @actual_sorted,
+          Canon::Comparison::JsonComparator.equivalent?(@expected_sorted, @actual_sorted,
                                               verbose: true)
         when :yaml
-          Canon::Comparison::Yaml.equivalent?(@expected_sorted, @actual_sorted,
+          Canon::Comparison::YamlComparator.equivalent?(@expected_sorted, @actual_sorted,
                                               verbose: true)
         when :xml
-          Canon::Comparison::Xml.equivalent?(@expected_sorted, @actual_sorted,
+          Canon::Comparison::XmlComparator.equivalent?(@expected_sorted, @actual_sorted,
                                              verbose: true)
         when :html, :html4, :html5
-          Canon::Comparison::Html.equivalent?(@expected_sorted, @actual_sorted,
+          Canon::Comparison::HtmlComparator.equivalent?(@expected_sorted, @actual_sorted,
                                               verbose: true)
         else
           []

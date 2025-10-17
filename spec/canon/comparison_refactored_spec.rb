@@ -2,6 +2,10 @@
 
 require "spec_helper"
 require "canon/comparison"
+require "canon/comparison/xml_comparator"
+require "canon/comparison/html_comparator"
+require "canon/comparison/json_comparator"
+require "canon/comparison/yaml_comparator"
 
 RSpec.describe Canon::Comparison do
   describe "format detection" do
@@ -192,7 +196,7 @@ RSpec.describe Canon::Comparison do
     end
   end
 
-  describe Canon::Comparison::Xml do
+  describe Canon::Comparison::XmlComparator do
     describe ".equivalent?" do
       it "compares XML strings" do
         xml1 = "<root><a>1</a></root>"
@@ -219,7 +223,7 @@ RSpec.describe Canon::Comparison do
     end
   end
 
-  describe Canon::Comparison::Html do
+  describe Canon::Comparison::HtmlComparator do
     describe ".equivalent?" do
       it "compares HTML strings" do
         html1 = "<div><p>test</p></div>"
@@ -246,7 +250,7 @@ RSpec.describe Canon::Comparison do
     end
   end
 
-  describe Canon::Comparison::Json do
+  describe Canon::Comparison::JsonComparator do
     describe ".equivalent?" do
       it "compares JSON strings" do
         json1 = '{"a":1,"b":2}'
@@ -281,7 +285,7 @@ RSpec.describe Canon::Comparison do
     end
   end
 
-  describe Canon::Comparison::Yaml do
+  describe Canon::Comparison::YamlComparator do
     describe ".equivalent?" do
       it "compares YAML strings" do
         yaml1 = "---\na: 1\nb: 2\n"
