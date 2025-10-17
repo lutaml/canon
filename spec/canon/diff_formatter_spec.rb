@@ -327,7 +327,7 @@ RSpec.describe Canon::DiffFormatter do
   describe "XML by-line mode with DOM-guided diff" do
     let(:xml_formatter) do
       described_class.new(use_color: false, mode: :by_line,
-                         diff_grouping_lines: 10)
+                          diff_grouping_lines: 10)
     end
 
     context "when multi-line content is compressed to single line" do

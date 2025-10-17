@@ -27,7 +27,7 @@ module Canon
         {
           start_idx: start_idx,
           end_idx: end_idx,
-          types: types
+          types: types,
         }
       end
 

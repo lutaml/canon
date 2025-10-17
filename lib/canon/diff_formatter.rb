@@ -396,15 +396,15 @@ diff_grouping_lines: nil, visualization_map: nil)
         matcher = Canon::Xml::ElementMatcher.new
         matches = matcher.match_trees(root1, root2)
 
-        # Build line range maps
+        # Build line range maps using ORIGINAL documents to preserve line structure
         mapper1 = Canon::Xml::LineRangeMapper.new(indent: 2)
         mapper2 = Canon::Xml::LineRangeMapper.new(indent: 2)
         map1 = mapper1.build_map(root1, xml1)
         map2 = mapper2.build_map(root2, xml2)
 
-        # Get pretty-printed lines
-        lines1 = Canon::Xml::PrettyPrinter.new(indent: 2).format(xml1).split("\n")
-        lines2 = Canon::Xml::PrettyPrinter.new(indent: 2).format(xml2).split("\n")
+        # Use ORIGINAL document lines for display to preserve line structure
+        lines1 = xml1.split("\n")
+        lines2 = xml2.split("\n")
 
         # Display diffs based on element matches
         output << format_element_matches(matches, map1, map2, lines1, lines2)
@@ -734,7 +734,7 @@ diff_grouping_lines: nil, visualization_map: nil)
 
         # Also check the other side
         other_elem = match.elem1 ? match.elem2 : match.elem1
-        next unless other_elem&.respond_to?(:children)
+        next unless other_elem.respond_to?(:children)
 
         other_elem.children.each do |child|
           children_of_matched_parents.add(child) if child.respond_to?(:name)
@@ -884,7 +884,7 @@ diff_grouping_lines: nil, visualization_map: nil)
     end
 
     # Format groups of diffs
-    def format_diff_groups(groups, lines1, lines2)
+    def format_diff_groups(groups, _lines1, _lines2)
       output = []
 
       groups.each_with_index do |group, group_idx|
@@ -900,9 +900,9 @@ diff_grouping_lines: nil, visualization_map: nil)
           group.each do |section|
             output << section[:formatted] if section[:formatted]
           end
-        else
+        elsif group[0][:formatted]
           # Single diff - use the pre-formatted output with token highlighting
-          output << group[0][:formatted] if group[0][:formatted]
+          output << group[0][:formatted]
         end
       end
 
@@ -910,26 +910,28 @@ diff_grouping_lines: nil, visualization_map: nil)
     end
 
     # Format a contiguous code block showing all lines in range with diffs highlighted
-      def format_contiguous_context_block(group, lines1, lines2)
-        # Find the min/max line range across all diffs in the group
-        # These ranges come directly from the DOM matcher which has already
-        # identified the correct elements that differ
-        min_line1 = group.map { |s| s[:start_line1] }.compact.min
-        max_line1 = group.map { |s| s[:end_line1] }.compact.max
-        min_line2 = group.map { |s| s[:start_line2] }.compact.min
-        max_line2 = group.map { |s| s[:end_line2] }.compact.max
+    def format_contiguous_context_block(group, lines1, lines2)
+      # Find the min/max line range across all diffs in the group
+      # These ranges come directly from the DOM matcher which has already
+      # identified the correct elements that differ
+      min_line1 = group.map { |s| s[:start_line1] }.compact.min
+      max_line1 = group.map { |s| s[:end_line1] }.compact.max
+      min_line2 = group.map { |s| s[:start_line2] }.compact.min
+      max_line2 = group.map { |s| s[:end_line2] }.compact.max
 
-        return "" unless min_line1 || min_line2
+      return "" unless min_line1 || min_line2
 
-        # Expand to include complete parent elements
-        # The DOM matcher provides leaf-level differences, but we need to show
-        # complete parent context for readability
-        if min_line1 && max_line1
-          min_line1, max_line1 = expand_to_parent_elements(lines1, min_line1, max_line1)
-        end
-        if min_line2 && max_line2
-          min_line2, max_line2 = expand_to_parent_elements(lines2, min_line2, max_line2)
-        end
+      # Expand to include complete parent elements
+      # The DOM matcher provides leaf-level differences, but we need to show
+      # complete parent context for readability
+      if min_line1 && max_line1
+        min_line1, max_line1 = expand_to_parent_elements(lines1, min_line1,
+                                                         max_line1)
+      end
+      if min_line2 && max_line2
+        min_line2, max_line2 = expand_to_parent_elements(lines2, min_line2,
+                                                         max_line2)
+      end
 
       # Use the DOM-identified ranges directly without expansion
       # The DOM matcher has already found the correct elements to compare
@@ -1006,7 +1008,7 @@ diff_grouping_lines: nil, visualization_map: nil)
 
       # Scan backwards from min_line - 1 to find the immediate parent opening tag
       i = min_line - 1
-      scan_limit = [min_line - 10, 0].max  # Limit backward scan to 10 lines
+      scan_limit = [min_line - 10, 0].max # Limit backward scan to 10 lines
 
       while i >= scan_limit
         line = lines[i]
@@ -1018,7 +1020,8 @@ diff_grouping_lines: nil, visualization_map: nil)
 
         # Find closing tags (these would have been opened before this line)
         line.scan(/<\/([\w:-]+)>/) do |match|
-          tags_in_line << { type: :closing, name: match[0], pos: Regexp.last_match.begin(0) }
+          tags_in_line << { type: :closing, name: match[0],
+                            pos: Regexp.last_match.begin(0) }
         end
 
         # Find opening tags (but skip self-closing ones)
@@ -1097,7 +1100,8 @@ diff_grouping_lines: nil, visualization_map: nil)
 
         # Find closing tags
         line.scan(/<\/([\w:-]+)>/) do |match|
-          tags_in_line << { type: :closing, name: match[0], pos: Regexp.last_match.begin(0) }
+          tags_in_line << { type: :closing, name: match[0],
+                            pos: Regexp.last_match.begin(0) }
         end
 
         # Sort tags by position (left to right)
@@ -1186,10 +1190,12 @@ _all_matched_elements)
       return nil if diff_blocks.empty?
 
       # Step 2: Group diff blocks into contexts based on diff_grouping_lines
-      contexts = group_diff_blocks_into_contexts(diff_blocks, @diff_grouping_lines || 0)
+      contexts = group_diff_blocks_into_contexts(diff_blocks,
+                                                 @diff_grouping_lines || 0)
 
       # Step 3: Expand each context with context_lines
-      expanded_contexts = expand_contexts_with_context_lines(contexts, @context_lines, diffs.length)
+      expanded_contexts = expand_contexts_with_context_lines(contexts,
+                                                             @context_lines, diffs.length)
 
       # Step 4: Format each context separately
       output = []
@@ -1198,16 +1204,19 @@ _all_matched_elements)
       # Only show element header if there are multiple contexts or if explicitly needed
       if expanded_contexts.length > 1
         output << colorize("Element: #{path_str}", :cyan, :bold)
-        output << colorize("Context block has #{expanded_contexts.length} diffs", :yellow, :bold)
+        output << colorize(
+          "Context block has #{expanded_contexts.length} diffs", :yellow, :bold
+        )
         output << ""
       end
 
       expanded_contexts.each_with_index do |context, idx|
         # Add spacing between contexts (but not before the first)
-        output << "" if idx > 0
+        output << "" if idx.positive?
 
         # Format the context
-        output << format_context(context, diffs, range1.start_line, range2.start_line)
+        output << format_context(context, diffs, range1.start_line,
+                                 range2.start_line)
       end
 
       output.join("\n")
@@ -1232,18 +1241,16 @@ _all_matched_elements)
             # Extend current block
             current_types << change.action unless current_types.include?(change.action)
           end
-        else
+        elsif current_start
           # This is context (unchanged)
-          if current_start
-            # End current block
-            blocks << Canon::Diff::DiffBlock.new(
-              start_idx: current_start,
-              end_idx: idx - 1,
-              types: current_types
-            )
-            current_start = nil
-            current_types = []
-          end
+          blocks << Canon::Diff::DiffBlock.new(
+            start_idx: current_start,
+            end_idx: idx - 1,
+            types: current_types,
+          )
+          current_start = nil
+          current_types = []
+          # End current block
         end
       end
 
@@ -1252,7 +1259,7 @@ _all_matched_elements)
         blocks << Canon::Diff::DiffBlock.new(
           start_idx: current_start,
           end_idx: diffs.length - 1,
-          types: current_types
+          types: current_types,
         )
       end
 
@@ -1301,7 +1308,7 @@ _all_matched_elements)
         Canon::Diff::DiffContext.new(
           start_idx: start_idx,
           end_idx: end_idx,
-          blocks: context
+          blocks: context,
         )
       end
     end
@@ -1324,10 +1331,12 @@ _all_matched_elements)
           output << format_unified_line(line1, line2, " ", change.old_element)
         when "-"
           # Deletion
-          output << format_unified_line(line1, nil, "-", change.old_element, :red)
+          output << format_unified_line(line1, nil, "-", change.old_element,
+                                        :red)
         when "+"
           # Addition
-          output << format_unified_line(nil, line2, "+", change.new_element, :green)
+          output << format_unified_line(nil, line2, "+", change.new_element,
+                                        :green)
         when "!"
           # Change - show with token-level highlighting
           old_tokens = tokenize_xml(change.old_element)
@@ -1395,8 +1404,9 @@ _all_matched_elements)
         last_change_idx = current_hunk.rindex { |c| c.action != "=" }
         if last_change_idx
           # Add context lines after the last change
-          context_start = last_change_idx + 1
-          context_end = [last_change_idx + context_lines, current_hunk.length - 1].min
+          last_change_idx + 1
+          [last_change_idx + context_lines,
+           current_hunk.length - 1].min
           # Context lines are already in the hunk, we just need to make sure
           # we don't add more than needed
         end

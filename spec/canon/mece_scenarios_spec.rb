@@ -3,7 +3,7 @@ require "spec_helper"
 RSpec.describe "MECE XML Diff Scenarios" do
   let(:formatter) do
     Canon::DiffFormatter.new(use_color: false, mode: :by_line,
-                            context_lines: 0, diff_grouping_lines: 10)
+                             context_lines: 0, diff_grouping_lines: 10)
   end
 
   def format_diff(expected_path, actual_path)
@@ -18,11 +18,11 @@ RSpec.describe "MECE XML Diff Scenarios" do
       actual_path = "spec/fixtures/xml/scenario1-single-leaf-single-line-parent-actual.xml"
 
       diff = format_diff(expected_path, actual_path)
-      puts "\n" + "="*80
+      puts "\n#{'=' * 80}"
       puts "SCENARIO 1: Single leaf change in single-line parent"
-      puts "="*80
+      puts "=" * 80
       puts diff
-      puts "="*80
+      puts "=" * 80
 
       # The diff should show:
       # - Line 5 with <bold>world</bold> (file 1)
@@ -37,11 +37,11 @@ RSpec.describe "MECE XML Diff Scenarios" do
       actual_path = "spec/fixtures/xml/scenario2-single-leaf-multiline-parent-actual.xml"
 
       diff = format_diff(expected_path, actual_path)
-      puts "\n" + "="*80
+      puts "\n#{'=' * 80}"
       puts "SCENARIO 2: Single leaf change in multi-line parent"
-      puts "="*80
+      puts "=" * 80
       puts diff
-      puts "="*80
+      puts "=" * 80
 
       # The diff should show:
       # - Opening <text> tag (line 5)
@@ -59,11 +59,11 @@ RSpec.describe "MECE XML Diff Scenarios" do
       actual_path = "spec/fixtures/xml/scenario3-multiple-leaves-same-parent-actual.xml"
 
       diff = format_diff(expected_path, actual_path)
-      puts "\n" + "="*80
+      puts "\n#{'=' * 80}"
       puts "SCENARIO 3: Multiple leaf changes in same parent"
-      puts "="*80
+      puts "=" * 80
       puts diff
-      puts "="*80
+      puts "=" * 80
 
       # The diff should show:
       # - Opening <text> tag
@@ -79,11 +79,11 @@ RSpec.describe "MECE XML Diff Scenarios" do
       actual_path = "spec/fixtures/xml/scenario4-nested-parents-actual.xml"
 
       diff = format_diff(expected_path, actual_path)
-      puts "\n" + "="*80
+      puts "\n#{'=' * 80}"
       puts "SCENARIO 4: Nested parents with changes"
-      puts "="*80
+      puts "=" * 80
       puts diff
-      puts "="*80
+      puts "=" * 80
 
       # The diff should show:
       # - Opening <text> tag
@@ -103,11 +103,11 @@ RSpec.describe "MECE XML Diff Scenarios" do
       actual_path = "spec/fixtures/xml/isodoc-blockquotes-actual.xml"
 
       diff = format_diff(expected_path, actual_path)
-      puts "\n" + "="*80
+      puts "\n#{'=' * 80}"
       puts "SCENARIO 5: Original isodoc blockquotes case"
-      puts "="*80
+      puts "=" * 80
       puts diff
-      puts "="*80
+      puts "=" * 80
 
       # The diff should show ALL lines from the <p> element inside <attribution>
       # Currently it's missing lines after line 21 in the diff output
