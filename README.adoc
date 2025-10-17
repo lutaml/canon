@@ -1224,10 +1224,10 @@ Controls whether diff output includes ANSI color codes.
 * Type: Boolean
 * Default: `true`
 * Colors used:
-  ** Red: Deletions/removed content
-  ** Green: Additions/inserted content
-  ** Yellow: Modified content
-  ** Cyan: Element names and structure
+** Red: Deletions/removed content
+** Green: Additions/inserted content
+** Yellow: Modified content
+** Cyan: Element names and structure
 
 [source,ruby]
 ----
@@ -1245,8 +1245,8 @@ Determines the comparison and display strategy.
 * Type: Symbol (`:by_object` or `:by_line`)
 * Default: `:by_line` for RSpec matchers, format-dependent for CLI/API
 * Modes:
-  ** `:by_object` - Semantic tree-based comparison showing structural changes
-  ** `:by_line` - Line-by-line diff after canonicalization
+** `:by_object` - Semantic tree-based comparison showing structural changes
+** `:by_line` - Line-by-line diff after canonicalization
 
 [source,ruby]
 ----
@@ -1319,6 +1319,576 @@ Context block has 3 diffs (lines 5-18):
 ----
 
 Without grouping, these would appear as separate diff sections.
+
+==== Enhanced diff output features
+
+Canon's diff formatter includes several enhancements designed to make diffs more
+readable and informative, especially when working with RSpec test failures.
+
+===== Color-coded line numbers and structure
+
+**Purpose**: Improve readability by distinguishing structural elements from
+content changes.
+
+When color mode is enabled (`use_color: true`), the diff formatter uses a
+consistent color scheme:
+
+* **Yellow**: Line numbers and pipe separators
+* **Red**: Deletion markers (`-`) and removed content
+* **Green**: Addition markers (`+`) and inserted content
+* **Default terminal color**: Unchanged context lines (no ANSI codes applied)
+
+This color scheme helps differentiate between:
+
+* The diff structure (line numbers, pipes)
+* Content that was removed (red)
+* Content that was added (green)
+* Content that stayed the same (your terminal's default color)
+
+.Example colored diff output
+[example]
+In a colored terminal, a typical diff line appears as:
+
+[source]
+----
+   5|   5 |   <p>First paragraph</p>     # Context line (yellow numbers/pipes, default text)
+   6|     -|   <old>Text</old>            # Deletion (yellow numbers/pipes, red marker/content)
+    |   6+|   <new>Text</new>             # Addition (yellow numbers/pipes, green marker/content)
+----
+
+Where:
+
+* Line numbers (`5`, `6`) are in yellow
+* Pipe separators (`|`) are in yellow
+* Markers (`-`, `+`) are in red/green respectively
+* Changed content is highlighted in red (deletions) or green (additions)
+* Unchanged content uses your terminal's default color (no forced white/black)
+
+**Why this matters**: When running tests with RSpec, the framework initially sets
+output to red. Canon's diff formatter explicitly resets colors to prevent RSpec's
+red from bleeding into the diff output, ensuring consistent and readable diffs.
+
+===== Whitespace visualization
+
+**Purpose**: Make invisible whitespace and special characters visible in diffs.
+
+Whitespace changes can be difficult to spot in traditional diffs because spaces,
+tabs, and other invisible characters don't appear in output. Canon visualizes
+these changes using a comprehensive set of Unicode symbols that are safe for use
+with CJK (Chinese, Japanese, Korean) text.
+
+**Visualization scope**: Character visualization is applied only to **diff lines**
+(additions, deletions, and changes), not to context lines (unchanged lines). This
+ensures that:
+
+* Context lines display content in its original form without substitution
+* Only actual changes show visualization, making differences easier to spot
+* Within changed lines showing token-level diffs, unchanged tokens are displayed
+in the terminal's default color (not red/green) to distinguish them from actual
+changes
+
+====== Default character visualization map
+
+Canon provides a comprehensive CJK-safe character mapping for common non-visible
+characters encountered in diffs:
+
+NOTE: These visualization symbols appear **only in diff lines** (additions,
+deletions, and changes), not in context lines (unchanged lines).
+
+.Common whitespace characters
+[cols="1,1,1,2"]
+|===
+|Character |Unicode |Symbol |Description
+
+|Regular space
+|U+0020
+|`░`
+|Light Shade (U+2591)
+
+|Tab
+|U+0009
+|`⇥`
+|Rightwards Arrow to Bar (U+21E5)
+
+|Non-breaking space
+|U+00A0
+|`␣`
+|Open Box (U+2423)
+|===
+
+.Line endings
+[cols="1,1,1,2"]
+|===
+|Character |Unicode |Symbol |Description
+
+|Line feed (LF)
+|U+000A
+|`↵`
+|Downwards Arrow with Corner Leftwards (U+21B5)
+
+|Carriage return (CR)
+|U+000D
+|`⏎`
+|Return Symbol (U+23CE)
+
+|Windows line ending (CRLF)
+|U+000D U+000A
+|`↵`
+|Downwards Arrow with Corner Leftwards (U+21B5)
+
+|Next line (NEL)
+|U+0085
+|`⏎`
+|Return Symbol (U+23CE)
+
+|Line separator
+|U+2028
+|`⤓`
+|Downwards Arrow to Bar (U+2913)
+
+|Paragraph separator
+|U+2029
+|`⤓`
+|Downwards Arrow to Bar (U+2913)
+|===
+
+.Unicode spaces (various widths)
+[cols="1,1,1,2"]
+|===
+|Character |Unicode |Symbol |Description
+
+|En space
+|U+2002
+|`▭`
+|White Rectangle (U+25AD)
+
+|Em space
+|U+2003
+|`▬`
+|Black Rectangle (U+25AC)
+
+|Four-per-em space
+|U+2005
+|`⏓`
+|Metrical Short Over Long (U+23D3)
+
+|Six-per-em space
+|U+2006
+|`⏕`
+|Metrical Two Shorts Over Long (U+23D5)
+
+|Thin space
+|U+2009
+|`▯`
+|White Vertical Rectangle (U+25AF)
+
+|Hair space
+|U+200A
+|`▮`
+|Black Vertical Rectangle (U+25AE)
+
+|Figure space
+|U+2007
+|`□`
+|White Square (U+25A1)
+
+|Narrow no-break space
+|U+202F
+|`▫`
+|White Small Square (U+25AB)
+
+|Medium mathematical space
+|U+205F
+|`▭`
+|White Rectangle (U+25AD)
+
+|Ideographic space
+|U+3000
+|`⎵`
+|Bottom Square Bracket (U+23B5)
+
+|Ideographic half space
+|U+303F
+|`⏑`
+|Metrical Breve (U+23D1)
+
+|===
+
+.Zero-width characters (invisible troublemakers)
+[cols="1,1,1,2"]
+|===
+|Character |Unicode |Symbol |Description
+
+|Zero-width space
+|U+200B
+|`→`
+|Rightwards Arrow (U+2192)
+
+|Zero-width non-joiner
+|U+200C
+|`↛`
+|Rightwards Arrow with Stroke (U+219B)
+
+|Zero-width joiner
+|U+200D
+|`⇢`
+|Rightwards Dashed Arrow (U+21E2)
+
+|Zero-width no-break space (BOM)
+|U+FEFF
+|`⇨`
+|Rightwards White Arrow (U+21E8)
+|===
+
+.Bidirectional/RTL markers
+[cols="1,1,1,2"]
+|===
+|Character |Unicode |Symbol |Description
+
+|Left-to-right mark
+|U+200E
+|`⟹`
+|Long Rightwards Double Arrow (U+27F9)
+
+|Right-to-left mark
+|U+200F
+|`⟸`
+|Long Leftwards Double Arrow (U+27F8)
+
+|LTR embedding
+|U+202A
+|`⇒`
+|Rightwards Double Arrow (U+21D2)
+
+|RTL embedding
+|U+202B
+|`⇐`
+|Leftwards Double Arrow (U+21D0)
+
+|Pop directional formatting
+|U+202C
+|`↔`
+|Left Right Arrow (U+2194)
+
+|LTR override
+|U+202D
+|`⇉`
+|Rightwards Paired Arrows (U+21C9)
+
+|RTL override
+|U+202E
+|`⇇`
+|Leftwards Paired Arrows (U+21C7)
+|===
+
+.Control characters
+[cols="1,1,1,2"]
+|===
+|Character |Unicode |Symbol |Description
+
+|Null
+|U+0000
+|`␀`
+|Symbol for Null (U+2400)
+
+|Soft hyphen
+|U+00AD
+|`­‐`
+|Hyphen (U+2010)
+
+|Backspace
+|U+0008
+|`␈`
+|Symbol for Backspace (U+2408)
+
+|Delete
+|U+007F
+|`␡`
+|Symbol for Delete (U+2421)
+|===
+
+====== CJK safety
+
+The visualization characters are specifically chosen to avoid conflicts with CJK
+text:
+
+* **No middle dots** (`·`) - commonly used as separators in CJK
+* **No bullets** (`∙`) - used in CJK lists
+* **No circles** (`◌◍◎`) - look similar to CJK characters like ○ ●
+* **No small dots** (`⋅`) - conflict with CJK punctuation
+
+Instead, Canon uses:
+* Box characters (`□▭▬▯▮▫`) for various space types
+* Arrow symbols (`→↛⇢⇨⟹⟸⇒⇐`) for zero-width and directional characters
+* Control Pictures block symbols (`␀␈␡`) for control characters
+
+====== Customizing character visualization
+
+You can customize the character visualization map for your specific needs:
+
+[source,ruby]
+----
+require 'canon/diff_formatter'
+
+# Create custom visualization map
+custom_map = Canon::DiffFormatter.merge_visualization_map({
+  ' '  => '·',    # Use middle dot for spaces (if not using CJK)
+  "\t" => '→',    # Use simple arrow for tabs
+  "\u200B" => '⚠' # Warning symbol for zero-width space
+})
+
+# Use custom map with formatter
+formatter = Canon::DiffFormatter.new(
+  use_color: true,
+  visualization_map: custom_map
+)
+
+# The custom map merges with defaults, so unspecified
+# characters still use the default visualization
+----
+
+====== Visualization in action
+
+.Whitespace visualization examples
+[example]
+[source]
+----
+# Space added between tags
+  10|     -| <tag>Value</tag>           # No space
+    |  10+| <tag>░Value</tag>           # Space added (green light shade)
+
+# Tab character
+  15|     -| <tag>⇥Value</tag>          # Tab (red arrow-to-bar)
+    |  15+| <tag>░░Value</tag>          # Two spaces (green light shades)
+
+# Non-breaking space (U+00A0)
+  20|     -| <tag>Value</tag>           # Regular space
+    |  20+| <tag>Value␣</tag>           # Non-breaking space (green open box)
+
+# Zero-width space (U+200B)
+  25|     -| <word1><word2>             # No zero-width space
+    |  25+| <word1>→<word2>             # Zero-width space (green arrow)
+
+# Mixed invisible characters
+  30|     -| <p>Text▬more</p>           # Em space (red black rectangle)
+    |  30+| <p>Text░more</p>            # Regular space (green light shade)
+----
+
+Where visualization symbols appear in:
+
+* Red when showing removed/deleted characters
+* Green when showing added/inserted characters
+* Bold to make them more visible
+
+**When is this useful?**
+
+1. **Test failures due to formatting**: Your test expects compact XML but receives
+pretty-printed XML with different indentation
+
+2. **Mixed whitespace**: Some parts of your code use tabs while others use spaces
+
+3. **Non-breaking spaces**: Copy-pasted content from browsers often contains
+U+00A0 instead of regular spaces
+
+4. **Zero-width characters**: Invisible Unicode characters that cause mysterious
+comparison failures
+
+5. **RTL/LTR markers**: Bidirectional text markers in internationalized content
+
+6. **Template differences**: Generated output has invisible character differences
+
+.Real-world example: Non-breaking space from web copy-paste
+[example]
+Without whitespace visualization, these two lines look identical:
+
+[source,xml]
+----
+<foreword id="fwd">
+<foreword id="fwd">
+----
+
+With whitespace visualization enabled, the difference is immediately visible:
+
+[source]
+----
+   4|     -| <foreword░id="fwd">         # Regular space (U+0020)
+    |   4+| <foreword␣id="fwd">          # Non-breaking space (U+00A0)
+----
+
+The different symbols (`░` vs `␣`) clearly show that one uses a regular space
+while the other uses a non-breaking space, likely from copying text from a web
+page or word processor.
+
+.Real-world example: Zero-width characters
+[example]
+Zero-width characters are completely invisible but affect comparison:
+
+[source,xml]
+----
+<item>Widget</item>
+<item>Widget</item>  <!-- Contains U+200B zero-width space after "Widget" -->
+----
+
+The diff shows:
+
+[source]
+----
+   5|     -| <item>Widget</item>
+    |   5+| <item>Widget→</item>         # Zero-width space visualized as →
+----
+
+The rightwards arrow (`→`) reveals the presence of a zero-width space that would
+otherwise be impossible to detect.
+
+===== Non-ASCII character detection
+
+**Purpose**: Alert users when diffs contain non-ASCII characters that might cause
+unexpected comparison failures or encoding issues.
+
+When Canon detects non-ASCII characters (any character with Unicode codepoint >
+U+007F) in a diff block, it displays a yellow warning with the specific
+characters and their Unicode codepoints.
+
+.Non-ASCII warning format
+[example]
+[source]
+----
+Context block has 3 diffs (lines 10-25):
+(WARNING: non-ASCII characters detected in diff: [' ' (U+00A0, shown as: ␣), '—' (U+2014, shown as: —)])
+
+  10|     -| <p>Hello░world</p>
+    |  10+| <p>Hello␣world</p>          # Contains non-breaking space (U+00A0)
+  15|     -| <p>Text - more text</p>
+    |  15+| <p>Text — more text</p>     # Contains em dash (U+2014)
+----
+
+The warning appears immediately after the "Context block has X diffs" header.
+
+**Common non-ASCII characters in diffs**:
+
+|===
+|Character |Unicode |Name |Common source
+
+|` ` (looks like space)
+|U+00A0
+|Non-breaking space
+|Copy-paste from web browsers, word processors
+
+|`—`
+|U+2014
+|Em dash
+|Word processors, smart quotes enabled
+
+|`–`
+|U+2013
+|En dash
+|Word processors, smart quotes enabled
+
+|`'` `'`
+|U+2018, U+2019
+|Smart single quotes
+|Word processors, text editors with smart quotes
+
+|`"` `"`
+|U+201C, U+201D
+|Smart double quotes
+|Word processors, text editors with smart quotes
+
+|`…`
+|U+2026
+|Ellipsis
+|Word processors
+
+|Various
+|U+2000-U+200B
+|Various spaces
+|HTML entities, special formatting
+|===
+
+**Why this matters**:
+
+1. **Invisible differences**: Many non-ASCII characters look identical to their
+ASCII equivalents but cause comparison failures
+
+2. **Encoding issues**: Non-ASCII characters may behave differently across
+systems with different encodings
+
+3. **Copy-paste errors**: Content copied from browsers or documents often
+includes non-breaking spaces instead of regular spaces
+
+4. **Smart quotes**: Text editors may automatically convert straight quotes to
+curly quotes
+
+.Practical example
+[example]
+A test fails because the expected output was copied from a web page:
+
+[source,ruby]
+----
+# Expected (copied from documentation website - contains U+00A0)
+expected = '<p>Hello world</p>'  # Space between "Hello" and "world" is U+00A0
+
+# Actual (generated by code - contains regular space)
+actual = '<p>Hello world</p>'    # Space is U+0020
+
+expect(actual).to be_xml_equivalent_to(expected)
+# FAILS: Documents appear identical but contain different space characters
+----
+
+Canon's diff output shows:
+
+[source]
+----
+Context block has 1 diff (line 1):
+(WARNING: non-ASCII characters detected in diff: [' ' (U+00A0)])
+
+   1|    -| <p>Hello world</p>          # U+0020 (regular space)
+    |  1+| <p>Hello░world</p>           # U+00A0 (non-breaking space, shown as block)
+----
+
+The warning alerts you to check for non-breaking spaces, and the light shade
+block visualization shows where the difference occurs.
+
+===== Configuration and usage
+
+All enhanced diff features are enabled by default when `use_color` is `true` and
+automatically applied across all Canon interfaces:
+
+[source,ruby]
+----
+# RSpec matchers (automatically enabled)
+expect(xml1).to be_xml_equivalent_to(xml2)
+# Output includes: colored line numbers, whitespace visualization, non-ASCII warnings
+
+# CLI (enabled by default)
+$ canon diff file1.xml file2.xml --verbose
+# Output includes all enhanced features
+
+# Ruby API (controlled by use_color parameter)
+formatter = Canon::DiffFormatter.new(use_color: true)  # Enhanced features enabled
+formatter = Canon::DiffFormatter.new(use_color: false) # Plain text only
+----
+
+To disable colored output (and all color-dependent enhancements):
+
+[source,ruby]
+----
+# RSpec
+Canon::RspecMatchers.use_color = false
+
+# CLI
+$ canon diff file1.xml file2.xml --no-color --verbose
+
+# Ruby API
+formatter = Canon::DiffFormatter.new(use_color: false)
+----
+
+When `use_color` is `false`:
+
+* Line numbers and pipes are plain text
+* Whitespace is not visualized (remains invisible)
+* Non-ASCII warnings are still shown (but without yellow color)
+* Content changes are shown without color highlighting
 
 === RSpec matchers
 

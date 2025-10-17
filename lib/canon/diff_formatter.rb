@@ -9,6 +9,56 @@ require "set"
 module Canon
   # Formatter for displaying semantic differences with color support
   class DiffFormatter
+    # Default character visualization map (CJK-safe)
+    DEFAULT_VISUALIZATION_MAP = {
+      # Common whitespace characters
+      ' '      => '░',   # U+2591 Light Shade (regular space)
+      "\t"     => '⇥',   # U+21E5 Rightwards Arrow to Bar (tab)
+      "\u00A0" => '␣',   # U+2423 Open Box (non-breaking space)
+
+      # Line endings
+      "\n"     => '↵',   # U+21B5 Downwards Arrow with Corner Leftwards (LF)
+      "\r"     => '⏎',   # U+23CE Return Symbol (CR)
+      "\r\n"   => '↵',   # Windows line ending (CRLF)
+      "\u0085" => '⏎',   # U+0085 Next Line (NEL)
+      "\u2028" => '⤓',   # U+2913 Downwards Arrow to Bar (line separator)
+      "\u2029" => '⤓',   # U+2913 Downwards Arrow to Bar (paragraph separator)
+
+      # Unicode spaces (using box characters for CJK safety)
+      "\u2002" => '▭',   # U+25AD White Rectangle (en space)
+      "\u2003" => '▬',   # U+25AC Black Rectangle (em space)
+      "\u2005" => '⏓',   # U+23D3 Metrical Short Over Long (four-per-em space)
+      "\u2005" => '⏕',   # U+23D5 Metrical Two Shorts Over Long (six-per-em space)
+      "\u2009" => '▯',   # U+25AF White Vertical Rectangle (thin space)
+      "\u200A" => '▮',   # U+25AE Black Vertical Rectangle (hair space)
+      "\u2007" => '□',   # U+25A1 White Square (figure space)
+      "\u202F" => '▫',   # U+25AB White Small Square (narrow no-break space)
+      "\u205F" => '▭',   # U+25AD White Rectangle (medium mathematical space)
+      "\u3000" => '⎵',   # U+23B5 Bottom Square Bracket (ideographic space)
+      "\u303F" => '⏑',   # U+23D1 Metrical Breve (ideographic half space)
+
+      # Zero-width characters (using arrows)
+      "\u200B" => '→',   # U+2192 Rightwards Arrow (zero-width space)
+      "\u200C" => '↛',   # U+219B Rightwards Arrow with Stroke (zero-width non-joiner)
+      "\u200D" => '⇢',   # U+21E2 Rightwards Dashed Arrow (zero-width joiner)
+      "\uFEFF" => '⇨',   # U+21E8 Rightwards White Arrow (zero-width no-break space/BOM)
+
+      # Directional markers
+      "\u200E" => '⟹',   # U+27F9 Long Rightwards Double Arrow (LTR mark)
+      "\u200F" => '⟸',   # U+27F8 Long Leftwards Double Arrow (RTL mark)
+      "\u202A" => '⇒',   # U+21D2 Rightwards Double Arrow (LTR embedding)
+      "\u202B" => '⇐',   # U+21D0 Leftwards Double Arrow (RTL embedding)
+      "\u202C" => '↔',   # U+2194 Left Right Arrow (pop directional formatting)
+      "\u202D" => '⇉',   # U+21C9 Rightwards Paired Arrows (LTR override)
+      "\u202E" => '⇇',   # U+21C7 Leftwards Paired Arrows (RTL override)
+
+      # Control characters
+      "\u0000" => '␀',   # U+2400 Symbol for Null
+      "\u00AD" => '­‐',   # U+2010 Hyphen (soft hyphen)
+      "\u0008" => '␈',   # U+2408 Symbol for Backspace
+      "\u007F" => '␡',   # U+2421 Symbol for Delete
+    }.freeze
+
     # Map difference codes to human-readable descriptions
     DIFF_DESCRIPTIONS = {
       Comparison::EQUIVALENT => "Equivalent",
@@ -28,11 +78,20 @@ module Canon
       Comparison::UNEQUAL_PRIMITIVES => "Unequal primitive values",
     }.freeze
 
-    def initialize(use_color: true, mode: :by_object, context_lines: 3, diff_grouping_lines: nil)
+    def initialize(use_color: true, mode: :by_object, context_lines: 3, diff_grouping_lines: nil, visualization_map: nil)
       @use_color = use_color
       @mode = mode
       @context_lines = context_lines
       @diff_grouping_lines = diff_grouping_lines
+      @visualization_map = visualization_map || DEFAULT_VISUALIZATION_MAP
+    end
+
+    # Merge custom character visualization map with defaults
+    #
+    # @param custom_map [Hash, nil] Custom character mappings
+    # @return [Hash] Merged character visualization map
+    def self.merge_visualization_map(custom_map)
+      DEFAULT_VISUALIZATION_MAP.merge(custom_map || {})
     end
 
     # Format differences array for display
@@ -167,8 +226,19 @@ module Canon
     end
 
     # Format semantic diff with token-level highlighting
-    def format_semantic_diff(diffs, _lines1, _lines2, format)
+    def format_semantic_diff(diffs, lines1, lines2, format)
       output = []
+
+      # Detect non-ASCII characters in the diff
+      all_text = (lines1 + lines2).join
+      non_ascii = detect_non_ascii(all_text)
+
+      # Add non-ASCII warning if any detected
+      unless non_ascii.empty?
+        warning = "(WARNING: non-ASCII characters detected in diff: [#{non_ascii.join(', ')}])"
+        output << colorize(warning, :yellow)
+        output << ""
+      end
 
       diffs.each_with_index do |change, _idx|
         old_line = change.old_position ? change.old_position + 1 : nil
@@ -203,9 +273,21 @@ module Canon
           old_highlighted = build_token_highlighted_text(token_diffs, :old)
           new_highlighted = build_token_highlighted_text(token_diffs, :new)
 
-          # Format both lines
-          output << "#{'%4d' % old_line}|    - | #{old_highlighted}"
-          output << "    |#{'%4d' % new_line}+ | #{new_highlighted}"
+          # Format both lines with yellow line numbers and pipes
+          if @use_color
+            yellow_old = Paint["%4d" % old_line, :yellow]
+            yellow_pipe1 = Paint["|", :yellow]
+            yellow_new = Paint["%4d" % new_line, :yellow]
+            yellow_pipe2 = Paint["|", :yellow]
+            red_marker = Paint["-", :red]
+            green_marker = Paint["+", :green]
+
+            output << "#{yellow_old}#{yellow_pipe1}    #{red_marker} #{yellow_pipe2} #{old_highlighted}"
+            output << "    #{yellow_pipe1}#{yellow_new}#{green_marker} #{yellow_pipe2} #{new_highlighted}"
+          else
+            output << "#{'%4d' % old_line}|    - | #{old_highlighted}"
+            output << "    |#{'%4d' % new_line}+ | #{new_highlighted}"
+          end
         end
       end
 
@@ -441,15 +523,27 @@ module Canon
       new_str = new_num ? "%4d" % new_num : "    "
       marker_part = "#{marker} "
 
-      line = "#{old_str}|#{new_str}#{marker_part}| #{content}"
+      # Only apply visualization to diff lines (when color is provided), not context lines
+      visualized_content = color ? apply_visualization(content, color) : content
 
-      if color
-        colorize(line, color)
-      elsif @use_color
-        # For context lines (no color), explicitly reset to prevent color bleed
-        "\e[0m#{line}"
+      if @use_color
+        # Yellow for line numbers and pipes
+        yellow_old = Paint[old_str, :yellow]
+        yellow_pipe1 = Paint["|", :yellow]
+        yellow_new = Paint[new_str, :yellow]
+        yellow_pipe2 = Paint["|", :yellow]
+
+        if color
+          # Colored marker for additions/deletions
+          colored_marker = Paint[marker, color]
+          "#{yellow_old}#{yellow_pipe1}#{yellow_new}#{colored_marker} #{yellow_pipe2} #{visualized_content}"
+        else
+          # Context line - apply visualization but no color
+          "#{yellow_old}#{yellow_pipe1}#{yellow_new}#{marker} #{yellow_pipe2} #{visualized_content}"
+        end
       else
-        line
+        # No color mode
+        "#{old_str}|#{new_str}#{marker_part}| #{visualized_content}"
       end
     end
 
@@ -468,12 +562,23 @@ module Canon
       old_highlighted = build_token_highlighted_text(token_diffs, :old)
       new_highlighted = build_token_highlighted_text(token_diffs, :new)
 
-      # Format both lines
-      old_str = "%4d" % line_num
-      new_str = "%4d" % line_num
+      # Format both lines with yellow line numbers and pipes
+      if @use_color
+        yellow_old = Paint["%4d" % line_num, :yellow]
+        yellow_pipe1 = Paint["|", :yellow]
+        yellow_new = Paint["%4d" % line_num, :yellow]
+        yellow_pipe2 = Paint["|", :yellow]
+        red_marker = Paint["-", :red]
+        green_marker = Paint["+", :green]
 
-      output << "#{old_str}|    - | #{old_highlighted}"
-      output << "    |#{new_str}+ | #{new_highlighted}"
+        output << "#{yellow_old}#{yellow_pipe1}    #{red_marker} #{yellow_pipe2} #{old_highlighted}"
+        output << "    #{yellow_pipe1}#{yellow_new}#{green_marker} #{yellow_pipe2} #{new_highlighted}"
+      else
+        old_str = "%4d" % line_num
+        new_str = "%4d" % line_num
+        output << "#{old_str}|    - | #{old_highlighted}"
+        output << "    |#{new_str}+ | #{new_highlighted}"
+      end
 
       output.join("\n")
     end
@@ -520,25 +625,38 @@ module Canon
       token_diffs.each do |change|
         case change.action
         when "="
-          # Unchanged token
-          parts << change.old_element
+          # Unchanged token - apply visualization with explicit reset to default color
+          visual = change.old_element.chars.map do |char|
+            @visualization_map.fetch(char, char)
+          end.join
+
+          # Explicitly reset color for unchanged tokens in colored context
+          parts << if @use_color
+                     Paint[visual, :default]
+                   else
+                     visual
+                   end
         when "-"
           # Deleted token (only show on old side)
           if side == :old
-            parts << Paint[change.old_element, :red, :bold]
+            token = change.old_element
+            parts << apply_visualization(token, :red)
           end
         when "+"
           # Added token (only show on new side)
           if side == :new
-            parts << Paint[change.new_element, :green, :bold]
+            token = change.new_element
+            parts << apply_visualization(token, :green)
           end
         when "!"
           # Changed token
-          parts << if side == :old
-                     Paint[change.old_element, :red, :bold]
-                   else
-                     Paint[change.new_element, :green, :bold]
-                   end
+          if side == :old
+            token = change.old_element
+            parts << apply_visualization(token, :red)
+          else
+            token = change.new_element
+            parts << apply_visualization(token, :green)
+          end
         end
       end
 
@@ -732,11 +850,22 @@ module Canon
       range1_lines = lines1[min_line1..max_line1]
       range2_lines = lines2[min_line2..max_line2]
 
+      # Detect non-ASCII characters in the diff range
+      all_text = (range1_lines + range2_lines).join
+      non_ascii = detect_non_ascii(all_text)
+
+      output = []
+
+      # Add non-ASCII warning if any detected
+      unless non_ascii.empty?
+        warning = "(WARNING: non-ASCII characters detected in diff: [#{non_ascii.join(', ')}])"
+        output << colorize(warning, :yellow)
+        output << ""
+      end
+
       # Run LCS diff on this range
       diffs = Diff::LCS.sdiff(range1_lines, range2_lines)
 
-      # Format as unified diff
-      output = []
       line1 = min_line1
       line2 = min_line2
 
@@ -764,8 +893,21 @@ module Canon
           old_highlighted = build_token_highlighted_text(token_diffs, :old)
           new_highlighted = build_token_highlighted_text(token_diffs, :new)
 
-          output << "#{'%4d' % (line1 + 1)}|    - | #{old_highlighted}"
-          output << "    |#{'%4d' % (line2 + 1)}+ | #{new_highlighted}"
+          if @use_color
+            yellow_old = Paint["%4d" % (line1 + 1), :yellow]
+            yellow_pipe1 = Paint["|", :yellow]
+            yellow_new = Paint["%4d" % (line2 + 1), :yellow]
+            yellow_pipe2 = Paint["|", :yellow]
+            red_marker = Paint["-", :red]
+            green_marker = Paint["+", :green]
+
+            output << "#{yellow_old}#{yellow_pipe1}    #{red_marker} #{yellow_pipe2} #{old_highlighted}"
+            output << "    #{yellow_pipe1}#{yellow_new}#{green_marker} #{yellow_pipe2} #{new_highlighted}"
+          else
+            output << "#{'%4d' % (line1 + 1)}|    - | #{old_highlighted}"
+            output << "    |#{'%4d' % (line2 + 1)}+ | #{new_highlighted}"
+          end
+
           line1 += 1
           line2 += 1
         end
@@ -900,8 +1042,20 @@ _all_matched_elements)
             old_highlighted = build_token_highlighted_text(token_diffs, :old)
             new_highlighted = build_token_highlighted_text(token_diffs, :new)
 
-            output << "#{'%4d' % pair[:old_line]}|    - | #{old_highlighted}"
-            output << "    |#{'%4d' % pair[:new_line]}+ | #{new_highlighted}"
+            if @use_color
+              yellow_old = Paint["%4d" % pair[:old_line], :yellow]
+              yellow_pipe1 = Paint["|", :yellow]
+              yellow_new = Paint["%4d" % pair[:new_line], :yellow]
+              yellow_pipe2 = Paint["|", :yellow]
+              red_marker = Paint["-", :red]
+              green_marker = Paint["+", :green]
+
+              output << "#{yellow_old}#{yellow_pipe1}    #{red_marker} #{yellow_pipe2} #{old_highlighted}"
+              output << "    #{yellow_pipe1}#{yellow_new}#{green_marker} #{yellow_pipe2} #{new_highlighted}"
+            else
+              output << "#{'%4d' % pair[:old_line]}|    - | #{old_highlighted}"
+              output << "    |#{'%4d' % pair[:new_line]}+ | #{new_highlighted}"
+            end
           end
         end
       end
@@ -1473,6 +1627,47 @@ _all_matched_elements)
                      end
 
       colorize("\"#{display_text}\"", :green)
+    end
+
+    # Check if a token is pure whitespace
+    def whitespace_token?(token)
+      token.match?(/\A\s+\z/)
+    end
+
+    # Apply character visualization using configurable visualization map
+    #
+    # @param token [String] The token to apply visualization to
+    # @param color [Symbol, nil] Optional color to apply (e.g., :red, :green)
+    # @return [String] Visualized and optionally colored token
+    def apply_visualization(token, color = nil)
+      # Replace each character with its visualization from the map
+      visual = token.chars.map do |char|
+        @visualization_map.fetch(char, char)
+      end.join
+
+      # Apply color if provided and color is enabled
+      if color && @use_color
+        Paint[visual, color, :bold]
+      else
+        visual
+      end
+    end
+
+    # Detect non-ASCII characters in text
+    def detect_non_ascii(text)
+      non_ascii_chars = []
+      text.each_char do |char|
+        if char.ord > 127
+          codepoint = "U+%04X" % char.ord
+          visualization = @visualization_map.fetch(char, char)
+          if visualization != char
+            non_ascii_chars << "'#{char}' (#{codepoint}, shown as: '#{visualization}')"
+          else
+            non_ascii_chars << "'#{char}' (#{codepoint})"
+          end
+        end
+      end
+      non_ascii_chars.uniq
     end
 
     # Colorize text if color is enabled
