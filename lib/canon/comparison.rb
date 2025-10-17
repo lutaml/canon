@@ -129,6 +129,7 @@ module Canon
         ignore_comments: true,
         ignore_nodes: [],
         ignore_text_nodes: false,
+        normalize_tag_whitespace: false,
         verbose: false,
       }.freeze
 
@@ -301,7 +302,10 @@ module Canon
           text1 = node_text(n1)
           text2 = node_text(n2)
 
-          if opts[:collapse_whitespace]
+          if opts[:normalize_tag_whitespace]
+            text1 = normalize_tag_whitespace(text1)
+            text2 = normalize_tag_whitespace(text2)
+          elsif opts[:collapse_whitespace]
             text1 = collapse(text1)
             text2 = collapse(text2)
           end
@@ -449,6 +453,14 @@ module Canon
         # Collapse whitespace in text
         def collapse(text)
           text.to_s.gsub(/\s+/, " ").strip
+        end
+
+        # Normalize tag whitespace - for forgiving whitespace mode
+        # Treats whitespace boundaries of tags' open/close and newlines as single space or no space
+        def normalize_tag_whitespace(text)
+          text.to_s
+            .gsub(/\s+/, " ")  # Collapse multiple whitespace to single space
+            .strip             # Remove leading/trailing whitespace
         end
 
         # Add a difference to the differences array

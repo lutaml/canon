@@ -370,6 +370,9 @@ The following options control comparison behavior:
 `collapse_whitespace`:: (default: `true`) when `true`, trims and collapses whitespace
 (<<collapse_whitespace>>)
 
+`normalize_tag_whitespace`:: (default: `false`) when `true`, normalizes whitespace
+boundaries around tags for flexible comparison (<<normalize_tag_whitespace>>)
+
 `ignore_comments`:: (default: `true`) when `true`, ignores HTML/XML comments
 (<<ignore_comments>>)
 
@@ -475,6 +478,289 @@ Canon::Comparison.equivalent?(xml1, xml2, collapse_whitespace: true)
 # => true
 ----
 ====
+
+[[normalize_tag_whitespace]]
+==== normalize_tag_whitespace
+
+`normalize_tag_whitespace: {true|false}` default: `false`
+
+When `true`, normalizes whitespace at tag boundaries by collapsing multiple
+whitespace characters (spaces, tabs, newlines) to a single space and stripping
+leading/trailing whitespace from text nodes. This enables "forgiving whitespace
+mode" for comparing documents that use different pretty-print formatting while
+maintaining the same semantic content.
+
+This option is specifically designed for comparing documents where:
+
+* One document is compact (no indentation/line breaks)
+* The other document is pretty-printed (with indentation/line breaks)
+* You want to ignore these formatting differences
+
+[NOTE]
+`normalize_tag_whitespace` is more aggressive than `collapse_whitespace`:
+
+* `collapse_whitespace` only trims and collapses whitespace within text content
+* `normalize_tag_whitespace` additionally handles whitespace at tag boundaries,
+making it suitable for comparing compact vs pretty-printed documents
+
+When both options are enabled, `normalize_tag_whitespace` takes precedence.
+
+Usage:
+
+[source,ruby]
+----
+Canon::Comparison.equivalent?(doc1, doc2, normalize_tag_whitespace: true)
+----
+
+.When to use normalize_tag_whitespace
+[example]
+Use this option when:
+
+1. **Comparing generated output with expected fixtures**: Your test generates
+pretty-printed XML/HTML but your fixture is compact (or vice versa)
+
+2. **Mixed formatting in test suites**: Some tests use pretty-printed expected
+values while others use compact format
+
+3. **Flexible test fixtures**: You want to maintain human-readable test fixtures
+with indentation but compare them against compact generated output
+
+4. **Format-agnostic testing**: Testing semantic equivalence regardless of
+whether the output is formatted or compact
+
+.XML examples with normalize_tag_whitespace
+[example]
+When `true`, documents with different tag boundary whitespace are considered equal:
+
+[source,xml]
+----
+<!-- Pretty-printed with line breaks and indentation -->
+<root>
+  <item>
+    <name>Widget</name>
+    <price>10.00</price>
+  </item>
+</root>
+
+<!-- Compact on a single line -->
+<root><item><name>Widget</name><price>10.00</price></item></root>
+----
+
+[source,ruby]
+----
+pretty = <<~XML
+  <root>
+    <item>
+      <name>Widget</name>
+      <price>10.00</price>
+    </item>
+  </root>
+XML
+
+compact = '<root><item><name>Widget</name><price>10.00</price></item></root>'
+
+Canon::Comparison.equivalent?(pretty, compact, normalize_tag_whitespace: true)
+# => true
+----
+
+When `false` (default), the whitespace differences matter:
+
+[source,ruby]
+----
+Canon::Comparison.equivalent?(pretty, compact, normalize_tag_whitespace: false)
+# => false (whitespace at tag boundaries differs)
+----
+
+This also handles complex nested structures:
+
+[source,xml]
+----
+<!-- Pretty-printed -->
+<document>
+  <metadata>
+    <title>My Document</title>
+    <author>
+      <name>John Doe</name>
+      <email>john@example.com</email>
+    </author>
+  </metadata>
+</document>
+
+<!-- Compact -->
+<document><metadata><title>My Document</title><author><name>John Doe</name><email>john@example.com</email></author></metadata></document>
+----
+
+[source,ruby]
+----
+pretty_doc = <<~XML
+  <document>
+    <metadata>
+      <title>My Document</title>
+      <author>
+        <name>John Doe</name>
+        <email>john@example.com</email>
+      </author>
+    </metadata>
+  </document>
+XML
+
+compact_doc = '<document><metadata><title>My Document</title><author><name>John Doe</name><email>john@example.com</email></author></metadata></document>'
+
+Canon::Comparison.equivalent?(pretty_doc, compact_doc, normalize_tag_whitespace: true)
+# => true
+----
+
+.HTML examples with normalize_tag_whitespace
+[example]
+When `true`, HTML with different formatting is considered equal:
+
+[source,html]
+----
+<!-- Pretty-printed -->
+<div class="container">
+  <header>
+    <h1>Welcome</h1>
+    <p>Introduction text</p>
+  </header>
+</div>
+
+<!-- Compact -->
+<div class="container"><header><h1>Welcome</h1><p>Introduction text</p></header></div>
+----
+
+[source,ruby]
+----
+pretty_html = <<~HTML
+  <div class="container">
+    <header>
+      <h1>Welcome</h1>
+      <p>Introduction text</p>
+    </header>
+  </div>
+HTML
+
+compact_html = '<div class="container"><header><h1>Welcome</h1><p>Introduction text</p></header></div>'
+
+Canon::Comparison.equivalent?(pretty_html, compact_html, normalize_tag_whitespace: true)
+# => true
+----
+
+.RSpec configuration for normalize_tag_whitespace
+[example]
+For test suites that consistently need forgiving whitespace mode, configure it
+globally:
+
+[source,ruby]
+----
+# spec/spec_helper.rb
+require 'canon/rspec_matchers'
+
+RSpec.configure do |config|
+  # Enable forgiving whitespace mode globally for all Canon matchers
+  Canon::RSpecMatchers.configure do |canon_config|
+    canon_config.normalize_tag_whitespace = true
+  end
+end
+
+# Now all XML/HTML comparisons will use forgiving whitespace mode
+RSpec.describe 'My tests' do
+  it 'compares pretty-printed with compact XML' do
+    pretty_xml = <<~XML
+      <root>
+        <item>Value</item>
+      </root>
+    XML
+
+    compact_xml = '<root><item>Value</item></root>'
+
+    # These will be considered equivalent due to global configuration
+    expect(pretty_xml).to be_xml_equivalent_to(compact_xml)
+  end
+
+  it 'compares HTML with different formatting' do
+    pretty_html = <<~HTML
+      <div>
+        <p>Content</p>
+      </div>
+    HTML
+
+    compact_html = '<div><p>Content</p></div>'
+
+    expect(pretty_html).to be_html_equivalent_to(compact_html)
+  end
+end
+----
+
+To disable it for specific tests when globally enabled:
+
+[source,ruby]
+----
+# This test needs exact whitespace matching
+it 'checks exact whitespace' do
+  # Temporarily disable normalize_tag_whitespace
+  original = Canon::RSpecMatchers.normalize_tag_whitespace
+  Canon::RSpecMatchers.normalize_tag_whitespace = false
+
+  begin
+    expect(xml1).to be_xml_equivalent_to(xml2)
+  ensure
+    Canon::RSpecMatchers.normalize_tag_whitespace = original
+  end
+end
+----
+
+.Comparison with collapse_whitespace
+[example]
+Understanding the difference between `collapse_whitespace` and
+`normalize_tag_whitespace`:
+
+[source,ruby]
+----
+# Example XML with whitespace variations
+pretty = '<root>  <item>  Value  </item>  </root>'
+compact = '<root><item>Value</item></root>'
+
+# With collapse_whitespace only (default)
+Canon::Comparison.equivalent?(
+  pretty,
+  compact,
+  collapse_whitespace: true,
+  normalize_tag_whitespace: false
+)
+# => false
+# Reason: Whitespace at tag boundaries (spaces between > and <) differs
+
+# With normalize_tag_whitespace
+Canon::Comparison.equivalent?(
+  pretty,
+  compact,
+  normalize_tag_whitespace: true
+)
+# => true
+# Reason: All whitespace at tag boundaries is normalized
+----
+
+Key differences:
+
+|===
+|Feature |collapse_whitespace |normalize_tag_whitespace
+
+|Trims text content
+|✓
+|✓
+
+|Collapses internal whitespace
+|✓
+|✓
+
+|Normalizes tag boundaries
+|✗
+|✓
+
+|Use case
+|Flexible text comparison
+|Flexible format comparison
+|===
 
 [[ignore_attr_order]]
 ==== ignore_attr_order

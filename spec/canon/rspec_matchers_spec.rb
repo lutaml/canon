@@ -506,6 +506,287 @@ RSpec.describe Canon::RSpecMatchers do
     end
   end
 
+  describe "whitespace normalization configuration" do
+    before do
+      # Save original configuration
+      @original_normalize = described_class.normalize_tag_whitespace
+    end
+
+    after do
+      # Restore original configuration
+      described_class.normalize_tag_whitespace = @original_normalize
+    end
+
+    it "can be enabled via configuration" do
+      described_class.configure do |config|
+        config.normalize_tag_whitespace = true
+      end
+
+      expect(described_class.normalize_tag_whitespace).to be(true)
+    end
+
+    it "can be disabled via configuration" do
+      described_class.configure do |config|
+        config.normalize_tag_whitespace = false
+      end
+
+      expect(described_class.normalize_tag_whitespace).to be(false)
+    end
+
+    it "is disabled by default" do
+      described_class.reset_config
+
+      expect(described_class.normalize_tag_whitespace).to be(false)
+    end
+
+    context "when enabled" do
+      before do
+        described_class.configure do |config|
+          config.normalize_tag_whitespace = true
+        end
+      end
+
+      context "with tag boundary whitespace" do
+        let(:xml1) { "<root><element>text</element></root>" }
+        let(:xml2) { "<root>\n  <element>\n    text\n  </element>\n</root>" }
+        let(:xml3) { "<root>  <element>  text  </element>  </root>" }
+
+        it "matches XML with different tag boundary whitespace" do
+          expect(xml1).to be_xml_equivalent_to(xml2)
+          expect(xml1).to be_xml_equivalent_to(xml3)
+          expect(xml2).to be_xml_equivalent_to(xml3)
+        end
+      end
+
+      context "with multiple whitespace characters" do
+        let(:xml1) { "<root><a>single space</a></root>" }
+        let(:xml2) { "<root><a>single  space</a></root>" }
+        let(:xml3) { "<root><a>single   space</a></root>" }
+        let(:xml4) { "<root><a>single\t\nspace</a></root>" }
+
+        it "normalizes multiple spaces to single space" do
+          expect(xml1).to be_xml_equivalent_to(xml2)
+          expect(xml1).to be_xml_equivalent_to(xml3)
+          expect(xml1).to be_xml_equivalent_to(xml4)
+        end
+      end
+
+      context "with leading and trailing whitespace" do
+        let(:xml1) { "<root><a>text</a></root>" }
+        let(:xml2) { "<root><a>  text  </a></root>" }
+        let(:xml3) { "<root><a>\n  text\n  </a></root>" }
+
+        it "strips leading and trailing whitespace from text nodes" do
+          expect(xml1).to be_xml_equivalent_to(xml2)
+          expect(xml1).to be_xml_equivalent_to(xml3)
+        end
+      end
+
+      context "with pretty-printed XML" do
+        let(:xml1) do
+          "<root><person><name>John</name><age>30</age></person></root>"
+        end
+
+        let(:xml2) do
+          <<~XML
+            <root>
+              <person>
+                <name>John</name>
+                <age>30</age>
+              </person>
+            </root>
+          XML
+        end
+
+        let(:xml3) do
+          <<~XML
+            <root>
+            <person>
+            <name>John</name>
+            <age>30</age>
+            </person>
+            </root>
+          XML
+        end
+
+        it "matches compact and pretty-printed XML" do
+          expect(xml1).to be_xml_equivalent_to(xml2)
+          expect(xml1).to be_xml_equivalent_to(xml3)
+          expect(xml2).to be_xml_equivalent_to(xml3)
+        end
+      end
+
+      context "with mixed content" do
+        let(:xml1) { "<p>This is <em>important</em> text.</p>" }
+        let(:xml2) { "<p>This is <em>important</em>  text.</p>" }
+        let(:xml3) { "<p>This is  <em>important</em> text.</p>" }
+
+        it "normalizes whitespace in mixed content" do
+          expect(xml1).to be_xml_equivalent_to(xml2)
+          expect(xml1).to be_xml_equivalent_to(xml3)
+        end
+      end
+
+      context "with nested elements and whitespace" do
+        let(:xml1) do
+          "<root><outer><inner><deep>content</deep></inner></outer></root>"
+        end
+
+        let(:xml2) do
+          <<~XML
+            <root>
+              <outer>
+                <inner>
+                  <deep>content</deep>
+                </inner>
+              </outer>
+            </root>
+          XML
+        end
+
+        it "normalizes whitespace at all nesting levels" do
+          expect(xml1).to be_xml_equivalent_to(xml2)
+        end
+      end
+
+      context "with actual content differences" do
+        let(:xml1) { "<root><a>text one</a></root>" }
+        let(:xml2) { "<root><a>text two</a></root>" }
+
+        it "still detects actual content differences" do
+          expect(xml1).not_to be_xml_equivalent_to(xml2)
+        end
+      end
+
+      context "with empty elements" do
+        let(:xml1) { "<root><empty/></root>" }
+        let(:xml2) { "<root>  <empty/>  </root>" }
+        let(:xml3) { "<root>\n  <empty/>\n</root>" }
+
+        it "matches empty elements with surrounding whitespace" do
+          expect(xml1).to be_xml_equivalent_to(xml2)
+          expect(xml1).to be_xml_equivalent_to(xml3)
+        end
+      end
+
+      context "with attributes" do
+        let(:xml1) { '<root><element attr="value">text</element></root>' }
+        let(:xml2) do
+          <<~XML
+            <root>
+              <element attr="value">
+                text
+              </element>
+            </root>
+          XML
+        end
+
+        it "normalizes whitespace while preserving attribute values" do
+          expect(xml1).to be_xml_equivalent_to(xml2)
+        end
+
+        it "does not normalize whitespace within attribute values" do
+          xml_attr1 = '<root attr="value  with  spaces"/>'
+          xml_attr2 = '<root attr="value with spaces"/>'
+
+          expect(xml_attr1).not_to be_xml_equivalent_to(xml_attr2)
+        end
+      end
+
+      context "with real-world isodoc example" do
+        # Based on the actual failing test case from isodoc
+        let(:xml1) do
+          <<~XML
+            <iso-standard>
+              <bibdata>
+                <contributor>
+                  <person>
+                    <affiliation>
+                      <organization>
+                        <address>
+                          <formattedAddress>Address Line 1</formattedAddress>
+                        </address>
+                      </organization>
+                    </affiliation>
+                  </person>
+                </contributor>
+              </bibdata>
+            </iso-standard>
+          XML
+        end
+
+        let(:xml2) do
+          "<iso-standard><bibdata><contributor><person>" \
+            "<affiliation><organization><address>" \
+            "<formattedAddress>Address Line 1</formattedAddress>" \
+            "</address></organization></affiliation></person>" \
+            "</contributor></bibdata></iso-standard>"
+        end
+
+        it "matches pretty-printed and compact isodoc XML" do
+          expect(xml1).to be_xml_equivalent_to(xml2)
+        end
+      end
+
+      context "with comments" do
+        let(:xml1) { "<root><!-- comment --><a>text</a></root>" }
+        let(:xml2) do
+          <<~XML
+            <root>
+              <!-- comment -->
+              <a>text</a>
+            </root>
+          XML
+        end
+
+        it "normalizes whitespace around comments" do
+          expect(xml1).to be_xml_equivalent_to(xml2)
+        end
+      end
+    end
+
+    context "when disabled (default behavior)" do
+      before do
+        described_class.configure do |config|
+          config.normalize_tag_whitespace = false
+        end
+      end
+
+      it "uses C14N canonicalization for comparison" do
+        # C14N preserves significant whitespace but normalizes attributes
+        xml1 = '<root><a attr="value">text</a></root>'
+        xml2 = '<root><a attr="value">text</a></root>'
+
+        expect(xml1).to be_xml_equivalent_to(xml2)
+      end
+
+      it "does not match when whitespace differs without normalization enabled" do
+        # Without normalize_tag_whitespace, whitespace between tags is preserved
+        xml1 = "<root><a>text</a></root>"
+        xml2 = "<root>\n  <a>\n    text\n  </a>\n</root>"
+
+        # These should NOT match because whitespace is preserved in C14N
+        expect(xml1).not_to be_xml_equivalent_to(xml2)
+      end
+    end
+
+    context "interaction with collapse_whitespace" do
+      before do
+        described_class.configure do |config|
+          config.normalize_tag_whitespace = true
+        end
+      end
+
+      it "does not use collapse_whitespace when normalization is enabled" do
+        # normalize_tag_whitespace should take precedence
+        xml1 = "<root><a>text</a></root>"
+        xml2 = "<root>  <a>  text  </a>  </root>"
+
+        expect(xml1).to be_xml_equivalent_to(xml2)
+      end
+    end
+  end
+
   describe "regression prevention" do
     # These tests ensure the visual diff behavior doesn't regress
 
