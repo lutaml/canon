@@ -816,10 +816,231 @@ end
 ====
 
 
+=== Diff formatting configuration
+
+==== General
+
+Canon provides comprehensive diff formatting capabilities across three interfaces:
+RSpec matchers, CLI commands, and the Ruby API. All interfaces support the same
+set of parameters for consistent behavior.
+
+==== Parameters
+
+The following table shows all available diff formatting parameters and their
+availability across interfaces:
+
+[cols="1,1,1,1,2,1"]
+|===
+|Parameter |RSpec |CLI |Ruby API |Description |Default
+
+|`use_color`
+|✓
+|✓
+|✓
+|Enable/disable colored output
+|`true`
+
+|`diff_mode`
+|✓
+|✓
+|✓
+|Comparison mode: `:by_object` or `:by_line`
+|`:by_line` (RSpec), `:by_object` (XML/JSON/YAML)
+
+|`context_lines`
+|✓
+|✓
+|✓
+|Number of unchanged lines to show around each change
+|`3`
+
+|`diff_grouping_lines`
+|✓
+|✓
+|✓
+|Maximum line distance to group separate diffs into context blocks
+|`10`
+|===
+
+==== Interface-specific usage
+
+===== RSpec matchers configuration
+
+Configure diff formatting for RSpec matchers using `Canon::RspecMatchers`:
+
+[source,ruby]
+----
+require 'canon/rspec_matchers'
+
+# Configure globally for all matchers
+Canon::RspecMatchers.diff_mode = :by_object
+Canon::RspecMatchers.use_color = true
+Canon::RspecMatchers.context_lines = 5
+Canon::RspecMatchers.diff_grouping_lines = 10
+
+# Use in specs
+RSpec.describe 'My comparison' do
+  it 'shows formatted diff' do
+    expect(actual_xml).to be_xml_equivalent_to(expected_xml)
+  end
+end
+----
+
+===== CLI usage
+
+Pass options to the `canon diff` command:
+
+[source,bash]
+----
+# Basic diff with default settings
+$ canon diff file1.xml file2.xml --verbose
+
+# Customize diff output
+$ canon diff file1.xml file2.xml \
+  --verbose \
+  --by-line \
+  --no-color \
+  --context-lines 5 \
+  --diff-grouping-lines 10
+----
+
+===== Ruby API usage
+
+Use `Canon::DiffFormatter` directly in your code:
+
+[source,ruby]
+----
+require 'canon/diff_formatter'
+require 'canon/comparison'
+
+# Compare documents
+comparison = Canon::Comparison.new(doc1, doc2)
+result = comparison.compare
+
+# Format diff output
+formatter = Canon::DiffFormatter.new(
+  use_color: true,
+  mode: :by_object,
+  context_lines: 5,
+  diff_grouping_lines: 10
+)
+
+diff_output = formatter.format(result)
+puts diff_output
+----
+
+==== Parameter details
+
+===== use_color
+
+Controls whether diff output includes ANSI color codes.
+
+* Type: Boolean
+* Default: `true`
+* Colors used:
+  ** Red: Deletions/removed content
+  ** Green: Additions/inserted content
+  ** Yellow: Modified content
+  ** Cyan: Element names and structure
+
+[source,ruby]
+----
+# Disable colors for plain text output
+Canon::RspecMatchers.use_color = false
+
+# CLI
+$ canon diff file1.xml file2.xml --no-color --verbose
+----
+
+===== diff_mode
+
+Determines the comparison and display strategy.
+
+* Type: Symbol (`:by_object` or `:by_line`)
+* Default: `:by_line` for RSpec matchers, format-dependent for CLI/API
+* Modes:
+  ** `:by_object` - Semantic tree-based comparison showing structural changes
+  ** `:by_line` - Line-by-line diff after canonicalization
+
+[source,ruby]
+----
+# Use object-based diff for RSpec matchers
+Canon::RspecMatchers.diff_mode = :by_object
+
+# CLI - XML uses by-object by default, force by-line
+$ canon diff file1.xml file2.xml --by-line --verbose
+----
+
+===== context_lines
+
+Number of unchanged lines to display around each change for context.
+
+* Type: Numeric
+* Default: `3`
+* Range: `0` to any positive integer
+* Effect: Higher values show more surrounding context, lower values show only changes
+
+[source,ruby]
+----
+# Show 5 lines of context around each change
+Canon::RspecMatchers.context_lines = 5
+
+# CLI
+$ canon diff file1.xml file2.xml --context-lines 5 --verbose
+
+# Ruby API
+formatter = Canon::DiffFormatter.new(context_lines: 5)
+----
+
+===== diff_grouping_lines
+
+Maximum line distance between separate changes to group them into a single
+context block.
+
+* Type: Numeric or `nil`
+* Default: `nil` (no grouping)
+* Effect: When set, changes within N lines of each other are grouped into
+context blocks with a header showing the number of diffs in the block
+
+[source,ruby]
+----
+# Group changes that are within 10 lines of each other
+Canon::RspecMatchers.diff_grouping_lines = 10
+
+# CLI
+$ canon diff file1.xml file2.xml --diff-grouping-lines 10 --verbose
+
+# Ruby API
+formatter = Canon::DiffFormatter.new(diff_grouping_lines: 10)
+----
+
+.Example of grouped diff output
+[example]
+When `diff_grouping_lines` is set to `10`, changes close together are grouped:
+
+[source]
+----
+Context block has 3 diffs (lines 5-18):
+   5 - |     <foreword id="fwd">
+   5 + |     <foreword displayorder="2" id="fwd">
+   6   |       <p>First paragraph</p>
+   ...
+  15 - |     <title>Scope</title>
+  15 + |     <title>Application Scope</title>
+  16   |     </clause>
+  17 + |     <p>New content</p>
+  18   |   </sections>
+----
+
+Without grouping, these would appear as separate diff sections.
+
 === RSpec matchers
 
 RSpec matchers for testing equivalence between serialized formats. All matchers
 use canonical (c14n) mode for comparison.
+
+See <<Diff formatting configuration>> for details on configuring diff output
+in RSpec matchers.
 
 .RSpec matcher examples
 [example]
