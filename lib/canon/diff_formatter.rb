@@ -12,51 +12,51 @@ module Canon
     # Default character visualization map (CJK-safe)
     DEFAULT_VISUALIZATION_MAP = {
       # Common whitespace characters
-      ' '      => '░',   # U+2591 Light Shade (regular space)
-      "\t"     => '⇥',   # U+21E5 Rightwards Arrow to Bar (tab)
-      "\u00A0" => '␣',   # U+2423 Open Box (non-breaking space)
+      " " => "░", # U+2591 Light Shade (regular space)
+      "\t" => "⇥", # U+21E5 Rightwards Arrow to Bar (tab)
+      "\u00A0" => "␣", # U+2423 Open Box (non-breaking space)
 
       # Line endings
-      "\n"     => '↵',   # U+21B5 Downwards Arrow with Corner Leftwards (LF)
-      "\r"     => '⏎',   # U+23CE Return Symbol (CR)
-      "\r\n"   => '↵',   # Windows line ending (CRLF)
-      "\u0085" => '⏎',   # U+0085 Next Line (NEL)
-      "\u2028" => '⤓',   # U+2913 Downwards Arrow to Bar (line separator)
-      "\u2029" => '⤓',   # U+2913 Downwards Arrow to Bar (paragraph separator)
+      "\n" => "↵",   # U+21B5 Downwards Arrow with Corner Leftwards (LF)
+      "\r" => "⏎",   # U+23CE Return Symbol (CR)
+      "\r\n" => "↵", # Windows line ending (CRLF)
+      "\u0085" => "⏎",   # U+0085 Next Line (NEL)
+      "\u2028" => "⤓",   # U+2913 Downwards Arrow to Bar (line separator)
+      "\u2029" => "⤓",   # U+2913 Downwards Arrow to Bar (paragraph separator)
 
       # Unicode spaces (using box characters for CJK safety)
-      "\u2002" => '▭',   # U+25AD White Rectangle (en space)
-      "\u2003" => '▬',   # U+25AC Black Rectangle (em space)
-      "\u2005" => '⏓',   # U+23D3 Metrical Short Over Long (four-per-em space)
-      "\u2005" => '⏕',   # U+23D5 Metrical Two Shorts Over Long (six-per-em space)
-      "\u2009" => '▯',   # U+25AF White Vertical Rectangle (thin space)
-      "\u200A" => '▮',   # U+25AE Black Vertical Rectangle (hair space)
-      "\u2007" => '□',   # U+25A1 White Square (figure space)
-      "\u202F" => '▫',   # U+25AB White Small Square (narrow no-break space)
-      "\u205F" => '▭',   # U+25AD White Rectangle (medium mathematical space)
-      "\u3000" => '⎵',   # U+23B5 Bottom Square Bracket (ideographic space)
-      "\u303F" => '⏑',   # U+23D1 Metrical Breve (ideographic half space)
+      "\u2002" => "▭",   # U+25AD White Rectangle (en space)
+      "\u2003" => "▬",   # U+25AC Black Rectangle (em space)
+      "\u2005" => "⏓",   # U+23D3 Metrical Short Over Long (four-per-em space)
+      "\u2005" => "⏕",   # U+23D5 Metrical Two Shorts Over Long (six-per-em space)
+      "\u2009" => "▯",   # U+25AF White Vertical Rectangle (thin space)
+      "\u200A" => "▮",   # U+25AE Black Vertical Rectangle (hair space)
+      "\u2007" => "□",   # U+25A1 White Square (figure space)
+      "\u202F" => "▫",   # U+25AB White Small Square (narrow no-break space)
+      "\u205F" => "▭",   # U+25AD White Rectangle (medium mathematical space)
+      "\u3000" => "⎵",   # U+23B5 Bottom Square Bracket (ideographic space)
+      "\u303F" => "⏑",   # U+23D1 Metrical Breve (ideographic half space)
 
       # Zero-width characters (using arrows)
-      "\u200B" => '→',   # U+2192 Rightwards Arrow (zero-width space)
-      "\u200C" => '↛',   # U+219B Rightwards Arrow with Stroke (zero-width non-joiner)
-      "\u200D" => '⇢',   # U+21E2 Rightwards Dashed Arrow (zero-width joiner)
-      "\uFEFF" => '⇨',   # U+21E8 Rightwards White Arrow (zero-width no-break space/BOM)
+      "\u200B" => "→",   # U+2192 Rightwards Arrow (zero-width space)
+      "\u200C" => "↛",   # U+219B Rightwards Arrow with Stroke (zero-width non-joiner)
+      "\u200D" => "⇢",   # U+21E2 Rightwards Dashed Arrow (zero-width joiner)
+      "\uFEFF" => "⇨",   # U+21E8 Rightwards White Arrow (zero-width no-break space/BOM)
 
       # Directional markers
-      "\u200E" => '⟹',   # U+27F9 Long Rightwards Double Arrow (LTR mark)
-      "\u200F" => '⟸',   # U+27F8 Long Leftwards Double Arrow (RTL mark)
-      "\u202A" => '⇒',   # U+21D2 Rightwards Double Arrow (LTR embedding)
-      "\u202B" => '⇐',   # U+21D0 Leftwards Double Arrow (RTL embedding)
-      "\u202C" => '↔',   # U+2194 Left Right Arrow (pop directional formatting)
-      "\u202D" => '⇉',   # U+21C9 Rightwards Paired Arrows (LTR override)
-      "\u202E" => '⇇',   # U+21C7 Leftwards Paired Arrows (RTL override)
+      "\u200E" => "⟹",   # U+27F9 Long Rightwards Double Arrow (LTR mark)
+      "\u200F" => "⟸",   # U+27F8 Long Leftwards Double Arrow (RTL mark)
+      "\u202A" => "⇒",   # U+21D2 Rightwards Double Arrow (LTR embedding)
+      "\u202B" => "⇐",   # U+21D0 Leftwards Double Arrow (RTL embedding)
+      "\u202C" => "↔",   # U+2194 Left Right Arrow (pop directional formatting)
+      "\u202D" => "⇉",   # U+21C9 Rightwards Paired Arrows (LTR override)
+      "\u202E" => "⇇",   # U+21C7 Leftwards Paired Arrows (RTL override)
 
       # Control characters
-      "\u0000" => '␀',   # U+2400 Symbol for Null
-      "\u00AD" => '­‐',   # U+2010 Hyphen (soft hyphen)
-      "\u0008" => '␈',   # U+2408 Symbol for Backspace
-      "\u007F" => '␡',   # U+2421 Symbol for Delete
+      "\u0000" => "␀", # U+2400 Symbol for Null
+      "\u00AD" => "­‐", # U+2010 Hyphen (soft hyphen)
+      "\u0008" => "␈",   # U+2408 Symbol for Backspace
+      "\u007F" => "␡",   # U+2421 Symbol for Delete
     }.freeze
 
     # Map difference codes to human-readable descriptions
@@ -78,7 +78,8 @@ module Canon
       Comparison::UNEQUAL_PRIMITIVES => "Unequal primitive values",
     }.freeze
 
-    def initialize(use_color: true, mode: :by_object, context_lines: 3, diff_grouping_lines: nil, visualization_map: nil)
+    def initialize(use_color: true, mode: :by_object, context_lines: 3,
+diff_grouping_lines: nil, visualization_map: nil)
       @use_color = use_color
       @mode = mode
       @context_lines = context_lines
@@ -406,11 +407,14 @@ module Canon
         output << format_element_matches(matches, map1, map2, lines1, lines2)
       rescue StandardError => e
         # Fall back to simple diff on error, but provide detailed error information
-        output << colorize("Warning: DOM parsing failed, using simple diff", :yellow)
+        output << colorize("Warning: DOM parsing failed, using simple diff",
+                           :yellow)
         output << colorize("Error: #{e.class}: #{e.message}", :red)
 
         # Include relevant backtrace lines (first 3 lines from canon library)
-        relevant_trace = e.backtrace.select { |line| line.include?('canon') }.take(3)
+        relevant_trace = e.backtrace.select do |line|
+          line.include?("canon")
+        end.take(3)
         unless relevant_trace.empty?
           output << colorize("Backtrace:", :yellow)
           relevant_trace.each do |line|
@@ -672,9 +676,10 @@ module Canon
 
         # Mark all ancestors of this matched element
         current = match.elem1.parent if match.elem1.respond_to?(:parent)
-        while current && current.respond_to?(:name)
+        while current.respond_to?(:name)
           elements_with_matched_descendants.add(current)
           break unless current.respond_to?(:parent)
+
           current = current.parent
         end
       end
@@ -688,7 +693,8 @@ module Canon
           next if elements_with_matched_descendants.include?(match.elem1)
 
           # Format and collect diff section
-          section = format_matched_element_with_metadata(match, map1, map2, lines1, lines2)
+          section = format_matched_element_with_metadata(match, map1, map2,
+                                                         lines1, lines2)
           diff_sections << section if section
         when :deleted
           section = format_deleted_element_with_metadata(match, map1, lines1)
@@ -730,7 +736,7 @@ module Canon
         end_line1: range1.end_line,
         start_line2: range2.start_line,
         end_line2: range2.end_line,
-        path: match.path.join("/")
+        path: match.path.join("/"),
       }
     end
 
@@ -748,7 +754,7 @@ module Canon
         end_line1: range1.end_line,
         start_line2: nil,
         end_line2: nil,
-        path: match.path.join("/")
+        path: match.path.join("/"),
       }
     end
 
@@ -766,7 +772,7 @@ module Canon
         end_line1: nil,
         start_line2: range2.start_line,
         end_line2: range2.end_line,
-        path: match.path.join("/")
+        path: match.path.join("/"),
       }
     end
 
@@ -785,14 +791,14 @@ module Canon
         gap1 = if last_section[:end_line1] && section[:start_line1]
                  section[:start_line1] - last_section[:end_line1] - 1
                else
-                 Float::INFINITY  # If either file doesn't have this section, treat as infinite gap
+                 Float::INFINITY # If either file doesn't have this section, treat as infinite gap
                end
 
         # For file 2
         gap2 = if last_section[:end_line2] && section[:start_line2]
                  section[:start_line2] - last_section[:end_line2] - 1
                else
-                 Float::INFINITY  # If either file doesn't have this section, treat as infinite gap
+                 Float::INFINITY # If either file doesn't have this section, treat as infinite gap
                end
 
         # Use the maximum gap between the two files
@@ -820,11 +826,12 @@ module Canon
 
       groups.each_with_index do |group, group_idx|
         # Add spacing between groups (but not before the first group)
-        output << "" if group_idx > 0
+        output << "" if group_idx.positive?
 
         if group.length > 1
           # Multiple diffs - show as contiguous code block
-          output << colorize("Context block has #{group.length} diffs", :yellow, :bold)
+          output << colorize("Context block has #{group.length} diffs",
+                             :yellow, :bold)
           output << ""
           output << format_contiguous_context_block(group, lines1, lines2)
         else
@@ -873,16 +880,19 @@ module Canon
         case change.action
         when "="
           # Unchanged line
-          output << format_unified_line(line1 + 1, line2 + 1, " ", change.old_element)
+          output << format_unified_line(line1 + 1, line2 + 1, " ",
+                                        change.old_element)
           line1 += 1
           line2 += 1
         when "-"
           # Deletion
-          output << format_unified_line(line1 + 1, nil, "-", change.old_element, :red)
+          output << format_unified_line(line1 + 1, nil, "-",
+                                        change.old_element, :red)
           line1 += 1
         when "+"
           # Addition
-          output << format_unified_line(nil, line2 + 1, "+", change.new_element, :green)
+          output << format_unified_line(nil, line2 + 1, "+",
+                                        change.new_element, :green)
           line2 += 1
         when "!"
           # Change - show with token-level highlighting
@@ -1026,7 +1036,7 @@ _all_matched_elements)
               old_line: line1 + 1,
               new_line: line2 + 1,
               old_text: diffs[i].old_element,
-              new_text: diffs[i].new_element
+              new_text: diffs[i].new_element,
             }
             line1 += 1
             line2 += 1
@@ -1660,11 +1670,11 @@ _all_matched_elements)
         if char.ord > 127
           codepoint = "U+%04X" % char.ord
           visualization = @visualization_map.fetch(char, char)
-          if visualization != char
-            non_ascii_chars << "'#{char}' (#{codepoint}, shown as: '#{visualization}')"
-          else
-            non_ascii_chars << "'#{char}' (#{codepoint})"
-          end
+          non_ascii_chars << if visualization == char
+                               "'#{char}' (#{codepoint})"
+                             else
+                               "'#{char}' (#{codepoint}, shown as: '#{visualization}')"
+                             end
         end
       end
       non_ascii_chars.uniq
