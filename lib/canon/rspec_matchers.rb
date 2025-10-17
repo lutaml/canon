@@ -13,7 +13,7 @@ module Canon
   module RSpecMatchers
     # Configuration for RSpec matchers
     class << self
-      attr_accessor :diff_mode, :use_color
+      attr_accessor :diff_mode, :use_color, :context_lines, :diff_grouping_lines
 
       def configure
         yield self
@@ -22,6 +22,8 @@ module Canon
       def reset_config
         @diff_mode = :by_line
         @use_color = true
+        @context_lines = 3
+        @diff_grouping_lines = 10
       end
     end
 
@@ -176,11 +178,15 @@ module Canon
         # Get configuration settings
         diff_mode = Canon::RSpecMatchers.diff_mode || :by_line
         use_color = Canon::RSpecMatchers.use_color.nil? || Canon::RSpecMatchers.use_color
+        context_lines = Canon::RSpecMatchers.context_lines || 3
+        diff_grouping_lines = Canon::RSpecMatchers.diff_grouping_lines
 
         # Show diff of the actual canonicalized versions being compared
         # This ensures we see exactly what the comparison algorithm sees
         formatter = Canon::DiffFormatter.new(use_color: use_color,
-                                             mode: diff_mode)
+                                             mode: diff_mode,
+                                             context_lines: context_lines,
+                                             diff_grouping_lines: diff_grouping_lines)
 
         # For by_object mode, compute actual differences using Comparison
         # For by_line mode, pass empty array and let formatter do line-by-line diff

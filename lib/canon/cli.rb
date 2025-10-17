@@ -147,6 +147,13 @@ module Canon
                   type: :boolean,
                   default: false,
                   desc: "Include comments in comparison (sets ignore_comments: false)"
+    method_option :context_lines,
+                  type: :numeric,
+                  default: 3,
+                  desc: "Number of context lines around changes (default: 3)"
+    method_option :diff_grouping_lines,
+                  type: :numeric,
+                  desc: "Group diffs within N lines into context blocks (default: no grouping)"
     def diff(file1, file2)
       Commands::DiffCommand.new(options).run(file1, file2)
     end
