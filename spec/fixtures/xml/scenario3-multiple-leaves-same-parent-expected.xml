@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root>
+  <section>
+    <paragraph>
+      <text>
+        First <bold>word</bold> and
+        second <italic>phrase</italic> here
+        and third <underline>item</underline> as well.
+      </text>
+    </paragraph>
+  </section>
+</root>

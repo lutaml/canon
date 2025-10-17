@@ -324,6 +324,149 @@ RSpec.describe Canon::DiffFormatter do
     end
   end
 
+  describe "XML by-line mode with DOM-guided diff" do
+    let(:xml_formatter) do
+      described_class.new(use_color: false, mode: :by_line,
+                         diff_grouping_lines: 10)
+    end
+
+    context "when multi-line content is compressed to single line" do
+      it "shows all deleted lines from the multi-line version" do
+        # This tests the bug fix where not all lines were shown when
+        # multi-line XML content gets compressed into a single line
+        xml1 = <<~XML
+          <quote id="_">
+            <p id="_">This International Standard gives the minimum specifications for rice (<em>Oryza sativa</em> L.) which is subject to international trade.</p>
+            <attribution>
+              <p>
+                —
+                <semx element="author" source="_">ISO</semx>
+                ,
+                <semx element="source" source="_">
+                  <fmt-eref type="inline" bibitemid="ISO7301" citeas="ISO 7301:2011">
+                    <locality type="clause">
+                      <referenceFrom>1</referenceFrom>
+                    </locality>
+                    ISO 7301:2011, Clause 1
+                  </fmt-eref>
+                </semx>
+              </p>
+            </attribution>
+          </quote>
+        XML
+
+        # Same content but attribution compressed to single line
+        xml2 = <<~XML
+          <quote id="_">
+            <p id="_">This International Standard gives the minimum specifications for rice (<em>Oryza sativa</em> L.) which is subject to international trade.</p>
+            <attribution><p>— <semx element="author" source="_">ISO</semx>, <semx element="source" source="_"><fmt-eref type="inline" bibitemid="ISO7301" citeas="ISO 7301:2011"><locality type="clause"><referenceFrom>1</referenceFrom></locality>ISO 7301:2011, Clause 1</fmt-eref></semx></p></attribution>
+          </quote>
+        XML
+
+        result = xml_formatter.format([], :xml, doc1: xml1, doc2: xml2)
+
+        # Should show ALL the deleted lines from the multi-line attribution content
+        # The expansion algorithm finds parent elements, showing complete element boundaries
+        # Note: Spaces in diff output are visualized as ░ characters
+        expect(result).to include("<p>")
+        expect(result).to include("—")
+        expect(result).to include("<semx")
+        expect(result).to include('element="author"')
+        expect(result).to include(",")
+        expect(result).to include('element="source"')
+        expect(result).to include("<fmt-eref")
+        expect(result).to include("<locality")
+        expect(result).to include("<referenceFrom>")
+        expect(result).to include("ISO")
+        expect(result).to include("7301:2011")
+        expect(result).to include("</fmt-eref>")
+        expect(result).to include("</semx>")
+        expect(result).to include("</p>")
+
+        # Count deletion markers to ensure many lines are shown as deleted
+        deletion_count = result.scan(/\|\s*-\s*\|/).length
+        # The multi-line attribution content has 8+ lines
+        # Most or all should be marked as deleted
+        expect(deletion_count).to be >= 8
+      end
+
+      it "shows all added lines when single line expands to multiple lines" do
+        # Reverse case: single line expands to multiple lines
+        xml1 = <<~XML
+          <quote id="_">
+            <p id="_">Text content here.</p>
+            <attribution><p>— ISO, ISO 7301:2011</p></attribution>
+          </quote>
+        XML
+
+        xml2 = <<~XML
+          <quote id="_">
+            <p id="_">Text content here.</p>
+            <attribution>
+              <p>
+                —
+                ISO
+                ,
+                ISO 7301:2011
+              </p>
+            </attribution>
+          </quote>
+        XML
+
+        result = xml_formatter.format([], :xml, doc1: xml1, doc2: xml2)
+
+        # Should show ALL the added lines from the expanded attribution
+        expect(result).to include("<attribution>")
+        expect(result).to include("<p>")
+        expect(result).to include("—")
+        expect(result).to include("ISO")
+        expect(result).to include(",")
+        expect(result).to include("ISO 7301:2011")
+        expect(result).to include("</p>")
+        expect(result).to include("</attribution>")
+
+        # Count addition markers
+        addition_count = result.scan(/\|\s*\+\s*\|/).length
+        # The expanded attribution has approximately 8 lines
+        # All should be marked as added
+        expect(addition_count).to be >= 6
+      end
+    end
+
+    context "with multiple grouped diffs" do
+      it "shows all lines in grouped context blocks" do
+        xml1 = <<~XML
+          <doc>
+            <section id="A">
+              <p>First paragraph with some content.</p>
+            </section>
+            <section id="B">
+              <p>Second paragraph with more content.</p>
+            </section>
+          </doc>
+        XML
+
+        xml2 = <<~XML
+          <doc>
+            <section id="A"><p>First paragraph with changed content.</p></section>
+            <section id="B"><p>Second paragraph with different content.</p></section>
+          </doc>
+        XML
+
+        result = xml_formatter.format([], :xml, doc1: xml1, doc2: xml2)
+
+        # Should show both sections with all their lines
+        expect(result).to include("section id=\"A\"")
+        expect(result).to include("section id=\"B\"")
+        expect(result).to include("First paragraph")
+        expect(result).to include("Second paragraph")
+
+        # Should indicate grouped diffs
+        expect(result).to include("Context block has")
+      end
+    end
+  end
+
   describe "colorization" do
     let(:color_formatter) do
       described_class.new(use_color: true, mode: :by_object)
