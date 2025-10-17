@@ -100,7 +100,7 @@ module Canon
         {
           contexts: context_count,
           blocks: block_count,
-          changes: change_count
+          changes: change_count,
         }
       end
 
@@ -113,7 +113,7 @@ module Canon
           file1_name: file1_name,
           file2_name: file2_name,
           contexts: contexts.map(&:to_h),
-          summary: summary
+          summary: summary,
         }
       end
 

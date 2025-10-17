@@ -55,7 +55,7 @@ module Canon
         {
           start_idx: start_idx,
           end_idx: end_idx,
-          blocks: blocks.map(&:to_h)
+          blocks: blocks.map(&:to_h),
         }
       end
 

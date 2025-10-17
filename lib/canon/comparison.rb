@@ -2,6 +2,7 @@
 
 require "moxml"
 require "nokogiri"
+require_relative "xml/whitespace_normalizer"
 
 module Canon
   # Comparison module for XML, HTML, JSON, and YAML documents
@@ -120,6 +121,7 @@ module Canon
       # Default comparison options for XML
       DEFAULT_OPTS = {
         collapse_whitespace: true,
+        flexible_whitespace: false,
         ignore_attr_order: true,
         force_children: false,
         ignore_children: false,
