@@ -13,7 +13,8 @@ module Canon
   module RSpecMatchers
     # Configuration for RSpec matchers
     class << self
-      attr_accessor :diff_mode, :use_color, :context_lines, :diff_grouping_lines, :normalize_tag_whitespace
+      attr_accessor :diff_mode, :use_color, :context_lines,
+                    :diff_grouping_lines, :normalize_tag_whitespace
 
       def configure
         yield self
@@ -64,9 +65,9 @@ module Canon
           # Use comparison with normalize_tag_whitespace option
           opts = {
             normalize_tag_whitespace: true,
-            collapse_whitespace: false,  # Don't use collapse when normalizing
+            collapse_whitespace: false, # Don't use collapse when normalizing
             ignore_comments: true,
-            ignore_attr_order: true
+            ignore_attr_order: true,
           }
           Canon::Comparison::Xml.equivalent?(@target, @expected, opts)
         else

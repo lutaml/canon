@@ -47,7 +47,7 @@ module Canon
           use_color: @options[:color],
           mode: mode,
           context_lines: @options.fetch(:context_lines, 3),
-          diff_grouping_lines: @options[:diff_grouping_lines]
+          diff_grouping_lines: @options[:diff_grouping_lines],
         )
         if comp_opts[:verbose]
           # result is an array of differences
