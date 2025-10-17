@@ -443,7 +443,14 @@ module Canon
 
       line = "#{old_str}|#{new_str}#{marker_part}| #{content}"
 
-      color ? colorize(line, color) : line
+      if color
+        colorize(line, color)
+      elsif @use_color
+        # For context lines (no color), explicitly reset to prevent color bleed
+        "\e[0m#{line}"
+      else
+        line
+      end
     end
 
     # Format changed lines with XML-aware token-level diff
@@ -1469,10 +1476,12 @@ _all_matched_elements)
     end
 
     # Colorize text if color is enabled
+    # RSpec-aware: resets any existing ANSI codes before applying new colors
     def colorize(text, *colors)
       return text unless @use_color
 
-      Paint[text, *colors]
+      # Reset ANSI codes first to prevent RSpec's initial red from interfering
+      "\e[0m#{Paint[text, *colors]}"
     end
   end
 end

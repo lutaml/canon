@@ -13,7 +13,7 @@ module Canon
   module RSpecMatchers
     # Configuration for RSpec matchers
     class << self
-      attr_accessor :diff_mode, :use_color, :context_lines, :diff_grouping_lines
+      attr_accessor :diff_mode, :use_color, :context_lines, :diff_grouping_lines, :normalize_tag_whitespace
 
       def configure
         yield self
@@ -24,6 +24,7 @@ module Canon
         @use_color = true
         @context_lines = 3
         @diff_grouping_lines = 10
+        @normalize_tag_whitespace = false
       end
     end
 
@@ -51,11 +52,26 @@ module Canon
 
       def match_xml
         # Use C14N for comparison (not pretty printing)
+        # Even when normalize_tag_whitespace is enabled, we still need to
+        # canonicalize for the diff display
         @actual_sorted = Canon::Xml::C14n.canonicalize(@target,
                                                        with_comments: false)
         @expected_sorted = Canon::Xml::C14n.canonicalize(@expected,
                                                          with_comments: false)
-        @actual_sorted == @expected_sorted
+
+        # Check if normalize_tag_whitespace is enabled
+        if Canon::RSpecMatchers.normalize_tag_whitespace
+          # Use comparison with normalize_tag_whitespace option
+          opts = {
+            normalize_tag_whitespace: true,
+            collapse_whitespace: false,  # Don't use collapse when normalizing
+            ignore_comments: true,
+            ignore_attr_order: true
+          }
+          Canon::Comparison::Xml.equivalent?(@target, @expected, opts)
+        else
+          @actual_sorted == @expected_sorted
+        end
       end
 
       # Canonicalize and check string equivalence for YAML/JSON
