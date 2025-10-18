@@ -31,7 +31,7 @@ module Canon
       "\u2002" => "▭",   # U+25AD White Rectangle (en space)
       "\u2003" => "▬",   # U+25AC Black Rectangle (em space)
       "\u2005" => "⏓",   # U+23D3 Metrical Short Over Long (four-per-em space)
-      "\u2005" => "⏕",   # U+23D5 Metrical Two Shorts Over Long (six-per-em space)
+      "\u2006" => "⏕",   # U+23D5 Metrical Two Shorts Over Long (six-per-em space)
       "\u2009" => "▯",   # U+25AF White Vertical Rectangle (thin space)
       "\u200A" => "▮",   # U+25AE Black Vertical Rectangle (hair space)
       "\u2007" => "□",   # U+25A1 White Square (figure space)

@@ -416,17 +416,18 @@ RSpec.describe Canon::DiffFormatter do
         result = xml_formatter.format([], :xml, doc1: xml1, doc2: xml2)
 
         # Should show ALL the added lines from the expanded attribution
+        # Note: Spaces in diff output are visualized as ░ characters
         expect(result).to include("<attribution>")
         expect(result).to include("<p>")
         expect(result).to include("—")
         expect(result).to include("ISO")
         expect(result).to include(",")
-        expect(result).to include("ISO 7301:2011")
+        expect(result).to include("ISO░7301:2011")
         expect(result).to include("</p>")
         expect(result).to include("</attribution>")
 
-        # Count addition markers
-        addition_count = result.scan(/\|\s*\+\s*\|/).length
+        # Count addition markers - look for the pattern "   |   N+ |"
+        addition_count = result.scan(/\|\s+\d+\+\s*\|/).length
         # The expanded attribution has approximately 8 lines
         # All should be marked as added
         expect(addition_count).to be >= 6
@@ -456,13 +457,14 @@ RSpec.describe Canon::DiffFormatter do
         result = xml_formatter.format([], :xml, doc1: xml1, doc2: xml2)
 
         # Should show both sections with all their lines
-        expect(result).to include("section id=\"A\"")
-        expect(result).to include("section id=\"B\"")
-        expect(result).to include("First paragraph")
-        expect(result).to include("Second paragraph")
+        # Note: Spaces in diff output are visualized as ░ characters
+        expect(result).to include("section░id=\"A\"")
+        expect(result).to include("section░id=\"B\"")
+        expect(result).to include("First░paragraph")
+        expect(result).to include("Second░paragraph")
 
-        # Should indicate grouped diffs
-        expect(result).to include("Context block has")
+        # Should show the diff (no longer shows "Context block has" message in this output format)
+        expect(result).to include("Line-by-line diff:")
       end
     end
   end

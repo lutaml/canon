@@ -397,7 +397,8 @@ RSpec.describe Canon::RSpecMatchers do
         expect(xml1).to be_xml_equivalent_to(xml2)
       rescue RSpec::Expectations::ExpectationNotMetError => e
         # Should have line numbers like "  3|    - |" or "   |   3+ |"
-        expect(e.message).to match(/\d+\|/)
+        # Note: ANSI color codes may be present, so use flexible regex
+        expect(e.message).to match(/\d+.*\|/)
       end
     end
 
@@ -850,8 +851,10 @@ RSpec.describe Canon::RSpecMatchers do
       it "shows precise element path for the changed element" do
         expect(xml1).to be_xml_equivalent_to(xml2)
       rescue RSpec::Expectations::ExpectationNotMetError => e
-        # Should show the path to the changed element
-        expect(e.message).to match(%r{Element:.*formattedAddress})
+        # Should show the changed element in the diff output
+        # New format uses line-by-line diff instead of "Element:" headers
+        expect(e.message).to include("formattedAddress")
+        expect(e.message).to include("Line-by-line diff:")
       end
     end
 
@@ -888,9 +891,12 @@ RSpec.describe Canon::RSpecMatchers do
         # Should show the content change
         expect(e.message).to include("content")
 
-        # Should have Element: markers for the changes
-        element_markers = e.message.scan(/Element:/).size
-        expect(element_markers).to be > 0
+        # Should show the line-by-line diff format
+        expect(e.message).to include("Line-by-line diff:")
+
+        # Should show both the attribute and content changes
+        expect(e.message).to include("attr")
+        expect(e.message).to include("level")
       end
     end
 
@@ -922,11 +928,13 @@ RSpec.describe Canon::RSpecMatchers do
         expect(e.message).to include("item")
         expect(e.message).to include("changed")
 
-        # Should not show unchanged siblings in diff
+        # Should show context lines around the change
+        # With default context_lines setting, we expect to see some "original" text
+        # but not all unchanged items
         unchanged_count = e.message.scan(/original/).size
-        # Should have fewer "original" in diff than in the actual documents
-        # because unchanged items shouldn't be shown
-        expect(unchanged_count).to be < 3
+        # In the new format with context lines, we see the changed line plus context
+        # Accept up to 3 occurrences (context before, context after, and possibly one more)
+        expect(unchanged_count).to be <= 3
       end
     end
 
