@@ -4,8 +4,7 @@ module Canon
   module Xml
     # Handles whitespace normalization for flexible XML/HTML comparison
     #
-    # Provides MECE (Mutually Exclusive, Collectively Exhaustive) methods
-    # for normalizing different categories of whitespace:
+    # Provides methods for normalizing different categories of whitespace:
     # 1. Indentation whitespace
     # 2. Inter-element whitespace (between tags)
     # 3. Text content whitespace (within text nodes)
@@ -52,7 +51,7 @@ module Canon
 
       # Normalize tag boundary whitespace
       # This is the same as normalizing text content for now,
-      # but kept separate for MECE clarity
+      # but kept separate for clarity
       #
       # @param text [String] Text at tag boundary
       # @return [String] Normalized text

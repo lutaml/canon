@@ -85,108 +85,34 @@ module Canon
 
       # Build comparison options from CLI options
       def build_comparison_options
-        opts = {}
+        opts = build_profile_and_preprocessing_options
+        match_opts = build_match_dimension_options
 
-        # New MECE match options system
-        if has_new_match_options?
-          build_mece_options(opts)
-        else
-          # Legacy options - convert to new system
-          build_legacy_options(opts)
-        end
-
-        # Always include verbose flag
+        opts[:match_options] = match_opts unless match_opts.empty?
+        opts[:ignore_attr_order] = @options.fetch(:ignore_attr_order, true)
         opts[:verbose] = @options.fetch(:verbose, false)
 
         opts
       end
 
-      # Check if user provided any new MECE options
-      def has_new_match_options?
-        @options[:match_profile] ||
-          @options[:preprocessing] ||
-          @options[:text_content] ||
-          @options[:structural_whitespace] ||
-          @options[:attribute_whitespace] ||
-          @options[:comments]
+      # Build profile and preprocessing options
+      def build_profile_and_preprocessing_options
+        opts = {}
+        opts[:match_profile] = @options[:match_profile].to_sym if @options[:match_profile]
+        opts[:preprocessing] = @options[:preprocessing].to_sym if @options[:preprocessing]
+        opts
       end
 
-      # Build options using new MECE match system
-      def build_mece_options(opts)
-        # Set match profile if provided
-        if @options[:match_profile]
-          opts[:match_profile] =
-            @options[:match_profile].to_sym
-        end
+      # Build match dimension options
+      def build_match_dimension_options
+        dimensions = %i[
+          text_content structural_whitespace attribute_whitespace
+          comments key_order
+        ]
 
-        # Set preprocessing if provided
-        if @options[:preprocessing]
-          opts[:preprocessing] =
-            @options[:preprocessing].to_sym
+        dimensions.each_with_object({}) do |dim, opts|
+          opts[dim] = @options[dim].to_sym if @options[dim]
         end
-
-        # Build match_options hash for individual dimension overrides
-        match_opts = {}
-        if @options[:text_content]
-          match_opts[:text_content] =
-            @options[:text_content].to_sym
-        end
-        if @options[:structural_whitespace]
-          match_opts[:structural_whitespace] =
-            @options[:structural_whitespace].to_sym
-        end
-        if @options[:attribute_whitespace]
-          match_opts[:attribute_whitespace] =
-            @options[:attribute_whitespace].to_sym
-        end
-        if @options[:comments]
-          match_opts[:comments] =
-            @options[:comments].to_sym
-        end
-
-        opts[:match_options] = match_opts unless match_opts.empty?
-
-        # Always pass ignore_attr_order (not part of MECE system)
-        opts[:ignore_attr_order] = @options.fetch(:ignore_attr_order, true)
-      end
-
-      # Build legacy options and convert to match_options
-      def build_legacy_options(opts)
-        legacy_opts = {}
-
-        # Map CLI options to legacy Canon::Comparison options
-        if @options.key?(:collapse_whitespace)
-          legacy_opts[:collapse_whitespace] =
-            @options[:collapse_whitespace]
-        end
-        legacy_opts[:ignore_attr_order] =
-          @options.fetch(:ignore_attr_order, true)
-        if @options.key?(:ignore_text_nodes)
-          legacy_opts[:ignore_text_nodes] =
-            @options[:ignore_text_nodes]
-        end
-
-        # Handle comments option
-        # --with-comments means ignore_comments: false
-        # --no-with-comments (default) means ignore_comments: true
-        if @options.key?(:with_comments)
-          legacy_opts[:ignore_comments] = !@options[:with_comments]
-        elsif @options.key?(:ignore_comments)
-          legacy_opts[:ignore_comments] = @options[:ignore_comments]
-        end
-
-        # Convert legacy options to new system if any were provided
-        unless legacy_opts.empty?
-          require_relative "../comparison/match_options"
-          converted = Canon::Comparison::MatchOptions.from_legacy_options(legacy_opts)
-          if converted[:match_options]
-            opts[:match_options] =
-              converted[:match_options]
-          end
-        end
-
-        # Always pass ignore_attr_order
-        opts[:ignore_attr_order] = legacy_opts.fetch(:ignore_attr_order, true)
       end
 
       # Determine diff mode based on format and options

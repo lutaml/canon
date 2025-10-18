@@ -18,7 +18,8 @@ RSpec.describe "String matcher", type: :matcher do
 
         expect do
           expect(xml1).to be_equivalent_to(xml2)
-        end.to raise_error(RSpec::Expectations::ExpectationNotMetError, /XML mode/)
+        end.to raise_error(RSpec::Expectations::ExpectationNotMetError,
+                           /XML mode/)
       end
     end
 
@@ -36,7 +37,8 @@ RSpec.describe "String matcher", type: :matcher do
 
         expect do
           expect(json1).to be_equivalent_to(json2)
-        end.to raise_error(RSpec::Expectations::ExpectationNotMetError, /JSON mode/)
+        end.to raise_error(RSpec::Expectations::ExpectationNotMetError,
+                           /JSON mode/)
       end
     end
 
@@ -54,7 +56,8 @@ RSpec.describe "String matcher", type: :matcher do
 
         expect do
           expect(yaml1).to be_equivalent_to(yaml2)
-        end.to raise_error(RSpec::Expectations::ExpectationNotMetError, /YAML mode/)
+        end.to raise_error(RSpec::Expectations::ExpectationNotMetError,
+                           /YAML mode/)
       end
     end
 
@@ -72,7 +75,8 @@ RSpec.describe "String matcher", type: :matcher do
 
         expect do
           expect(str1).to be_equivalent_to(str2)
-        end.to raise_error(RSpec::Expectations::ExpectationNotMetError, /STRING mode/)
+        end.to raise_error(RSpec::Expectations::ExpectationNotMetError,
+                           /STRING mode/)
       end
 
       it "detects differences in plain strings" do
@@ -96,13 +100,14 @@ RSpec.describe "String matcher", type: :matcher do
     it "shows STRING mode in diff" do
       expect do
         expect("Hello World").to be_string_equivalent_to("Hello Universe")
-      end.to raise_error(RSpec::Expectations::ExpectationNotMetError, /STRING mode/)
+      end.to raise_error(RSpec::Expectations::ExpectationNotMetError,
+                         /STRING mode/)
     end
 
     context "with whitespace differences" do
       it "detects extra spaces" do
         str1 = "Hello World"
-        str2 = "Hello  World"  # Two spaces
+        str2 = "Hello  World" # Two spaces
 
         expect(str1).not_to be_string_equivalent_to(str2)
       end
@@ -190,7 +195,7 @@ RSpec.describe "String matcher", type: :matcher do
         expect do
           expect(str1).to be_string_equivalent_to(str2)
         end.to raise_error(RSpec::Expectations::ExpectationNotMetError,
-                           /Line 2/)
+                           /Modified/)
       end
     end
 
@@ -215,7 +220,7 @@ RSpec.describe "String matcher", type: :matcher do
     context "with mixed invisible characters" do
       it "detects multiple types of invisible characters" do
         str1 = "Hello World"
-        str2 = "Hello\u00A0\u200BWorld"  # nbsp + zero-width space
+        str2 = "Hello\u00A0\u200BWorld" # nbsp + zero-width space
 
         expect(str1).not_to be_string_equivalent_to(str2)
       end

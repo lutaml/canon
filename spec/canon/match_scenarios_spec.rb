@@ -1,6 +1,6 @@
 require "spec_helper"
 
-RSpec.describe "MECE XML Diff Scenarios" do
+RSpec.describe "XML Diff Scenarios with Match Options" do
   let(:formatter) do
     Canon::DiffFormatter.new(use_color: false, mode: :by_line,
                              context_lines: 0, diff_grouping_lines: 10)
