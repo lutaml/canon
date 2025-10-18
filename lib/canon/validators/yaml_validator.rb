@@ -30,7 +30,7 @@ module Canon
           format: :yaml,
           line: location[:line],
           column: location[:column],
-          details: extract_context(input, e)
+          details: extract_context(input, e),
         )
       end
 
@@ -53,14 +53,14 @@ module Canon
 
         lines = input.split("\n")
         line_idx = error.line - 1
-        return nil if line_idx < 0 || line_idx >= lines.size
+        return nil if line_idx.negative? || line_idx >= lines.size
 
         # Get the problematic line
         problem_line = lines[line_idx]
 
         # Add column indicator if available
         if error.column
-          indicator = " " * (error.column - 1) + "^"
+          indicator = "#{' ' * (error.column - 1)}^"
           "Line content: #{problem_line}\n#{indicator}"
         else
           "Line content: #{problem_line}"

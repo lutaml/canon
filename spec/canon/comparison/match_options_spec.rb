@@ -6,34 +6,34 @@ RSpec.describe Canon::Comparison::MatchOptions do
   describe "constants" do
     it "defines PREPROCESSING_OPTIONS" do
       expect(described_class::PREPROCESSING_OPTIONS).to eq(
-        %i[none c14n normalize format]
+        %i[none c14n normalize format],
       )
     end
 
     it "defines MATCH_BEHAVIORS" do
       expect(described_class::MATCH_BEHAVIORS).to eq(
-        %i[strict normalize ignore]
+        %i[strict normalize ignore],
       )
     end
 
     it "defines MATCH_DIMENSIONS" do
       expect(described_class::MATCH_DIMENSIONS).to eq(%i[
-        text_content
-        structural_whitespace
-        attribute_whitespace
-        comments
-      ])
+                                                        text_content
+                                                        structural_whitespace
+                                                        attribute_whitespace
+                                                        comments
+                                                      ])
     end
 
     it "defines MATCH_PROFILES" do
       expect(described_class::MATCH_PROFILES.keys).to eq(%i[
-        strict rendered spec_friendly content_only
-      ])
+                                                           strict rendered spec_friendly content_only
+                                                         ])
     end
 
     it "defines FORMAT_DEFAULTS" do
       expect(described_class::FORMAT_DEFAULTS.keys).to eq(
-        %i[html xml json yaml]
+        %i[html xml json yaml],
       )
     end
   end
@@ -45,7 +45,7 @@ RSpec.describe Canon::Comparison::MatchOptions do
         text_content: :normalize,
         structural_whitespace: :normalize,
         attribute_whitespace: :strict,
-        comments: :ignore
+        comments: :ignore,
       )
     end
 
@@ -55,7 +55,7 @@ RSpec.describe Canon::Comparison::MatchOptions do
         text_content: :strict,
         structural_whitespace: :strict,
         attribute_whitespace: :strict,
-        comments: :strict
+        comments: :strict,
       )
     end
 
@@ -65,7 +65,7 @@ RSpec.describe Canon::Comparison::MatchOptions do
         text_content: :strict,
         structural_whitespace: :ignore,
         attribute_whitespace: :strict,
-        comments: :ignore
+        comments: :ignore,
       )
     end
 
@@ -75,7 +75,7 @@ RSpec.describe Canon::Comparison::MatchOptions do
         text_content: :strict,
         structural_whitespace: :ignore,
         attribute_whitespace: :strict,
-        comments: :ignore
+        comments: :ignore,
       )
     end
   end
@@ -87,7 +87,7 @@ RSpec.describe Canon::Comparison::MatchOptions do
         text_content: :strict,
         structural_whitespace: :strict,
         attribute_whitespace: :strict,
-        comments: :strict
+        comments: :strict,
       )
     end
 
@@ -97,7 +97,7 @@ RSpec.describe Canon::Comparison::MatchOptions do
         text_content: :normalize,
         structural_whitespace: :normalize,
         attribute_whitespace: :strict,
-        comments: :ignore
+        comments: :ignore,
       )
     end
 
@@ -107,7 +107,7 @@ RSpec.describe Canon::Comparison::MatchOptions do
         text_content: :normalize,
         structural_whitespace: :ignore,
         attribute_whitespace: :strict,
-        comments: :ignore
+        comments: :ignore,
       )
     end
 
@@ -117,7 +117,7 @@ RSpec.describe Canon::Comparison::MatchOptions do
         text_content: :normalize,
         structural_whitespace: :ignore,
         attribute_whitespace: :normalize,
-        comments: :ignore
+        comments: :ignore,
       )
     end
   end
@@ -131,7 +131,7 @@ RSpec.describe Canon::Comparison::MatchOptions do
           text_content: :normalize,
           structural_whitespace: :normalize,
           attribute_whitespace: :strict,
-          comments: :ignore
+          comments: :ignore,
         )
       end
 
@@ -142,7 +142,7 @@ RSpec.describe Canon::Comparison::MatchOptions do
           text_content: :strict,
           structural_whitespace: :strict,
           attribute_whitespace: :strict,
-          comments: :strict
+          comments: :strict,
         )
       end
 
@@ -153,7 +153,7 @@ RSpec.describe Canon::Comparison::MatchOptions do
           text_content: :strict,
           structural_whitespace: :strict,
           attribute_whitespace: :strict,
-          comments: :strict
+          comments: :strict,
         )
       end
     end
@@ -162,14 +162,14 @@ RSpec.describe Canon::Comparison::MatchOptions do
       it "applies global profile over format defaults" do
         result = described_class.resolve(
           format: :xml,
-          global_profile: :spec_friendly
+          global_profile: :spec_friendly,
         )
         expect(result).to eq(
           preprocessing: :normalize,
           text_content: :normalize,
           structural_whitespace: :ignore,
           attribute_whitespace: :strict,
-          comments: :ignore
+          comments: :ignore,
         )
       end
     end
@@ -178,7 +178,7 @@ RSpec.describe Canon::Comparison::MatchOptions do
       it "applies global options over format defaults" do
         result = described_class.resolve(
           format: :xml,
-          global_options: { text_content: :normalize }
+          global_options: { text_content: :normalize },
         )
         expect(result[:text_content]).to eq(:normalize)
         expect(result[:structural_whitespace]).to eq(:strict)
@@ -190,24 +190,24 @@ RSpec.describe Canon::Comparison::MatchOptions do
         result = described_class.resolve(
           format: :xml,
           global_profile: :strict,
-          match_profile: :rendered
+          match_profile: :rendered,
         )
         expect(result).to eq(
           preprocessing: :none,
           text_content: :normalize,
           structural_whitespace: :normalize,
           attribute_whitespace: :strict,
-          comments: :ignore
+          comments: :ignore,
         )
       end
 
       it "raises error for unknown profile" do
-        expect {
+        expect do
           described_class.resolve(
             format: :xml,
-            match_profile: :unknown
+            match_profile: :unknown,
           )
-        }.to raise_error(Canon::Error, /Unknown match profile: unknown/)
+        end.to raise_error(Canon::Error, /Unknown match profile: unknown/)
       end
     end
 
@@ -216,19 +216,19 @@ RSpec.describe Canon::Comparison::MatchOptions do
         result = described_class.resolve(
           format: :xml,
           match_profile: :strict,
-          preprocessing: :c14n
+          preprocessing: :c14n,
         )
         expect(result[:preprocessing]).to eq(:c14n)
         expect(result[:text_content]).to eq(:strict)
       end
 
       it "raises error for unknown preprocessing option" do
-        expect {
+        expect do
           described_class.resolve(
             format: :xml,
-            preprocessing: :unknown
+            preprocessing: :unknown,
           )
-        }.to raise_error(Canon::Error, /Unknown preprocessing option/)
+        end.to raise_error(Canon::Error, /Unknown preprocessing option/)
       end
     end
 
@@ -237,28 +237,28 @@ RSpec.describe Canon::Comparison::MatchOptions do
         result = described_class.resolve(
           format: :xml,
           match_profile: :rendered,
-          match_options: { text_content: :strict }
+          match_options: { text_content: :strict },
         )
         expect(result[:text_content]).to eq(:strict)
         expect(result[:structural_whitespace]).to eq(:normalize)
       end
 
       it "raises error for unknown dimension" do
-        expect {
+        expect do
           described_class.resolve(
             format: :xml,
-            match_options: { unknown_dimension: :normalize }
+            match_options: { unknown_dimension: :normalize },
           )
-        }.to raise_error(Canon::Error, /Unknown match dimension/)
+        end.to raise_error(Canon::Error, /Unknown match dimension/)
       end
 
       it "raises error for unknown behavior" do
-        expect {
+        expect do
           described_class.resolve(
             format: :xml,
-            match_options: { text_content: :unknown_behavior }
+            match_options: { text_content: :unknown_behavior },
           )
-        }.to raise_error(Canon::Error, /Unknown match behavior/)
+        end.to raise_error(Canon::Error, /Unknown match behavior/)
       end
     end
 
@@ -270,7 +270,7 @@ RSpec.describe Canon::Comparison::MatchOptions do
           global_options: { comments: :ignore },  # Override comments
           match_profile: :spec_friendly,          # Override to spec_friendly
           preprocessing: :c14n,                   # Override preprocessing
-          match_options: { text_content: :strict } # Override text_content
+          match_options: { text_content: :strict }, # Override text_content
         )
 
         # Highest priority: match_options
@@ -297,7 +297,7 @@ RSpec.describe Canon::Comparison::MatchOptions do
         text_content: :normalize,
         structural_whitespace: :normalize,
         attribute_whitespace: :strict,
-        comments: :ignore
+        comments: :ignore,
       )
     end
 
@@ -309,9 +309,9 @@ RSpec.describe Canon::Comparison::MatchOptions do
     end
 
     it "raises error for unknown profile" do
-      expect {
+      expect do
         described_class.get_profile_options(:unknown)
-      }.to raise_error(Canon::Error, /Unknown match profile/)
+      end.to raise_error(Canon::Error, /Unknown match profile/)
     end
   end
 
@@ -323,7 +323,7 @@ RSpec.describe Canon::Comparison::MatchOptions do
       expect(legacy).to eq(
         collapse_whitespace: false,
         normalize_tag_whitespace: false,
-        ignore_comments: false
+        ignore_comments: false,
       )
     end
 
@@ -334,7 +334,7 @@ RSpec.describe Canon::Comparison::MatchOptions do
       expect(legacy).to eq(
         collapse_whitespace: false,
         normalize_tag_whitespace: true,
-        ignore_comments: true
+        ignore_comments: true,
       )
     end
 
@@ -345,7 +345,7 @@ RSpec.describe Canon::Comparison::MatchOptions do
       expect(legacy).to eq(
         collapse_whitespace: true,
         normalize_tag_whitespace: true,
-        ignore_comments: true
+        ignore_comments: true,
       )
     end
   end
@@ -361,12 +361,12 @@ RSpec.describe Canon::Comparison::MatchOptions do
 
     it "converts normalize_tag_whitespace to text_content" do
       result = described_class.from_legacy_options(
-        normalize_tag_whitespace: true
+        normalize_tag_whitespace: true,
       )
       expect(result[:text_content]).to eq(:normalize)
 
       result = described_class.from_legacy_options(
-        normalize_tag_whitespace: false
+        normalize_tag_whitespace: false,
       )
       expect(result[:text_content]).to eq(:strict)
     end
@@ -383,12 +383,12 @@ RSpec.describe Canon::Comparison::MatchOptions do
       result = described_class.from_legacy_options(
         collapse_whitespace: true,
         normalize_tag_whitespace: true,
-        ignore_comments: false
+        ignore_comments: false,
       )
       expect(result).to eq(
         structural_whitespace: :ignore,
         text_content: :normalize,
-        comments: :strict
+        comments: :strict,
       )
     end
   end
@@ -435,9 +435,9 @@ RSpec.describe Canon::Comparison::MatchOptions do
 
     context "with unknown behavior" do
       it "raises error" do
-        expect {
+        expect do
           described_class.match_text?("hello", "hello", :unknown)
-        }.to raise_error(Canon::Error, /Unknown match behavior: unknown/)
+        end.to raise_error(Canon::Error, /Unknown match behavior: unknown/)
       end
     end
   end

@@ -31,7 +31,7 @@ module Canon
 
           differences = []
           result = JsonComparator.send(:compare_ruby_objects, obj1, obj2, opts,
-                                        differences, "")
+                                       differences, "")
 
           if opts[:verbose]
             differences

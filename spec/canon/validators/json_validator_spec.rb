@@ -12,7 +12,7 @@ RSpec.describe Canon::Validators::JsonValidator do
       end
 
       it "does not raise error for valid JSON array" do
-        json = '[1, 2, 3]'
+        json = "[1, 2, 3]"
         expect { described_class.validate!(json) }.not_to raise_error
       end
 
@@ -26,7 +26,7 @@ RSpec.describe Canon::Validators::JsonValidator do
       it "raises ValidationError for missing closing brace" do
         json = '{"key": "value"'
         expect { described_class.validate!(json) }.to raise_error(
-          Canon::ValidationError
+          Canon::ValidationError,
         ) do |error|
           expect(error.format).to eq(:json)
           expect(error.message).to match(/JSON Validation Error/)
@@ -36,7 +36,7 @@ RSpec.describe Canon::Validators::JsonValidator do
       it "raises ValidationError for trailing comma" do
         json = '{"key": "value",}'
         expect { described_class.validate!(json) }.to raise_error(
-          Canon::ValidationError
+          Canon::ValidationError,
         )
       end
     end

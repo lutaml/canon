@@ -103,11 +103,11 @@ module Canon
         def render_unequal_types(diff, prefix, output)
           output << "#{prefix}├── - #{colorize(
             "#{diff[:value1].class.name}: #{format_value_for_diff(diff[:value1])}",
-            :red
+            :red,
           )}"
           output << "#{prefix}└── + #{colorize(
             "#{diff[:value2].class.name}: #{format_value_for_diff(diff[:value2])}",
-            :green
+            :green,
           )}"
         end
 
@@ -145,7 +145,10 @@ module Canon
             else
               # Leaf value
               value_str = format_value_for_diff(value)
-              output << "#{prefix}#{connector} + #{colorize(key.to_s, :green)}: #{colorize(value_str, :green)}"
+              output << "#{prefix}#{connector} + #{colorize(key.to_s,
+                                                            :green)}: #{colorize(
+                                                              value_str, :green
+                                                            )}"
             end
           end
 
@@ -170,7 +173,10 @@ module Canon
             else
               # Leaf value
               value_str = format_value_for_diff(value)
-              output << "#{prefix}#{connector} - #{colorize(key.to_s, :red)}: #{colorize(value_str, :red)}"
+              output << "#{prefix}#{connector} - #{colorize(key.to_s,
+                                                            :red)}: #{colorize(
+                                                              value_str, :red
+                                                            )}"
             end
           end
 
@@ -236,15 +242,25 @@ module Canon
 
             case change[:type]
             when :add
-              output << "#{prefix}#{connector} [#{change[:index]}] + #{colorize(change[:value], :green)}"
+              output << "#{prefix}#{connector} [#{change[:index]}] + #{colorize(
+                change[:value], :green
+              )}"
             when :remove
-              output << "#{prefix}#{connector} [#{change[:index]}] - #{colorize(change[:value], :red)}"
+              output << "#{prefix}#{connector} [#{change[:index]}] - #{colorize(
+                change[:value], :red
+              )}"
             when :change
-              output << "#{prefix}├── [#{change[:index]}] - #{colorize(change[:old], :red)}"
+              output << "#{prefix}├── [#{change[:index]}] - #{colorize(
+                change[:old], :red
+              )}"
               output << if is_last
-                          "#{prefix}└── [#{change[:index]}] + #{colorize(change[:new], :green)}"
+                          "#{prefix}└── [#{change[:index]}] + #{colorize(
+                            change[:new], :green
+                          )}"
                         else
-                          "#{prefix}├── [#{change[:index]}] + #{colorize(change[:new], :green)}"
+                          "#{prefix}├── [#{change[:index]}] + #{colorize(
+                            change[:new], :green
+                          )}"
                         end
             end
           end

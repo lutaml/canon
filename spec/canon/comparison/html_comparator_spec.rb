@@ -135,14 +135,16 @@ RSpec.describe Canon::Comparison::HtmlComparator do
         html1 = "<html><body><!-- comment --><p>Test</p></body></html>"
         html2 = "<html><body><p>Test</p></body></html>"
 
-        expect(described_class.equivalent?(html1, html2, ignore_comments: true)).to be true
+        expect(described_class.equivalent?(html1, html2,
+                                           ignore_comments: true)).to be true
       end
 
       it "respects collapse_whitespace option" do
         html1 = "<html><body><p>Test    with    spaces</p></body></html>"
         html2 = "<html><body><p>Test with spaces</p></body></html>"
 
-        expect(described_class.equivalent?(html1, html2, collapse_whitespace: true)).to be true
+        expect(described_class.equivalent?(html1, html2,
+                                           collapse_whitespace: true)).to be true
       end
 
       it "respects ignore_attrs option" do

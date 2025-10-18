@@ -15,9 +15,9 @@ module Canon
       # @param indent [Integer] Number of spaces for indentation (default: 2)
       # @return [String] Formatted XML
       def self.format(xml, pretty: true, indent: 2)
-      if pretty
-        Canon::PrettyPrinter::Xml.new(indent: indent).format(xml)
-      else
+        if pretty
+          Canon::PrettyPrinter::Xml.new(indent: indent).format(xml)
+        else
           Canon::Xml::C14n.canonicalize(xml, with_comments: false)
         end
       end

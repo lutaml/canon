@@ -29,7 +29,7 @@ RSpec.describe Canon::Validators::YamlValidator do
       it "raises ValidationError for unclosed bracket" do
         yaml = "key: {unclosed"
         expect { described_class.validate!(yaml) }.to raise_error(
-          Canon::ValidationError
+          Canon::ValidationError,
         ) do |error|
           expect(error.format).to eq(:yaml)
           expect(error.message).to match(/YAML Validation Error/)
@@ -39,7 +39,7 @@ RSpec.describe Canon::Validators::YamlValidator do
       it "raises ValidationError with line information" do
         yaml = "key: [unclosed"
         expect { described_class.validate!(yaml) }.to raise_error(
-          Canon::ValidationError
+          Canon::ValidationError,
         ) do |error|
           expect(error.line).to be_a(Integer) if error.line
         end

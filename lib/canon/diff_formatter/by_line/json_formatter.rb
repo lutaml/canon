@@ -34,13 +34,15 @@ module Canon
             # Format with semantic token highlighting
             output << format_semantic_diff(diffs, lines1, lines2)
           rescue StandardError => e
-            output << colorize("Warning: JSON parsing failed (#{e.message}), using simple diff", :yellow)
+            output << colorize(
+              "Warning: JSON parsing failed (#{e.message}), using simple diff", :yellow
+            )
             require_relative "simple_formatter"
             simple = SimpleFormatter.new(
               use_color: @use_color,
               context_lines: @context_lines,
               diff_grouping_lines: @diff_grouping_lines,
-              visualization_map: @visualization_map
+              visualization_map: @visualization_map,
             )
             output << simple.format(doc1, doc2)
           end
@@ -125,7 +127,12 @@ module Canon
           new_str = new_num ? "%4d" % new_num : "    "
           marker_part = "#{marker} "
 
-          visualized_content = color ? apply_visualization(content, color) : content
+          visualized_content = if color
+                                 apply_visualization(content,
+                                                     color)
+                               else
+                                 content
+                               end
 
           if @use_color
             yellow_old = colorize(old_str, :yellow)
@@ -271,7 +278,6 @@ module Canon
             visual
           end
         end
-
       end
     end
   end

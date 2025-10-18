@@ -41,9 +41,9 @@ module Canon
           # Track if user explicitly provided MECE match options (any level)
           # Only if the values are actually non-nil
           has_explicit_match_opts = opts[:match_options] ||
-                                    opts[:match_profile] ||
-                                    opts[:global_profile] ||
-                                    opts[:global_options]
+            opts[:match_profile] ||
+            opts[:global_profile] ||
+            opts[:global_options]
 
           # Resolve MECE match options with format-specific defaults
           # HTML defaults to :rendered profile (mimics CSS rendering)
@@ -53,7 +53,7 @@ module Canon
             match_options: opts[:match_options],
             preprocessing: opts[:preprocessing],
             global_profile: opts[:global_profile],
-            global_options: opts[:global_options]
+            global_options: opts[:global_options],
           )
 
           # Store resolved match options
@@ -73,7 +73,7 @@ module Canon
           diff_children = opts[:diff_children] || false
 
           result = XmlComparator.send(:compare_nodes, node1, node2, opts,
-                                       child_opts, diff_children, differences)
+                                      child_opts, diff_children, differences)
 
           if opts[:verbose]
             differences

@@ -43,14 +43,14 @@ RSpec.describe Canon::Validators::XmlValidator do
         xml = "<root><child>value"
         expect { described_class.validate!(xml) }.to raise_error(
           Canon::ValidationError,
-          /XML Validation Error/
+          /XML Validation Error/,
         )
       end
 
       it "raises ValidationError for mismatched tags" do
         xml = "<root><child>value</wrong></root>"
         expect { described_class.validate!(xml) }.to raise_error(
-          Canon::ValidationError
+          Canon::ValidationError,
         ) do |error|
           expect(error.format).to eq(:xml)
           expect(error.message).to match(/XML Validation Error/)
@@ -64,7 +64,7 @@ RSpec.describe Canon::Validators::XmlValidator do
           </root>
         XML
         expect { described_class.validate!(xml) }.to raise_error(
-          Canon::ValidationError
+          Canon::ValidationError,
         ) do |error|
           expect(error.line).to be_a(Integer)
         end
@@ -74,7 +74,7 @@ RSpec.describe Canon::Validators::XmlValidator do
         xml = "<root<child>value</child></root>"
         expect { described_class.validate!(xml) }.to raise_error(
           Canon::ValidationError,
-          /XML Validation Error/
+          /XML Validation Error/,
         )
       end
     end

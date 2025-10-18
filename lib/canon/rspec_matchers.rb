@@ -43,7 +43,8 @@ module Canon
 
     # Base matcher class for serialization equivalence
     class SerializationMatcher
-      def initialize(expected, format = :xml, match_profile: nil, match_options: nil, preprocessing: nil)
+      def initialize(expected, format = :xml, match_profile: nil,
+match_options: nil, preprocessing: nil)
         @expected = expected
         unless SUPPORTED_FORMATS.include?(format.to_sym)
           raise Canon::Error, "Unsupported format: #{format}"
@@ -81,15 +82,17 @@ module Canon
 
         # Use XmlComparator for comparison (it will resolve precedence)
         result = if @match_profile || @match_options ||
-                    Canon::RSpecMatchers.xml_match_profile ||
-                    Canon::RSpecMatchers.xml_match_options
+            Canon::RSpecMatchers.xml_match_profile ||
+            Canon::RSpecMatchers.xml_match_options
                    # Use MECE match options with full precedence handling
-                   Canon::Comparison::XmlComparator.equivalent?(@target, @expected, opts)
+                   Canon::Comparison::XmlComparator.equivalent?(@target,
+                                                                @expected, opts)
                  elsif Canon::RSpecMatchers.normalize_tag_whitespace
                    # Legacy behavior for backward compatibility
                    opts[:normalize_tag_whitespace] = true
                    opts[:collapse_whitespace] = false
-                   Canon::Comparison::XmlComparator.equivalent?(@target, @expected, opts)
+                   Canon::Comparison::XmlComparator.equivalent?(@target,
+                                                                @expected, opts)
                  else
                    # Default: strict C14N comparison
                    nil
@@ -213,16 +216,16 @@ module Canon
         case @format
         when :json
           Canon::Comparison::JsonComparator.equivalent?(@expected_sorted, @actual_sorted,
-                                              verbose: true)
+                                                        verbose: true)
         when :yaml
           Canon::Comparison::YamlComparator.equivalent?(@expected_sorted, @actual_sorted,
-                                              verbose: true)
+                                                        verbose: true)
         when :xml
           Canon::Comparison::XmlComparator.equivalent?(@expected_sorted, @actual_sorted,
-                                             verbose: true)
+                                                       verbose: true)
         when :html, :html4, :html5
           Canon::Comparison::HtmlComparator.equivalent?(@expected_sorted, @actual_sorted,
-                                              verbose: true)
+                                                        verbose: true)
         else
           []
         end
@@ -278,21 +281,24 @@ module Canon
     end
 
     # Matcher methods
-    def be_serialization_equivalent_to(expected, format: :xml, match_profile: nil, match_options: nil, preprocessing: nil)
+    def be_serialization_equivalent_to(expected, format: :xml,
+match_profile: nil, match_options: nil, preprocessing: nil)
       SerializationMatcher.new(expected, format,
                                match_profile: match_profile,
                                match_options: match_options,
                                preprocessing: preprocessing)
     end
 
-    def be_analogous_with(expected, match_profile: nil, match_options: nil, preprocessing: nil)
+    def be_analogous_with(expected, match_profile: nil, match_options: nil,
+preprocessing: nil)
       SerializationMatcher.new(expected, :xml,
                                match_profile: match_profile,
                                match_options: match_options,
                                preprocessing: preprocessing)
     end
 
-    def be_xml_equivalent_to(expected, match_profile: nil, match_options: nil, preprocessing: nil)
+    def be_xml_equivalent_to(expected, match_profile: nil, match_options: nil,
+preprocessing: nil)
       SerializationMatcher.new(expected, :xml,
                                match_profile: match_profile,
                                match_options: match_options,
@@ -307,21 +313,24 @@ module Canon
       SerializationMatcher.new(expected, :json)
     end
 
-    def be_html_equivalent_to(expected, match_profile: nil, match_options: nil, preprocessing: nil)
+    def be_html_equivalent_to(expected, match_profile: nil, match_options: nil,
+preprocessing: nil)
       SerializationMatcher.new(expected, :html,
                                match_profile: match_profile,
                                match_options: match_options,
                                preprocessing: preprocessing)
     end
 
-    def be_html4_equivalent_to(expected, match_profile: nil, match_options: nil, preprocessing: nil)
+    def be_html4_equivalent_to(expected, match_profile: nil,
+match_options: nil, preprocessing: nil)
       SerializationMatcher.new(expected, :html4,
                                match_profile: match_profile,
                                match_options: match_options,
                                preprocessing: preprocessing)
     end
 
-    def be_html5_equivalent_to(expected, match_profile: nil, match_options: nil, preprocessing: nil)
+    def be_html5_equivalent_to(expected, match_profile: nil,
+match_options: nil, preprocessing: nil)
       SerializationMatcher.new(expected, :html5,
                                match_profile: match_profile,
                                match_options: match_options,
