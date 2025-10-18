@@ -29,7 +29,7 @@ module Canon
           format: :json,
           line: position[:line],
           column: position[:column],
-          details: extract_context(input, position)
+          details: extract_context(input, position),
         )
       end
 
@@ -45,7 +45,7 @@ module Canon
         if message =~ /at line (\d+), column (\d+)/i
           line = ::Regexp.last_match(1).to_i
           column = ::Regexp.last_match(2).to_i
-        elsif message =~ /at character offset (\d+)/i
+        elsif /at character offset (\d+)/i.match?(message)
           # For character offset, we can't easily determine line/column
           # without parsing the input
         end
@@ -72,7 +72,7 @@ module Canon
 
         lines = input.split("\n")
         line_idx = position[:line] - 1
-        return nil if line_idx < 0 || line_idx >= lines.size
+        return nil if line_idx.negative? || line_idx >= lines.size
 
         # Get the problematic line and surrounding lines
         start_idx = [0, line_idx - 1].max

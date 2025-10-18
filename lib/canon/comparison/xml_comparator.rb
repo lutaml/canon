@@ -42,9 +42,9 @@ module Canon
           # Track if user explicitly provided MECE match options (any level)
           # Only if the values are actually non-nil
           has_explicit_match_opts = opts[:match_options] ||
-                                    opts[:match_profile] ||
-                                    opts[:global_profile] ||
-                                    opts[:global_options]
+            opts[:match_profile] ||
+            opts[:global_profile] ||
+            opts[:global_options]
 
           # Resolve MECE match options with format-specific defaults
           # Always resolve to get format defaults even if no profile specified
@@ -54,7 +54,7 @@ module Canon
             match_options: opts[:match_options],
             preprocessing: opts[:preprocessing],
             global_profile: opts[:global_profile],
-            global_options: opts[:global_options]
+            global_options: opts[:global_options],
           )
 
           # Store resolved match options
@@ -94,10 +94,11 @@ module Canon
           xml_string = case preprocessing
                        when :normalize
                          # Normalize whitespace: collapse runs, trim lines
-                         node.lines.map { |line| line.strip }.reject(&:empty?).join("\n")
+                         node.lines.map(&:strip).reject(&:empty?).join("\n")
                        when :c14n
                          # Canonicalize the XML
-                         Canon::Xml::C14n.canonicalize(node, with_comments: false)
+                         Canon::Xml::C14n.canonicalize(node,
+                                                       with_comments: false)
                        when :format
                          # Pretty format the XML
                          Canon.format(node, :xml)
@@ -410,8 +411,8 @@ module Canon
             match_opts = opts[:resolved_match_options]
 
             # Ignore comments based on match options
-            if node.respond_to?(:comment?) && node.comment?
-              return true if match_opts[:comments] == :ignore
+            if node.respond_to?(:comment?) && node.comment? && (match_opts[:comments] == :ignore)
+              return true
             end
 
             # Ignore text nodes if specified

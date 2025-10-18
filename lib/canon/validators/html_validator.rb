@@ -56,7 +56,7 @@ module Canon
           format: :html,
           line: location[:line],
           column: location[:column],
-          details: "XHTML validation failed: #{extract_details(e)}"
+          details: "XHTML validation failed: #{extract_details(e)}",
         )
       end
 
@@ -86,7 +86,7 @@ module Canon
           format: :html,
           line: location[:line],
           column: location[:column],
-          details: build_error_details(significant_errors)
+          details: build_error_details(significant_errors),
         )
       end
 

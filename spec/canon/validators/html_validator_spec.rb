@@ -26,7 +26,7 @@ RSpec.describe Canon::Validators::HtmlValidator do
       it "raises ValidationError for malformed XHTML" do
         html = '<?xml version="1.0"?><html xmlns="http://www.w3.org/1999/xhtml"><body><div>content</body></html>'
         expect { described_class.validate!(html) }.to raise_error(
-          Canon::ValidationError
+          Canon::ValidationError,
         ) do |error|
           expect(error.format).to eq(:html)
           expect(error.message).to match(/HTML Validation Error/)

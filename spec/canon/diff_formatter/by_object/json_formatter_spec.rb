@@ -6,7 +6,6 @@ RSpec.describe Canon::DiffFormatter::ByObject::JsonFormatter do
   let(:formatter) { described_class.new(use_color: false) }
 
   describe "#format" do
-
     context "with primitive value changes" do
       it "shows old and new values for string changes" do
         differences = [

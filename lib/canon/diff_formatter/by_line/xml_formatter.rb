@@ -68,7 +68,7 @@ module Canon
               use_color: @use_color,
               context_lines: @context_lines,
               diff_grouping_lines: @diff_grouping_lines,
-              visualization_map: @visualization_map
+              visualization_map: @visualization_map,
             )
             output << simple.format(doc1, doc2)
           end
@@ -111,10 +111,13 @@ module Canon
 
           # Group diffs by proximity if diff_grouping_lines is set
           formatted_diffs = if @diff_grouping_lines
-                              groups = group_diff_sections(diff_sections, @diff_grouping_lines)
+                              groups = group_diff_sections(diff_sections,
+                                                           @diff_grouping_lines)
                               format_diff_groups(groups, lines1, lines2)
                             else
-                              diff_sections.map { |s| s[:formatted] }.compact.join("\n\n")
+                              diff_sections.map do |s|
+                                s[:formatted]
+                              end.compact.join("\n\n")
                             end
 
           output << formatted_diffs
@@ -359,7 +362,7 @@ module Canon
               blocks << Canon::Diff::DiffBlock.new(
                 start_idx: current_start,
                 end_idx: idx - 1,
-                types: current_types
+                types: current_types,
               )
               current_start = nil
               current_types = []
@@ -371,7 +374,7 @@ module Canon
             blocks << Canon::Diff::DiffBlock.new(
               start_idx: current_start,
               end_idx: diffs.length - 1,
-              types: current_types
+              types: current_types,
             )
           end
 
@@ -416,7 +419,7 @@ module Canon
             Canon::Diff::DiffContext.new(
               start_idx: start_idx,
               end_idx: end_idx,
-              blocks: context
+              blocks: context,
             )
           end
         end
@@ -523,7 +526,12 @@ module Canon
           new_str = new_num ? "%4d" % new_num : "    "
           marker_part = "#{marker} "
 
-          visualized_content = color ? apply_visualization(content, color) : content
+          visualized_content = if color
+                                 apply_visualization(content,
+                                                     color)
+                               else
+                                 content
+                               end
 
           if @use_color
             yellow_old = colorize(old_str, :yellow)
@@ -618,11 +626,11 @@ module Canon
                 parts << apply_visualization(change.new_element, :green)
               end
             when "!"
-              if side == :old
-                parts << apply_visualization(change.old_element, :red)
-              else
-                parts << apply_visualization(change.new_element, :green)
-              end
+              parts << if side == :old
+                         apply_visualization(change.old_element, :red)
+                       else
+                         apply_visualization(change.new_element, :green)
+                       end
             end
           end
 

@@ -50,7 +50,8 @@ RSpec.describe Canon::Comparison::YamlComparator do
           a: 1
         YAML
 
-        expect(described_class.equivalent?(yaml1, yaml2, ignore_attr_order: true)).to be true
+        expect(described_class.equivalent?(yaml1, yaml2,
+                                           ignore_attr_order: true)).to be true
       end
     end
 
@@ -236,7 +237,8 @@ RSpec.describe Canon::Comparison::YamlComparator do
           b: 2
         YAML
 
-        expect(described_class.equivalent?(yaml1, yaml2, ignore_attr_order: true)).to be true
+        expect(described_class.equivalent?(yaml1, yaml2,
+                                           ignore_attr_order: true)).to be true
       end
     end
 
@@ -330,7 +332,7 @@ RSpec.describe Canon::Comparison::YamlComparator do
           { "key" => "value" },
           hash_including(ignore_attr_order: true),
           [],
-          ""
+          "",
         ).and_call_original
 
         described_class.equivalent?(yaml1, yaml2)

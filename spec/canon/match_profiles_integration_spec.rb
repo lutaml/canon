@@ -29,15 +29,14 @@ RSpec.describe "Match Profiles Integration" do
     context "with spec_friendly profile" do
       it "matches despite whitespace and formatting differences" do
         expect(actual_xml).to be_xml_equivalent_to(expected_xml,
-                                                    match_profile: :spec_friendly)
+                                                   match_profile: :spec_friendly)
       end
     end
-
 
     context "with content_only profile" do
       it "matches despite whitespace and formatting differences" do
         expect(actual_xml).to be_xml_equivalent_to(expected_xml,
-                                                    match_profile: :content_only)
+                                                   match_profile: :content_only)
       end
     end
 
@@ -50,7 +49,7 @@ RSpec.describe "Match Profiles Integration" do
             structural_whitespace: :ignore,
             attribute_whitespace: :strict,
             comments: :ignore,
-          }
+          },
         )
       end
     end
@@ -67,7 +66,7 @@ RSpec.describe "Match Profiles Integration" do
     context "with spec_friendly profile" do
       it "matches with explicit profile" do
         expect(actual_html).to be_html_equivalent_to(expected_html,
-                                                      match_profile: :spec_friendly)
+                                                     match_profile: :spec_friendly)
       end
     end
   end
@@ -96,7 +95,7 @@ RSpec.describe "Match Profiles Integration" do
 
       # This should still use strict behavior at test level
       expect(actual_xml).not_to be_xml_equivalent_to(expected_xml,
-                                                       match_profile: :strict)
+                                                     match_profile: :strict)
     end
   end
 
@@ -126,7 +125,7 @@ RSpec.describe "Match Profiles Integration" do
             structural_whitespace: :ignore,
             attribute_whitespace: :strict,
             comments: :ignore,
-          }
+          },
         )
       end
 
@@ -138,7 +137,7 @@ RSpec.describe "Match Profiles Integration" do
             structural_whitespace: :ignore,
             attribute_whitespace: :strict,
             comments: :ignore,
-          }
+          },
         )
       end
     end
@@ -163,14 +162,16 @@ RSpec.describe "Match Profiles Integration" do
             structural_whitespace: :ignore,
             attribute_whitespace: :strict,
             comments: :ignore,
-          }
+          },
         )
       end
     end
 
     context "comments dimension" do
       let(:xml_with_comment) { "<root><!-- comment --><a>text</a></root>" }
-      let(:xml_different_comment) { "<root><!-- different --><a>text</a></root>" }
+      let(:xml_different_comment) do
+        "<root><!-- different --><a>text</a></root>"
+      end
       let(:xml_no_comment) { "<root><a>text</a></root>" }
 
       it "ignore behavior matches despite comment differences" do
@@ -181,7 +182,7 @@ RSpec.describe "Match Profiles Integration" do
             structural_whitespace: :ignore,
             attribute_whitespace: :strict,
             comments: :ignore,
-          }
+          },
         )
       end
 
@@ -193,7 +194,7 @@ RSpec.describe "Match Profiles Integration" do
             structural_whitespace: :ignore,
             attribute_whitespace: :strict,
             comments: :ignore,
-          }
+          },
         )
       end
     end
@@ -210,7 +211,7 @@ RSpec.describe "Match Profiles Integration" do
             structural_whitespace: :ignore,
             attribute_whitespace: :strict,
             comments: :ignore,
-          }
+          },
         )
       end
 
@@ -222,7 +223,7 @@ RSpec.describe "Match Profiles Integration" do
             structural_whitespace: :ignore,
             attribute_whitespace: :normalize,
             comments: :ignore,
-          }
+          },
         )
       end
     end

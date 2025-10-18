@@ -251,8 +251,8 @@ module Canon
           return "" if text.nil?
 
           text.to_s
-              .gsub(/[\p{Space}\u00a0]+/, " ")  # Collapse all whitespace (ASCII + Unicode) to single space
-              .strip             # Remove leading/trailing whitespace
+            .gsub(/[\p{Space}\u00a0]+/, " ") # Collapse all whitespace (ASCII + Unicode) to single space
+            .strip # Remove leading/trailing whitespace
         end
 
         private

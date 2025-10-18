@@ -172,7 +172,7 @@ module Canon
       @visualization_map = build_visualization_map(
         visualization_map: visualization_map,
         character_map_file: character_map_file,
-        character_definitions: character_definitions
+        character_definitions: character_definitions,
       )
     end
 
@@ -221,7 +221,8 @@ module Canon
              elsif definition[:character]
                definition[:character]
              else
-               raise ArgumentError, "Character definition must include :character or :unicode"
+               raise ArgumentError,
+                     "Character definition must include :character or :unicode"
              end
 
       unless definition[:visualization]
@@ -290,11 +291,9 @@ module Canon
       end
 
       # Apply individual character definitions if provided
-      if character_definitions
-        character_definitions.each do |definition|
-          char_map = self.class.build_character_definition(definition)
-          result.merge!(char_map)
-        end
+      character_definitions&.each do |definition|
+        char_map = self.class.build_character_definition(definition)
+        result.merge!(char_map)
       end
 
       result
@@ -325,7 +324,7 @@ module Canon
       formatter = ByObject::BaseFormatter.for_format(
         format,
         use_color: @use_color,
-        visualization_map: @visualization_map
+        visualization_map: @visualization_map,
       )
 
       output << formatter.format(differences, format)
@@ -349,7 +348,7 @@ module Canon
         use_color: @use_color,
         context_lines: @context_lines,
         diff_grouping_lines: @diff_grouping_lines,
-        visualization_map: @visualization_map
+        visualization_map: @visualization_map,
       )
 
       output << formatter.format(doc1, doc2)

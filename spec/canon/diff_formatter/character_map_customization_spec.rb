@@ -142,7 +142,7 @@ RSpec.describe Canon::DiffFormatter, "character map customization" do
         custom_map = { "\u2005" => "★" }
         formatter = described_class.new(
           mode: :by_line,
-          visualization_map: custom_map
+          visualization_map: custom_map,
         )
 
         output = formatter.format([], :simple, doc1: doc1, doc2: doc2)
@@ -160,7 +160,7 @@ RSpec.describe Canon::DiffFormatter, "character map customization" do
         formatter = described_class.new(
           mode: :by_line,
           visualization_map: custom_map,
-          character_definitions: custom_definitions
+          character_definitions: custom_definitions,
         )
 
         output = formatter.format([], :simple, doc1: doc1, doc2: doc2)
@@ -186,7 +186,7 @@ RSpec.describe Canon::DiffFormatter, "character map customization" do
 
           formatter = described_class.new(
             mode: :by_line,
-            character_map_file: file.path
+            character_map_file: file.path,
           )
 
           output = formatter.format([], :simple, doc1: doc1, doc2: doc2)
@@ -212,7 +212,7 @@ RSpec.describe Canon::DiffFormatter, "character map customization" do
 
           formatter = described_class.new(
             mode: :by_line,
-            character_map_file: file.path
+            character_map_file: file.path,
           )
 
           output = formatter.format([], :simple,
@@ -239,7 +239,7 @@ RSpec.describe Canon::DiffFormatter, "character map customization" do
 
         formatter = described_class.new(
           mode: :by_line,
-          character_definitions: custom_definitions
+          character_definitions: custom_definitions,
         )
 
         output = formatter.format([], :simple, doc1: doc1, doc2: doc2)
@@ -269,7 +269,7 @@ RSpec.describe Canon::DiffFormatter, "character map customization" do
 
         formatter = described_class.new(
           mode: :by_line,
-          character_definitions: custom_definitions
+          character_definitions: custom_definitions,
         )
 
         output = formatter.format([], :simple,
@@ -294,7 +294,7 @@ RSpec.describe Canon::DiffFormatter, "character map customization" do
 
         formatter = described_class.new(
           mode: :by_line,
-          character_definitions: custom_definitions
+          character_definitions: custom_definitions,
         )
 
         output = formatter.format([], :simple,
@@ -336,7 +336,7 @@ RSpec.describe Canon::DiffFormatter, "character map customization" do
           formatter = described_class.new(
             mode: :by_line,
             character_map_file: file.path,
-            character_definitions: custom_definitions
+            character_definitions: custom_definitions,
           )
 
           output = formatter.format([], :simple,
@@ -379,7 +379,7 @@ RSpec.describe Canon::DiffFormatter, "character map customization" do
 
       formatter = described_class.new(
         mode: :by_line,
-        character_definitions: custom_definitions
+        character_definitions: custom_definitions,
       )
 
       output = formatter.format([], :xml, doc1: doc1, doc2: doc2)
@@ -399,7 +399,7 @@ RSpec.describe Canon::DiffFormatter, "character map customization" do
 
       formatter = described_class.new(
         mode: :by_line,
-        character_definitions: custom_definitions
+        character_definitions: custom_definitions,
       )
 
       output = formatter.format([], :json, doc1: doc1, doc2: doc2)
@@ -419,7 +419,7 @@ RSpec.describe Canon::DiffFormatter, "character map customization" do
 
       formatter = described_class.new(
         mode: :by_line,
-        character_definitions: custom_definitions
+        character_definitions: custom_definitions,
       )
 
       output = formatter.format([], :yaml, doc1: doc1, doc2: doc2)

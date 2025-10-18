@@ -42,9 +42,9 @@ RSpec.describe Canon::PrettyPrinter::Json do
     end
 
     context "with nested JSON" do
-      let(:nested_json) { '{"outer":{"inner":{"deep":"value"}}}' }
-
       subject { described_class.new(indent: 2) }
+
+      let(:nested_json) { '{"outer":{"inner":{"deep":"value"}}}' }
 
       it "formats nested objects correctly" do
         result = subject.format(nested_json)
@@ -55,9 +55,9 @@ RSpec.describe Canon::PrettyPrinter::Json do
     end
 
     context "with arrays" do
-      let(:array_json) { '{"items":[1,2,3]}' }
-
       subject { described_class.new(indent: 2) }
+
+      let(:array_json) { '{"items":[1,2,3]}' }
 
       it "formats arrays correctly" do
         result = subject.format(array_json)

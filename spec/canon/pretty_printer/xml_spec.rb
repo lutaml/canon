@@ -45,14 +45,14 @@ RSpec.describe Canon::PrettyPrinter::Xml do
     end
 
     context "with complex XML" do
+      subject { described_class.new(indent: 2) }
+
       let(:complex_xml) do
         <<~XML
           <?xml version="1.0"?>
           <root><level1><level2><level3>deep content</level3></level2></level1></root>
         XML
       end
-
-      subject { described_class.new(indent: 2) }
 
       it "formats nested elements correctly" do
         result = subject.format(complex_xml)

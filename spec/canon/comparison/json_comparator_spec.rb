@@ -20,8 +20,8 @@ RSpec.describe Canon::Comparison::JsonComparator do
       end
 
       it "returns true for identical arrays" do
-        json1 = '[1, 2, 3]'
-        json2 = '[1, 2, 3]'
+        json1 = "[1, 2, 3]"
+        json2 = "[1, 2, 3]"
 
         expect(described_class.equivalent?(json1, json2)).to be true
       end
@@ -30,7 +30,8 @@ RSpec.describe Canon::Comparison::JsonComparator do
         json1 = '{"a": 1, "b": 2}'
         json2 = '{"b": 2, "a": 1}'
 
-        expect(described_class.equivalent?(json1, json2, ignore_attr_order: true)).to be true
+        expect(described_class.equivalent?(json1, json2,
+                                           ignore_attr_order: true)).to be true
       end
     end
 
@@ -50,15 +51,15 @@ RSpec.describe Canon::Comparison::JsonComparator do
       end
 
       it "returns false when array elements differ" do
-        json1 = '[1, 2, 3]'
-        json2 = '[1, 2, 4]'
+        json1 = "[1, 2, 3]"
+        json2 = "[1, 2, 4]"
 
         expect(described_class.equivalent?(json1, json2)).to be false
       end
 
       it "returns false when array lengths differ" do
-        json1 = '[1, 2, 3]'
-        json2 = '[1, 2]'
+        json1 = "[1, 2, 3]"
+        json2 = "[1, 2]"
 
         expect(described_class.equivalent?(json1, json2)).to be false
       end
@@ -163,7 +164,7 @@ RSpec.describe Canon::Comparison::JsonComparator do
       it "detects string vs number mismatch" do
         # In JSON, "42" is a string, 42 is a number - these should be different types
         json1 = '"42"'  # JSON string
-        json2 = '42'    # JSON number
+        json2 = "42"    # JSON number
         expect(described_class.equivalent?(json1, json2)).to be false
       end
 
@@ -209,8 +210,8 @@ RSpec.describe Canon::Comparison::JsonComparator do
       end
 
       it "returns array of differences for array elements" do
-        json1 = '[1, 2, 3]'
-        json2 = '[1, 9, 3]'
+        json1 = "[1, 2, 3]"
+        json2 = "[1, 9, 3]"
 
         result = described_class.equivalent?(json1, json2, verbose: true)
         expect(result).to be_an(Array)
@@ -236,7 +237,8 @@ RSpec.describe Canon::Comparison::JsonComparator do
         json1 = '{"b": 2, "a": 1, "c": 3}'
         json2 = '{"a": 1, "c": 3, "b": 2}'
 
-        expect(described_class.equivalent?(json1, json2, ignore_attr_order: true)).to be true
+        expect(described_class.equivalent?(json1, json2,
+                                           ignore_attr_order: true)).to be true
       end
 
       it "detects order differences when ignore_attr_order is false" do
@@ -246,7 +248,8 @@ RSpec.describe Canon::Comparison::JsonComparator do
         hash2 = { "a" => 1, "b" => 2 }
 
         # With ignore_attr_order: true (default), they should be equal
-        expect(described_class.equivalent?(hash1, hash2, ignore_attr_order: true)).to be true
+        expect(described_class.equivalent?(hash1, hash2,
+                                           ignore_attr_order: true)).to be true
       end
     end
 

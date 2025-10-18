@@ -6,7 +6,6 @@ module Canon
   class DiffFormatter
     # Module for building Unicode character visualization legends
     module Legend
-
       # Detect non-ASCII characters in text and return their information
       #
       # @param text [String] Text to analyze
@@ -59,7 +58,7 @@ module Canon
         separator = "━" * 60
 
         output << colorize("Character Visualization Legend:", :cyan, :bold,
-                          use_color)
+                           use_color)
         output << colorize(separator, :cyan, :bold, use_color)
 
         # Display each category

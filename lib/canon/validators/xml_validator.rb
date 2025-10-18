@@ -30,7 +30,7 @@ module Canon
           format: :xml,
           line: location[:line],
           column: location[:column],
-          details: extract_details(e)
+          details: extract_details(e),
         )
       end
 

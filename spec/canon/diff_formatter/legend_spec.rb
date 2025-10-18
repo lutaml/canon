@@ -177,9 +177,8 @@ RSpec.describe Canon::DiffFormatter::Legend do
 
         # Should show: '␣': U+00A0 ( ) NO-Break-Space
         # where the middle character is the original non-breaking space
-        expect(legend).to match(/'␣': U\+00A0 \(.\) NO-Break-Space/)
+        expect(legend).to match(/'␣': U\+00A0 \('.'\) NO-Break-Space/)
       end
-
     end
 
     context "without color" do

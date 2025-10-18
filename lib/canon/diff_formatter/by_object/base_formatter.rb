@@ -18,7 +18,7 @@ module Canon
         # @param differences [Array] Array of difference hashes
         # @param format [Symbol] Format type (:xml, :html, :json, :yaml)
         # @return [String] Formatted output
-        def format(differences, format)
+        def format(differences, _format)
           return success_message if differences.empty?
 
           output = []
@@ -39,15 +39,15 @@ module Canon
           when :xml, :html
             require_relative "xml_formatter"
             XmlFormatter.new(use_color: use_color,
-                            visualization_map: visualization_map)
+                             visualization_map: visualization_map)
           when :json
             require_relative "json_formatter"
             JsonFormatter.new(use_color: use_color,
-                             visualization_map: visualization_map)
+                              visualization_map: visualization_map)
           when :yaml
             require_relative "yaml_formatter"
             YamlFormatter.new(use_color: use_color,
-                             visualization_map: visualization_map)
+                              visualization_map: visualization_map)
           else
             new(use_color: use_color, visualization_map: visualization_map)
           end

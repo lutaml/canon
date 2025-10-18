@@ -6,34 +6,36 @@ RSpec.describe Canon::DiffFormatter do
   describe "initialization" do
     it "accepts use_color option" do
       formatter = described_class.new(use_color: true)
-      expect(formatter).to be_a(Canon::DiffFormatter)
+      expect(formatter).to be_a(described_class)
     end
 
     it "accepts mode option" do
       formatter = described_class.new(mode: :by_line)
-      expect(formatter).to be_a(Canon::DiffFormatter)
+      expect(formatter).to be_a(described_class)
     end
 
     it "accepts context_lines option" do
       formatter = described_class.new(context_lines: 5)
-      expect(formatter).to be_a(Canon::DiffFormatter)
+      expect(formatter).to be_a(described_class)
     end
 
     it "accepts diff_grouping_lines option" do
       formatter = described_class.new(diff_grouping_lines: 10)
-      expect(formatter).to be_a(Canon::DiffFormatter)
+      expect(formatter).to be_a(described_class)
     end
 
     it "accepts visualization_map option" do
       custom_map = { " " => "·" }
       formatter = described_class.new(visualization_map: custom_map)
-      expect(formatter).to be_a(Canon::DiffFormatter)
+      expect(formatter).to be_a(described_class)
     end
   end
 
   describe "#format" do
     context "with by_object mode" do
-      let(:formatter) { described_class.new(use_color: false, mode: :by_object) }
+      let(:formatter) do
+        described_class.new(use_color: false, mode: :by_object)
+      end
 
       it "returns success message for no differences" do
         result = formatter.format([], :json)
@@ -102,7 +104,9 @@ RSpec.describe Canon::DiffFormatter do
     end
 
     context "with comparison integration" do
-      let(:formatter) { described_class.new(use_color: false, mode: :by_object) }
+      let(:formatter) do
+        described_class.new(use_color: false, mode: :by_object)
+      end
 
       it "works with Canon::Comparison output" do
         hash1 = {

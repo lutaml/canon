@@ -88,16 +88,16 @@ module Canon
           text2 = extract_text(node2)
 
           # Show parent element if available
-          if node1.respond_to?(:parent) && node1.parent&.respond_to?(:name)
+          if node1.respond_to?(:parent) && node1.parent.respond_to?(:name)
             output << "#{prefix}    #{colorize(
               "Element: <#{node1.parent.name}>", :blue
             )}"
           end
 
           output << "#{prefix}├── - #{colorize(format_text_inline(text1),
-                                                :red)}"
+                                               :red)}"
           output << "#{prefix}└── + #{colorize(format_text_inline(text2),
-                                                :green)}"
+                                               :green)}"
         end
 
         # Render unequal attributes
@@ -134,13 +134,13 @@ module Canon
 
         # Render missing node
         def render_missing_node(diff, prefix, output)
-          if diff[:node1] && !diff[:node2]
-            output << "#{prefix}└── - #{colorize('[node deleted]', :red)}"
-          elsif diff[:node2] && !diff[:node1]
-            output << "#{prefix}└── + #{colorize('[node inserted]', :green)}"
-          else
-            output << "#{prefix}└── #{colorize('[node mismatch]', :yellow)}"
-          end
+          output << if diff[:node1] && !diff[:node2]
+                      "#{prefix}└── - #{colorize('[node deleted]', :red)}"
+                    elsif diff[:node2] && !diff[:node1]
+                      "#{prefix}└── + #{colorize('[node inserted]', :green)}"
+                    else
+                      "#{prefix}└── #{colorize('[node mismatch]', :yellow)}"
+                    end
         end
 
         # Render fallback for unknown diff types
