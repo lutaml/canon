@@ -43,8 +43,19 @@ module Canon
 
     # Base matcher class for serialization equivalence
     class SerializationMatcher
-      def initialize(expected, format = :xml, match_profile: nil,
+      # Detect format from content
+      def self.detect_format(content)
+        stripped = content.to_s.strip
+        return :xml if stripped.start_with?('<') && stripped.include?('>')
+        return :json if stripped.start_with?('{', '[')
+        return :yaml if stripped.match?(/^[\w-]+:\s/)
+        :string  # Fallback
+      end
+
+      def initialize(expected, format = nil, match_profile: nil,
 match_options: nil, preprocessing: nil)
+        # Auto-detect format if not specified
+        format = self.class.detect_format(expected) if format.nil?
         @expected = expected
         unless SUPPORTED_FORMATS.include?(format.to_sym)
           raise Canon::Error, "Unsupported format: #{format}"
@@ -127,6 +138,13 @@ match_options: nil, preprocessing: nil)
 
       def match_html5
         html_semantic_compare(:html5)
+      end
+
+      def match_string
+        # Direct string comparison (no parsing/canonicalization)
+        @actual_sorted = @target.to_s
+        @expected_sorted = @expected.to_s
+        @actual_sorted == @expected_sorted
       end
 
       private
@@ -271,6 +289,11 @@ match_options: nil, preprocessing: nil)
         when :yaml
           formatter.format(differences, :yaml, doc1: @expected_sorted,
                                                doc2: @actual_sorted)
+        when :string
+          # For strings, use simple formatter for character-level diff
+          # doc1 = actual (old), doc2 = expected (new)
+          formatter.format(differences, :string, doc1: @actual_sorted,
+                                                 doc2: @expected_sorted)
         end
       rescue Canon::ValidationError
         # Let validation errors propagate to RSpec output
@@ -335,6 +358,16 @@ match_options: nil, preprocessing: nil)
                                match_profile: match_profile,
                                match_options: match_options,
                                preprocessing: preprocessing)
+    end
+
+    def be_equivalent_to(expected)
+      # Auto-detect format from content
+      SerializationMatcher.new(expected, nil)
+    end
+
+    def be_string_equivalent_to(expected)
+      # Explicit string mode
+      SerializationMatcher.new(expected, :string)
     end
 
     if defined?(::RSpec) && ::RSpec.respond_to?(:configure)

@@ -337,8 +337,11 @@ module Canon
     def by_line_diff(doc1, doc2, format: :xml)
       require_relative "diff_formatter/by_line/base_formatter"
 
+      # Format display name for header
+      format_name = format.to_s.upcase
+
       output = []
-      output << colorize("Line-by-line diff:", :cyan, :bold)
+      output << colorize("Line-by-line diff (#{format_name} mode):", :cyan, :bold)
 
       return output.join("\n") if doc1.nil? || doc2.nil?
 

@@ -16,8 +16,9 @@ module Canon
         # @return [String] Formatted diff
         def format(doc1, doc2)
           output = []
-          lines1 = doc1.split("\n")
-          lines2 = doc2.split("\n")
+          # Use split with -1 to preserve trailing empty strings (from trailing \n)
+          lines1 = doc1.split("\n", -1)
+          lines2 = doc2.split("\n", -1)
 
           # Detect non-ASCII characters in the diff
           all_text = (lines1 + lines2).join
