@@ -3,6 +3,7 @@
 require "nokogiri"
 require_relative "html_formatter_base"
 require_relative "../html/pretty_printer"
+require_relative "../validators/html_validator"
 
 module Canon
   module Formatters
@@ -13,6 +14,9 @@ module Canon
       # @return [Nokogiri::HTML::Document, Nokogiri::XML::Document]
       #   Parsed HTML or XML document
       def self.parse(html)
+        # Validate before parsing
+        Canon::Validators::HtmlValidator.validate!(html)
+
         if xhtml?(html)
           Nokogiri::XML(html)
         else
