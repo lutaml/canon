@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative "base_formatter"
+require_relative "../legend"
 require "strscan"
 
 module Canon
@@ -59,12 +60,11 @@ module Canon
 
           # Detect non-ASCII characters in the diff
           all_text = (lines1 + lines2).join
-          non_ascii = detect_non_ascii(all_text)
+          non_ascii = Legend.detect_non_ascii(all_text, @visualization_map)
 
-          # Add non-ASCII warning if any detected
+          # Add Unicode legend if any non-ASCII characters detected
           unless non_ascii.empty?
-            warning = "(WARNING: non-ASCII characters detected in diff: [#{non_ascii.join(', ')}])"
-            output << colorize(warning, :yellow)
+            output << Legend.build_legend(non_ascii, use_color: @use_color)
             output << ""
           end
 
@@ -280,25 +280,6 @@ module Canon
           end
         end
 
-        # Detect non-ASCII characters in text
-        #
-        # @param text [String] Text to check
-        # @return [Array<String>] Non-ASCII character descriptions
-        def detect_non_ascii(text)
-          non_ascii_chars = []
-          text.each_char do |char|
-            if char.ord > 127
-              codepoint = "U+%04X" % char.ord
-              visualization = @visualization_map.fetch(char, char)
-              non_ascii_chars << if visualization == char
-                                   "'#{char}' (#{codepoint})"
-                                 else
-                                   "'#{char}' (#{codepoint}, shown as: '#{visualization}')"
-                                 end
-            end
-          end
-          non_ascii_chars.uniq
-        end
       end
     end
   end

@@ -199,14 +199,14 @@ module Canon
 
         case format
         when :xml
-          require_relative "../xml/pretty_printer"
-          formatted1 = Canon::Xml::PrettyPrinter.new(indent: 2).format(content1)
-          formatted2 = Canon::Xml::PrettyPrinter.new(indent: 2).format(content2)
+          require_relative "../pretty_printer/xml"
+          formatted1 = Canon::PrettyPrinter::Xml.new(indent: 2).format(content1)
+          formatted2 = Canon::PrettyPrinter::Xml.new(indent: 2).format(content2)
           [formatted1, formatted2]
         when :html
-          require_relative "../html/pretty_printer"
-          formatted1 = Canon::Html::PrettyPrinter.new(indent: 2).format(content1)
-          formatted2 = Canon::Html::PrettyPrinter.new(indent: 2).format(content2)
+          require_relative "../pretty_printer/html"
+          formatted1 = Canon::PrettyPrinter::Html.new(indent: 2).format(content1)
+          formatted2 = Canon::PrettyPrinter::Html.new(indent: 2).format(content2)
           [formatted1, formatted2]
         else
           [content1, content2]

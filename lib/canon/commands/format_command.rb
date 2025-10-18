@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
-require_relative "../xml/pretty_printer"
-require_relative "../json/pretty_printer"
-require_relative "../html/pretty_printer"
+require_relative "../pretty_printer/xml"
+require_relative "../pretty_printer/json"
+require_relative "../pretty_printer/html"
 
 module Canon
   module Commands
@@ -61,17 +61,17 @@ module Canon
 
         case format
         when :xml
-          Canon::Xml::PrettyPrinter.new(
+          Canon::PrettyPrinter::Xml.new(
             indent: indent,
             indent_type: indent_type,
           ).format(content)
         when :json
-          Canon::Json::PrettyPrinter.new(
+          Canon::PrettyPrinter::Json.new(
             indent: indent,
             indent_type: indent_type,
           ).format(content)
         when :html
-          Canon::Html::PrettyPrinter.new(
+          Canon::PrettyPrinter::Html.new(
             indent: indent,
             indent_type: indent_type,
           ).format(content)

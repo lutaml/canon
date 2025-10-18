@@ -3,9 +3,9 @@
 require "json"
 
 module Canon
-  module Json
+  module PrettyPrinter
     # Pretty printer for JSON with consistent indentation
-    class PrettyPrinter
+    class Json
       def initialize(indent: 2, indent_type: "space")
         @indent = indent.to_i
         @indent_type = indent_type
