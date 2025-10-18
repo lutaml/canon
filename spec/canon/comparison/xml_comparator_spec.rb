@@ -82,8 +82,8 @@ RSpec.describe Canon::Comparison::XmlComparator do
         expect(result).not_to be_empty
         # Verbose mode returns hashes with diff information
         expect(result.first).to be_a(Hash)
-        # Attribute comparison returns MISSING_ATTRIBUTE (2)
-        expect(result.first[:diff1]).to eq(Canon::Comparison::MISSING_ATTRIBUTE)
+        # Attribute comparison returns UNEQUAL_ATTRIBUTES (4) when values differ
+        expect(result.first[:diff1]).to eq(Canon::Comparison::UNEQUAL_ATTRIBUTES)
       end
     end
 

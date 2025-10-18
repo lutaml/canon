@@ -1,0 +1,469 @@
+# frozen_string_literal: true
+
+require "spec_helper"
+
+RSpec.describe Canon::Comparison::MatchOptions do
+  describe "constants" do
+    it "defines PREPROCESSING_OPTIONS" do
+      expect(described_class::PREPROCESSING_OPTIONS).to eq(
+        %i[none c14n normalize format]
+      )
+    end
+
+    it "defines MATCH_BEHAVIORS" do
+      expect(described_class::MATCH_BEHAVIORS).to eq(
+        %i[strict normalize ignore]
+      )
+    end
+
+    it "defines MATCH_DIMENSIONS" do
+      expect(described_class::MATCH_DIMENSIONS).to eq(%i[
+        text_content
+        structural_whitespace
+        attribute_whitespace
+        comments
+      ])
+    end
+
+    it "defines MATCH_PROFILES" do
+      expect(described_class::MATCH_PROFILES.keys).to eq(%i[
+        strict rendered spec_friendly content_only
+      ])
+    end
+
+    it "defines FORMAT_DEFAULTS" do
+      expect(described_class::FORMAT_DEFAULTS.keys).to eq(
+        %i[html xml json yaml]
+      )
+    end
+  end
+
+  describe "format-specific defaults" do
+    it "defines HTML defaults (mimics CSS rendering)" do
+      expect(described_class::FORMAT_DEFAULTS[:html]).to eq(
+        preprocessing: :none,
+        text_content: :normalize,
+        structural_whitespace: :normalize,
+        attribute_whitespace: :strict,
+        comments: :ignore
+      )
+    end
+
+    it "defines XML defaults (strict matching)" do
+      expect(described_class::FORMAT_DEFAULTS[:xml]).to eq(
+        preprocessing: :none,
+        text_content: :strict,
+        structural_whitespace: :strict,
+        attribute_whitespace: :strict,
+        comments: :strict
+      )
+    end
+
+    it "defines JSON defaults" do
+      expect(described_class::FORMAT_DEFAULTS[:json]).to eq(
+        preprocessing: :none,
+        text_content: :strict,
+        structural_whitespace: :ignore,
+        attribute_whitespace: :strict,
+        comments: :ignore
+      )
+    end
+
+    it "defines YAML defaults" do
+      expect(described_class::FORMAT_DEFAULTS[:yaml]).to eq(
+        preprocessing: :none,
+        text_content: :strict,
+        structural_whitespace: :ignore,
+        attribute_whitespace: :strict,
+        comments: :ignore
+      )
+    end
+  end
+
+  describe "match profiles" do
+    it "defines strict profile" do
+      expect(described_class::MATCH_PROFILES[:strict]).to eq(
+        preprocessing: :none,
+        text_content: :strict,
+        structural_whitespace: :strict,
+        attribute_whitespace: :strict,
+        comments: :strict
+      )
+    end
+
+    it "defines rendered profile" do
+      expect(described_class::MATCH_PROFILES[:rendered]).to eq(
+        preprocessing: :none,
+        text_content: :normalize,
+        structural_whitespace: :normalize,
+        attribute_whitespace: :strict,
+        comments: :ignore
+      )
+    end
+
+    it "defines spec_friendly profile" do
+      expect(described_class::MATCH_PROFILES[:spec_friendly]).to eq(
+        preprocessing: :normalize,
+        text_content: :normalize,
+        structural_whitespace: :ignore,
+        attribute_whitespace: :strict,
+        comments: :ignore
+      )
+    end
+
+    it "defines content_only profile" do
+      expect(described_class::MATCH_PROFILES[:content_only]).to eq(
+        preprocessing: :c14n,
+        text_content: :normalize,
+        structural_whitespace: :ignore,
+        attribute_whitespace: :normalize,
+        comments: :ignore
+      )
+    end
+  end
+
+  describe ".resolve" do
+    context "with format defaults" do
+      it "returns HTML defaults when no other options specified" do
+        result = described_class.resolve(format: :html)
+        expect(result).to eq(
+          preprocessing: :none,
+          text_content: :normalize,
+          structural_whitespace: :normalize,
+          attribute_whitespace: :strict,
+          comments: :ignore
+        )
+      end
+
+      it "returns XML defaults when no other options specified" do
+        result = described_class.resolve(format: :xml)
+        expect(result).to eq(
+          preprocessing: :none,
+          text_content: :strict,
+          structural_whitespace: :strict,
+          attribute_whitespace: :strict,
+          comments: :strict
+        )
+      end
+
+      it "falls back to XML defaults for unknown format" do
+        result = described_class.resolve(format: :unknown)
+        expect(result).to eq(
+          preprocessing: :none,
+          text_content: :strict,
+          structural_whitespace: :strict,
+          attribute_whitespace: :strict,
+          comments: :strict
+        )
+      end
+    end
+
+    context "with global profile" do
+      it "applies global profile over format defaults" do
+        result = described_class.resolve(
+          format: :xml,
+          global_profile: :spec_friendly
+        )
+        expect(result).to eq(
+          preprocessing: :normalize,
+          text_content: :normalize,
+          structural_whitespace: :ignore,
+          attribute_whitespace: :strict,
+          comments: :ignore
+        )
+      end
+    end
+
+    context "with global options" do
+      it "applies global options over format defaults" do
+        result = described_class.resolve(
+          format: :xml,
+          global_options: { text_content: :normalize }
+        )
+        expect(result[:text_content]).to eq(:normalize)
+        expect(result[:structural_whitespace]).to eq(:strict)
+      end
+    end
+
+    context "with per-call profile" do
+      it "applies per-call profile over global profile" do
+        result = described_class.resolve(
+          format: :xml,
+          global_profile: :strict,
+          match_profile: :rendered
+        )
+        expect(result).to eq(
+          preprocessing: :none,
+          text_content: :normalize,
+          structural_whitespace: :normalize,
+          attribute_whitespace: :strict,
+          comments: :ignore
+        )
+      end
+
+      it "raises error for unknown profile" do
+        expect {
+          described_class.resolve(
+            format: :xml,
+            match_profile: :unknown
+          )
+        }.to raise_error(Canon::Error, /Unknown match profile: unknown/)
+      end
+    end
+
+    context "with per-call preprocessing" do
+      it "applies preprocessing over profile" do
+        result = described_class.resolve(
+          format: :xml,
+          match_profile: :strict,
+          preprocessing: :c14n
+        )
+        expect(result[:preprocessing]).to eq(:c14n)
+        expect(result[:text_content]).to eq(:strict)
+      end
+
+      it "raises error for unknown preprocessing option" do
+        expect {
+          described_class.resolve(
+            format: :xml,
+            preprocessing: :unknown
+          )
+        }.to raise_error(Canon::Error, /Unknown preprocessing option/)
+      end
+    end
+
+    context "with per-call match options" do
+      it "applies explicit options over profile" do
+        result = described_class.resolve(
+          format: :xml,
+          match_profile: :rendered,
+          match_options: { text_content: :strict }
+        )
+        expect(result[:text_content]).to eq(:strict)
+        expect(result[:structural_whitespace]).to eq(:normalize)
+      end
+
+      it "raises error for unknown dimension" do
+        expect {
+          described_class.resolve(
+            format: :xml,
+            match_options: { unknown_dimension: :normalize }
+          )
+        }.to raise_error(Canon::Error, /Unknown match dimension/)
+      end
+
+      it "raises error for unknown behavior" do
+        expect {
+          described_class.resolve(
+            format: :xml,
+            match_options: { text_content: :unknown_behavior }
+          )
+        }.to raise_error(Canon::Error, /Unknown match behavior/)
+      end
+    end
+
+    context "precedence order" do
+      it "applies options in correct precedence order" do
+        result = described_class.resolve(
+          format: :html,                          # Base: rendered-like
+          global_profile: :strict,                # Override to strict
+          global_options: { comments: :ignore },  # Override comments
+          match_profile: :spec_friendly,          # Override to spec_friendly
+          preprocessing: :c14n,                   # Override preprocessing
+          match_options: { text_content: :strict } # Override text_content
+        )
+
+        # Highest priority: match_options
+        expect(result[:text_content]).to eq(:strict)
+
+        # Second priority: preprocessing parameter
+        expect(result[:preprocessing]).to eq(:c14n)
+
+        # Third priority: match_profile
+        expect(result[:structural_whitespace]).to eq(:ignore)
+        expect(result[:attribute_whitespace]).to eq(:strict)
+
+        # Fourth priority: global_options (but overridden by match_profile)
+        expect(result[:comments]).to eq(:ignore)
+      end
+    end
+  end
+
+  describe ".get_profile_options" do
+    it "returns profile options" do
+      result = described_class.get_profile_options(:rendered)
+      expect(result).to eq(
+        preprocessing: :none,
+        text_content: :normalize,
+        structural_whitespace: :normalize,
+        attribute_whitespace: :strict,
+        comments: :ignore
+      )
+    end
+
+    it "returns a copy of the profile" do
+      result1 = described_class.get_profile_options(:strict)
+      result2 = described_class.get_profile_options(:strict)
+      expect(result1).to eq(result2)
+      expect(result1).not_to be(result2)
+    end
+
+    it "raises error for unknown profile" do
+      expect {
+        described_class.get_profile_options(:unknown)
+      }.to raise_error(Canon::Error, /Unknown match profile/)
+    end
+  end
+
+  describe ".to_legacy_options" do
+    it "converts strict profile to legacy options" do
+      match_opts = described_class::MATCH_PROFILES[:strict]
+      legacy = described_class.to_legacy_options(match_opts)
+
+      expect(legacy).to eq(
+        collapse_whitespace: false,
+        normalize_tag_whitespace: false,
+        ignore_comments: false
+      )
+    end
+
+    it "converts rendered profile to legacy options" do
+      match_opts = described_class::MATCH_PROFILES[:rendered]
+      legacy = described_class.to_legacy_options(match_opts)
+
+      expect(legacy).to eq(
+        collapse_whitespace: false,
+        normalize_tag_whitespace: true,
+        ignore_comments: true
+      )
+    end
+
+    it "converts spec_friendly profile to legacy options" do
+      match_opts = described_class::MATCH_PROFILES[:spec_friendly]
+      legacy = described_class.to_legacy_options(match_opts)
+
+      expect(legacy).to eq(
+        collapse_whitespace: true,
+        normalize_tag_whitespace: true,
+        ignore_comments: true
+      )
+    end
+  end
+
+  describe ".from_legacy_options" do
+    it "converts collapse_whitespace to structural_whitespace" do
+      result = described_class.from_legacy_options(collapse_whitespace: true)
+      expect(result[:structural_whitespace]).to eq(:ignore)
+
+      result = described_class.from_legacy_options(collapse_whitespace: false)
+      expect(result[:structural_whitespace]).to eq(:strict)
+    end
+
+    it "converts normalize_tag_whitespace to text_content" do
+      result = described_class.from_legacy_options(
+        normalize_tag_whitespace: true
+      )
+      expect(result[:text_content]).to eq(:normalize)
+
+      result = described_class.from_legacy_options(
+        normalize_tag_whitespace: false
+      )
+      expect(result[:text_content]).to eq(:strict)
+    end
+
+    it "converts ignore_comments to comments" do
+      result = described_class.from_legacy_options(ignore_comments: true)
+      expect(result[:comments]).to eq(:ignore)
+
+      result = described_class.from_legacy_options(ignore_comments: false)
+      expect(result[:comments]).to eq(:strict)
+    end
+
+    it "converts multiple legacy options" do
+      result = described_class.from_legacy_options(
+        collapse_whitespace: true,
+        normalize_tag_whitespace: true,
+        ignore_comments: false
+      )
+      expect(result).to eq(
+        structural_whitespace: :ignore,
+        text_content: :normalize,
+        comments: :strict
+      )
+    end
+  end
+
+  describe ".match_text?" do
+    context "with strict behavior" do
+      it "requires exact match" do
+        expect(described_class.match_text?("hello", "hello", :strict))
+          .to be true
+        expect(described_class.match_text?("hello", "hello ", :strict))
+          .to be false
+        expect(described_class.match_text?("hello", "Hello", :strict))
+          .to be false
+      end
+    end
+
+    context "with normalize behavior" do
+      it "normalizes whitespace before comparing" do
+        expect(described_class.match_text?("hello", "hello", :normalize))
+          .to be true
+        expect(described_class.match_text?("hello ", " hello", :normalize))
+          .to be true
+        expect(described_class.match_text?(
+                 "hello  world", "hello world", :normalize
+               )).to be true
+        expect(described_class.match_text?(
+                 "hello\n\nworld", "hello world", :normalize
+               )).to be true
+        expect(described_class.match_text?("hello", "goodbye", :normalize))
+          .to be false
+      end
+    end
+
+    context "with ignore behavior" do
+      it "always returns true" do
+        expect(described_class.match_text?("hello", "hello", :ignore))
+          .to be true
+        expect(described_class.match_text?("hello", "goodbye", :ignore))
+          .to be true
+        expect(described_class.match_text?("", "anything", :ignore))
+          .to be true
+      end
+    end
+
+    context "with unknown behavior" do
+      it "raises error" do
+        expect {
+          described_class.match_text?("hello", "hello", :unknown)
+        }.to raise_error(Canon::Error, /Unknown match behavior: unknown/)
+      end
+    end
+  end
+
+  describe ".normalize_text" do
+    it "collapses whitespace sequences to single space" do
+      expect(described_class.normalize_text("hello  world"))
+        .to eq("hello world")
+      expect(described_class.normalize_text("hello\t\tworld"))
+        .to eq("hello world")
+      expect(described_class.normalize_text("hello\n\nworld"))
+        .to eq("hello world")
+    end
+
+    it "trims leading and trailing whitespace" do
+      expect(described_class.normalize_text("  hello  ")).to eq("hello")
+      expect(described_class.normalize_text("\nhello\n")).to eq("hello")
+    end
+
+    it "handles empty strings" do
+      expect(described_class.normalize_text("")).to eq("")
+      expect(described_class.normalize_text("   ")).to eq("")
+    end
+
+    it "handles nil" do
+      expect(described_class.normalize_text(nil)).to eq("")
+    end
+  end
+end

@@ -2,6 +2,7 @@
 
 require "nokogiri"
 require_relative "xml_comparator"
+require_relative "match_options"
 
 module Canon
   module Comparison
@@ -21,6 +22,8 @@ module Canon
         ignore_nodes: [],
         ignore_text_nodes: false,
         verbose: false,
+        match_profile: nil,
+        match_options: nil,
       }.freeze
 
       class << self
@@ -34,6 +37,32 @@ module Canon
         #   verbose
         def equivalent?(html1, html2, opts = {}, child_opts = {})
           opts = DEFAULT_OPTS.merge(opts)
+
+          # Track if user explicitly provided MECE match options (any level)
+          # Only if the values are actually non-nil
+          has_explicit_match_opts = opts[:match_options] ||
+                                    opts[:match_profile] ||
+                                    opts[:global_profile] ||
+                                    opts[:global_options]
+
+          # Resolve MECE match options with format-specific defaults
+          # HTML defaults to :rendered profile (mimics CSS rendering)
+          match_opts = MatchOptions.resolve(
+            format: :html,
+            match_profile: opts[:match_profile],
+            match_options: opts[:match_options],
+            preprocessing: opts[:preprocessing],
+            global_profile: opts[:global_profile],
+            global_options: opts[:global_options]
+          )
+
+          # Store resolved match options
+          opts[:resolved_match_options] = match_opts
+
+          # Mark that we're using MECE system (don't fall back to legacy)
+          opts[:using_mece_matching] = has_explicit_match_opts
+
+          # Create child_opts AFTER setting MECE flags so they propagate
           child_opts = opts.merge(child_opts)
 
           # Parse nodes if they are strings
