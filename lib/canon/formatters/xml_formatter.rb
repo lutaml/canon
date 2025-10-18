@@ -3,6 +3,7 @@
 require "nokogiri"
 require_relative "../xml/c14n"
 require_relative "../xml/pretty_printer"
+require_relative "../validators/xml_validator"
 
 module Canon
   module Formatters
@@ -25,6 +26,8 @@ module Canon
       # @param xml [String] XML document to parse
       # @return [Nokogiri::XML::Document] Parsed XML document
       def self.parse(xml)
+        # Validate before parsing
+        Canon::Validators::XmlValidator.validate!(xml)
         Nokogiri::XML(xml)
       end
     end

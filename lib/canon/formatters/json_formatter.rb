@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "json"
+require_relative "../validators/json_validator"
 
 module Canon
   module Formatters
@@ -12,6 +13,8 @@ module Canon
       end
 
       def self.parse(json)
+        # Validate before parsing
+        Canon::Validators::JsonValidator.validate!(json)
         JSON.parse(json)
       end
 

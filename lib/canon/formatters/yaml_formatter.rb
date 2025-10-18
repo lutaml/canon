@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "yaml"
+require_relative "../validators/yaml_validator"
 
 module Canon
   module Formatters
@@ -12,7 +13,9 @@ module Canon
       end
 
       def self.parse(yaml)
-        YAML.safe_load(yaml)
+        # Validate before parsing
+        Canon::Validators::YamlValidator.validate!(yaml)
+        YAML.safe_load(yaml, permitted_classes: [Symbol, Date, Time])
       end
 
       def self.sort_yaml_keys(obj)

@@ -230,8 +230,11 @@ module Canon
           formatter.format(differences, :yaml, doc1: @expected_sorted,
                                                doc2: @actual_sorted)
         end
+      rescue Canon::ValidationError
+        # Let validation errors propagate to RSpec output
+        raise
       rescue StandardError => e
-        "\nError generating visual diff: #{e.message}"
+        "\nUnexpected error generating diff: #{e.message}\n#{e.backtrace.first(5).join("\n")}"
       end
     end
 

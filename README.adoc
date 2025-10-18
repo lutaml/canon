@@ -11,6 +11,68 @@ formats (XML, HTML, JSON, YAML), producing standardized forms suitable for
 comparison, testing, digital signatures, and human-readable output.
 
 
+== Architecture
+
+Canon follows an **orchestrator pattern** with MECE (Mutually Exclusive,
+Collectively Exhaustive) principles for clean separation of concerns.
+
+=== Comparison module
+
+The `Canon::Comparison` module (123 lines) acts as a pure orchestrator that:
+
+* Detects input format (XML, HTML, JSON, YAML)
+* Validates format compatibility
+* Delegates to format-specific comparator classes
+
+Format-specific comparators:
+
+* `Canon::Comparison::XmlComparator` - XML semantic comparison
+* `Canon::Comparison::HtmlComparator` - HTML semantic comparison
+* `Canon::Comparison::JsonComparator` - JSON/Ruby object comparison
+* `Canon::Comparison::YamlComparator` - YAML comparison (delegates to JsonComparator)
+
+Each comparator is self-contained and handles all comparison logic for its format.
+
+=== DiffFormatter module
+
+The `Canon::DiffFormatter` class (171 lines) acts as a pure orchestrator that:
+
+* Manages diff options (colors, visualization, context)
+* Detects diff mode (by-object vs by-line)
+* Delegates to mode-specific and format-specific formatters
+
+Two diff modes:
+
+**By-object mode** (tree-based semantic diff):
+
+* `Canon::DiffFormatter::ByObject::BaseFormatter` - Factory and common logic
+* `Canon::DiffFormatter::ByObject::XmlFormatter` - XML DOM differences
+* `Canon::DiffFormatter::ByObject::JsonFormatter` - Ruby object differences
+* `Canon::DiffFormatter::ByObject::YamlFormatter` - YAML differences
+
+**By-line mode** (line-based diff):
+
+* `Canon::DiffFormatter::ByLine::BaseFormatter` - LCS algorithm and factory
+* `Canon::DiffFormatter::ByLine::XmlFormatter` - DOM-guided XML line diff
+* `Canon::DiffFormatter::ByLine::JsonFormatter` - Semantic JSON line diff
+* `Canon::DiffFormatter::ByLine::YamlFormatter` - Semantic YAML line diff
+* `Canon::DiffFormatter::ByLine::SimpleFormatter` - Fallback line diff
+
+Each formatter handles format-specific intelligence (DOM parsing, token
+highlighting, semantic understanding).
+
+=== Object-oriented diff foundation
+
+Canon uses three foundational classes for managing diff data:
+
+* `Canon::Diff::DiffBlock` - Represents a contiguous block of changes
+* `Canon::Diff::DiffContext` - Groups diff blocks with surrounding context
+* `Canon::Diff::DiffReport` - Top-level container for complete diff results
+
+These classes ensure MECE compliance by providing clear ownership of diff data
+at different granularity levels.
+
+
 == Features
 
 === Ruby API
@@ -1889,6 +1951,249 @@ When `use_color` is `false`:
 * Whitespace is not visualized (remains invisible)
 * Non-ASCII warnings are still shown (but without yellow color)
 * Content changes are shown without color highlighting
+
+=== Input validation
+
+Canon provides comprehensive input validation for all supported formats (XML,
+HTML, JSON, YAML). When malformed input is detected, Canon raises a
+`Canon::ValidationError` with detailed location information to help you quickly
+identify and fix the problem.
+
+==== Purpose
+
+Input validation ensures that:
+
+* Malformed documents are detected early with clear error messages
+* Syntax errors show exact line and column numbers
+* Error details appear in RSpec test output (not hidden in log files)
+* Users receive actionable feedback about what's wrong and where
+
+==== How it works
+
+Canon validates input **before parsing** using format-specific validators:
+
+* `Canon::Validators::XmlValidator` - Strict XML syntax validation
+* `Canon::Validators::HtmlValidator` - HTML5 and XHTML validation
+* `Canon::Validators::JsonValidator` - JSON syntax validation
+* `Canon::Validators::YamlValidator` - YAML syntax validation
+
+Validation happens automatically when you use Canon's formatters or comparison
+methods.
+
+==== Validation error format
+
+When validation fails, Canon raises `Canon::ValidationError` with:
+
+* `format` - The format being validated (`:xml`, `:html`, `:json`, `:yaml`)
+* `line` - Line number where the error occurred (if available)
+* `column` - Column number where the error occurred (if available)
+* `details` - Additional context about the error
+
+.Validation error example
+[example]
+[source,ruby]
+----
+require 'canon'
+
+malformed_xml = '<root><unclosed>'
+
+begin
+  Canon.format(malformed_xml, :xml)
+rescue Canon::ValidationError => e
+  puts e.message
+  # XML Validation Error: Premature end of data in tag unclosed line 1
+  #   Line: 1
+  #   Column: 18
+
+  puts "Format: #{e.format}"     # => :xml
+  puts "Line: #{e.line}"          # => 1
+  puts "Column: #{e.column}"      # => 18
+end
+----
+
+==== Format-specific validation
+
+===== XML validation
+
+Uses Nokogiri's strict XML parsing to detect:
+
+* Unclosed tags
+* Mismatched tags
+* Invalid XML declaration
+* Malformed attributes
+* Invalid character references
+
+.XML validation examples
+[example]
+[source,ruby]
+----
+# Unclosed tag
+Canon.format('<root><item>', :xml)
+# => Canon::ValidationError: XML Validation Error: Premature end of data in tag item line 1
+#      Line: 1
+
+# Mismatched tags
+Canon.format('<root><item></root>', :xml)
+# => Canon::ValidationError: XML Validation Error: Opening and ending tag mismatch: item line 1 and root
+#      Line: 1
+----
+
+===== HTML validation
+
+Automatically detects HTML5 vs XHTML and applies appropriate validation:
+
+* HTML5: Uses Nokogiri::HTML5 parser with error filtering
+* XHTML: Uses strict XML parsing
+
+Special handling:
+
+* Strips XML declarations from HTML (common in legacy HTML files)
+* Filters out non-critical HTML5 parser warnings
+* Only reports significant errors (level 2+)
+
+.HTML validation examples
+[example]
+[source,ruby]
+----
+# Malformed XHTML
+xhtml = '<html xmlns="http://www.w3.org/1999/xhtml"><body><p>Unclosed'
+Canon.format(xhtml, :html)
+# => Canon::ValidationError: HTML Validation Error: Premature end of data in tag p line 1
+#      Line: 1
+
+# HTML5 with errors
+html5 = '<div><span></div>'
+Canon.format(html5, :html)
+# => Canon::ValidationError: HTML Validation Error: Unexpected end tag : span
+#      Line: 1
+----
+
+===== JSON validation
+
+Validates JSON syntax using Ruby's JSON parser:
+
+* Missing/extra braces or brackets
+* Trailing commas
+* Invalid escape sequences
+* Invalid numbers
+
+Provides context showing the error location in the JSON structure.
+
+.JSON validation examples
+[example]
+[source,ruby]
+----
+# Missing closing brace
+Canon.format('{"key": "value"', :json)
+# => Canon::ValidationError: JSON Validation Error: unexpected token at '{"key": "value"'
+#      Details: Error at position 16
+
+# Trailing comma (invalid in JSON)
+Canon.format('{"a": 1,}', :json)
+# => Canon::ValidationError: JSON Validation Error: unexpected token at '{"a": 1,}'
+#      Details: Error at position 8
+----
+
+===== YAML validation
+
+Validates YAML syntax using Psych (Ruby's YAML parser):
+
+* Invalid indentation
+* Unclosed brackets/braces
+* Invalid anchors/aliases
+* Type mismatches
+
+Shows error location with line numbers and context.
+
+.YAML validation examples
+[example]
+[source,ruby]
+----
+# Unclosed bracket
+Canon.format("key: {unclosed", :yaml)
+# => Canon::ValidationError: YAML Validation Error: (<unknown>): did not find expected node content...
+#      Line: 1
+#      Details: Shows context around error
+
+# Invalid indentation
+yaml = <<~YAML
+  parent:
+  child: value
+YAML
+Canon.format(yaml, :yaml)
+# => Canon::ValidationError: YAML Validation Error: mapping values are not allowed in this context
+#      Line: 2
+----
+
+==== Validation in RSpec tests
+
+Canon's RSpec matchers automatically propagate validation errors to test output,
+making it easy to see what's wrong:
+
+.RSpec validation error example
+[example]
+[source,ruby]
+----
+require 'canon/rspec_matchers'
+
+RSpec.describe 'XML validation' do
+  it 'validates input' do
+    malformed_xml = '<root><unclosed>'
+    expected_xml = '<root><item/></root>'
+
+    # This will fail with a clear validation error message
+    expect(malformed_xml).to be_xml_equivalent_to(expected_xml)
+  end
+end
+
+# Test output shows:
+# Canon::ValidationError:
+#   XML Validation Error: Premature end of data in tag unclosed line 1
+#     Line: 1
+#     Column: 18
+----
+
+The error appears directly in the RSpec output, not hidden in separate error
+files or logs.
+
+==== Validation in comparison
+
+Validation also occurs when using `Canon::Comparison.equivalent?`:
+
+.Comparison validation example
+[example]
+[source,ruby]
+----
+require 'canon/comparison'
+
+xml1 = '<root><item/></root>'
+xml2 = '<root><unclosed>'
+
+Canon::Comparison.equivalent?(xml1, xml2)
+# => Canon::ValidationError: XML Validation Error: Premature end of data in tag unclosed line 1
+#      Line: 1
+#      Column: 18
+----
+
+==== Benefits
+
+Input validation provides several key benefits:
+
+**Early error detection**:: Problems are caught before processing begins, saving
+time and providing clear feedback
+
+**Precise error location**:: Line and column numbers pinpoint exactly where the
+problem is, especially useful in large documents
+
+**Clear error messages**:: Descriptive messages explain what's wrong and often
+suggest how to fix it
+
+**Test-friendly**:: Errors appear in RSpec output where developers expect them,
+not in separate log files
+
+**Format-aware**:: Each validator understands format-specific rules and provides
+relevant error details
+
 
 === RSpec matchers
 
