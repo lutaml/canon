@@ -14,7 +14,10 @@ module Canon
     # Configuration for RSpec matchers
     class << self
       attr_accessor :diff_mode, :use_color, :context_lines,
-                    :diff_grouping_lines, :normalize_tag_whitespace
+                    :diff_grouping_lines, :normalize_tag_whitespace,
+                    :xml_match_profile, :html_match_profile,
+                    :xml_match_options, :html_match_options,
+                    :xml_preprocessing, :html_preprocessing
 
       def configure
         yield self
@@ -26,6 +29,12 @@ module Canon
         @context_lines = 3
         @diff_grouping_lines = 10
         @normalize_tag_whitespace = false
+        @xml_match_profile = nil
+        @html_match_profile = nil
+        @xml_match_options = nil
+        @html_match_options = nil
+        @xml_preprocessing = nil
+        @html_preprocessing = nil
       end
     end
 
@@ -34,7 +43,7 @@ module Canon
 
     # Base matcher class for serialization equivalence
     class SerializationMatcher
-      def initialize(expected, format = :xml)
+      def initialize(expected, format = :xml, match_profile: nil, match_options: nil, preprocessing: nil)
         @expected = expected
         unless SUPPORTED_FORMATS.include?(format.to_sym)
           raise Canon::Error, "Unsupported format: #{format}"
@@ -42,6 +51,9 @@ module Canon
 
         @format = format.to_sym
         @result = nil
+        @match_profile = match_profile
+        @match_options = match_options
+        @preprocessing = preprocessing
       end
 
       def matches?(target)
@@ -52,27 +64,45 @@ module Canon
       end
 
       def match_xml
-        # Use C14N for comparison (not pretty printing)
-        # Even when normalize_tag_whitespace is enabled, we still need to
-        # canonicalize for the diff display
+        # Build comparison options
+        opts = {
+          ignore_comments: true,
+          ignore_attr_order: true,
+        }
+
+        # Pass per-test parameters (highest priority)
+        opts[:match_profile] = @match_profile if @match_profile
+        opts[:match_options] = @match_options if @match_options
+        opts[:preprocessing] = @preprocessing if @preprocessing
+
+        # Pass global configuration (lower priority)
+        opts[:global_profile] = Canon::RSpecMatchers.xml_match_profile
+        opts[:global_options] = Canon::RSpecMatchers.xml_match_options
+
+        # Use XmlComparator for comparison (it will resolve precedence)
+        result = if @match_profile || @match_options ||
+                    Canon::RSpecMatchers.xml_match_profile ||
+                    Canon::RSpecMatchers.xml_match_options
+                   # Use MECE match options with full precedence handling
+                   Canon::Comparison::XmlComparator.equivalent?(@target, @expected, opts)
+                 elsif Canon::RSpecMatchers.normalize_tag_whitespace
+                   # Legacy behavior for backward compatibility
+                   opts[:normalize_tag_whitespace] = true
+                   opts[:collapse_whitespace] = false
+                   Canon::Comparison::XmlComparator.equivalent?(@target, @expected, opts)
+                 else
+                   # Default: strict C14N comparison
+                   nil
+                 end
+
+        # Set sorted versions for diff display (after comparison)
         @actual_sorted = Canon::Xml::C14n.canonicalize(@target,
                                                        with_comments: false)
         @expected_sorted = Canon::Xml::C14n.canonicalize(@expected,
                                                          with_comments: false)
 
-        # Check if normalize_tag_whitespace is enabled
-        if Canon::RSpecMatchers.normalize_tag_whitespace
-          # Use comparison with normalize_tag_whitespace option
-          opts = {
-            normalize_tag_whitespace: true,
-            collapse_whitespace: false, # Don't use collapse when normalizing
-            ignore_comments: true,
-            ignore_attr_order: true,
-          }
-          Canon::Comparison::XmlComparator.equivalent?(@target, @expected, opts)
-        else
-          @actual_sorted == @expected_sorted
-        end
+        # Return comparison result or fallback to C14N comparison
+        result.nil? ? (@actual_sorted == @expected_sorted) : result
       end
 
       # Canonicalize and check string equivalence for YAML/JSON
@@ -105,12 +135,21 @@ module Canon
       end
 
       def html_semantic_compare(format)
-        # Use Canon::Comparison for HTML comparison
+        # Build comparison options
         opts = {
           collapse_whitespace: true,
           ignore_attr_order: true,
           ignore_comments: true,
         }
+
+        # Pass per-test parameters (highest priority)
+        opts[:match_profile] = @match_profile if @match_profile
+        opts[:match_options] = @match_options if @match_options
+        opts[:preprocessing] = @preprocessing if @preprocessing
+
+        # Pass global configuration (lower priority)
+        opts[:global_profile] = Canon::RSpecMatchers.html_match_profile
+        opts[:global_options] = Canon::RSpecMatchers.html_match_options
 
         # Parse and normalize HTML for error messages
         actual_doc = parse_html_for_display(@target, format)
@@ -239,16 +278,25 @@ module Canon
     end
 
     # Matcher methods
-    def be_serialization_equivalent_to(expected, format: :xml)
-      SerializationMatcher.new(expected, format)
+    def be_serialization_equivalent_to(expected, format: :xml, match_profile: nil, match_options: nil, preprocessing: nil)
+      SerializationMatcher.new(expected, format,
+                               match_profile: match_profile,
+                               match_options: match_options,
+                               preprocessing: preprocessing)
     end
 
-    def be_analogous_with(expected)
-      SerializationMatcher.new(expected, :xml)
+    def be_analogous_with(expected, match_profile: nil, match_options: nil, preprocessing: nil)
+      SerializationMatcher.new(expected, :xml,
+                               match_profile: match_profile,
+                               match_options: match_options,
+                               preprocessing: preprocessing)
     end
 
-    def be_xml_equivalent_to(expected)
-      SerializationMatcher.new(expected, :xml)
+    def be_xml_equivalent_to(expected, match_profile: nil, match_options: nil, preprocessing: nil)
+      SerializationMatcher.new(expected, :xml,
+                               match_profile: match_profile,
+                               match_options: match_options,
+                               preprocessing: preprocessing)
     end
 
     def be_yaml_equivalent_to(expected)
@@ -259,16 +307,25 @@ module Canon
       SerializationMatcher.new(expected, :json)
     end
 
-    def be_html_equivalent_to(expected)
-      SerializationMatcher.new(expected, :html)
+    def be_html_equivalent_to(expected, match_profile: nil, match_options: nil, preprocessing: nil)
+      SerializationMatcher.new(expected, :html,
+                               match_profile: match_profile,
+                               match_options: match_options,
+                               preprocessing: preprocessing)
     end
 
-    def be_html4_equivalent_to(expected)
-      SerializationMatcher.new(expected, :html4)
+    def be_html4_equivalent_to(expected, match_profile: nil, match_options: nil, preprocessing: nil)
+      SerializationMatcher.new(expected, :html4,
+                               match_profile: match_profile,
+                               match_options: match_options,
+                               preprocessing: preprocessing)
     end
 
-    def be_html5_equivalent_to(expected)
-      SerializationMatcher.new(expected, :html5)
+    def be_html5_equivalent_to(expected, match_profile: nil, match_options: nil, preprocessing: nil)
+      SerializationMatcher.new(expected, :html5,
+                               match_profile: match_profile,
+                               match_options: match_options,
+                               preprocessing: preprocessing)
     end
 
     if defined?(::RSpec) && ::RSpec.respond_to?(:configure)

@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "moxml"
+require_relative "match_options"
 
 module Canon
   module Comparison
@@ -22,6 +23,8 @@ module Canon
         ignore_text_nodes: false,
         normalize_tag_whitespace: false,
         verbose: false,
+        match_profile: nil,
+        match_options: nil,
       }.freeze
 
       class << self
@@ -35,11 +38,37 @@ module Canon
         #   verbose
         def equivalent?(n1, n2, opts = {}, child_opts = {})
           opts = DEFAULT_OPTS.merge(opts)
+
+          # Track if user explicitly provided MECE match options (any level)
+          # Only if the values are actually non-nil
+          has_explicit_match_opts = opts[:match_options] ||
+                                    opts[:match_profile] ||
+                                    opts[:global_profile] ||
+                                    opts[:global_options]
+
+          # Resolve MECE match options with format-specific defaults
+          # Always resolve to get format defaults even if no profile specified
+          match_opts = MatchOptions.resolve(
+            format: :xml,
+            match_profile: opts[:match_profile],
+            match_options: opts[:match_options],
+            preprocessing: opts[:preprocessing],
+            global_profile: opts[:global_profile],
+            global_options: opts[:global_options]
+          )
+
+          # Store resolved match options
+          opts[:resolved_match_options] = match_opts
+
+          # Mark that we're using MECE system (don't fall back to legacy)
+          opts[:using_mece_matching] = has_explicit_match_opts
+
+          # Create child_opts AFTER setting MECE flags so they propagate
           child_opts = opts.merge(child_opts)
 
-          # Parse nodes if they are strings
-          node1 = parse_node(n1)
-          node2 = parse_node(n2)
+          # Parse nodes if they are strings, applying preprocessing if needed
+          node1 = parse_node(n1, match_opts[:preprocessing])
+          node2 = parse_node(n2, match_opts[:preprocessing])
 
           differences = []
           diff_children = opts[:diff_children] || false
@@ -57,11 +86,28 @@ module Canon
         private
 
         # Parse a node from string or return as-is
-        def parse_node(node)
+        # Applies preprocessing transformation before parsing if specified
+        def parse_node(node, preprocessing = :none)
           return node unless node.is_a?(String)
 
-          # Use Moxml for XML
-          Moxml.new.parse(node)
+          # Apply preprocessing to XML string before parsing
+          xml_string = case preprocessing
+                       when :normalize
+                         # Normalize whitespace: collapse runs, trim lines
+                         node.lines.map { |line| line.strip }.reject(&:empty?).join("\n")
+                       when :c14n
+                         # Canonicalize the XML
+                         Canon::Xml::C14n.canonicalize(node, with_comments: false)
+                       when :format
+                         # Pretty format the XML
+                         Canon.format(node, :xml)
+                       else
+                         # :none or unrecognized - use as-is
+                         node
+                       end
+
+          # Use Moxml for XML parsing
+          Moxml.new.parse(xml_string)
         end
 
         # Main comparison dispatcher
@@ -157,14 +203,43 @@ module Canon
         def filter_attributes(attributes, opts)
           filtered = {}
 
-          attributes.each do |name, attr|
-            value = attr.respond_to?(:value) ? attr.value : attr
+          attributes.each do |key, val|
+            # Handle both Nokogiri and Moxml attribute formats:
+            # - Nokogiri: key is String name, val is Nokogiri::XML::Attr object
+            # - Moxml: key is Moxml::Attribute object, val is nil
+
+            if key.is_a?(String)
+              # Nokogiri format: key=name (String), val=attr object
+              name = key
+              value = val.respond_to?(:value) ? val.value : val.to_s
+            else
+              # Moxml format: key=attr object, val=nil
+              name = key.respond_to?(:name) ? key.name : key.to_s
+              value = key.respond_to?(:value) ? key.value : key.to_s
+            end
 
             # Skip if attribute name should be ignored
             next if should_ignore_attr_by_name?(name, opts)
 
             # Skip if attribute content should be ignored
             next if should_ignore_attr_content?(value, opts)
+
+            # Apply MECE match options for attribute values if explicitly provided
+            if opts[:using_mece_matching] && opts[:resolved_match_options]
+              match_opts = opts[:resolved_match_options]
+              behavior = match_opts[:attribute_whitespace]
+
+              # Normalize attribute value based on behavior
+              value = case behavior
+                      when :normalize
+                        MatchOptions.normalize_text(value)
+                      when :ignore
+                        # If ignoring, set to empty string so all match
+                        ""
+                      else
+                        value
+                      end
+            end
 
             filtered[name] = value
           end
@@ -193,6 +268,22 @@ module Canon
           text1 = node_text(n1)
           text2 = node_text(n2)
 
+          # Use MECE match options if explicitly provided
+          if opts[:using_mece_matching] && opts[:resolved_match_options]
+            match_opts = opts[:resolved_match_options]
+            behavior = match_opts[:text_content]
+
+            if MatchOptions.match_text?(text1, text2, behavior)
+              return Comparison::EQUIVALENT
+            else
+              add_difference(n1, n2, Comparison::UNEQUAL_TEXT_CONTENTS,
+                             Comparison::UNEQUAL_TEXT_CONTENTS, opts,
+                             differences)
+              return Comparison::UNEQUAL_TEXT_CONTENTS
+            end
+          end
+
+          # Legacy behavior for backward compatibility
           if opts[:normalize_tag_whitespace]
             text1 = normalize_tag_whitespace(text1)
             text2 = normalize_tag_whitespace(text2)
@@ -212,6 +303,27 @@ module Canon
 
         # Compare comment nodes
         def compare_comment_nodes(n1, n2, opts, differences)
+          # Use MECE match options if explicitly provided
+          if opts[:using_mece_matching] && opts[:resolved_match_options]
+            match_opts = opts[:resolved_match_options]
+            behavior = match_opts[:comments]
+
+            # If comments are ignored, consider them equivalent
+            return Comparison::EQUIVALENT if behavior == :ignore
+
+            content1 = n1.content.to_s
+            content2 = n2.content.to_s
+
+            if MatchOptions.match_text?(content1, content2, behavior)
+              return Comparison::EQUIVALENT
+            else
+              add_difference(n1, n2, Comparison::UNEQUAL_COMMENTS,
+                             Comparison::UNEQUAL_COMMENTS, opts, differences)
+              return Comparison::UNEQUAL_COMMENTS
+            end
+          end
+
+          # Legacy behavior for backward compatibility
           return Comparison::EQUIVALENT if opts[:ignore_comments]
 
           content1 = n1.content.to_s.strip
@@ -293,6 +405,30 @@ module Canon
 
         # Check if node should be excluded
         def node_excluded?(node, opts)
+          # Use MECE match options if explicitly provided
+          if opts[:using_mece_matching] && opts[:resolved_match_options]
+            match_opts = opts[:resolved_match_options]
+
+            # Ignore comments based on match options
+            if node.respond_to?(:comment?) && node.comment?
+              return true if match_opts[:comments] == :ignore
+            end
+
+            # Ignore text nodes if specified
+            return true if opts[:ignore_text_nodes] &&
+              node.respond_to?(:text?) && node.text?
+
+            # Ignore whitespace-only text nodes based on structural_whitespace
+            if match_opts[:structural_whitespace] == :ignore &&
+                node.respond_to?(:text?) && node.text?
+              text = node_text(node)
+              return true if MatchOptions.normalize_text(text).empty?
+            end
+
+            return false
+          end
+
+          # Legacy behavior for backward compatibility
           # Ignore comments if specified
           return true if opts[:ignore_comments] &&
             node.respond_to?(:comment?) && node.comment?

@@ -74,7 +74,19 @@ module Canon
       explicitly specified with --format (for both files) or --format1 and
       --format2 (for different formats).
 
-      Comparison options:
+      Match Profiles:
+      - strict: Exact matching (all whitespace significant)
+      - rendered: Mimics browser/CSS rendering (HTML default)
+      - spec_friendly: Ignores formatting differences (test-friendly)
+      - content_only: Ignores all structural differences
+
+      Preprocessing Options:
+      - none: No preprocessing (default)
+      - c14n: Canonicalize before comparison
+      - normalize: Normalize whitespace before comparison
+      - format: Pretty-print before comparison
+
+      Legacy Comparison Options:
       - Whitespace handling (--collapse-whitespace / --no-collapse-whitespace)
       - Attribute/key ordering (--ignore-attr-order / --no-ignore-attr-order)
       - Comments (--with-comments / --no-with-comments, --ignore-comments)
@@ -83,17 +95,23 @@ module Canon
 
       Examples:
 
-        # Basic semantic comparison
+        # Basic semantic comparison (uses format defaults)
         $ canon diff file1.xml file2.xml
+
+        # Use match profile for test-friendly comparison
+        $ canon diff file1.xml file2.xml --match-profile spec_friendly
+
+        # Preprocess with normalization, then compare
+        $ canon diff file1.xml file2.xml --preprocessing normalize
+
+        # Match text content flexibly but keep structural whitespace strict
+        $ canon diff file1.xml file2.xml --text-content normalize --structural-whitespace strict
 
         # Verbose mode with detailed differences
         $ canon diff file1.json file2.json --verbose
 
-        # Include comments in comparison (default: ignore)
+        # Legacy options still work (converted to match options)
         $ canon diff file1.xml file2.xml --with-comments
-
-        # Ignore text node content entirely
-        $ canon diff template1.html template2.html --ignore-text-nodes
 
         # Compare different formats (same structure)
         $ canon diff config.json config.yaml --format1 json --format2 yaml
@@ -127,26 +145,50 @@ module Canon
                   type: :boolean,
                   default: false,
                   desc: "Use line-by-line diff for XML (default: by-object)"
+    # New MECE match options
+    method_option :match_profile,
+                  aliases: "-p",
+                  type: :string,
+                  enum: %w[strict rendered spec_friendly content_only],
+                  desc: "Match profile: strict, rendered, spec_friendly, or content_only"
+    method_option :preprocessing,
+                  type: :string,
+                  enum: %w[none c14n normalize format],
+                  desc: "Preprocessing: none, c14n, normalize, or format"
+    method_option :text_content,
+                  type: :string,
+                  enum: %w[strict normalize ignore],
+                  desc: "Text content matching: strict, normalize, or ignore"
+    method_option :structural_whitespace,
+                  type: :string,
+                  enum: %w[strict normalize ignore],
+                  desc: "Structural whitespace matching: strict, normalize, or ignore"
+    method_option :attribute_whitespace,
+                  type: :string,
+                  enum: %w[strict normalize ignore],
+                  desc: "Attribute whitespace matching: strict, normalize, or ignore"
+    method_option :comments,
+                  type: :string,
+                  enum: %w[strict normalize ignore],
+                  desc: "Comment matching: strict, normalize, or ignore"
+    # Legacy options (converted to match options)
     method_option :collapse_whitespace,
                   type: :boolean,
-                  default: true,
-                  desc: "Collapse whitespace in text nodes"
+                  desc: "DEPRECATED: Use --text-content normalize instead"
     method_option :ignore_attr_order,
                   type: :boolean,
                   default: true,
                   desc: "Ignore attribute/key ordering"
     method_option :ignore_comments,
                   type: :boolean,
-                  desc: "Ignore XML/HTML comments (overrides --with-comments)"
+                  desc: "DEPRECATED: Use --comments ignore instead"
     method_option :ignore_text_nodes,
                   type: :boolean,
-                  default: false,
-                  desc: "Ignore all text node content"
+                  desc: "DEPRECATED: Use --text-content ignore instead"
     method_option :with_comments,
                   aliases: "-c",
                   type: :boolean,
-                  default: false,
-                  desc: "Include comments in comparison (sets ignore_comments: false)"
+                  desc: "DEPRECATED: Use --comments strict instead"
     method_option :context_lines,
                   type: :numeric,
                   default: 3,
