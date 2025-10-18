@@ -46,10 +46,11 @@ module Canon
       # Detect format from content
       def self.detect_format(content)
         stripped = content.to_s.strip
-        return :xml if stripped.start_with?('<') && stripped.include?('>')
-        return :json if stripped.start_with?('{', '[')
+        return :xml if stripped.start_with?("<") && stripped.include?(">")
+        return :json if stripped.start_with?("{", "[")
         return :yaml if stripped.match?(/^[\w-]+:\s/)
-        :string  # Fallback
+
+        :string # Fallback
       end
 
       def initialize(expected, format = nil, match_profile: nil,
@@ -95,7 +96,7 @@ match_options: nil, preprocessing: nil)
         result = if @match_profile || @match_options ||
             Canon::RSpecMatchers.xml_match_profile ||
             Canon::RSpecMatchers.xml_match_options
-                   # Use MECE match options with full precedence handling
+                   # Use match options with full precedence handling
                    Canon::Comparison::XmlComparator.equivalent?(@target,
                                                                 @expected, opts)
                  elsif Canon::RSpecMatchers.normalize_tag_whitespace

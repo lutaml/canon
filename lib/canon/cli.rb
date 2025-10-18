@@ -145,7 +145,7 @@ module Canon
                   type: :boolean,
                   default: false,
                   desc: "Use line-by-line diff for XML (default: by-object)"
-    # New MECE match options
+    # New match options
     method_option :match_profile,
                   aliases: "-p",
                   type: :string,
@@ -166,19 +166,23 @@ module Canon
     method_option :attribute_whitespace,
                   type: :string,
                   enum: %w[strict normalize ignore],
-                  desc: "Attribute whitespace matching: strict, normalize, or ignore"
+                  desc: "Attribute whitespace matching (XML/HTML only): strict, normalize, or ignore"
+    method_option :key_order,
+                  type: :string,
+                  enum: %w[strict ignore],
+                  desc: "Key ordering (JSON/YAML only): strict or ignore"
     method_option :comments,
                   type: :string,
                   enum: %w[strict normalize ignore],
                   desc: "Comment matching: strict, normalize, or ignore"
-    # Legacy options (converted to match options)
+    # Legacy options (for backward compatibility)
     method_option :collapse_whitespace,
                   type: :boolean,
                   desc: "DEPRECATED: Use --text-content normalize instead"
     method_option :ignore_attr_order,
                   type: :boolean,
                   default: true,
-                  desc: "Ignore attribute/key ordering"
+                  desc: "Ignore attribute/key ordering (legacy option, use --key-order instead for JSON/YAML)"
     method_option :ignore_comments,
                   type: :boolean,
                   desc: "DEPRECATED: Use --comments ignore instead"

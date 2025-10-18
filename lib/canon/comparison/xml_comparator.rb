@@ -39,16 +39,16 @@ module Canon
         def equivalent?(n1, n2, opts = {}, child_opts = {})
           opts = DEFAULT_OPTS.merge(opts)
 
-          # Track if user explicitly provided MECE match options (any level)
+          # Track if user explicitly provided match options (any level)
           # Only if the values are actually non-nil
           has_explicit_match_opts = opts[:match_options] ||
             opts[:match_profile] ||
             opts[:global_profile] ||
             opts[:global_options]
 
-          # Resolve MECE match options with format-specific defaults
+          # Resolve match options with format-specific defaults
           # Always resolve to get format defaults even if no profile specified
-          match_opts = MatchOptions.resolve(
+          match_opts = MatchOptions::Xml.resolve(
             format: :xml,
             match_profile: opts[:match_profile],
             match_options: opts[:match_options],
@@ -60,10 +60,10 @@ module Canon
           # Store resolved match options
           opts[:resolved_match_options] = match_opts
 
-          # Mark that we're using MECE system (don't fall back to legacy)
-          opts[:using_mece_matching] = has_explicit_match_opts
+          # Mark that we're using match options system (don't fall back to legacy)
+          opts[:using_match_options] = has_explicit_match_opts
 
-          # Create child_opts AFTER setting MECE flags so they propagate
+          # Create child_opts AFTER setting match option flags so they propagate
           child_opts = opts.merge(child_opts)
 
           # Parse nodes if they are strings, applying preprocessing if needed
@@ -225,8 +225,8 @@ module Canon
             # Skip if attribute content should be ignored
             next if should_ignore_attr_content?(value, opts)
 
-            # Apply MECE match options for attribute values if explicitly provided
-            if opts[:using_mece_matching] && opts[:resolved_match_options]
+            # Apply match options for attribute values if explicitly provided
+            if opts[:using_match_options] && opts[:resolved_match_options]
               match_opts = opts[:resolved_match_options]
               behavior = match_opts[:attribute_whitespace]
 
@@ -269,8 +269,8 @@ module Canon
           text1 = node_text(n1)
           text2 = node_text(n2)
 
-          # Use MECE match options if explicitly provided
-          if opts[:using_mece_matching] && opts[:resolved_match_options]
+          # Use match options if explicitly provided
+          if opts[:using_match_options] && opts[:resolved_match_options]
             match_opts = opts[:resolved_match_options]
             behavior = match_opts[:text_content]
 
@@ -304,8 +304,8 @@ module Canon
 
         # Compare comment nodes
         def compare_comment_nodes(n1, n2, opts, differences)
-          # Use MECE match options if explicitly provided
-          if opts[:using_mece_matching] && opts[:resolved_match_options]
+          # Use match options if explicitly provided
+          if opts[:using_match_options] && opts[:resolved_match_options]
             match_opts = opts[:resolved_match_options]
             behavior = match_opts[:comments]
 
@@ -406,8 +406,8 @@ module Canon
 
         # Check if node should be excluded
         def node_excluded?(node, opts)
-          # Use MECE match options if explicitly provided
-          if opts[:using_mece_matching] && opts[:resolved_match_options]
+          # Use match options if explicitly provided
+          if opts[:using_match_options] && opts[:resolved_match_options]
             match_opts = opts[:resolved_match_options]
 
             # Ignore comments based on match options

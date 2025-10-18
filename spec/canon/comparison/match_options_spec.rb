@@ -15,7 +15,85 @@ RSpec.describe Canon::Comparison::MatchOptions do
         %i[strict normalize ignore],
       )
     end
+  end
 
+  describe ".match_text?" do
+    context "with strict behavior" do
+      it "requires exact match" do
+        expect(described_class.match_text?("hello", "hello", :strict))
+          .to be true
+        expect(described_class.match_text?("hello", "hello ", :strict))
+          .to be false
+        expect(described_class.match_text?("hello", "Hello", :strict))
+          .to be false
+      end
+    end
+
+    context "with normalize behavior" do
+      it "normalizes whitespace before comparing" do
+        expect(described_class.match_text?("hello", "hello", :normalize))
+          .to be true
+        expect(described_class.match_text?("hello ", " hello", :normalize))
+          .to be true
+        expect(described_class.match_text?(
+                 "hello  world", "hello world", :normalize
+               )).to be true
+        expect(described_class.match_text?(
+                 "hello\n\nworld", "hello world", :normalize
+               )).to be true
+        expect(described_class.match_text?("hello", "goodbye", :normalize))
+          .to be false
+      end
+    end
+
+    context "with ignore behavior" do
+      it "always returns true" do
+        expect(described_class.match_text?("hello", "hello", :ignore))
+          .to be true
+        expect(described_class.match_text?("hello", "goodbye", :ignore))
+          .to be true
+        expect(described_class.match_text?("", "anything", :ignore))
+          .to be true
+      end
+    end
+
+    context "with unknown behavior" do
+      it "raises error" do
+        expect do
+          described_class.match_text?("hello", "hello", :unknown)
+        end.to raise_error(Canon::Error, /Unknown match behavior: unknown/)
+      end
+    end
+  end
+
+  describe ".normalize_text" do
+    it "collapses whitespace sequences to single space" do
+      expect(described_class.normalize_text("hello  world"))
+        .to eq("hello world")
+      expect(described_class.normalize_text("hello\t\tworld"))
+        .to eq("hello world")
+      expect(described_class.normalize_text("hello\n\nworld"))
+        .to eq("hello world")
+    end
+
+    it "trims leading and trailing whitespace" do
+      expect(described_class.normalize_text("  hello  ")).to eq("hello")
+      expect(described_class.normalize_text("\nhello\n")).to eq("hello")
+    end
+
+    it "handles empty strings" do
+      expect(described_class.normalize_text("")).to eq("")
+      expect(described_class.normalize_text("   ")).to eq("")
+    end
+
+    it "handles nil" do
+      expect(described_class.normalize_text(nil)).to eq("")
+    end
+  end
+end
+
+RSpec.describe Canon::Comparison::MatchOptions::Xml do
+  describe "constants" do
     it "defines MATCH_DIMENSIONS" do
       expect(described_class::MATCH_DIMENSIONS).to eq(%i[
                                                         text_content
@@ -33,7 +111,7 @@ RSpec.describe Canon::Comparison::MatchOptions do
 
     it "defines FORMAT_DEFAULTS" do
       expect(described_class::FORMAT_DEFAULTS.keys).to eq(
-        %i[html xml json yaml],
+        %i[html xml],
       )
     end
   end
@@ -56,26 +134,6 @@ RSpec.describe Canon::Comparison::MatchOptions do
         structural_whitespace: :strict,
         attribute_whitespace: :strict,
         comments: :strict,
-      )
-    end
-
-    it "defines JSON defaults" do
-      expect(described_class::FORMAT_DEFAULTS[:json]).to eq(
-        preprocessing: :none,
-        text_content: :strict,
-        structural_whitespace: :ignore,
-        attribute_whitespace: :strict,
-        comments: :ignore,
-      )
-    end
-
-    it "defines YAML defaults" do
-      expect(described_class::FORMAT_DEFAULTS[:yaml]).to eq(
-        preprocessing: :none,
-        text_content: :strict,
-        structural_whitespace: :ignore,
-        attribute_whitespace: :strict,
-        comments: :ignore,
       )
     end
   end
@@ -314,156 +372,62 @@ RSpec.describe Canon::Comparison::MatchOptions do
       end.to raise_error(Canon::Error, /Unknown match profile/)
     end
   end
+end
 
-  describe ".to_legacy_options" do
-    it "converts strict profile to legacy options" do
-      match_opts = described_class::MATCH_PROFILES[:strict]
-      legacy = described_class.to_legacy_options(match_opts)
-
-      expect(legacy).to eq(
-        collapse_whitespace: false,
-        normalize_tag_whitespace: false,
-        ignore_comments: false,
-      )
+RSpec.describe Canon::Comparison::MatchOptions::Json do
+  describe "constants" do
+    it "defines MATCH_DIMENSIONS" do
+      expect(described_class::MATCH_DIMENSIONS).to eq(%i[
+                                                        text_content
+                                                        structural_whitespace
+                                                        key_order
+                                                      ])
     end
 
-    it "converts rendered profile to legacy options" do
-      match_opts = described_class::MATCH_PROFILES[:rendered]
-      legacy = described_class.to_legacy_options(match_opts)
-
-      expect(legacy).to eq(
-        collapse_whitespace: false,
-        normalize_tag_whitespace: true,
-        ignore_comments: true,
-      )
-    end
-
-    it "converts spec_friendly profile to legacy options" do
-      match_opts = described_class::MATCH_PROFILES[:spec_friendly]
-      legacy = described_class.to_legacy_options(match_opts)
-
-      expect(legacy).to eq(
-        collapse_whitespace: true,
-        normalize_tag_whitespace: true,
-        ignore_comments: true,
-      )
+    it "defines FORMAT_DEFAULTS" do
+      expect(described_class::FORMAT_DEFAULTS.keys).to eq([:json])
     end
   end
 
-  describe ".from_legacy_options" do
-    it "converts collapse_whitespace to structural_whitespace" do
-      result = described_class.from_legacy_options(collapse_whitespace: true)
-      expect(result[:structural_whitespace]).to eq(:ignore)
-
-      result = described_class.from_legacy_options(collapse_whitespace: false)
-      expect(result[:structural_whitespace]).to eq(:strict)
-    end
-
-    it "converts normalize_tag_whitespace to text_content" do
-      result = described_class.from_legacy_options(
-        normalize_tag_whitespace: true,
-      )
-      expect(result[:text_content]).to eq(:normalize)
-
-      result = described_class.from_legacy_options(
-        normalize_tag_whitespace: false,
-      )
-      expect(result[:text_content]).to eq(:strict)
-    end
-
-    it "converts ignore_comments to comments" do
-      result = described_class.from_legacy_options(ignore_comments: true)
-      expect(result[:comments]).to eq(:ignore)
-
-      result = described_class.from_legacy_options(ignore_comments: false)
-      expect(result[:comments]).to eq(:strict)
-    end
-
-    it "converts multiple legacy options" do
-      result = described_class.from_legacy_options(
-        collapse_whitespace: true,
-        normalize_tag_whitespace: true,
-        ignore_comments: false,
-      )
+  describe ".resolve" do
+    it "returns JSON defaults when no other options specified" do
+      result = described_class.resolve(format: :json)
       expect(result).to eq(
+        preprocessing: :none,
+        text_content: :strict,
         structural_whitespace: :ignore,
-        text_content: :normalize,
-        comments: :strict,
+        key_order: :strict,
       )
     end
   end
+end
 
-  describe ".match_text?" do
-    context "with strict behavior" do
-      it "requires exact match" do
-        expect(described_class.match_text?("hello", "hello", :strict))
-          .to be true
-        expect(described_class.match_text?("hello", "hello ", :strict))
-          .to be false
-        expect(described_class.match_text?("hello", "Hello", :strict))
-          .to be false
-      end
+RSpec.describe Canon::Comparison::MatchOptions::Yaml do
+  describe "constants" do
+    it "defines MATCH_DIMENSIONS" do
+      expect(described_class::MATCH_DIMENSIONS).to eq(%i[
+                                                        text_content
+                                                        structural_whitespace
+                                                        key_order
+                                                        comments
+                                                      ])
     end
 
-    context "with normalize behavior" do
-      it "normalizes whitespace before comparing" do
-        expect(described_class.match_text?("hello", "hello", :normalize))
-          .to be true
-        expect(described_class.match_text?("hello ", " hello", :normalize))
-          .to be true
-        expect(described_class.match_text?(
-                 "hello  world", "hello world", :normalize
-               )).to be true
-        expect(described_class.match_text?(
-                 "hello\n\nworld", "hello world", :normalize
-               )).to be true
-        expect(described_class.match_text?("hello", "goodbye", :normalize))
-          .to be false
-      end
-    end
-
-    context "with ignore behavior" do
-      it "always returns true" do
-        expect(described_class.match_text?("hello", "hello", :ignore))
-          .to be true
-        expect(described_class.match_text?("hello", "goodbye", :ignore))
-          .to be true
-        expect(described_class.match_text?("", "anything", :ignore))
-          .to be true
-      end
-    end
-
-    context "with unknown behavior" do
-      it "raises error" do
-        expect do
-          described_class.match_text?("hello", "hello", :unknown)
-        end.to raise_error(Canon::Error, /Unknown match behavior: unknown/)
-      end
+    it "defines FORMAT_DEFAULTS" do
+      expect(described_class::FORMAT_DEFAULTS.keys).to eq([:yaml])
     end
   end
 
-  describe ".normalize_text" do
-    it "collapses whitespace sequences to single space" do
-      expect(described_class.normalize_text("hello  world"))
-        .to eq("hello world")
-      expect(described_class.normalize_text("hello\t\tworld"))
-        .to eq("hello world")
-      expect(described_class.normalize_text("hello\n\nworld"))
-        .to eq("hello world")
-    end
-
-    it "trims leading and trailing whitespace" do
-      expect(described_class.normalize_text("  hello  ")).to eq("hello")
-      expect(described_class.normalize_text("\nhello\n")).to eq("hello")
-    end
-
-    it "handles empty strings" do
-      expect(described_class.normalize_text("")).to eq("")
-      expect(described_class.normalize_text("   ")).to eq("")
-    end
-
-    it "handles nil" do
-      expect(described_class.normalize_text(nil)).to eq("")
+  describe ".resolve" do
+    it "returns YAML defaults when no other options specified" do
+      result = described_class.resolve(format: :yaml)
+      expect(result).to eq(
+        preprocessing: :none,
+        text_content: :strict,
+        structural_whitespace: :ignore,
+        key_order: :strict,
+        comments: :ignore,
+      )
     end
   end
 end

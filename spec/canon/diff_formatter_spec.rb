@@ -83,7 +83,7 @@ RSpec.describe Canon::DiffFormatter do
         xml2 = "<doc><p>new text</p></doc>"
 
         result = formatter.format([], :xml, doc1: xml1, doc2: xml2)
-        expect(result).to include("Line-by-line diff:")
+        expect(result).to include("Line-by-line diff (XML mode):")
       end
 
       it "delegates to by_line formatter for JSON" do
@@ -91,7 +91,7 @@ RSpec.describe Canon::DiffFormatter do
         json2 = '{"name": "new"}'
 
         result = formatter.format([], :json, doc1: json1, doc2: json2)
-        expect(result).to include("Line-by-line diff:")
+        expect(result).to include("Line-by-line diff (JSON mode):")
       end
 
       it "delegates to by_line formatter for YAML" do
@@ -99,7 +99,7 @@ RSpec.describe Canon::DiffFormatter do
         yaml2 = "name: new"
 
         result = formatter.format([], :yaml, doc1: yaml1, doc2: yaml2)
-        expect(result).to include("Line-by-line diff:")
+        expect(result).to include("Line-by-line diff (YAML mode):")
       end
     end
 

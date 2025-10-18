@@ -341,7 +341,8 @@ module Canon
       format_name = format.to_s.upcase
 
       output = []
-      output << colorize("Line-by-line diff (#{format_name} mode):", :cyan, :bold)
+      output << colorize("Line-by-line diff (#{format_name} mode):", :cyan,
+                         :bold)
 
       return output.join("\n") if doc1.nil? || doc2.nil?
 
