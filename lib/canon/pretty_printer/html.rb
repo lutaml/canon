@@ -3,9 +3,9 @@
 require "nokogiri"
 
 module Canon
-  module Html
+  module PrettyPrinter
     # Pretty printer for HTML with consistent indentation
-    class PrettyPrinter
+    class Html
       def initialize(indent: 2, indent_type: "space")
         @indent = indent.to_i
         @indent_type = indent_type

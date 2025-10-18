@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 
 require "paint"
+require "yaml"
+require_relative "comparison"
 require_relative "diff/diff_block"
 require_relative "diff/diff_context"
 require_relative "diff/diff_report"
@@ -26,8 +28,73 @@ module Canon
       autoload :YamlFormatter, "canon/diff_formatter/by_line/yaml_formatter"
     end
 
-    # Default character visualization map (CJK-safe)
-    DEFAULT_VISUALIZATION_MAP = {
+    # Load character map from YAML file
+    #
+    # @return [Hash] Hash with :visualization_map, :category_map, :category_names
+    def self.load_character_map
+      yaml_path = File.join(__dir__, "diff_formatter", "character_map.yml")
+      data = YAML.load_file(yaml_path)
+
+      visualization_map = {}
+      category_map = {}
+      character_metadata = {}
+
+      data["characters"].each do |char_data|
+        # Get character from either unicode code point or character field
+        char = if char_data["unicode"]
+                 # Convert hex string to character
+                 [char_data["unicode"].to_i(16)].pack("U")
+               else
+                 # Use character field directly (handles \n, \r, \t, etc.)
+                 char_data["character"]
+               end
+
+        vis = char_data["visualization"]
+        category = char_data["category"].to_sym
+        name = char_data["name"]
+
+        visualization_map[char] = vis
+        category_map[char] = category
+        character_metadata[char] = {
+          visualization: vis,
+          category: category,
+          name: name,
+        }
+      end
+
+      category_names = {}
+      data["category_names"].each do |key, value|
+        category_names[key.to_sym] = value
+      end
+
+      {
+        visualization_map: visualization_map,
+        category_map: category_map,
+        category_names: category_names,
+        character_metadata: character_metadata,
+      }
+    end
+
+    # Lazily load and cache character map data
+    def self.character_map_data
+      @character_map_data ||= load_character_map
+    end
+
+    # Default character visualization map (loaded from YAML)
+    DEFAULT_VISUALIZATION_MAP = character_map_data[:visualization_map].freeze
+
+    # Character category map (loaded from YAML)
+    CHARACTER_CATEGORY_MAP = character_map_data[:category_map].freeze
+
+    # Category display names (loaded from YAML)
+    CHARACTER_CATEGORY_NAMES = character_map_data[:category_names].freeze
+
+    # Character metadata including names (loaded from YAML)
+    CHARACTER_METADATA = character_map_data[:character_metadata].freeze
+
+    # Legacy constant for backward compatibility (deprecated)
+    # Use DEFAULT_VISUALIZATION_MAP instead
+    DEPRECATED_DEFAULT_VISUALIZATION_MAP = {
       # Common whitespace characters
       " " => "░", # U+2591 Light Shade (regular space)
       "\t" => "⇥", # U+21E5 Rightwards Arrow to Bar (tab)
@@ -96,12 +163,17 @@ module Canon
     }.freeze
 
     def initialize(use_color: true, mode: :by_object, context_lines: 3,
-                   diff_grouping_lines: nil, visualization_map: nil)
+                   diff_grouping_lines: nil, visualization_map: nil,
+                   character_map_file: nil, character_definitions: nil)
       @use_color = use_color
       @mode = mode
       @context_lines = context_lines
       @diff_grouping_lines = diff_grouping_lines
-      @visualization_map = visualization_map || DEFAULT_VISUALIZATION_MAP
+      @visualization_map = build_visualization_map(
+        visualization_map: visualization_map,
+        character_map_file: character_map_file,
+        character_definitions: character_definitions
+      )
     end
 
     # Merge custom character visualization map with defaults
@@ -110,6 +182,61 @@ module Canon
     # @return [Hash] Merged character visualization map
     def self.merge_visualization_map(custom_map)
       DEFAULT_VISUALIZATION_MAP.merge(custom_map || {})
+    end
+
+    # Load character map from custom YAML file
+    #
+    # @param file_path [String] Path to YAML file with character definitions
+    # @return [Hash] Character visualization map
+    def self.load_custom_character_map(file_path)
+      data = YAML.load_file(file_path)
+      visualization_map = {}
+
+      data["characters"].each do |char_data|
+        # Get character from either unicode code point or character field
+        char = if char_data["unicode"]
+                 [char_data["unicode"].to_i(16)].pack("U")
+               else
+                 char_data["character"]
+               end
+
+        visualization_map[char] = char_data["visualization"]
+      end
+
+      visualization_map
+    end
+
+    # Build character definition from hash
+    #
+    # @param definition [Hash] Character definition with keys (matching YAML format):
+    #   - :character or :unicode (required)
+    #   - :visualization (required)
+    #   - :category (required)
+    #   - :name (required)
+    # @return [Hash] Single-entry visualization map
+    def self.build_character_definition(definition)
+      # Validate required fields
+      char = if definition[:unicode]
+               [definition[:unicode].to_i(16)].pack("U")
+             elsif definition[:character]
+               definition[:character]
+             else
+               raise ArgumentError, "Character definition must include :character or :unicode"
+             end
+
+      unless definition[:visualization]
+        raise ArgumentError, "Character definition must include :visualization"
+      end
+
+      unless definition[:category]
+        raise ArgumentError, "Character definition must include :category"
+      end
+
+      unless definition[:name]
+        raise ArgumentError, "Character definition must include :name"
+      end
+
+      { char => definition[:visualization] }
     end
 
     # Format differences array for display
@@ -138,6 +265,40 @@ module Canon
     end
 
     private
+
+    # Build the final visualization map from various customization options
+    #
+    # @param visualization_map [Hash, nil] Complete custom visualization map
+    # @param character_map_file [String, nil] Path to custom YAML file
+    # @param character_definitions [Array<Hash>, nil] Individual character definitions
+    # @return [Hash] Final visualization map
+    def build_visualization_map(visualization_map: nil, character_map_file: nil,
+                                character_definitions: nil)
+      # Priority order:
+      # 1. If visualization_map is provided, use it as complete replacement
+      # 2. Otherwise, start with defaults and apply customizations
+
+      return visualization_map if visualization_map
+
+      # Start with defaults
+      result = DEFAULT_VISUALIZATION_MAP.dup
+
+      # Apply custom file if provided
+      if character_map_file
+        custom_map = self.class.load_custom_character_map(character_map_file)
+        result.merge!(custom_map)
+      end
+
+      # Apply individual character definitions if provided
+      if character_definitions
+        character_definitions.each do |definition|
+          char_map = self.class.build_character_definition(definition)
+          result.merge!(char_map)
+        end
+      end
+
+      result
+    end
 
     # Generate success message based on mode
     def success_message

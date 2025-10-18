@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative "base_formatter"
+require_relative "../legend"
 
 module Canon
   class DiffFormatter
@@ -17,6 +18,16 @@ module Canon
           output = []
           lines1 = doc1.split("\n")
           lines2 = doc2.split("\n")
+
+          # Detect non-ASCII characters in the diff
+          all_text = (lines1 + lines2).join
+          non_ascii = Legend.detect_non_ascii(all_text, @visualization_map)
+
+          # Add Unicode legend if any non-ASCII characters detected
+          unless non_ascii.empty?
+            output << Legend.build_legend(non_ascii, use_color: @use_color)
+            output << ""
+          end
 
           # Get LCS diff
           diffs = ::Diff::LCS.sdiff(lines1, lines2)

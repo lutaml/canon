@@ -1,0 +1,197 @@
+# Character visualization and categorization map
+# Format:
+#   unicode: XXXX (hex code without 0x prefix, e.g., 2005 for U+2005)
+#   OR character: "x" (for printable ASCII characters like space)
+#   visualization: The symbol to display instead
+#   category: whitespace, line_endings, zero_width, directional, or control
+#   name: Human-readable name (optional, will use Unicode::Name if not provided)
+
+characters:
+  # Common whitespace characters
+  - character: " "
+    visualization: "░"
+    category: whitespace
+    name: "Space"
+
+  - character: "\t"
+    visualization: "⇥"
+    category: whitespace
+    name: "Tab"
+
+  - unicode: "00A0"
+    visualization: "␣"
+    category: whitespace
+    name: "No-Break Space"
+
+  # Line endings
+  - character: "\n"
+    visualization: "↵"
+    category: line_endings
+    name: "Line Feed"
+
+  - character: "\r"
+    visualization: "⏎"
+    category: line_endings
+    name: "Carriage Return"
+
+  - character: "\r\n"
+    visualization: "↵"
+    category: line_endings
+    name: "CRLF"
+
+  - unicode: "0085"
+    visualization: "⏎"
+    category: line_endings
+    name: "Next Line"
+
+  - unicode: "2028"
+    visualization: "⤓"
+    category: line_endings
+    name: "Line Separator"
+
+  - unicode: "2029"
+    visualization: "⤓"
+    category: line_endings
+    name: "Paragraph Separator"
+
+  # Unicode spaces
+  - unicode: "2002"
+    visualization: "▭"
+    category: whitespace
+    name: "En Space"
+
+  - unicode: "2003"
+    visualization: "▬"
+    category: whitespace
+    name: "Em Space"
+
+  - unicode: "2005"
+    visualization: "⏓"
+    category: whitespace
+    name: "Four-Per-Em Space"
+
+  - unicode: "2006"
+    visualization: "⏕"
+    category: whitespace
+    name: "Six-Per-Em Space"
+
+  - unicode: "2009"
+    visualization: "▯"
+    category: whitespace
+    name: "Thin Space"
+
+  - unicode: "200A"
+    visualization: "▮"
+    category: whitespace
+    name: "Hair Space"
+
+  - unicode: "2007"
+    visualization: "□"
+    category: whitespace
+    name: "Figure Space"
+
+  - unicode: "202F"
+    visualization: "▫"
+    category: whitespace
+    name: "Narrow No-Break Space"
+
+  - unicode: "205F"
+    visualization: "▭"
+    category: whitespace
+    name: "Medium Mathematical Space"
+
+  - unicode: "3000"
+    visualization: "⎵"
+    category: whitespace
+    name: "Ideographic Space"
+
+  - unicode: "303F"
+    visualization: "⏑"
+    category: whitespace
+    name: "Ideographic Half Fill Space"
+
+  # Zero-width characters
+  - unicode: "200B"
+    visualization: "→"
+    category: zero_width
+    name: "Zero Width Space"
+
+  - unicode: "200C"
+    visualization: "↛"
+    category: zero_width
+    name: "Zero Width Non-Joiner"
+
+  - unicode: "200D"
+    visualization: "⇢"
+    category: zero_width
+    name: "Zero Width Joiner"
+
+  - unicode: "FEFF"
+    visualization: "⇨"
+    category: zero_width
+    name: "Zero Width No-Break Space"
+
+  # Directional markers
+  - unicode: "200E"
+    visualization: "⟹"
+    category: directional
+    name: "Left-To-Right Mark"
+
+  - unicode: "200F"
+    visualization: "⟸"
+    category: directional
+    name: "Right-To-Left Mark"
+
+  - unicode: "202A"
+    visualization: "⇒"
+    category: directional
+    name: "Left-To-Right Embedding"
+
+  - unicode: "202B"
+    visualization: "⇐"
+    category: directional
+    name: "Right-To-Left Embedding"
+
+  - unicode: "202C"
+    visualization: "↔"
+    category: directional
+    name: "Pop Directional Formatting"
+
+  - unicode: "202D"
+    visualization: "⇉"
+    category: directional
+    name: "Left-To-Right Override"
+
+  - unicode: "202E"
+    visualization: "⇇"
+    category: directional
+    name: "Right-To-Left Override"
+
+  # Control characters
+  - unicode: "0000"
+    visualization: "␀"
+    category: control
+    name: "Null"
+
+  - unicode: "00AD"
+    visualization: "­‐"
+    category: control
+    name: "Soft Hyphen"
+
+  - unicode: "0008"
+    visualization: "␈"
+    category: control
+    name: "Backspace"
+
+  - unicode: "007F"
+    visualization: "␡"
+    category: control
+    name: "Delete"
+
+# Category display names
+category_names:
+  whitespace: "Whitespace"
+  line_endings: "Line Endings"
+  zero_width: "Zero-Width Characters"
+  directional: "Directional Markers"
+  control: "Control Characters"

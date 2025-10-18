@@ -1,9 +1,9 @@
 # frozen_string_literal: true
 
 require "spec_helper"
-require "canon/xml/pretty_printer"
-require "canon/json/pretty_printer"
-require "canon/html/pretty_printer"
+require "canon/pretty_printer/xml"
+require "canon/pretty_printer/json"
+require "canon/pretty_printer/html"
 
 RSpec.describe "Fixture Files Integrity" do
   def xhtml?(content)
@@ -32,7 +32,7 @@ RSpec.describe "Fixture Files Integrity" do
           original_content = File.read(fixture_file)
 
           # Format with pretty mode
-          pretty_printer = Canon::Xml::PrettyPrinter.new(indent: 2)
+          pretty_printer = Canon::PrettyPrinter::Xml.new(indent: 2)
           formatted_content = pretty_printer.format(original_content)
 
           # Use Canon's own XML comparison (C14N-based)
@@ -77,7 +77,7 @@ RSpec.describe "Fixture Files Integrity" do
           original_content = File.read(fixture_file)
 
           # Format with pretty mode
-          pretty_printer = Canon::Html::PrettyPrinter.new(indent: 2)
+          pretty_printer = Canon::PrettyPrinter::Html.new(indent: 2)
           formatted_content = pretty_printer.format(original_content)
 
           # Parse both with Nokogiri directly (not Canon.parse)
@@ -125,7 +125,7 @@ RSpec.describe "Fixture Files Integrity" do
           original_obj = JSON.parse(original_content)
 
           # Format with pretty mode
-          pretty_printer = Canon::Json::PrettyPrinter.new(indent: 2)
+          pretty_printer = Canon::PrettyPrinter::Json.new(indent: 2)
           formatted_content = pretty_printer.format(original_content)
           formatted_obj = JSON.parse(formatted_content)
 

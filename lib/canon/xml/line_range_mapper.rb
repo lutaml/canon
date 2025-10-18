@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require_relative "pretty_printer"
+require_relative "../pretty_printer/xml"
 
 module Canon
   module Xml
@@ -32,7 +32,7 @@ module Canon
         @map = {}
 
         # Pretty-print to get consistent formatting
-        pretty_xml = PrettyPrinter.new(indent: @indent).format(xml_string)
+        pretty_xml = Canon::PrettyPrinter::Xml.new(indent: @indent).format(xml_string)
         @lines = pretty_xml.split("\n")
 
         # Track current line number

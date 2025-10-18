@@ -2,7 +2,7 @@
 
 require "nokogiri"
 require_relative "html_formatter_base"
-require_relative "../html/pretty_printer"
+require_relative "../pretty_printer/html"
 require_relative "../validators/html_validator"
 
 module Canon

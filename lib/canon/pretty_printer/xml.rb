@@ -3,9 +3,9 @@
 require "nokogiri"
 
 module Canon
-  module Xml
+  module PrettyPrinter
     # Pretty printer for XML with consistent indentation
-    class PrettyPrinter
+    class Xml
       def initialize(indent: 2, indent_type: "space")
         @indent = indent.to_i
         @indent_type = indent_type

@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative "base_formatter"
+require_relative "../legend"
 require "set"
 require "strscan"
 
@@ -79,6 +80,18 @@ module Canon
 
         # Format element matches for display
         def format_element_matches(matches, map1, map2, lines1, lines2)
+          output = []
+
+          # Detect non-ASCII characters in the diff
+          all_text = (lines1 + lines2).join
+          non_ascii = Legend.detect_non_ascii(all_text, @visualization_map)
+
+          # Add Unicode legend if any non-ASCII characters detected
+          unless non_ascii.empty?
+            output << Legend.build_legend(non_ascii, use_color: @use_color)
+            output << ""
+          end
+
           # Build a set of elements to skip (children of parents showing diffs)
           elements_to_skip = build_skip_set(matches, map1, map2, lines1,
                                             lines2)
@@ -97,12 +110,15 @@ module Canon
           end
 
           # Group diffs by proximity if diff_grouping_lines is set
-          if @diff_grouping_lines
-            groups = group_diff_sections(diff_sections, @diff_grouping_lines)
-            format_diff_groups(groups, lines1, lines2)
-          else
-            diff_sections.map { |s| s[:formatted] }.compact.join("\n\n")
-          end
+          formatted_diffs = if @diff_grouping_lines
+                              groups = group_diff_sections(diff_sections, @diff_grouping_lines)
+                              format_diff_groups(groups, lines1, lines2)
+                            else
+                              diff_sections.map { |s| s[:formatted] }.compact.join("\n\n")
+                            end
+
+          output << formatted_diffs
+          output.join("\n")
         end
 
         # Build set of elements to skip (children with parents showing diffs)
