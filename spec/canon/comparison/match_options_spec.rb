@@ -6,7 +6,7 @@ RSpec.describe Canon::Comparison::MatchOptions do
   describe "constants" do
     it "defines PREPROCESSING_OPTIONS" do
       expect(described_class::PREPROCESSING_OPTIONS).to eq(
-        %i[none c14n normalize format],
+        %i[none c14n normalize format rendered],
       )
     end
 
@@ -161,7 +161,7 @@ RSpec.describe Canon::Comparison::MatchOptions::Xml do
 
     it "defines spec_friendly profile" do
       expect(described_class::MATCH_PROFILES[:spec_friendly]).to eq(
-        preprocessing: :normalize,
+        preprocessing: :rendered,
         text_content: :normalize,
         structural_whitespace: :ignore,
         attribute_whitespace: :strict,
@@ -219,11 +219,12 @@ RSpec.describe Canon::Comparison::MatchOptions::Xml do
     context "with global profile" do
       it "applies global profile over format defaults" do
         result = described_class.resolve(
-          format: :xml,
+          format: :html,
           global_profile: :spec_friendly,
         )
+
         expect(result).to eq(
-          preprocessing: :normalize,
+          preprocessing: :rendered,
           text_content: :normalize,
           structural_whitespace: :ignore,
           attribute_whitespace: :strict,

@@ -88,8 +88,9 @@ RSpec.describe Canon::Comparison::HtmlComparator do
         html2 = "<html><body><p>Test</p></body></html>"
 
         result = described_class.equivalent?(html1, html2, verbose: true)
-        expect(result).to be_an(Array)
-        expect(result).to be_empty
+        expect(result).to be_a(Hash)
+        expect(result[:differences]).to be_empty
+        expect(result[:preprocessed]).to be_an(Array)
       end
 
       it "returns array of differences for different element names" do
@@ -97,11 +98,11 @@ RSpec.describe Canon::Comparison::HtmlComparator do
         html2 = "<html><body><div>Test</div></body></html>"
 
         result = described_class.equivalent?(html1, html2, verbose: true)
-        expect(result).to be_an(Array)
-        expect(result).not_to be_empty
+        expect(result).to be_a(Hash)
+        expect(result[:differences]).not_to be_empty
         # Verbose mode returns hashes with diff information
-        expect(result.first).to be_a(Hash)
-        expect(result.first[:diff1]).to eq(Canon::Comparison::UNEQUAL_ELEMENTS)
+        expect(result[:differences].first).to be_a(Hash)
+        expect(result[:differences].first[:diff1]).to eq(Canon::Comparison::UNEQUAL_ELEMENTS)
       end
 
       it "returns array of differences for different text content" do
@@ -109,11 +110,11 @@ RSpec.describe Canon::Comparison::HtmlComparator do
         html2 = "<html><body><p>Test2</p></body></html>"
 
         result = described_class.equivalent?(html1, html2, verbose: true)
-        expect(result).to be_an(Array)
-        expect(result).not_to be_empty
+        expect(result).to be_a(Hash)
+        expect(result[:differences]).not_to be_empty
         # Verbose mode returns hashes with diff information
-        expect(result.first).to be_a(Hash)
-        expect(result.first[:diff1]).to eq(Canon::Comparison::UNEQUAL_TEXT_CONTENTS)
+        expect(result[:differences].first).to be_a(Hash)
+        expect(result[:differences].first[:diff1]).to eq(Canon::Comparison::UNEQUAL_TEXT_CONTENTS)
       end
 
       it "returns array of differences for different attributes" do
@@ -121,12 +122,12 @@ RSpec.describe Canon::Comparison::HtmlComparator do
         html2 = '<html><body><p class="bar">Test</p></body></html>'
 
         result = described_class.equivalent?(html1, html2, verbose: true)
-        expect(result).to be_an(Array)
-        expect(result).not_to be_empty
+        expect(result).to be_a(Hash)
+        expect(result[:differences]).not_to be_empty
         # Verbose mode returns hashes with diff information
-        expect(result.first).to be_a(Hash)
+        expect(result[:differences].first).to be_a(Hash)
         # Attribute comparison returns UNEQUAL_ATTRIBUTES (4)
-        expect(result.first[:diff1]).to eq(Canon::Comparison::UNEQUAL_ATTRIBUTES)
+        expect(result[:differences].first[:diff1]).to eq(Canon::Comparison::UNEQUAL_ATTRIBUTES)
       end
     end
 
@@ -181,6 +182,107 @@ RSpec.describe Canon::Comparison::HtmlComparator do
         doc2 = Nokogiri::HTML("<html><body><p>Test</p></body></html>")
 
         expect(described_class.equivalent?(html1, doc2)).to be true
+      end
+    end
+
+    context "with preprocessing" do
+      describe ":rendered preprocessing" do
+        it "normalizes HTML with different whitespace via to_html" do
+          html1 = <<~HTML
+            <div><p>Test</p></div>
+          HTML
+          html2 = <<~HTML
+            <div>
+              <p>Test</p>
+            </div>
+          HTML
+
+          # With :rendered preprocessing, both should be normalized to same output
+          expect(described_class.equivalent?(html1, html2,
+                                             preprocessing: :rendered)).to be true
+        end
+
+        it "handles inline vs block element whitespace correctly" do
+          # Block elements: whitespace between them should be ignored after normalization
+          html1 = "<div>First</div><div>Second</div>"
+          html2 = "<div>First</div>\n  <div>Second</div>"
+
+          expect(described_class.equivalent?(html1, html2,
+                                             preprocessing: :rendered)).to be true
+        end
+
+        it "normalizes nested structures consistently" do
+          html1 = <<~HTML
+            <html><body><div><p>Content</p></div></body></html>
+          HTML
+          html2 = <<~HTML
+            <html>
+              <body>
+                <div>
+                  <p>Content</p>
+                </div>
+              </body>
+            </html>
+          HTML
+
+          expect(described_class.equivalent?(html1, html2,
+                                             preprocessing: :rendered)).to be true
+        end
+
+        it "works with spec_friendly profile" do
+          html1 = "<div><p>Test</p></div>"
+          html2 = "<div>\n  <p>Test</p>\n</div>"
+
+          # spec_friendly profile uses :rendered preprocessing
+          expect(described_class.equivalent?(html1, html2,
+                                             match_profile: :spec_friendly)).to be true
+        end
+      end
+
+      describe "HTML version detection" do
+        it "detects HTML5 doctype" do
+          html = "<!DOCTYPE html><html><body></body></html>"
+          version = described_class.send(:detect_html_version, html)
+          expect(version).to eq(:html5)
+        end
+
+        it "detects HTML4 doctype" do
+          html = '<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN">' \
+                 "<html><body></body></html>"
+          version = described_class.send(:detect_html_version, html)
+          expect(version).to eq(:html4)
+        end
+
+        it "defaults to HTML5 when no doctype present" do
+          html = "<html><body></body></html>"
+          version = described_class.send(:detect_html_version, html)
+          expect(version).to eq(:html5)
+        end
+
+        it "handles case-insensitive HTML5 doctype" do
+          html = "<!doctype HTML><html><body></body></html>"
+          version = described_class.send(:detect_html_version, html)
+          expect(version).to eq(:html5)
+        end
+      end
+
+      describe "other preprocessing options" do
+        it "supports :normalize preprocessing" do
+          html1 = "<html><body><p>Test</p></body></html>"
+          html2 = "<html>\n\n<body>\n\n<p>Test</p>\n\n</body>\n\n</html>"
+
+          expect(described_class.equivalent?(html1, html2,
+                                             preprocessing: :normalize)).to be true
+        end
+
+        it "supports :format preprocessing" do
+          html1 = "<html><body><p>Test</p></body></html>"
+          html2 = "<html>\n  <body>\n    <p>Test</p>\n  </body>\n</html>"
+
+          # Format should produce consistent output
+          expect(described_class.equivalent?(html1, html2,
+                                             preprocessing: :format)).to be true
+        end
       end
     end
   end

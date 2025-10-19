@@ -552,7 +552,7 @@ RSpec.describe Canon::RSpecMatchers do
         described_class.configure do |config|
           config.xml.match.options = {
             text_content: :normalize,
-            structural_whitespace: :normalize
+            structural_whitespace: :normalize,
           }
         end
       end
@@ -761,7 +761,7 @@ RSpec.describe Canon::RSpecMatchers do
         described_class.configure do |config|
           config.xml.match.options = {
             text_content: :strict,
-            structural_whitespace: :strict
+            structural_whitespace: :strict,
           }
         end
       end
@@ -789,7 +789,7 @@ RSpec.describe Canon::RSpecMatchers do
         described_class.configure do |config|
           config.xml.match.options = {
             text_content: :normalize,
-            structural_whitespace: :normalize
+            structural_whitespace: :normalize,
           }
         end
       end

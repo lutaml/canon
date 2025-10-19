@@ -66,12 +66,23 @@ module Canon
         @comparison_result = Canon::Comparison.equivalent?(
           @expected,
           @target,
-          opts
+          opts,
         )
 
-        # When verbose: true, result is an array (empty if equivalent, non-empty if different)
+        # When verbose: true, result format depends on comparator:
+        # - XML/JSON/YAML: Array (empty if equivalent, non-empty if different)
+        # - HTML: Hash with :differences array and :preprocessed strings
         # Convert to boolean for matcher protocol
-        @comparison_result.is_a?(Array) ? @comparison_result.empty? : @comparison_result
+        if @comparison_result.is_a?(Hash)
+          # HTML format returns {differences: [], preprocessed: [str1, str2]}
+          @comparison_result[:differences].empty?
+        elsif @comparison_result.is_a?(Array)
+          # XML/JSON/YAML format returns []
+          @comparison_result.empty?
+        else
+          # Boolean result
+          @comparison_result
+        end
       end
 
       def failure_message
@@ -116,7 +127,7 @@ module Canon
       end
 
       def build_comparison_options
-        opts = { verbose: true }  # Always use verbose for diff generation
+        opts = { verbose: true } # Always use verbose for diff generation
 
         # Add per-test parameters (highest priority)
         opts[:match_profile] = @match_profile if @match_profile
@@ -130,10 +141,17 @@ module Canon
           # Only access config if format is supported
           if Canon::Config.instance.respond_to?(config_format)
             format_config = Canon::Config.instance.public_send(config_format)
-            opts[:global_profile] = format_config.match.profile if format_config.match.profile
-            opts[:global_options] = format_config.match.options unless format_config.match.options.empty?
+            if format_config.match.profile
+              opts[:global_profile] =
+                format_config.match.profile
+            end
+            unless format_config.match.options.empty?
+              opts[:global_options] =
+                format_config.match.options
+            end
             opts[:preprocessing] ||= format_config.preprocessing
-          elsif ![:xml, :html, :html4, :html5, :json, :yaml, :string].include?(@format)
+          elsif !%i[xml html html4 html5 json yaml
+                    string].include?(@format)
             # Unsupported format - raise error early
             raise Canon::Error, "Unsupported format: #{@format}"
           end
@@ -152,17 +170,18 @@ module Canon
       def diff_output
         # For string format, use simple diff since there's no comparison_result
         if @format == :string
-          config_format = :xml  # Use XML config as fallback for string
+          config_format = :xml # Use XML config as fallback for string
           diff_config = Canon::Config.instance.public_send(config_format).diff
 
           formatter = Canon::DiffFormatter.new(
             use_color: diff_config.use_color,
-            mode: :by_line,  # Always use by_line for strings
+            mode: :by_line, # Always use by_line for strings
             context_lines: diff_config.context_lines,
-            diff_grouping_lines: diff_config.grouping_lines
+            diff_grouping_lines: diff_config.grouping_lines,
           )
 
-          return formatter.format([], :string, doc1: @expected.to_s, doc2: @target.to_s)
+          return formatter.format([], :string, doc1: @expected.to_s,
+                                               doc2: @target.to_s)
         end
 
         # Get diff configuration
@@ -174,11 +193,12 @@ module Canon
           use_color: diff_config.use_color,
           mode: diff_config.mode,
           context_lines: diff_config.context_lines,
-          diff_grouping_lines: diff_config.grouping_lines
+          diff_grouping_lines: diff_config.grouping_lines,
         )
 
         # Format the diff using the comparison result
-        formatter.format_comparison_result(@comparison_result, @expected, @target)
+        formatter.format_comparison_result(@comparison_result, @expected,
+                                           @target)
       rescue StandardError => e
         "\nError generating diff: #{e.message}"
       end

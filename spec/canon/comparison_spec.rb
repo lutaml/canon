@@ -89,8 +89,8 @@ RSpec.describe Canon::Comparison do
 
         result = described_class.equivalent?(html1, html2,
                                              { verbose: true })
-        expect(result).to be_an(Array)
-        expect(result).to be_empty
+        expect(result).to be_a(Hash)
+        expect(result[:differences]).to be_empty
       end
 
       it "returns array of differences for different element names" do
@@ -99,13 +99,13 @@ RSpec.describe Canon::Comparison do
 
         result = described_class.equivalent?(html1, html2,
                                              { verbose: true })
-        expect(result).to be_an(Array)
-        expect(result).not_to be_empty
-        expect(result.first).to have_key(:node1)
-        expect(result.first).to have_key(:node2)
-        expect(result.first).to have_key(:diff1)
-        expect(result.first).to have_key(:diff2)
-        expect(result.first[:diff1]).to eq(Canon::Comparison::UNEQUAL_ELEMENTS)
+        expect(result).to be_a(Hash)
+        expect(result[:differences]).not_to be_empty
+        expect(result[:differences].first).to have_key(:node1)
+        expect(result[:differences].first).to have_key(:node2)
+        expect(result[:differences].first).to have_key(:diff1)
+        expect(result[:differences].first).to have_key(:diff2)
+        expect(result[:differences].first[:diff1]).to eq(Canon::Comparison::UNEQUAL_ELEMENTS)
       end
 
       it "returns array of differences for different text content" do
@@ -114,9 +114,9 @@ RSpec.describe Canon::Comparison do
 
         result = described_class.equivalent?(html1, html2,
                                              { verbose: true })
-        expect(result).to be_an(Array)
-        expect(result).not_to be_empty
-        expect(result.first[:diff1]).to eq(Canon::Comparison::UNEQUAL_TEXT_CONTENTS)
+        expect(result).to be_a(Hash)
+        expect(result[:differences]).not_to be_empty
+        expect(result[:differences].first[:diff1]).to eq(Canon::Comparison::UNEQUAL_TEXT_CONTENTS)
       end
 
       it "returns array of differences for different attributes" do
@@ -125,9 +125,9 @@ RSpec.describe Canon::Comparison do
 
         result = described_class.equivalent?(html1, html2,
                                              { verbose: true })
-        expect(result).to be_an(Array)
-        expect(result).not_to be_empty
-        expect(result.first[:diff1]).to eq(Canon::Comparison::UNEQUAL_ATTRIBUTES)
+        expect(result).to be_a(Hash)
+        expect(result[:differences]).not_to be_empty
+        expect(result[:differences].first[:diff1]).to eq(Canon::Comparison::UNEQUAL_ATTRIBUTES)
       end
 
       it "returns array of differences for missing nodes" do
@@ -136,9 +136,9 @@ RSpec.describe Canon::Comparison do
 
         result = described_class.equivalent?(html1, html2,
                                              { verbose: true })
-        expect(result).to be_an(Array)
-        expect(result).not_to be_empty
-        expect(result.first[:diff1]).to eq(Canon::Comparison::MISSING_NODE)
+        expect(result).to be_a(Hash)
+        expect(result[:differences]).not_to be_empty
+        expect(result[:differences].first[:diff1]).to eq(Canon::Comparison::MISSING_NODE)
       end
 
       it "returns array of differences for missing attributes" do
@@ -147,9 +147,9 @@ RSpec.describe Canon::Comparison do
 
         result = described_class.equivalent?(html1, html2,
                                              { verbose: true })
-        expect(result).to be_an(Array)
-        expect(result).not_to be_empty
-        expect(result.first[:diff1]).to eq(Canon::Comparison::MISSING_ATTRIBUTE)
+        expect(result).to be_a(Hash)
+        expect(result[:differences]).not_to be_empty
+        expect(result[:differences].first[:diff1]).to eq(Canon::Comparison::MISSING_ATTRIBUTE)
       end
 
       it "returns multiple differences when multiple things differ" do
@@ -158,8 +158,8 @@ RSpec.describe Canon::Comparison do
 
         result = described_class.equivalent?(html1, html2,
                                              { verbose: true })
-        expect(result).to be_an(Array)
-        expect(result.length).to be >= 1
+        expect(result).to be_a(Hash)
+        expect(result[:differences].length).to be >= 1
       end
 
       it "returns empty array for equivalent XML documents" do
@@ -190,14 +190,14 @@ RSpec.describe Canon::Comparison do
         # HTML defaults: comments are ignored, should return empty array
         result = described_class.equivalent?(html1, html2,
                                              { verbose: true })
-        expect(result).to be_an(Array)
-        expect(result).to be_empty
+        expect(result).to be_a(Hash)
+        expect(result[:differences]).to be_empty
 
         # With strict comments matching, should return differences
         result = described_class.equivalent?(html1, html2,
                                              { verbose: true, match: { comments: :strict } })
-        expect(result).to be_an(Array)
-        expect(result).not_to be_empty
+        expect(result).to be_a(Hash)
+        expect(result[:differences]).not_to be_empty
       end
     end
   end

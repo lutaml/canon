@@ -19,16 +19,16 @@ module Canon
       end
 
       # Delegate to instance
-      def method_missing(method, *args, &block)
+      def method_missing(method, ...)
         if @instance.respond_to?(method)
-          @instance.send(method, *args, &block)
+          @instance.send(method, ...)
         else
           super
         end
       end
 
       def respond_to_missing?(method, include_private = false)
-        (@instance && @instance.respond_to?(method)) || super
+        @instance.respond_to?(method) || super
       end
     end
 

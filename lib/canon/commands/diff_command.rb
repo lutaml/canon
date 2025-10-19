@@ -98,8 +98,14 @@ module Canon
       # Build profile and preprocessing options
       def build_profile_and_preprocessing_options
         opts = {}
-        opts[:match_profile] = @options[:match_profile].to_sym if @options[:match_profile]
-        opts[:preprocessing] = @options[:preprocessing].to_sym if @options[:preprocessing]
+        if @options[:match_profile]
+          opts[:match_profile] =
+            @options[:match_profile].to_sym
+        end
+        if @options[:preprocessing]
+          opts[:preprocessing] =
+            @options[:preprocessing].to_sym
+        end
         opts
       end
 
