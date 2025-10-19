@@ -88,7 +88,7 @@ module Canon
         opts = build_profile_and_preprocessing_options
         match_opts = build_match_dimension_options
 
-        opts[:match_options] = match_opts unless match_opts.empty?
+        opts[:match] = match_opts unless match_opts.empty?
         opts[:ignore_attr_order] = @options.fetch(:ignore_attr_order, true)
         opts[:verbose] = @options.fetch(:verbose, false)
 

@@ -26,12 +26,11 @@ RSpec.describe Canon::Comparison::JsonComparator do
         expect(described_class.equivalent?(json1, json2)).to be true
       end
 
-      it "returns true when key order differs with ignore_attr_order" do
+      it "returns true when key order differs" do
         json1 = '{"a": 1, "b": 2}'
         json2 = '{"b": 2, "a": 1}'
 
-        expect(described_class.equivalent?(json1, json2,
-                                           ignore_attr_order: true)).to be true
+        expect(described_class.equivalent?(json1, json2)).to be true
       end
     end
 
@@ -232,24 +231,22 @@ RSpec.describe Canon::Comparison::JsonComparator do
       end
     end
 
-    context "with options" do
-      it "respects ignore_attr_order option" do
+    context "with key order" do
+      it "ignores key order in JSON objects" do
         json1 = '{"b": 2, "a": 1, "c": 3}'
         json2 = '{"a": 1, "c": 3, "b": 2}'
 
-        expect(described_class.equivalent?(json1, json2,
-                                           ignore_attr_order: true)).to be true
+        expect(described_class.equivalent?(json1, json2)).to be true
       end
 
-      it "detects order differences when ignore_attr_order is false" do
+      it "handles key order in Ruby hashes" do
         # Note: JSON parsing typically maintains insertion order in modern Ruby
         # but the comparison should handle key order appropriately
         hash1 = { "b" => 2, "a" => 1 }
         hash2 = { "a" => 1, "b" => 2 }
 
-        # With ignore_attr_order: true (default), they should be equal
-        expect(described_class.equivalent?(hash1, hash2,
-                                           ignore_attr_order: true)).to be true
+        # Key order doesn't matter in JSON objects
+        expect(described_class.equivalent?(hash1, hash2)).to be true
       end
     end
 

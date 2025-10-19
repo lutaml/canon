@@ -11,10 +11,18 @@ module Canon
     class YamlComparator
       # Default comparison options for YAML
       DEFAULT_OPTS = {
-        ignore_attr_order: true,
+        # Output options
         verbose: false,
+
+        # Match system options
         match_profile: nil,
-        match_options: nil,
+        match: nil,
+        preprocessing: nil,
+        global_profile: nil,
+        global_options: nil,
+
+        # Diff display options
+        diff: nil,
       }.freeze
 
       class << self
@@ -28,27 +36,18 @@ module Canon
         def equivalent?(yaml1, yaml2, opts = {})
           opts = DEFAULT_OPTS.merge(opts)
 
-          # Track if user explicitly provided match options
-          has_explicit_match_opts = opts[:match_options] ||
-            opts[:match_profile] ||
-            opts[:global_profile] ||
-            opts[:global_options]
-
           # Resolve match options with format-specific defaults
           match_opts = MatchOptions::Yaml.resolve(
             format: :yaml,
             match_profile: opts[:match_profile],
-            match_options: opts[:match_options],
+            match: opts[:match],
             preprocessing: opts[:preprocessing],
             global_profile: opts[:global_profile],
             global_options: opts[:global_options],
           )
 
-          # Store resolved match options
-          opts[:resolved_match_options] = match_opts
-
-          # Mark that we're using match options system
-          opts[:using_match_options] = has_explicit_match_opts
+          # Store resolved match options for use in comparison logic
+          opts[:match_opts] = match_opts
 
           # Parse YAML if strings
           obj1 = parse_yaml(yaml1)

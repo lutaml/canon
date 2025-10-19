@@ -40,7 +40,7 @@ RSpec.describe Canon::Comparison::YamlComparator do
         expect(described_class.equivalent?(yaml1, yaml2)).to be true
       end
 
-      it "returns true when key order differs with ignore_attr_order" do
+      it "returns true when key order differs" do
         yaml1 = <<~YAML
           a: 1
           b: 2
@@ -50,8 +50,7 @@ RSpec.describe Canon::Comparison::YamlComparator do
           a: 1
         YAML
 
-        expect(described_class.equivalent?(yaml1, yaml2,
-                                           ignore_attr_order: true)).to be true
+        expect(described_class.equivalent?(yaml1, yaml2)).to be true
       end
     end
 
@@ -224,8 +223,8 @@ RSpec.describe Canon::Comparison::YamlComparator do
       end
     end
 
-    context "with options" do
-      it "respects ignore_attr_order option" do
+    context "with key order" do
+      it "ignores key order in YAML objects" do
         yaml1 = <<~YAML
           b: 2
           a: 1
@@ -237,8 +236,7 @@ RSpec.describe Canon::Comparison::YamlComparator do
           b: 2
         YAML
 
-        expect(described_class.equivalent?(yaml1, yaml2,
-                                           ignore_attr_order: true)).to be true
+        expect(described_class.equivalent?(yaml1, yaml2)).to be true
       end
     end
 
@@ -326,11 +324,12 @@ RSpec.describe Canon::Comparison::YamlComparator do
         yaml2 = "key: value"
 
         # Verify it uses JsonComparator's logic
+        # Note: The options hash now includes all resolved match options
         expect(Canon::Comparison::JsonComparator).to receive(:send).with(
           :compare_ruby_objects,
           { "key" => "value" },
           { "key" => "value" },
-          hash_including(ignore_attr_order: true),
+          hash_including(match_opts: kind_of(Hash)),
           [],
           "",
         ).and_call_original

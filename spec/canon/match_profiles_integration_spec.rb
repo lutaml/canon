@@ -44,7 +44,7 @@ RSpec.describe "Match Profiles Integration" do
       it "matches when text_content is normalized and structural_whitespace ignored" do
         expect(actual_xml).to be_xml_equivalent_to(
           expected_xml,
-          match_options: {
+          match: {
             text_content: :normalize,
             structural_whitespace: :ignore,
             attribute_whitespace: :strict,
@@ -73,15 +73,15 @@ RSpec.describe "Match Profiles Integration" do
 
   describe "global configuration" do
     around do |example|
-      original_xml_profile = Canon::RSpecMatchers.xml_match_profile
-      original_html_profile = Canon::RSpecMatchers.html_match_profile
+      original_xml_profile = Canon::Config.instance.xml_match_profile
+      original_html_profile = Canon::Config.instance.html_match_profile
       example.run
-      Canon::RSpecMatchers.xml_match_profile = original_xml_profile
-      Canon::RSpecMatchers.html_match_profile = original_html_profile
+      Canon::Config.instance.xml_match_profile = original_xml_profile
+      Canon::Config.instance.html_match_profile = original_html_profile
     end
 
     it "applies global XML match profile to all tests" do
-      Canon::RSpecMatchers.configure do |config|
+      Canon::Config.configure do |config|
         config.xml_match_profile = :spec_friendly
       end
 
@@ -89,7 +89,7 @@ RSpec.describe "Match Profiles Integration" do
     end
 
     it "test-level profile overrides global profile" do
-      Canon::RSpecMatchers.configure do |config|
+      Canon::Config.configure do |config|
         config.xml_match_profile = :spec_friendly
       end
 
@@ -120,7 +120,7 @@ RSpec.describe "Match Profiles Integration" do
       it "strict behavior fails on whitespace differences" do
         expect(xml_with_different_whitespace).not_to be_xml_equivalent_to(
           xml_normalized,
-          match_options: {
+          match: {
             text_content: :strict,
             structural_whitespace: :ignore,
             attribute_whitespace: :strict,
@@ -132,7 +132,7 @@ RSpec.describe "Match Profiles Integration" do
       it "normalize behavior matches despite whitespace differences" do
         expect(xml_with_different_whitespace).to be_xml_equivalent_to(
           xml_normalized,
-          match_options: {
+          match: {
             text_content: :normalize,
             structural_whitespace: :ignore,
             attribute_whitespace: :strict,
@@ -157,7 +157,7 @@ RSpec.describe "Match Profiles Integration" do
       it "ignore behavior matches despite formatting differences" do
         expect(compact_xml).to be_xml_equivalent_to(
           formatted_xml,
-          match_options: {
+          match: {
             text_content: :normalize,
             structural_whitespace: :ignore,
             attribute_whitespace: :strict,
@@ -177,7 +177,7 @@ RSpec.describe "Match Profiles Integration" do
       it "ignore behavior matches despite comment differences" do
         expect(xml_with_comment).to be_xml_equivalent_to(
           xml_different_comment,
-          match_options: {
+          match: {
             text_content: :normalize,
             structural_whitespace: :ignore,
             attribute_whitespace: :strict,
@@ -189,7 +189,7 @@ RSpec.describe "Match Profiles Integration" do
       it "ignore behavior matches when one has comments and other doesn't" do
         expect(xml_with_comment).to be_xml_equivalent_to(
           xml_no_comment,
-          match_options: {
+          match: {
             text_content: :normalize,
             structural_whitespace: :ignore,
             attribute_whitespace: :strict,
@@ -206,7 +206,7 @@ RSpec.describe "Match Profiles Integration" do
       it "strict behavior fails on attribute whitespace differences" do
         expect(xml_attr_spaces).not_to be_xml_equivalent_to(
           xml_attr_no_spaces,
-          match_options: {
+          match: {
             text_content: :normalize,
             structural_whitespace: :ignore,
             attribute_whitespace: :strict,
@@ -218,7 +218,7 @@ RSpec.describe "Match Profiles Integration" do
       it "normalize behavior matches despite attribute whitespace" do
         expect(xml_attr_spaces).to be_xml_equivalent_to(
           xml_attr_no_spaces,
-          match_options: {
+          match: {
             text_content: :normalize,
             structural_whitespace: :ignore,
             attribute_whitespace: :normalize,

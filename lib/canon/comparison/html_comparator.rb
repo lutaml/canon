@@ -11,19 +11,27 @@ module Canon
     class HtmlComparator
       # Default comparison options for HTML
       DEFAULT_OPTS = {
-        collapse_whitespace: true,
-        ignore_attr_order: true,
-        force_children: false,
+        # Structural filtering options
         ignore_children: false,
+        ignore_text_nodes: false,
         ignore_attr_content: [],
         ignore_attrs: [],
         ignore_attrs_by_name: [],
-        ignore_comments: true,
         ignore_nodes: [],
-        ignore_text_nodes: false,
+
+        # Output options
         verbose: false,
+        diff_children: false,
+
+        # Match system options
         match_profile: nil,
-        match_options: nil,
+        match: nil,
+        preprocessing: nil,
+        global_profile: nil,
+        global_options: nil,
+
+        # Diff display options
+        diff: nil,
       }.freeze
 
       class << self
@@ -38,31 +46,20 @@ module Canon
         def equivalent?(html1, html2, opts = {}, child_opts = {})
           opts = DEFAULT_OPTS.merge(opts)
 
-          # Track if user explicitly provided match options (any level)
-          # Only if the values are actually non-nil
-          has_explicit_match_opts = opts[:match_options] ||
-            opts[:match_profile] ||
-            opts[:global_profile] ||
-            opts[:global_options]
-
           # Resolve match options with format-specific defaults
-          # Always resolve to get format defaults even if no profile specified
           match_opts = MatchOptions::Xml.resolve(
             format: :html,
             match_profile: opts[:match_profile],
-            match_options: opts[:match_options],
+            match: opts[:match],
             preprocessing: opts[:preprocessing],
             global_profile: opts[:global_profile],
             global_options: opts[:global_options],
           )
 
-          # Store resolved match options
-          opts[:resolved_match_options] = match_opts
+          # Store resolved match options for use in comparison logic
+          opts[:match_opts] = match_opts
 
-          # Mark that we're using match options system (don't fall back to legacy)
-          opts[:using_match_options] = has_explicit_match_opts
-
-          # Create child_opts AFTER setting match option flags so they propagate
+          # Create child_opts with resolved options
           child_opts = opts.merge(child_opts)
 
           # Parse nodes if they are strings

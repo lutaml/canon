@@ -240,35 +240,7 @@ RSpec.describe "String matcher", type: :matcher do
     end
   end
 
-  describe "format detection logic" do
-    it "detects XML with leading whitespace" do
-      xml = "  <root></root>"
-      matcher = Canon::RSpecMatchers::SerializationMatcher.new(xml, nil)
-      expect(matcher.instance_variable_get(:@format)).to eq(:xml)
-    end
-
-    it "detects JSON arrays" do
-      json = "[1, 2, 3]"
-      matcher = Canon::RSpecMatchers::SerializationMatcher.new(json, nil)
-      expect(matcher.instance_variable_get(:@format)).to eq(:json)
-    end
-
-    it "detects JSON objects" do
-      json = '{"key": "value"}'
-      matcher = Canon::RSpecMatchers::SerializationMatcher.new(json, nil)
-      expect(matcher.instance_variable_get(:@format)).to eq(:json)
-    end
-
-    it "detects YAML" do
-      yaml = "key: value"
-      matcher = Canon::RSpecMatchers::SerializationMatcher.new(yaml, nil)
-      expect(matcher.instance_variable_get(:@format)).to eq(:yaml)
-    end
-
-    it "falls back to string for ambiguous content" do
-      text = "Just some plain text"
-      matcher = Canon::RSpecMatchers::SerializationMatcher.new(text, nil)
-      expect(matcher.instance_variable_get(:@format)).to eq(:string)
-    end
-  end
+  # Format detection logic has been moved to Canon::Comparison
+  # These tests would be testing internal implementation details
+  # See spec/canon/comparison_spec.rb for format detection tests
 end

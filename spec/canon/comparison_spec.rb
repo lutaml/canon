@@ -61,22 +61,24 @@ RSpec.describe Canon::Comparison do
     end
 
     context "with options" do
-      it "respects ignore_comments option" do
+      it "respects comments match option" do
         html1 = "<html><body><!-- comment --><p>Test</p></body></html>"
         html2 = "<html><body><p>Test</p></body></html>"
 
+        # HTML defaults: comments are ignored, so should be true
+        expect(described_class.equivalent?(html1, html2)).to be true
+
+        # With strict comments matching, should be false
         expect(described_class.equivalent?(html1, html2,
-                                           { ignore_comments: true })).to be true
-        expect(described_class.equivalent?(html1, html2,
-                                           { ignore_comments: false })).to be false
+                                           { match: { comments: :strict } })).to be false
       end
 
-      it "respects collapse_whitespace option" do
+      it "respects text_content match option" do
         html1 = "<html><body><p>Test   Content</p></body></html>"
         html2 = "<html><body><p>Test Content</p></body></html>"
 
-        expect(described_class.equivalent?(html1, html2,
-                                           { collapse_whitespace: true })).to be true
+        # HTML defaults: text_content is normalized, so should be true
+        expect(described_class.equivalent?(html1, html2)).to be true
       end
     end
 
@@ -185,15 +187,15 @@ RSpec.describe Canon::Comparison do
         html1 = "<html><body><!-- comment --><p>Test</p></body></html>"
         html2 = "<html><body><p>Test</p></body></html>"
 
-        # With ignore_comments: true, should return empty array
+        # HTML defaults: comments are ignored, should return empty array
         result = described_class.equivalent?(html1, html2,
-                                             { verbose: true, ignore_comments: true })
+                                             { verbose: true })
         expect(result).to be_an(Array)
         expect(result).to be_empty
 
-        # With ignore_comments: false, should return differences
+        # With strict comments matching, should return differences
         result = described_class.equivalent?(html1, html2,
-                                             { verbose: true, ignore_comments: false })
+                                             { verbose: true, match: { comments: :strict } })
         expect(result).to be_an(Array)
         expect(result).not_to be_empty
       end
