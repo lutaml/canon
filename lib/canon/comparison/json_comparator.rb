@@ -10,10 +10,18 @@ module Canon
     class JsonComparator
       # Default comparison options for JSON
       DEFAULT_OPTS = {
-        ignore_attr_order: true,
+        # Output options
         verbose: false,
+
+        # Match system options
         match_profile: nil,
-        match_options: nil,
+        match: nil,
+        preprocessing: nil,
+        global_profile: nil,
+        global_options: nil,
+
+        # Diff display options
+        diff: nil,
       }.freeze
 
       class << self
@@ -27,27 +35,18 @@ module Canon
         def equivalent?(json1, json2, opts = {})
           opts = DEFAULT_OPTS.merge(opts)
 
-          # Track if user explicitly provided match options
-          has_explicit_match_opts = opts[:match_options] ||
-            opts[:match_profile] ||
-            opts[:global_profile] ||
-            opts[:global_options]
-
           # Resolve match options with format-specific defaults
           match_opts = MatchOptions::Json.resolve(
             format: :json,
             match_profile: opts[:match_profile],
-            match_options: opts[:match_options],
+            match: opts[:match],
             preprocessing: opts[:preprocessing],
             global_profile: opts[:global_profile],
             global_options: opts[:global_options],
           )
 
-          # Store resolved match options
-          opts[:resolved_match_options] = match_opts
-
-          # Mark that we're using match options system
-          opts[:using_match_options] = has_explicit_match_opts
+          # Store resolved match options for use in comparison logic
+          opts[:match_opts] = match_opts
 
           # Parse JSON if strings
           obj1 = parse_json(json1)
@@ -106,15 +105,9 @@ module Canon
           keys1 = hash1.keys
           keys2 = hash2.keys
 
-          # Determine if key order should be ignored
-          ignore_key_order = if opts[:using_match_options] && opts[:resolved_match_options]
-                               opts[:resolved_match_options][:key_order] != :strict
-                             else
-                               opts[:ignore_attr_order]
-                             end
-
-          # Sort keys if order should be ignored
-          if ignore_key_order
+          # Sort keys if order should be ignored (based on match options)
+          match_opts = opts[:match_opts]
+          if match_opts[:key_order] != :strict
             keys1 = keys1.sort_by(&:to_s)
             keys2 = keys2.sort_by(&:to_s)
           end

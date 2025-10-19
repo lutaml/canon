@@ -10,21 +10,27 @@ module Canon
     class XmlComparator
       # Default comparison options for XML
       DEFAULT_OPTS = {
-        collapse_whitespace: true,
-        flexible_whitespace: false,
-        ignore_attr_order: true,
-        force_children: false,
+        # Structural filtering options
         ignore_children: false,
+        ignore_text_nodes: false,
         ignore_attr_content: [],
         ignore_attrs: [],
         ignore_attrs_by_name: [],
-        ignore_comments: true,
         ignore_nodes: [],
-        ignore_text_nodes: false,
-        normalize_tag_whitespace: false,
+
+        # Output options
         verbose: false,
+        diff_children: false,
+
+        # Match system options
         match_profile: nil,
-        match_options: nil,
+        match: nil,
+        preprocessing: nil,
+        global_profile: nil,
+        global_options: nil,
+
+        # Diff display options
+        diff: nil,
       }.freeze
 
       class << self
@@ -39,31 +45,20 @@ module Canon
         def equivalent?(n1, n2, opts = {}, child_opts = {})
           opts = DEFAULT_OPTS.merge(opts)
 
-          # Track if user explicitly provided match options (any level)
-          # Only if the values are actually non-nil
-          has_explicit_match_opts = opts[:match_options] ||
-            opts[:match_profile] ||
-            opts[:global_profile] ||
-            opts[:global_options]
-
           # Resolve match options with format-specific defaults
-          # Always resolve to get format defaults even if no profile specified
           match_opts = MatchOptions::Xml.resolve(
             format: :xml,
             match_profile: opts[:match_profile],
-            match_options: opts[:match_options],
+            match: opts[:match],
             preprocessing: opts[:preprocessing],
             global_profile: opts[:global_profile],
             global_options: opts[:global_options],
           )
 
-          # Store resolved match options
-          opts[:resolved_match_options] = match_opts
+          # Store resolved match options for use in comparison logic
+          opts[:match_opts] = match_opts
 
-          # Mark that we're using match options system (don't fall back to legacy)
-          opts[:using_match_options] = has_explicit_match_opts
-
-          # Create child_opts AFTER setting match option flags so they propagate
+          # Create child_opts with resolved options
           child_opts = opts.merge(child_opts)
 
           # Parse nodes if they are strings, applying preprocessing if needed
@@ -177,11 +172,9 @@ module Canon
           attrs1 = filter_attributes(n1.attributes, opts)
           attrs2 = filter_attributes(n2.attributes, opts)
 
-          # Sort attributes if order should be ignored
-          if opts[:ignore_attr_order]
-            attrs1 = attrs1.sort_by { |k, _v| k.to_s }.to_h
-            attrs2 = attrs2.sort_by { |k, _v| k.to_s }.to_h
-          end
+          # Always sort attributes since attribute order doesn't matter in XML/HTML
+          attrs1 = attrs1.sort_by { |k, _v| k.to_s }.to_h
+          attrs2 = attrs2.sort_by { |k, _v| k.to_s }.to_h
 
           unless attrs1.keys.map(&:to_s).sort == attrs2.keys.map(&:to_s).sort
             add_difference(n1, n2, Comparison::MISSING_ATTRIBUTE,
@@ -203,6 +196,7 @@ module Canon
         # Filter attributes based on options
         def filter_attributes(attributes, opts)
           filtered = {}
+          match_opts = opts[:match_opts]
 
           attributes.each do |key, val|
             # Handle both Nokogiri and Moxml attribute formats:
@@ -225,22 +219,17 @@ module Canon
             # Skip if attribute content should be ignored
             next if should_ignore_attr_content?(value, opts)
 
-            # Apply match options for attribute values if explicitly provided
-            if opts[:using_match_options] && opts[:resolved_match_options]
-              match_opts = opts[:resolved_match_options]
-              behavior = match_opts[:attribute_whitespace]
-
-              # Normalize attribute value based on behavior
-              value = case behavior
-                      when :normalize
-                        MatchOptions.normalize_text(value)
-                      when :ignore
-                        # If ignoring, set to empty string so all match
-                        ""
-                      else
-                        value
-                      end
-            end
+            # Apply match options for attribute values
+            behavior = match_opts[:attribute_whitespace]
+            value = case behavior
+                    when :normalize
+                      MatchOptions.normalize_text(value)
+                    when :ignore
+                      # If ignoring, set to empty string so all match
+                      ""
+                    else
+                      value
+                    end
 
             filtered[name] = value
           end
@@ -269,68 +258,32 @@ module Canon
           text1 = node_text(n1)
           text2 = node_text(n2)
 
-          # Use match options if explicitly provided
-          if opts[:using_match_options] && opts[:resolved_match_options]
-            match_opts = opts[:resolved_match_options]
-            behavior = match_opts[:text_content]
+          # Use match options
+          match_opts = opts[:match_opts]
+          behavior = match_opts[:text_content]
 
-            if MatchOptions.match_text?(text1, text2, behavior)
-              return Comparison::EQUIVALENT
-            else
-              add_difference(n1, n2, Comparison::UNEQUAL_TEXT_CONTENTS,
-                             Comparison::UNEQUAL_TEXT_CONTENTS, opts,
-                             differences)
-              return Comparison::UNEQUAL_TEXT_CONTENTS
-            end
-          end
-
-          # Legacy behavior for backward compatibility
-          if opts[:normalize_tag_whitespace]
-            text1 = normalize_tag_whitespace(text1)
-            text2 = normalize_tag_whitespace(text2)
-          elsif opts[:collapse_whitespace]
-            text1 = collapse(text1)
-            text2 = collapse(text2)
-          end
-
-          if text1 == text2
+          if MatchOptions.match_text?(text1, text2, behavior)
             Comparison::EQUIVALENT
           else
             add_difference(n1, n2, Comparison::UNEQUAL_TEXT_CONTENTS,
-                           Comparison::UNEQUAL_TEXT_CONTENTS, opts, differences)
+                           Comparison::UNEQUAL_TEXT_CONTENTS, opts,
+                           differences)
             Comparison::UNEQUAL_TEXT_CONTENTS
           end
         end
 
         # Compare comment nodes
         def compare_comment_nodes(n1, n2, opts, differences)
-          # Use match options if explicitly provided
-          if opts[:using_match_options] && opts[:resolved_match_options]
-            match_opts = opts[:resolved_match_options]
-            behavior = match_opts[:comments]
+          match_opts = opts[:match_opts]
+          behavior = match_opts[:comments]
 
-            # If comments are ignored, consider them equivalent
-            return Comparison::EQUIVALENT if behavior == :ignore
+          # If comments are ignored, consider them equivalent
+          return Comparison::EQUIVALENT if behavior == :ignore
 
-            content1 = n1.content.to_s
-            content2 = n2.content.to_s
+          content1 = n1.content.to_s
+          content2 = n2.content.to_s
 
-            if MatchOptions.match_text?(content1, content2, behavior)
-              return Comparison::EQUIVALENT
-            else
-              add_difference(n1, n2, Comparison::UNEQUAL_COMMENTS,
-                             Comparison::UNEQUAL_COMMENTS, opts, differences)
-              return Comparison::UNEQUAL_COMMENTS
-            end
-          end
-
-          # Legacy behavior for backward compatibility
-          return Comparison::EQUIVALENT if opts[:ignore_comments]
-
-          content1 = n1.content.to_s.strip
-          content2 = n2.content.to_s.strip
-
-          if content1 == content2
+          if MatchOptions.match_text?(content1, content2, behavior)
             Comparison::EQUIVALENT
           else
             add_difference(n1, n2, Comparison::UNEQUAL_COMMENTS,
@@ -406,43 +359,24 @@ module Canon
 
         # Check if node should be excluded
         def node_excluded?(node, opts)
-          # Use match options if explicitly provided
-          if opts[:using_match_options] && opts[:resolved_match_options]
-            match_opts = opts[:resolved_match_options]
+          match_opts = opts[:match_opts]
 
-            # Ignore comments based on match options
-            if node.respond_to?(:comment?) && node.comment? && (match_opts[:comments] == :ignore)
-              return true
-            end
-
-            # Ignore text nodes if specified
-            return true if opts[:ignore_text_nodes] &&
-              node.respond_to?(:text?) && node.text?
-
-            # Ignore whitespace-only text nodes based on structural_whitespace
-            if match_opts[:structural_whitespace] == :ignore &&
-                node.respond_to?(:text?) && node.text?
-              text = node_text(node)
-              return true if MatchOptions.normalize_text(text).empty?
-            end
-
-            return false
+          # Ignore comments based on match options
+          if node.respond_to?(:comment?) && node.comment?
+            return true if match_opts[:comments] == :ignore
           end
-
-          # Legacy behavior for backward compatibility
-          # Ignore comments if specified
-          return true if opts[:ignore_comments] &&
-            node.respond_to?(:comment?) && node.comment?
 
           # Ignore text nodes if specified
           return true if opts[:ignore_text_nodes] &&
             node.respond_to?(:text?) && node.text?
 
-          # Ignore whitespace-only text nodes when collapsing whitespace
-          if opts[:collapse_whitespace] &&
+          # Ignore whitespace-only text nodes based on structural_whitespace
+          # Both :ignore and :normalize should filter out whitespace-only nodes
+          if (match_opts[:structural_whitespace] == :ignore ||
+              match_opts[:structural_whitespace] == :normalize) &&
               node.respond_to?(:text?) && node.text?
             text = node_text(node)
-            return true if collapse(text).empty?
+            return true if MatchOptions.normalize_text(text).empty?
           end
 
           false
@@ -476,18 +410,6 @@ module Canon
           else
             ""
           end
-        end
-
-        # Collapse whitespace in text
-        def collapse(text)
-          text.to_s.gsub(/\s+/, " ").strip
-        end
-
-        # Normalize tag whitespace
-        def normalize_tag_whitespace(text)
-          text.to_s
-            .gsub(/\s+/, " ")  # Collapse multiple whitespace to single space
-            .strip             # Remove leading/trailing whitespace
         end
 
         # Add a difference to the differences array

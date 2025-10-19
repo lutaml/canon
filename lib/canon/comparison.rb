@@ -35,10 +35,28 @@ module Canon
       # @param obj1 [Object] First object to compare
       # @param obj2 [Object] Second object to compare
       # @param opts [Hash] Comparison options
+      #   - :format - Format hint (:xml, :html, :html4, :html5, :json, :yaml, :string)
       # @return [Boolean, Array] true if equivalent, or array of diffs if verbose
       def equivalent?(obj1, obj2, opts = {})
-        format1 = detect_format(obj1)
-        format2 = detect_format(obj2)
+        # Use format hint if provided
+        if opts[:format]
+          format1 = format2 = opts[:format]
+          # Parse HTML strings if format is html/html4/html5
+          if %i[html html4 html5].include?(opts[:format])
+            obj1 = parse_html(obj1, opts[:format]) if obj1.is_a?(String)
+            obj2 = parse_html(obj2, opts[:format]) if obj2.is_a?(String)
+            # Normalize html4/html5 to html for comparison
+            format1 = format2 = :html
+          end
+        else
+          format1 = detect_format(obj1)
+          format2 = detect_format(obj2)
+        end
+
+        # Handle string format (plain text comparison)
+        if format1 == :string
+          return opts[:verbose] ? (obj1.to_s == obj2.to_s ? [] : [:different]) : obj1.to_s == obj2.to_s
+        end
 
         # Allow comparing json/yaml strings with ruby objects
         # since they parse to the same structure
@@ -74,6 +92,23 @@ module Canon
       end
 
       private
+
+      # Parse HTML string into Nokogiri document
+      #
+      # @param content [String, Object] Content to parse (returns as-is if not a string)
+      # @param format [Symbol] HTML format (:html, :html4, :html5)
+      # @return [Nokogiri::HTML::Document, Nokogiri::HTML5::Document, Object]
+      def parse_html(content, format)
+        return content unless content.is_a?(String)
+        return content if content.is_a?(Nokogiri::HTML::Document) ||
+                         content.is_a?(Nokogiri::HTML5::Document) ||
+                         content.is_a?(Nokogiri::XML::Document)
+
+        # Use HtmlComparator's parse_node to get consistent normalization
+        HtmlComparator.send(:parse_node, content)
+      rescue StandardError
+        content
+      end
 
       # Detect the format of an object
       #
@@ -115,8 +150,11 @@ module Canon
         # HTML indicators
         return :html if trimmed.start_with?("<!DOCTYPE html", "<html", "<HTML")
 
-        # Default to XML
-        :xml
+        # XML indicators - must start with < and end with >
+        return :xml if trimmed.start_with?("<") && trimmed.end_with?(">")
+
+        # Default to plain string for everything else
+        :string
       end
     end
   end

@@ -86,13 +86,6 @@ module Canon
       - normalize: Normalize whitespace before comparison
       - format: Pretty-print before comparison
 
-      Legacy Comparison Options:
-      - Whitespace handling (--collapse-whitespace / --no-collapse-whitespace)
-      - Attribute/key ordering (--ignore-attr-order / --no-ignore-attr-order)
-      - Comments (--with-comments / --no-with-comments, --ignore-comments)
-      - Text nodes (--ignore-text-nodes)
-      - Verbose mode (--verbose) for detailed diff output
-
       Examples:
 
         # Basic semantic comparison (uses format defaults)
@@ -109,9 +102,6 @@ module Canon
 
         # Verbose mode with detailed differences
         $ canon diff file1.json file2.json --verbose
-
-        # Legacy options still work (converted to match options)
-        $ canon diff file1.xml file2.xml --with-comments
 
         # Compare different formats (same structure)
         $ canon diff config.json config.yaml --format1 json --format2 yaml
@@ -175,24 +165,6 @@ module Canon
                   type: :string,
                   enum: %w[strict normalize ignore],
                   desc: "Comment matching: strict, normalize, or ignore"
-    # Legacy options (for backward compatibility)
-    method_option :collapse_whitespace,
-                  type: :boolean,
-                  desc: "DEPRECATED: Use --text-content normalize instead"
-    method_option :ignore_attr_order,
-                  type: :boolean,
-                  default: true,
-                  desc: "Ignore attribute/key ordering (legacy option, use --key-order instead for JSON/YAML)"
-    method_option :ignore_comments,
-                  type: :boolean,
-                  desc: "DEPRECATED: Use --comments ignore instead"
-    method_option :ignore_text_nodes,
-                  type: :boolean,
-                  desc: "DEPRECATED: Use --text-content ignore instead"
-    method_option :with_comments,
-                  aliases: "-c",
-                  type: :boolean,
-                  desc: "DEPRECATED: Use --comments strict instead"
     method_option :context_lines,
                   type: :numeric,
                   default: 3,

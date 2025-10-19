@@ -295,7 +295,7 @@ RSpec.describe Canon::Comparison::MatchOptions::Xml do
         result = described_class.resolve(
           format: :xml,
           match_profile: :rendered,
-          match_options: { text_content: :strict },
+          match: { text_content: :strict },
         )
         expect(result[:text_content]).to eq(:strict)
         expect(result[:structural_whitespace]).to eq(:normalize)
@@ -305,7 +305,7 @@ RSpec.describe Canon::Comparison::MatchOptions::Xml do
         expect do
           described_class.resolve(
             format: :xml,
-            match_options: { unknown_dimension: :normalize },
+            match: { unknown_dimension: :normalize },
           )
         end.to raise_error(Canon::Error, /Unknown match dimension/)
       end
@@ -314,7 +314,7 @@ RSpec.describe Canon::Comparison::MatchOptions::Xml do
         expect do
           described_class.resolve(
             format: :xml,
-            match_options: { text_content: :unknown_behavior },
+            match: { text_content: :unknown_behavior },
           )
         end.to raise_error(Canon::Error, /Unknown match behavior/)
       end
@@ -328,10 +328,10 @@ RSpec.describe Canon::Comparison::MatchOptions::Xml do
           global_options: { comments: :ignore },  # Override comments
           match_profile: :spec_friendly,          # Override to spec_friendly
           preprocessing: :c14n,                   # Override preprocessing
-          match_options: { text_content: :strict }, # Override text_content
+          match: { text_content: :strict },       # Override text_content
         )
 
-        # Highest priority: match_options
+        # Highest priority: match
         expect(result[:text_content]).to eq(:strict)
 
         # Second priority: preprocessing parameter

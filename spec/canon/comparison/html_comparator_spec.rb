@@ -131,28 +131,36 @@ RSpec.describe Canon::Comparison::HtmlComparator do
     end
 
     context "with options" do
-      it "respects ignore_comments option" do
+      it "respects comments match option" do
         html1 = "<html><body><!-- comment --><p>Test</p></body></html>"
         html2 = "<html><body><p>Test</p></body></html>"
 
+        # HTML defaults: comments are ignored, so should be true
+        expect(described_class.equivalent?(html1, html2)).to be true
+
+        # With strict comments matching, should be false
         expect(described_class.equivalent?(html1, html2,
-                                           ignore_comments: true)).to be true
+                                           match: { comments: :strict })).to be false
       end
 
-      it "respects collapse_whitespace option" do
+      it "respects text_content match option" do
         html1 = "<html><body><p>Test    with    spaces</p></body></html>"
         html2 = "<html><body><p>Test with spaces</p></body></html>"
 
+        # HTML defaults: text_content is normalized, so should be true
+        expect(described_class.equivalent?(html1, html2)).to be true
+
+        # With strict text matching, should be false
         expect(described_class.equivalent?(html1, html2,
-                                           collapse_whitespace: true)).to be true
+                                           match: { text_content: :strict })).to be false
       end
 
       it "respects ignore_attrs option" do
         html1 = '<html><body><p id="test" class="foo">Test</p></body></html>'
         html2 = '<html><body><p id="other" class="foo">Test</p></body></html>'
 
-        # Note: ignore_attrs expects array of symbols or exact attribute matching
-        # The XmlComparator handles this, so we delegate properly
+        # ignore_attrs is a structural filtering option (not a match option)
+        # It filters out specific attributes before comparison
         result = described_class.equivalent?(html1, html2, ignore_attrs: ["id"])
         # If this fails, it means ignore_attrs isn't being passed through correctly
         # Let's just verify it returns false for now (attributes differ)

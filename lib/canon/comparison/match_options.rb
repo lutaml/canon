@@ -129,14 +129,14 @@ module Canon
           # Resolve match options with precedence handling
           #
           # Precedence order (highest to lowest):
-          # 1. Explicit match_options parameter
+          # 1. Explicit match parameter
           # 2. Profile from match_profile parameter
           # 3. Global configuration
           # 4. Format-specific defaults
           #
           # @param format [Symbol] Format type (:xml or :html)
           # @param match_profile [Symbol, nil] Profile name
-          # @param match_options [Hash, nil] Explicit options per dimension
+          # @param match [Hash, nil] Explicit options per dimension
           # @param preprocessing [Symbol, nil] Preprocessing option
           # @param global_profile [Symbol, nil] Global configured profile
           # @param global_options [Hash, nil] Global configured options
@@ -144,7 +144,7 @@ module Canon
           def resolve(
             format:,
             match_profile: nil,
-            match_options: nil,
+            match: nil,
             preprocessing: nil,
             global_profile: nil,
             global_options: nil
@@ -177,9 +177,9 @@ module Canon
             end
 
             # Apply per-call explicit options if specified (highest priority)
-            if match_options
-              validate_match_options!(match_options)
-              options.merge!(match_options)
+            if match
+              validate_match_options!(match)
+              options.merge!(match)
             end
 
             options
@@ -283,7 +283,7 @@ module Canon
           #
           # @param format [Symbol] Format type (:json)
           # @param match_profile [Symbol, nil] Profile name
-          # @param match_options [Hash, nil] Explicit options per dimension
+          # @param match [Hash, nil] Explicit options per dimension
           # @param preprocessing [Symbol, nil] Preprocessing option
           # @param global_profile [Symbol, nil] Global configured profile
           # @param global_options [Hash, nil] Global configured options
@@ -291,7 +291,7 @@ module Canon
           def resolve(
             format:,
             match_profile: nil,
-            match_options: nil,
+            match: nil,
             preprocessing: nil,
             global_profile: nil,
             global_options: nil
@@ -324,9 +324,9 @@ module Canon
             end
 
             # Apply per-call explicit options if specified (highest priority)
-            if match_options
-              validate_match_options!(match_options)
-              options.merge!(match_options)
+            if match
+              validate_match_options!(match)
+              options.merge!(match)
             end
 
             options
@@ -435,7 +435,7 @@ module Canon
           #
           # @param format [Symbol] Format type (:yaml)
           # @param match_profile [Symbol, nil] Profile name
-          # @param match_options [Hash, nil] Explicit options per dimension
+          # @param match [Hash, nil] Explicit options per dimension
           # @param preprocessing [Symbol, nil] Preprocessing option
           # @param global_profile [Symbol, nil] Global configured profile
           # @param global_options [Hash, nil] Global configured options
@@ -443,7 +443,7 @@ module Canon
           def resolve(
             format:,
             match_profile: nil,
-            match_options: nil,
+            match: nil,
             preprocessing: nil,
             global_profile: nil,
             global_options: nil
@@ -476,9 +476,9 @@ module Canon
             end
 
             # Apply per-call explicit options if specified (highest priority)
-            if match_options
-              validate_match_options!(match_options)
-              options.merge!(match_options)
+            if match
+              validate_match_options!(match)
+              options.merge!(match)
             end
 
             options

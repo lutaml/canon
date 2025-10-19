@@ -88,22 +88,28 @@ RSpec.describe Canon::Comparison::XmlComparator do
     end
 
     context "with options" do
-      it "respects ignore_comments option" do
+      it "respects comments match option" do
         xml1 = "<root><!-- comment --><item>Test</item></root>"
         xml2 = "<root><item>Test</item></root>"
 
+        # XML defaults: comments are strict, so should be false
+        expect(described_class.equivalent?(xml1, xml2)).to be false
+
+        # With ignore comments, should be true
         expect(described_class.equivalent?(xml1, xml2,
-                                           { ignore_comments: true })).to be true
-        expect(described_class.equivalent?(xml1, xml2,
-                                           { ignore_comments: false })).to be false
+                                           { match: { comments: :ignore } })).to be true
       end
 
-      it "respects collapse_whitespace option" do
+      it "respects text_content match option" do
         xml1 = "<root><item>Test   Content</item></root>"
         xml2 = "<root><item>Test Content</item></root>"
 
+        # XML defaults: text_content is strict, so should be false
+        expect(described_class.equivalent?(xml1, xml2)).to be false
+
+        # With normalize text_content, should be true
         expect(described_class.equivalent?(xml1, xml2,
-                                           { collapse_whitespace: true })).to be true
+                                           { match: { text_content: :normalize } })).to be true
       end
     end
   end

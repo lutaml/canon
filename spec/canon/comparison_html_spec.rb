@@ -36,9 +36,10 @@ RSpec.describe Canon::Comparison do
 
       it "returns true for non-verbose comparison" do
         opts = {
-          collapse_whitespace: true,
-          ignore_attr_order: true,
-          ignore_comments: true,
+          match: {
+            text_content: :normalize,
+            comments: :ignore,
+          },
           verbose: false,
         }
         expect(described_class.equivalent?(xml1, xml1, opts)).to be true
@@ -46,9 +47,10 @@ RSpec.describe Canon::Comparison do
 
       it "returns empty array for verbose comparison" do
         opts = {
-          collapse_whitespace: true,
-          ignore_attr_order: true,
-          ignore_comments: true,
+          match: {
+            text_content: :normalize,
+            comments: :ignore,
+          },
           verbose: true,
         }
         result = described_class.equivalent?(xml1, xml1, opts)
@@ -58,9 +60,10 @@ RSpec.describe Canon::Comparison do
 
       it "returns same result regardless of argument order" do
         opts = {
-          collapse_whitespace: true,
-          ignore_attr_order: true,
-          ignore_comments: true,
+          match: {
+            text_content: :normalize,
+            comments: :ignore,
+          },
         }
         result1 = described_class.equivalent?(xml1, xml1, opts)
         result2 = described_class.equivalent?(xml1, xml1, opts)
@@ -80,9 +83,10 @@ RSpec.describe Canon::Comparison do
 
       it "treats parsed and raw HTML as equivalent" do
         opts = {
-          collapse_whitespace: true,
-          ignore_attr_order: true,
-          ignore_comments: true,
+          match: {
+            text_content: :normalize,
+            comments: :ignore,
+          },
         }
         expect(described_class.equivalent?(html_raw, html_parsed,
                                            opts)).to be true

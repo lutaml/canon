@@ -92,57 +92,6 @@ module Canon
     # Character metadata including names (loaded from YAML)
     CHARACTER_METADATA = character_map_data[:character_metadata].freeze
 
-    # Legacy constant for backward compatibility (deprecated)
-    # Use DEFAULT_VISUALIZATION_MAP instead
-    DEPRECATED_DEFAULT_VISUALIZATION_MAP = {
-      # Common whitespace characters
-      " " => "░", # U+2591 Light Shade (regular space)
-      "\t" => "⇥", # U+21E5 Rightwards Arrow to Bar (tab)
-      "\u00A0" => "␣", # U+2423 Open Box (non-breaking space)
-
-      # Line endings
-      "\n" => "↵",   # U+21B5 Downwards Arrow with Corner Leftwards (LF)
-      "\r" => "⏎",   # U+23CE Return Symbol (CR)
-      "\r\n" => "↵", # Windows line ending (CRLF)
-      "\u0085" => "⏎",   # U+0085 Next Line (NEL)
-      "\u2028" => "⤓",   # U+2913 Downwards Arrow to Bar (line separator)
-      "\u2029" => "⤓",   # U+2913 Downwards Arrow to Bar (paragraph separator)
-
-      # Unicode spaces (using box characters for CJK safety)
-      "\u2002" => "▭",   # U+25AD White Rectangle (en space)
-      "\u2003" => "▬",   # U+25AC Black Rectangle (em space)
-      "\u2005" => "⏓",   # U+23D3 Metrical Short Over Long (four-per-em space)
-      "\u2006" => "⏕",   # U+23D5 Metrical Two Shorts Over Long (six-per-em space)
-      "\u2009" => "▯",   # U+25AF White Vertical Rectangle (thin space)
-      "\u200A" => "▮",   # U+25AE Black Vertical Rectangle (hair space)
-      "\u2007" => "□",   # U+25A1 White Square (figure space)
-      "\u202F" => "▫",   # U+25AB White Small Square (narrow no-break space)
-      "\u205F" => "▭",   # U+25AD White Rectangle (medium mathematical space)
-      "\u3000" => "⎵",   # U+23B5 Bottom Square Bracket (ideographic space)
-      "\u303F" => "⏑",   # U+23D1 Metrical Breve (ideographic half space)
-
-      # Zero-width characters (using arrows)
-      "\u200B" => "→",   # U+2192 Rightwards Arrow (zero-width space)
-      "\u200C" => "↛",   # U+219B Rightwards Arrow with Stroke (zero-width non-joiner)
-      "\u200D" => "⇢",   # U+21E2 Rightwards Dashed Arrow (zero-width joiner)
-      "\uFEFF" => "⇨",   # U+21E8 Rightwards White Arrow (zero-width no-break space/BOM)
-
-      # Directional markers
-      "\u200E" => "⟹",   # U+27F9 Long Rightwards Double Arrow (LTR mark)
-      "\u200F" => "⟸",   # U+27F8 Long Leftwards Double Arrow (RTL mark)
-      "\u202A" => "⇒",   # U+21D2 Rightwards Double Arrow (LTR embedding)
-      "\u202B" => "⇐",   # U+21D0 Leftwards Double Arrow (RTL embedding)
-      "\u202C" => "↔",   # U+2194 Left Right Arrow (pop directional formatting)
-      "\u202D" => "⇉",   # U+21C9 Rightwards Paired Arrows (LTR override)
-      "\u202E" => "⇇",   # U+21C7 Leftwards Paired Arrows (RTL override)
-
-      # Control characters
-      "\u0000" => "␀", # U+2400 Symbol for Null
-      "\u00AD" => "­‐", # U+2010 Hyphen (soft hyphen)
-      "\u0008" => "␈",   # U+2408 Symbol for Backspace)
-      "\u007F" => "␡",   # U+2421 Symbol for Delete
-    }.freeze
-
     # Map difference codes to human-readable descriptions
     DIFF_DESCRIPTIONS = {
       Comparison::EQUIVALENT => "Equivalent",
@@ -265,7 +214,84 @@ module Canon
       end
     end
 
+    # Format comparison result from Canon::Comparison.equivalent?
+    # This is the single entry point for generating diffs from comparison results
+    #
+    # @param comparison_result [Array, Boolean] Result from Canon::Comparison.equivalent?
+    # @param expected [Object] Expected value
+    # @param actual [Object] Actual value
+    # @return [String] Formatted diff output
+    def format_comparison_result(comparison_result, expected, actual)
+      # Detect format from expected content
+      format = Canon::Comparison.send(:detect_format, expected)
+
+      # Normalize content for display
+      doc1, doc2 = normalize_content_for_display(expected, actual, format)
+
+      # comparison_result is an array of differences when verbose: true
+      differences = comparison_result.is_a?(Array) ? comparison_result : []
+
+      # Generate diff using existing format method
+      format(differences, format, doc1: doc1, doc2: doc2)
+    end
+
     private
+
+    # Normalize content for display in diffs
+    #
+    # @param expected [Object] Expected value
+    # @param actual [Object] Actual value
+    # @param format [Symbol] Detected format
+    # @return [Array<String, String>] Normalized [expected, actual] strings
+    def normalize_content_for_display(expected, actual, format)
+      case format
+      when :xml
+        [
+          Canon::Xml::C14n.canonicalize(expected, with_comments: false).gsub(/></, ">\n<"),
+          Canon::Xml::C14n.canonicalize(actual, with_comments: false).gsub(/></, ">\n<")
+        ]
+      when :html
+        require "nokogiri"
+        [
+          parse_and_format_html(expected),
+          parse_and_format_html(actual)
+        ]
+      when :json
+        [
+          Canon.format(expected, :json),
+          Canon.format(actual, :json)
+        ]
+      when :yaml
+        [
+          Canon.format(expected, :yaml),
+          Canon.format(actual, :yaml)
+        ]
+      when :ruby_object
+        # For Ruby objects, format as JSON for display
+        require "json"
+        [
+          JSON.pretty_generate(expected),
+          JSON.pretty_generate(actual)
+        ]
+      else
+        # Default case including :string format
+        [expected.to_s, actual.to_s]
+      end
+    end
+
+    # Parse and format HTML for display
+    #
+    # @param html [Object] HTML content
+    # @return [String] Formatted HTML
+    def parse_and_format_html(html)
+      return html.to_html if html.is_a?(Nokogiri::HTML::Document) ||
+                            html.is_a?(Nokogiri::HTML5::Document)
+
+      require "nokogiri"
+      Nokogiri::HTML(html).to_html
+    rescue StandardError
+      html.to_s
+    end
 
     # Build the final visualization map from various customization options
     #

@@ -3,6 +3,7 @@
 require "canon" unless defined?(::Canon)
 require "canon/comparison"
 require "canon/diff_formatter"
+require "canon/config"
 
 begin
   require "rspec/expectations"
@@ -11,321 +12,201 @@ end
 
 module Canon
   module RSpecMatchers
-    # Configuration for RSpec matchers
+    # Configuration for RSpec matchers - delegates to Canon::Config
     class << self
-      attr_accessor :diff_mode, :use_color, :context_lines,
-                    :diff_grouping_lines, :normalize_tag_whitespace,
-                    :xml_match_profile, :html_match_profile,
-                    :xml_match_options, :html_match_options,
-                    :xml_preprocessing, :html_preprocessing
-
       def configure
-        yield self
+        yield Canon::Config.configure
       end
 
       def reset_config
-        @diff_mode = :by_line
-        @use_color = true
-        @context_lines = 3
-        @diff_grouping_lines = 10
-        @normalize_tag_whitespace = false
-        @xml_match_profile = nil
-        @html_match_profile = nil
-        @xml_match_options = nil
-        @html_match_options = nil
-        @xml_preprocessing = nil
-        @html_preprocessing = nil
+        Canon::Config.reset!
+      end
+
+      # Delegate configuration getters to Canon::Config
+      def xml
+        Canon::Config.instance.xml
+      end
+
+      def html
+        Canon::Config.instance.html
+      end
+
+      def json
+        Canon::Config.instance.json
+      end
+
+      def yaml
+        Canon::Config.instance.yaml
       end
     end
 
-    # Initialize default configuration
-    reset_config
-
     # Base matcher class for serialization equivalence
+    # This is a THIN WRAPPER around Canon::Comparison API
     class SerializationMatcher
-      # Detect format from content
-      def self.detect_format(content)
-        stripped = content.to_s.strip
-        return :xml if stripped.start_with?("<") && stripped.include?(">")
-        return :json if stripped.start_with?("{", "[")
-        return :yaml if stripped.match?(/^[\w-]+:\s/)
-
-        :string # Fallback
-      end
-
       def initialize(expected, format = nil, match_profile: nil,
-match_options: nil, preprocessing: nil)
-        # Auto-detect format if not specified
-        format = self.class.detect_format(expected) if format.nil?
+                     match: nil, preprocessing: nil)
         @expected = expected
-        unless SUPPORTED_FORMATS.include?(format.to_sym)
-          raise Canon::Error, "Unsupported format: #{format}"
-        end
-
-        @format = format.to_sym
-        @result = nil
+        @format = format&.to_sym
         @match_profile = match_profile
-        @match_options = match_options
+        @match = match
         @preprocessing = preprocessing
       end
 
       def matches?(target)
         @target = target
-        send("match_#{@format}")
-      rescue NoMethodError
-        raise Canon::Error, "Unsupported format: #{@format}"
+
+        # Build comparison options from config and matcher params
+        opts = build_comparison_options
+
+        # Add format hint if explicitly provided
+        opts[:format] = @format if @format
+
+        # Delegate to Canon::Comparison.equivalent? - the SINGLE source of truth
+        # Comparison handles format detection, HTML parsing, and all business logic
+        @comparison_result = Canon::Comparison.equivalent?(
+          @expected,
+          @target,
+          opts
+        )
+
+        # When verbose: true, result is an array (empty if equivalent, non-empty if different)
+        # Convert to boolean for matcher protocol
+        @comparison_result.is_a?(Array) ? @comparison_result.empty? : @comparison_result
       end
-
-      def match_xml
-        # Build comparison options
-        opts = {
-          ignore_comments: true,
-          ignore_attr_order: true,
-        }
-
-        # Pass per-test parameters (highest priority)
-        opts[:match_profile] = @match_profile if @match_profile
-        opts[:match_options] = @match_options if @match_options
-        opts[:preprocessing] = @preprocessing if @preprocessing
-
-        # Pass global configuration (lower priority)
-        opts[:global_profile] = Canon::RSpecMatchers.xml_match_profile
-        opts[:global_options] = Canon::RSpecMatchers.xml_match_options
-
-        # Use XmlComparator for comparison (it will resolve precedence)
-        result = if @match_profile || @match_options ||
-            Canon::RSpecMatchers.xml_match_profile ||
-            Canon::RSpecMatchers.xml_match_options
-                   # Use match options with full precedence handling
-                   Canon::Comparison::XmlComparator.equivalent?(@target,
-                                                                @expected, opts)
-                 elsif Canon::RSpecMatchers.normalize_tag_whitespace
-                   # Legacy behavior for backward compatibility
-                   opts[:normalize_tag_whitespace] = true
-                   opts[:collapse_whitespace] = false
-                   Canon::Comparison::XmlComparator.equivalent?(@target,
-                                                                @expected, opts)
-                 else
-                   # Default: strict C14N comparison
-                   nil
-                 end
-
-        # Set sorted versions for diff display (after comparison)
-        @actual_sorted = Canon::Xml::C14n.canonicalize(@target,
-                                                       with_comments: false)
-        @expected_sorted = Canon::Xml::C14n.canonicalize(@expected,
-                                                         with_comments: false)
-
-        # Return comparison result or fallback to C14N comparison
-        result.nil? ? (@actual_sorted == @expected_sorted) : result
-      end
-
-      # Canonicalize and check string equivalence for YAML/JSON
-      def match_yaml
-        canonicalize_and_compare(:yaml)
-      end
-
-      def match_json
-        canonicalize_and_compare(:json)
-      end
-
-      def match_html
-        html_semantic_compare(:html)
-      end
-
-      def match_html4
-        html_semantic_compare(:html4)
-      end
-
-      def match_html5
-        html_semantic_compare(:html5)
-      end
-
-      def match_string
-        # Direct string comparison (no parsing/canonicalization)
-        @actual_sorted = @target.to_s
-        @expected_sorted = @expected.to_s
-        @actual_sorted == @expected_sorted
-      end
-
-      private
-
-      def canonicalize_and_compare(format)
-        @actual_sorted = Canon.format(@target, format)
-        @expected_sorted = Canon.format(@expected, format)
-        @actual_sorted == @expected_sorted
-      end
-
-      def html_semantic_compare(format)
-        # Build comparison options
-        opts = {
-          collapse_whitespace: true,
-          ignore_attr_order: true,
-          ignore_comments: true,
-        }
-
-        # Pass per-test parameters (highest priority)
-        opts[:match_profile] = @match_profile if @match_profile
-        opts[:match_options] = @match_options if @match_options
-        opts[:preprocessing] = @preprocessing if @preprocessing
-
-        # Pass global configuration (lower priority)
-        opts[:global_profile] = Canon::RSpecMatchers.html_match_profile
-        opts[:global_options] = Canon::RSpecMatchers.html_match_options
-
-        # Parse and normalize HTML for error messages
-        actual_doc = parse_html_for_display(@target, format)
-        expected_doc = parse_html_for_display(@expected, format)
-
-        @actual_sorted = actual_doc
-        @expected_sorted = expected_doc
-
-        # Use Canon::Comparison for actual comparison
-        Canon::Comparison.equivalent?(@target, @expected, opts)
-      end
-
-      def parse_html_for_display(html, format)
-        require "nokogiri"
-
-        # Parse with Nokogiri
-        doc = if format == :html5
-                Nokogiri::HTML5(html)
-              else
-                Nokogiri::HTML(html)
-              end
-
-        # Return normalized HTML string for display
-        doc.to_html
-      rescue StandardError
-        # Fallback to original string if parsing fails
-        html
-      end
-
-      public
 
       def failure_message
-        msg = "expected #{@format.to_s.upcase} to be equivalent\n\n"
-
-        # Generate visual diff
-        diff_output = generate_visual_diff
-        msg + diff_output if diff_output
+        "expected #{format_name} to be equivalent\n\n#{diff_output}"
       end
 
       def failure_message_when_negated
-        "expected #{@format.to_s.upcase} not to be equivalent"
+        "expected #{format_name} not to be equivalent"
       end
 
       def expected
-        @expected_sorted || @expected
+        @expected
       end
 
       def actual
-        @actual_sorted || @target
+        @target
       end
 
       def diffable
-        # Disable RSpec's built-in diff - we use our own
         false
       end
 
       private
 
-      def compare_for_diff_mode
-        # Use format-specific comparison classes for by_object mode
-        case @format
-        when :json
-          Canon::Comparison::JsonComparator.equivalent?(@expected_sorted, @actual_sorted,
-                                                        verbose: true)
-        when :yaml
-          Canon::Comparison::YamlComparator.equivalent?(@expected_sorted, @actual_sorted,
-                                                        verbose: true)
-        when :xml
-          Canon::Comparison::XmlComparator.equivalent?(@expected_sorted, @actual_sorted,
-                                                       verbose: true)
-        when :html, :html4, :html5
-          Canon::Comparison::HtmlComparator.equivalent?(@expected_sorted, @actual_sorted,
-                                                        verbose: true)
+      def format_name
+        # Use explicitly provided format if available
+        if @format
+          case @format
+          when :html4, :html5 then "HTML"
+          when :string then "STRING"
+          else @format.to_s.upcase
+          end
         else
-          []
+          # Fall back to detection only if format not provided
+          begin
+            detected_format = Canon::Comparison.send(:detect_format, @expected)
+            detected_format.to_s.upcase
+          rescue StandardError
+            "CONTENT"
+          end
         end
       end
 
-      def generate_visual_diff
-        return nil unless @actual_sorted && @expected_sorted
+      def build_comparison_options
+        opts = { verbose: true }  # Always use verbose for diff generation
 
-        # Get configuration settings
-        diff_mode = Canon::RSpecMatchers.diff_mode || :by_line
-        use_color = Canon::RSpecMatchers.use_color.nil? || Canon::RSpecMatchers.use_color
-        context_lines = Canon::RSpecMatchers.context_lines || 3
-        diff_grouping_lines = Canon::RSpecMatchers.diff_grouping_lines
+        # Add per-test parameters (highest priority)
+        opts[:match_profile] = @match_profile if @match_profile
+        opts[:match] = @match if @match
+        opts[:preprocessing] = @preprocessing if @preprocessing
 
-        # Show diff of the actual canonicalized versions being compared
-        # This ensures we see exactly what the comparison algorithm sees
-        formatter = Canon::DiffFormatter.new(use_color: use_color,
-                                             mode: diff_mode,
-                                             context_lines: context_lines,
-                                             diff_grouping_lines: diff_grouping_lines)
+        # Add global configuration from Canon::Config (lower priority)
+        if @format
+          config_format = normalize_format_for_config(@format)
 
-        # For by_object mode, compute actual differences using Comparison
-        # For by_line mode, pass empty array and let formatter do line-by-line diff
-        differences = if diff_mode == :by_object
-                        compare_for_diff_mode
-                      else
-                        []
-                      end
-
-        case @format
-        when :xml
-          # For XML, show diff of the RAW C14N versions (what's actually compared)
-          # Split into lines for readability
-          doc1 = @expected_sorted.gsub(/></, ">\n<")
-          doc2 = @actual_sorted.gsub(/></, ">\n<")
-          formatter.format(differences, :xml, doc1: doc1, doc2: doc2)
-        when :html, :html4, :html5
-          formatter.format(differences, @format, doc1: @expected_sorted,
-                                                 doc2: @actual_sorted)
-        when :json
-          formatter.format(differences, :json, doc1: @expected_sorted,
-                                               doc2: @actual_sorted)
-        when :yaml
-          formatter.format(differences, :yaml, doc1: @expected_sorted,
-                                               doc2: @actual_sorted)
-        when :string
-          # For strings, use simple formatter for character-level diff
-          # doc1 = actual (old), doc2 = expected (new)
-          formatter.format(differences, :string, doc1: @actual_sorted,
-                                                 doc2: @expected_sorted)
+          # Only access config if format is supported
+          if Canon::Config.instance.respond_to?(config_format)
+            format_config = Canon::Config.instance.public_send(config_format)
+            opts[:global_profile] = format_config.match.profile if format_config.match.profile
+            opts[:global_options] = format_config.match.options unless format_config.match.options.empty?
+            opts[:preprocessing] ||= format_config.preprocessing
+          elsif ![:xml, :html, :html4, :html5, :json, :yaml, :string].include?(@format)
+            # Unsupported format - raise error early
+            raise Canon::Error, "Unsupported format: #{@format}"
+          end
         end
-      rescue Canon::ValidationError
-        # Let validation errors propagate to RSpec output
-        raise
+
+        opts
+      end
+
+      def normalize_format_for_config(format)
+        case format
+        when :html4, :html5 then :html
+        else format
+        end
+      end
+
+      def diff_output
+        # For string format, use simple diff since there's no comparison_result
+        if @format == :string
+          config_format = :xml  # Use XML config as fallback for string
+          diff_config = Canon::Config.instance.public_send(config_format).diff
+
+          formatter = Canon::DiffFormatter.new(
+            use_color: diff_config.use_color,
+            mode: :by_line,  # Always use by_line for strings
+            context_lines: diff_config.context_lines,
+            diff_grouping_lines: diff_config.grouping_lines
+          )
+
+          return formatter.format([], :string, doc1: @expected.to_s, doc2: @target.to_s)
+        end
+
+        # Get diff configuration
+        config_format = normalize_format_for_config(@format || :xml)
+        diff_config = Canon::Config.instance.public_send(config_format).diff
+
+        # Delegate to Canon::DiffFormatter - the SINGLE source of diff generation
+        formatter = Canon::DiffFormatter.new(
+          use_color: diff_config.use_color,
+          mode: diff_config.mode,
+          context_lines: diff_config.context_lines,
+          diff_grouping_lines: diff_config.grouping_lines
+        )
+
+        # Format the diff using the comparison result
+        formatter.format_comparison_result(@comparison_result, @expected, @target)
       rescue StandardError => e
-        "\nUnexpected error generating diff: #{e.message}\n#{e.backtrace.first(5).join("\n")}"
+        "\nError generating diff: #{e.message}"
       end
     end
 
     # Matcher methods
     def be_serialization_equivalent_to(expected, format: :xml,
-match_profile: nil, match_options: nil, preprocessing: nil)
+                                      match_profile: nil, match: nil,
+                                      preprocessing: nil)
       SerializationMatcher.new(expected, format,
                                match_profile: match_profile,
-                               match_options: match_options,
+                               match: match,
                                preprocessing: preprocessing)
     end
 
-    def be_analogous_with(expected, match_profile: nil, match_options: nil,
-preprocessing: nil)
+    def be_analogous_with(expected, match_profile: nil, match: nil,
+                         preprocessing: nil)
       SerializationMatcher.new(expected, :xml,
                                match_profile: match_profile,
-                               match_options: match_options,
+                               match: match,
                                preprocessing: preprocessing)
     end
 
-    def be_xml_equivalent_to(expected, match_profile: nil, match_options: nil,
-preprocessing: nil)
+    def be_xml_equivalent_to(expected, match_profile: nil, match: nil,
+                            preprocessing: nil)
       SerializationMatcher.new(expected, :xml,
                                match_profile: match_profile,
-                               match_options: match_options,
+                               match: match,
                                preprocessing: preprocessing)
     end
 
@@ -337,37 +218,35 @@ preprocessing: nil)
       SerializationMatcher.new(expected, :json)
     end
 
-    def be_html_equivalent_to(expected, match_profile: nil, match_options: nil,
-preprocessing: nil)
+    def be_html_equivalent_to(expected, match_profile: nil, match: nil,
+                             preprocessing: nil)
       SerializationMatcher.new(expected, :html,
                                match_profile: match_profile,
-                               match_options: match_options,
+                               match: match,
                                preprocessing: preprocessing)
     end
 
-    def be_html4_equivalent_to(expected, match_profile: nil,
-match_options: nil, preprocessing: nil)
+    def be_html4_equivalent_to(expected, match_profile: nil, match: nil,
+                              preprocessing: nil)
       SerializationMatcher.new(expected, :html4,
                                match_profile: match_profile,
-                               match_options: match_options,
+                               match: match,
                                preprocessing: preprocessing)
     end
 
-    def be_html5_equivalent_to(expected, match_profile: nil,
-match_options: nil, preprocessing: nil)
+    def be_html5_equivalent_to(expected, match_profile: nil, match: nil,
+                              preprocessing: nil)
       SerializationMatcher.new(expected, :html5,
                                match_profile: match_profile,
-                               match_options: match_options,
+                               match: match,
                                preprocessing: preprocessing)
     end
 
     def be_equivalent_to(expected)
-      # Auto-detect format from content
       SerializationMatcher.new(expected, nil)
     end
 
     def be_string_equivalent_to(expected)
-      # Explicit string mode
       SerializationMatcher.new(expected, :string)
     end
 

@@ -95,7 +95,7 @@ RSpec.describe Canon::RSpecMatchers do
       let(:xml2) { "<root><!-- comment 2 --><a>text</a></root>" }
 
       it "matches XML with different comments (comments ignored by default)" do
-        expect(xml1).to be_xml_equivalent_to(xml2)
+        expect(xml1).to be_xml_equivalent_to(xml2, match: { comments: :ignore })
       end
     end
 
@@ -331,47 +331,49 @@ RSpec.describe Canon::RSpecMatchers do
   describe "configuration" do
     before do
       # Save original configuration
-      @original_diff_mode = described_class.diff_mode
-      @original_use_color = described_class.use_color
+      @original_xml_mode = Canon::Config.instance.xml.diff.mode
+      @original_xml_color = Canon::Config.instance.xml.diff.use_color
     end
 
     after do
       # Restore original configuration
-      described_class.diff_mode = @original_diff_mode
-      described_class.use_color = @original_use_color
+      Canon::Config.configure do |config|
+        config.xml.diff.mode = @original_xml_mode
+        config.xml.diff.use_color = @original_xml_color
+      end
     end
 
     it "allows configuration via configure block" do
-      described_class.configure do |config|
-        config.diff_mode = :by_object
-        config.use_color = false
+      Canon::Config.configure do |config|
+        config.xml.diff.mode = :by_object
+        config.xml.diff.use_color = false
       end
 
-      expect(described_class.diff_mode).to eq(:by_object)
-      expect(described_class.use_color).to be(false)
+      expect(Canon::Config.instance.xml.diff.mode).to eq(:by_object)
+      expect(Canon::Config.instance.xml.diff.use_color).to be(false)
     end
 
     it "has default configuration" do
-      described_class.reset_config
+      Canon::Config.reset!
 
-      expect(described_class.diff_mode).to eq(:by_line)
-      expect(described_class.use_color).to be(true)
+      expect(Canon::Config.instance.xml.diff.mode).to eq(:by_line)
+      expect(Canon::Config.instance.xml.diff.use_color).to be(true)
     end
 
     it "can be configured for by_object diff mode" do
-      described_class.configure do |config|
-        config.diff_mode = :by_object
+      Canon::Config.configure do |config|
+        config.xml.diff.mode = :by_object
       end
 
-      expect(described_class.diff_mode).to eq(:by_object)
+      expect(Canon::Config.instance.xml.diff.mode).to eq(:by_object)
     end
 
     it "can be configured to disable colors" do
-      described_class.configure do |config|
-        config.use_color = false
+      Canon::Config.configure do |config|
+        config.xml.diff.use_color = false
       end
 
-      expect(described_class.use_color).to be(false)
+      expect(Canon::Config.instance.xml.diff.use_color).to be(false)
     end
   end
 
@@ -454,13 +456,13 @@ RSpec.describe Canon::RSpecMatchers do
 
     context "when configured for by_object mode" do
       before do
-        described_class.configure do |config|
-          config.diff_mode = :by_object
+        Canon::Config.configure do |config|
+          config.json.diff.mode = :by_object
         end
       end
 
       after do
-        described_class.reset_config
+        Canon::Config.reset!
       end
 
       it "generates by-object diff" do
@@ -510,40 +512,48 @@ RSpec.describe Canon::RSpecMatchers do
   describe "whitespace normalization configuration" do
     before do
       # Save original configuration
-      @original_normalize = described_class.normalize_tag_whitespace
+      @original_profile = described_class.xml.match.profile
+      @original_options = described_class.xml.match.options.dup
     end
 
     after do
       # Restore original configuration
-      described_class.normalize_tag_whitespace = @original_normalize
+      described_class.configure do |config|
+        config.xml.match.profile = @original_profile
+        config.xml.match.options = @original_options
+      end
     end
 
     it "can be enabled via configuration" do
       described_class.configure do |config|
-        config.normalize_tag_whitespace = true
+        config.xml.match.options = { text_content: :normalize }
       end
 
-      expect(described_class.normalize_tag_whitespace).to be(true)
+      expect(described_class.xml.match.options[:text_content]).to eq(:normalize)
     end
 
     it "can be disabled via configuration" do
       described_class.configure do |config|
-        config.normalize_tag_whitespace = false
+        config.xml.match.options = { text_content: :strict }
       end
 
-      expect(described_class.normalize_tag_whitespace).to be(false)
+      expect(described_class.xml.match.options[:text_content]).to eq(:strict)
     end
 
     it "is disabled by default" do
       described_class.reset_config
 
-      expect(described_class.normalize_tag_whitespace).to be(false)
+      # Default for XML is strict (no options means strict behavior)
+      expect(described_class.xml.match.options[:text_content]).to be_nil
     end
 
     context "when enabled" do
       before do
         described_class.configure do |config|
-          config.normalize_tag_whitespace = true
+          config.xml.match.options = {
+            text_content: :normalize,
+            structural_whitespace: :normalize
+          }
         end
       end
 
@@ -749,7 +759,10 @@ RSpec.describe Canon::RSpecMatchers do
     context "when disabled (default behavior)" do
       before do
         described_class.configure do |config|
-          config.normalize_tag_whitespace = false
+          config.xml.match.options = {
+            text_content: :strict,
+            structural_whitespace: :strict
+          }
         end
       end
 
@@ -771,15 +784,17 @@ RSpec.describe Canon::RSpecMatchers do
       end
     end
 
-    context "interaction with collapse_whitespace" do
+    context "interaction with text_content normalization" do
       before do
         described_class.configure do |config|
-          config.normalize_tag_whitespace = true
+          config.xml.match.options = {
+            text_content: :normalize,
+            structural_whitespace: :normalize
+          }
         end
       end
 
-      it "does not use collapse_whitespace when normalization is enabled" do
-        # normalize_tag_whitespace should take precedence
+      it "normalizes whitespace when text_content normalization is enabled" do
         xml1 = "<root><a>text</a></root>"
         xml2 = "<root>  <a>  text  </a>  </root>"
 
@@ -1002,13 +1017,13 @@ RSpec.describe Canon::RSpecMatchers do
 
     context "with by_object diff mode" do
       before do
-        described_class.configure do |config|
-          config.diff_mode = :by_object
+        Canon::Config.configure do |config|
+          config.xml.diff.mode = :by_object
         end
       end
 
       after do
-        described_class.reset_config
+        Canon::Config.reset!
       end
 
       let(:xml1) do
