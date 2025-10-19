@@ -244,8 +244,8 @@ RSpec.describe Canon::Comparison do
         html2 = "<div><p>goodbye</p></div>"
 
         result = described_class.equivalent?(html1, html2, verbose: true)
-        expect(result).to be_an(Array)
-        expect(result).not_to be_empty
+        expect(result).to be_a(Hash)
+        expect(result[:differences]).not_to be_empty
       end
     end
   end

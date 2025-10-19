@@ -55,7 +55,11 @@ module Canon
 
         # Handle string format (plain text comparison)
         if format1 == :string
-          return opts[:verbose] ? (obj1.to_s == obj2.to_s ? [] : [:different]) : obj1.to_s == obj2.to_s
+          if opts[:verbose]
+            return obj1.to_s == obj2.to_s ? [] : [:different]
+          else
+            return obj1.to_s == obj2.to_s
+          end
         end
 
         # Allow comparing json/yaml strings with ruby objects
@@ -98,11 +102,11 @@ module Canon
       # @param content [String, Object] Content to parse (returns as-is if not a string)
       # @param format [Symbol] HTML format (:html, :html4, :html5)
       # @return [Nokogiri::HTML::Document, Nokogiri::HTML5::Document, Object]
-      def parse_html(content, format)
+      def parse_html(content, _format)
         return content unless content.is_a?(String)
         return content if content.is_a?(Nokogiri::HTML::Document) ||
-                         content.is_a?(Nokogiri::HTML5::Document) ||
-                         content.is_a?(Nokogiri::XML::Document)
+          content.is_a?(Nokogiri::HTML5::Document) ||
+          content.is_a?(Nokogiri::XML::Document)
 
         # Use HtmlComparator's parse_node to get consistent normalization
         HtmlComparator.send(:parse_node, content)

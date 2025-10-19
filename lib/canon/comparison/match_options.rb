@@ -13,7 +13,7 @@ module Canon
     # - Json/Yaml: text_content, structural_whitespace, key_order, comments
     module MatchOptions
       # Preprocessing options - what to do before comparison
-      PREPROCESSING_OPTIONS = %i[none c14n normalize format].freeze
+      PREPROCESSING_OPTIONS = %i[none c14n normalize format rendered].freeze
 
       # Matching behaviors (mutually exclusive)
       MATCH_BEHAVIORS = %i[strict normalize ignore].freeze
@@ -107,8 +107,9 @@ module Canon
           },
 
           # Spec-friendly: Formatting doesn't matter
+          # Uses :rendered preprocessing for HTML which normalizes via to_html
           spec_friendly: {
-            preprocessing: :normalize,
+            preprocessing: :rendered,
             text_content: :normalize,
             structural_whitespace: :ignore,
             attribute_whitespace: :strict,

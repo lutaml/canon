@@ -217,7 +217,7 @@ module Canon
     # Format comparison result from Canon::Comparison.equivalent?
     # This is the single entry point for generating diffs from comparison results
     #
-    # @param comparison_result [Array, Boolean] Result from Canon::Comparison.equivalent?
+    # @param comparison_result [Hash, Array, Boolean] Result from Canon::Comparison.equivalent?
     # @param expected [Object] Expected value
     # @param actual [Object] Actual value
     # @return [String] Formatted diff output
@@ -225,11 +225,17 @@ module Canon
       # Detect format from expected content
       format = Canon::Comparison.send(:detect_format, expected)
 
-      # Normalize content for display
-      doc1, doc2 = normalize_content_for_display(expected, actual, format)
-
-      # comparison_result is an array of differences when verbose: true
-      differences = comparison_result.is_a?(Array) ? comparison_result : []
+      # Check if comparison result includes preprocessed strings
+      if comparison_result.is_a?(Hash) && comparison_result[:preprocessed]
+        # Use preprocessed strings from comparison - avoids re-preprocessing
+        doc1, doc2 = comparison_result[:preprocessed]
+        differences = comparison_result[:differences]
+      else
+        # Legacy path: normalize content for display
+        doc1, doc2 = normalize_content_for_display(expected, actual, format)
+        # comparison_result is an array of differences when verbose: true
+        differences = comparison_result.is_a?(Array) ? comparison_result : []
+      end
 
       # Generate diff using existing format method
       format(differences, format, doc1: doc1, doc2: doc2)
@@ -247,31 +253,35 @@ module Canon
       case format
       when :xml
         [
-          Canon::Xml::C14n.canonicalize(expected, with_comments: false).gsub(/></, ">\n<"),
-          Canon::Xml::C14n.canonicalize(actual, with_comments: false).gsub(/></, ">\n<")
+          Canon::Xml::C14n.canonicalize(expected, with_comments: false).gsub(
+            /></, ">\n<"
+          ),
+          Canon::Xml::C14n.canonicalize(actual, with_comments: false).gsub(
+            /></, ">\n<"
+          ),
         ]
       when :html
         require "nokogiri"
         [
           parse_and_format_html(expected),
-          parse_and_format_html(actual)
+          parse_and_format_html(actual),
         ]
       when :json
         [
           Canon.format(expected, :json),
-          Canon.format(actual, :json)
+          Canon.format(actual, :json),
         ]
       when :yaml
         [
           Canon.format(expected, :yaml),
-          Canon.format(actual, :yaml)
+          Canon.format(actual, :yaml),
         ]
       when :ruby_object
         # For Ruby objects, format as JSON for display
         require "json"
         [
           JSON.pretty_generate(expected),
-          JSON.pretty_generate(actual)
+          JSON.pretty_generate(actual),
         ]
       else
         # Default case including :string format
@@ -285,7 +295,7 @@ module Canon
     # @return [String] Formatted HTML
     def parse_and_format_html(html)
       return html.to_html if html.is_a?(Nokogiri::HTML::Document) ||
-                            html.is_a?(Nokogiri::HTML5::Document)
+        html.is_a?(Nokogiri::HTML5::Document)
 
       require "nokogiri"
       Nokogiri::HTML(html).to_html

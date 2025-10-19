@@ -362,8 +362,8 @@ module Canon
           match_opts = opts[:match_opts]
 
           # Ignore comments based on match options
-          if node.respond_to?(:comment?) && node.comment?
-            return true if match_opts[:comments] == :ignore
+          if node.respond_to?(:comment?) && node.comment? && (match_opts[:comments] == :ignore)
+            return true
           end
 
           # Ignore text nodes if specified
@@ -372,8 +372,8 @@ module Canon
 
           # Ignore whitespace-only text nodes based on structural_whitespace
           # Both :ignore and :normalize should filter out whitespace-only nodes
-          if (match_opts[:structural_whitespace] == :ignore ||
-              match_opts[:structural_whitespace] == :normalize) &&
+          if %i[ignore
+                normalize].include?(match_opts[:structural_whitespace]) &&
               node.respond_to?(:text?) && node.text?
             text = node_text(node)
             return true if MatchOptions.normalize_text(text).empty?
