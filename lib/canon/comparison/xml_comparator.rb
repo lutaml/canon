@@ -1,7 +1,9 @@
 # frozen_string_literal: true
 
-require "moxml"
+require_relative "../xml/c14n"
 require_relative "match_options"
+require_relative "../diff/diff_node"
+require_relative "../diff/diff_classifier"
 
 module Canon
   module Comparison
@@ -46,7 +48,7 @@ module Canon
           opts = DEFAULT_OPTS.merge(opts)
 
           # Resolve match options with format-specific defaults
-          match_opts = MatchOptions::Xml.resolve(
+          match_opts_hash = MatchOptions::Xml.resolve(
             format: :xml,
             match_profile: opts[:match_profile],
             match: opts[:match],
@@ -55,21 +57,33 @@ module Canon
             global_options: opts[:global_options],
           )
 
-          # Store resolved match options for use in comparison logic
-          opts[:match_opts] = match_opts
+          # Wrap in ResolvedMatchOptions for DiffClassifier
+          match_opts = Canon::Comparison::ResolvedMatchOptions.new(
+            match_opts_hash,
+            format: :xml,
+          )
+
+          # Store resolved match options hash for use in comparison logic
+          opts[:match_opts] = match_opts_hash
 
           # Create child_opts with resolved options
           child_opts = opts.merge(child_opts)
 
           # Parse nodes if they are strings, applying preprocessing if needed
-          node1 = parse_node(n1, match_opts[:preprocessing])
-          node2 = parse_node(n2, match_opts[:preprocessing])
+          node1 = parse_node(n1, match_opts_hash[:preprocessing])
+          node2 = parse_node(n2, match_opts_hash[:preprocessing])
 
           differences = []
           diff_children = opts[:diff_children] || false
 
           result = compare_nodes(node1, node2, opts, child_opts,
                                  diff_children, differences)
+
+          # Classify DiffNodes as active/inactive if we have verbose output
+          if opts[:verbose] && !differences.empty?
+            classifier = Canon::Diff::DiffClassifier.new(match_opts)
+            classifier.classify_all(differences.select { |d| d.is_a?(Canon::Diff::DiffNode) })
+          end
 
           if opts[:verbose]
             differences
@@ -108,20 +122,49 @@ module Canon
 
         # Main comparison dispatcher
         def compare_nodes(n1, n2, opts, child_opts, diff_children, differences)
+          # Handle DocumentFragment nodes - compare their children instead
+          if n1.is_a?(Nokogiri::XML::DocumentFragment) &&
+              n2.is_a?(Nokogiri::XML::DocumentFragment)
+            children1 = n1.children.to_a
+            children2 = n2.children.to_a
+
+            if children1.length != children2.length
+              add_difference(n1, n2, Comparison::UNEQUAL_ELEMENTS,
+                             Comparison::UNEQUAL_ELEMENTS, nil, opts,
+                             differences)
+              return Comparison::UNEQUAL_ELEMENTS
+            elsif children1.empty?
+              return Comparison::EQUIVALENT
+            else
+              # Compare each pair of children
+              result = Comparison::EQUIVALENT
+              children1.zip(children2).each do |child1, child2|
+                child_result = compare_nodes(child1, child2, opts, child_opts,
+                                             diff_children, differences)
+                if child_result != Comparison::EQUIVALENT
+                  result = child_result
+                  break
+                end
+              end
+              return result
+            end
+          end
+
           # Check if nodes should be excluded
           return Comparison::EQUIVALENT if node_excluded?(n1, opts) &&
             node_excluded?(n2, opts)
 
           if node_excluded?(n1, opts) || node_excluded?(n2, opts)
             add_difference(n1, n2, Comparison::MISSING_NODE,
-                           Comparison::MISSING_NODE, opts, differences)
+                           Comparison::MISSING_NODE, nil, opts, differences)
             return Comparison::MISSING_NODE
           end
 
           # Check node types match
           unless same_node_type?(n1, n2)
             add_difference(n1, n2, Comparison::UNEQUAL_NODES_TYPES,
-                           Comparison::UNEQUAL_NODES_TYPES, opts, differences)
+                           Comparison::UNEQUAL_NODES_TYPES, nil, opts,
+                           differences)
             return Comparison::UNEQUAL_NODES_TYPES
           end
 
@@ -153,7 +196,8 @@ module Canon
           # Compare element names
           unless n1.name == n2.name
             add_difference(n1, n2, Comparison::UNEQUAL_ELEMENTS,
-                           Comparison::UNEQUAL_ELEMENTS, opts, differences)
+                           Comparison::UNEQUAL_ELEMENTS, nil, opts,
+                           differences)
             return Comparison::UNEQUAL_ELEMENTS
           end
 
@@ -178,14 +222,16 @@ module Canon
 
           unless attrs1.keys.map(&:to_s).sort == attrs2.keys.map(&:to_s).sort
             add_difference(n1, n2, Comparison::MISSING_ATTRIBUTE,
-                           Comparison::MISSING_ATTRIBUTE, opts, differences)
+                           Comparison::MISSING_ATTRIBUTE,
+                           :attribute_whitespace, opts, differences)
             return Comparison::MISSING_ATTRIBUTE
           end
 
           attrs1.each do |name, value|
             unless attrs2[name] == value
               add_difference(n1, n2, Comparison::UNEQUAL_ATTRIBUTES,
-                             Comparison::UNEQUAL_ATTRIBUTES, opts, differences)
+                             Comparison::UNEQUAL_ATTRIBUTES,
+                             :attribute_whitespace, opts, differences)
               return Comparison::UNEQUAL_ATTRIBUTES
             end
           end
@@ -266,8 +312,8 @@ module Canon
             Comparison::EQUIVALENT
           else
             add_difference(n1, n2, Comparison::UNEQUAL_TEXT_CONTENTS,
-                           Comparison::UNEQUAL_TEXT_CONTENTS, opts,
-                           differences)
+                           Comparison::UNEQUAL_TEXT_CONTENTS, :text_content,
+                           opts, differences)
             Comparison::UNEQUAL_TEXT_CONTENTS
           end
         end
@@ -287,7 +333,8 @@ module Canon
             Comparison::EQUIVALENT
           else
             add_difference(n1, n2, Comparison::UNEQUAL_COMMENTS,
-                           Comparison::UNEQUAL_COMMENTS, opts, differences)
+                           Comparison::UNEQUAL_COMMENTS, :comments, opts,
+                           differences)
             Comparison::UNEQUAL_COMMENTS
           end
         end
@@ -296,7 +343,8 @@ module Canon
         def compare_processing_instruction_nodes(n1, n2, opts, differences)
           unless n1.target == n2.target
             add_difference(n1, n2, Comparison::UNEQUAL_NODES_TYPES,
-                           Comparison::UNEQUAL_NODES_TYPES, opts, differences)
+                           Comparison::UNEQUAL_NODES_TYPES, nil, opts,
+                           differences)
             return Comparison::UNEQUAL_NODES_TYPES
           end
 
@@ -307,7 +355,8 @@ module Canon
             Comparison::EQUIVALENT
           else
             add_difference(n1, n2, Comparison::UNEQUAL_TEXT_CONTENTS,
-                           Comparison::UNEQUAL_TEXT_CONTENTS, opts, differences)
+                           Comparison::UNEQUAL_TEXT_CONTENTS, :text_content,
+                           opts, differences)
             Comparison::UNEQUAL_TEXT_CONTENTS
           end
         end
@@ -321,7 +370,7 @@ module Canon
 
           if root1.nil? || root2.nil?
             add_difference(n1, n2, Comparison::MISSING_NODE,
-                           Comparison::MISSING_NODE, opts, differences)
+                           Comparison::MISSING_NODE, nil, opts, differences)
             return Comparison::MISSING_NODE
           end
 
@@ -337,7 +386,7 @@ module Canon
 
           unless children1.length == children2.length
             add_difference(n1, n2, Comparison::MISSING_NODE,
-                           Comparison::MISSING_NODE, opts, differences)
+                           Comparison::MISSING_NODE, nil, opts, differences)
             return Comparison::MISSING_NODE
           end
 
@@ -413,15 +462,35 @@ module Canon
         end
 
         # Add a difference to the differences array
-        def add_difference(node1, node2, diff1, diff2, opts, differences)
+        # @param node1 [Object] First node
+        # @param node2 [Object] Second node
+        # @param diff1 [String] Difference type for node1
+        # @param diff2 [String] Difference type for node2
+        # @param dimension [Symbol] The match dimension causing this difference
+        # @param opts [Hash] Options
+        # @param differences [Array] Array to append difference to
+        def add_difference(node1, node2, diff1, diff2, dimension, opts,
+                           differences)
           return unless opts[:verbose]
 
-          differences << {
-            node1: node1,
-            node2: node2,
-            diff1: diff1,
-            diff2: diff2,
-          }
+          # Create DiffNode if we have dimension info
+          if dimension
+            diff_node = Canon::Diff::DiffNode.new(
+              node1: node1,
+              node2: node2,
+              dimension: dimension,
+              reason: "#{diff1} vs #{diff2}",
+            )
+            differences << diff_node
+          else
+            # Fallback to old hash format for backward compatibility
+            differences << {
+              node1: node1,
+              node2: node2,
+              diff1: diff1,
+              diff2: diff2,
+            }
+          end
         end
       end
     end

@@ -119,7 +119,7 @@ RSpec.describe Canon::Comparison::MatchOptions::Xml do
   describe "format-specific defaults" do
     it "defines HTML defaults (mimics CSS rendering)" do
       expect(described_class::FORMAT_DEFAULTS[:html]).to eq(
-        preprocessing: :none,
+        preprocessing: :rendered,
         text_content: :normalize,
         structural_whitespace: :normalize,
         attribute_whitespace: :strict,
@@ -185,7 +185,7 @@ RSpec.describe Canon::Comparison::MatchOptions::Xml do
       it "returns HTML defaults when no other options specified" do
         result = described_class.resolve(format: :html)
         expect(result).to eq(
-          preprocessing: :none,
+          preprocessing: :rendered,
           text_content: :normalize,
           structural_whitespace: :normalize,
           attribute_whitespace: :strict,

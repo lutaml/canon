@@ -29,6 +29,26 @@ module Canon
         build_from_nokogiri(doc)
       end
 
+      # Build XPath data model from HTML string
+      #
+      # @param html_string [String] HTML content to parse
+      # @param version [Symbol] HTML version (:html4 or :html5)
+      # @return [Nodes::RootNode] Root of the data model tree
+      def self.from_html(html_string, version: :html4)
+        # Parse with Nokogiri using appropriate HTML parser
+        doc = if version == :html5
+                Nokogiri::HTML5.fragment(html_string)
+              else
+                Nokogiri::HTML4.fragment(html_string)
+              end
+
+        # HTML doesn't have strict namespace requirements like XML,
+        # so skip the relative namespace URI check
+
+        # Convert to XPath data model (reuse XML infrastructure)
+        build_from_nokogiri(doc)
+      end
+
       # Check for relative namespace URIs (prohibited by C14N 1.1)
       # rubocop:disable Metrics/MethodLength
       def self.check_for_relative_namespace_uris(doc)
@@ -53,23 +73,32 @@ module Canon
         uri !~ %r{^[a-zA-Z][a-zA-Z0-9+.-]*:}
       end
 
-      # Build XPath data model from Nokogiri document
+      # Build XPath data model from Nokogiri document or fragment
       # rubocop:disable Metrics/MethodLength
       def self.build_from_nokogiri(nokogiri_doc)
         root = Nodes::RootNode.new
 
-        # Process document element
-        if nokogiri_doc.root
+        if nokogiri_doc.respond_to?(:root) && nokogiri_doc.root
+          # For Documents (XML, HTML4, HTML5, Moxml): process the root element
           root.add_child(build_element_node(nokogiri_doc.root))
-        end
 
-        # Process PIs and comments outside doc element
-        nokogiri_doc.children.each do |child|
-          next if child == nokogiri_doc.root
-          next if child.is_a?(Nokogiri::XML::DTD)
+          # Process PIs and comments outside doc element
+          nokogiri_doc.children.each do |child|
+            next if child == nokogiri_doc.root
+            next if child.is_a?(Nokogiri::XML::DTD)
 
-          node = build_node_from_nokogiri(child)
-          root.add_child(node) if node
+            node = build_node_from_nokogiri(child)
+            root.add_child(node) if node
+          end
+        else
+          # For DocumentFragments: process all children directly
+          # Fragments don't have a single .root, they contain multiple top-level nodes
+          nokogiri_doc.children.each do |child|
+            next if child.is_a?(Nokogiri::XML::DTD)
+
+            node = build_node_from_nokogiri(child)
+            root.add_child(node) if node
+          end
         end
 
         root
