@@ -101,15 +101,19 @@ module Canon
       #
       # @param content [String, Object] Content to parse (returns as-is if not a string)
       # @param format [Symbol] HTML format (:html, :html4, :html5)
-      # @return [Nokogiri::HTML::Document, Nokogiri::HTML5::Document, Object]
+      # @return [Nokogiri::HTML::Document, Nokogiri::HTML5::Document, Nokogiri::HTML::DocumentFragment, Object]
       def parse_html(content, _format)
         return content unless content.is_a?(String)
         return content if content.is_a?(Nokogiri::HTML::Document) ||
           content.is_a?(Nokogiri::HTML5::Document) ||
-          content.is_a?(Nokogiri::XML::Document)
+          content.is_a?(Nokogiri::XML::Document) ||
+          content.is_a?(Nokogiri::HTML::DocumentFragment) ||
+          content.is_a?(Nokogiri::HTML5::DocumentFragment) ||
+          content.is_a?(Nokogiri::XML::DocumentFragment)
 
-        # Use HtmlComparator's parse_node to get consistent normalization
-        HtmlComparator.send(:parse_node, content)
+        # Let HtmlComparator's parse_node handle parsing with preprocessing
+        # For now, just return the string and let it be parsed by HtmlComparator
+        content
       rescue StandardError
         content
       end
@@ -122,6 +126,12 @@ module Canon
         case obj
         when Moxml::Node, Moxml::Document
           :xml
+        when Nokogiri::HTML::DocumentFragment, Nokogiri::HTML5::DocumentFragment
+          # HTML DocumentFragments
+          :html
+        when Nokogiri::XML::DocumentFragment
+          # XML DocumentFragments - check if it's actually HTML
+          obj.document&.html? ? :html : :xml
         when Nokogiri::XML::Document, Nokogiri::XML::Node
           # Check if it's HTML by looking at the document type
           obj.html? ? :html : :xml

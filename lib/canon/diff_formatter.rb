@@ -113,11 +113,13 @@ module Canon
 
     def initialize(use_color: true, mode: :by_object, context_lines: 3,
                    diff_grouping_lines: nil, visualization_map: nil,
-                   character_map_file: nil, character_definitions: nil)
+                   character_map_file: nil, character_definitions: nil,
+                   show_diffs: :all)
       @use_color = use_color
       @mode = mode
       @context_lines = context_lines
       @diff_grouping_lines = diff_grouping_lines
+      @show_diffs = show_diffs
       @visualization_map = build_visualization_map(
         visualization_map: visualization_map,
         character_map_file: character_map_file,
@@ -195,11 +197,12 @@ module Canon
     # @param format [Symbol] Format type (:xml, :html, :json, :yaml)
     # @param doc1 [String, nil] First document content (for by-line mode)
     # @param doc2 [String, nil] Second document content (for by-line mode)
+    # @param html_version [Symbol, nil] HTML version (:html4 or :html5)
     # @return [String] Formatted output
-    def format(differences, format, doc1: nil, doc2: nil)
+    def format(differences, format, doc1: nil, doc2: nil, html_version: nil)
       # In by-line mode with doc1/doc2, always perform diff regardless of differences array
       if @mode == :by_line && doc1 && doc2
-        return by_line_diff(doc1, doc2, format: format)
+        return by_line_diff(doc1, doc2, format: format, html_version: html_version)
       end
 
       if differences.empty?
@@ -208,7 +211,7 @@ module Canon
 
       case @mode
       when :by_line
-        by_line_diff(doc1, doc2, format: format)
+        by_line_diff(doc1, doc2, format: format, html_version: html_version)
       else
         by_object_diff(differences, format)
       end
@@ -230,15 +233,17 @@ module Canon
         # Use preprocessed strings from comparison - avoids re-preprocessing
         doc1, doc2 = comparison_result[:preprocessed]
         differences = comparison_result[:differences]
+        html_version = comparison_result[:html_version]
       else
         # Legacy path: normalize content for display
         doc1, doc2 = normalize_content_for_display(expected, actual, format)
         # comparison_result is an array of differences when verbose: true
         differences = comparison_result.is_a?(Array) ? comparison_result : []
+        html_version = nil
       end
 
       # Generate diff using existing format method
-      format(differences, format, doc1: doc1, doc2: doc2)
+      format(differences, format, doc1: doc1, doc2: doc2, html_version: html_version)
     end
 
     private
@@ -370,8 +375,13 @@ module Canon
 
     # Generate by-line diff
     # Delegates to format-specific by-line formatters
-    def by_line_diff(doc1, doc2, format: :xml)
+    def by_line_diff(doc1, doc2, format: :xml, html_version: nil)
       require_relative "diff_formatter/by_line/base_formatter"
+
+      # For HTML format, use html_version if provided, otherwise default to :html4
+      if format == :html && html_version
+        format = html_version  # Use :html4 or :html5
+      end
 
       # Format display name for header
       format_name = format.to_s.upcase
@@ -389,6 +399,7 @@ module Canon
         context_lines: @context_lines,
         diff_grouping_lines: @diff_grouping_lines,
         visualization_map: @visualization_map,
+        show_diffs: @show_diffs,
       )
 
       output << formatter.format(doc1, doc2)

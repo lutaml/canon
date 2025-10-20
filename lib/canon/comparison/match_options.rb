@@ -11,6 +11,36 @@ module Canon
     # Format-specific modules define appropriate dimensions for each format:
     # - Xml/Html: text_content, structural_whitespace, attribute_whitespace, comments
     # - Json/Yaml: text_content, structural_whitespace, key_order, comments
+
+    # Wrapper class for resolved match options
+    # Provides convenient methods for accessing behaviors by dimension
+    class ResolvedMatchOptions
+      attr_reader :options, :format
+
+      def initialize(options, format:)
+        @options = options
+        @format = format
+      end
+
+      # Get the behavior for a specific dimension
+      # @param dimension [Symbol] The match dimension
+      # @return [Symbol] The behavior (:strict, :normalize, :ignore)
+      def behavior_for(dimension)
+        @options[dimension]
+      end
+
+      # Get the preprocessing option
+      # @return [Symbol] The preprocessing option
+      def preprocessing
+        @options[:preprocessing]
+      end
+
+      def to_h
+        @options.dup
+      end
+    end
+
+    # Module containing match option utilities and format-specific modules
     module MatchOptions
       # Preprocessing options - what to do before comparison
       PREPROCESSING_OPTIONS = %i[none c14n normalize format rendered].freeze
@@ -70,7 +100,7 @@ module Canon
         # Format-specific defaults
         FORMAT_DEFAULTS = {
           html: {
-            preprocessing: :none,
+            preprocessing: :rendered,
             text_content: :normalize,
             structural_whitespace: :normalize,
             attribute_whitespace: :strict,

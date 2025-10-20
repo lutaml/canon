@@ -178,6 +178,7 @@ module Canon
             mode: :by_line, # Always use by_line for strings
             context_lines: diff_config.context_lines,
             diff_grouping_lines: diff_config.grouping_lines,
+            show_diffs: diff_config.show_diffs,
           )
 
           return formatter.format([], :string, doc1: @expected.to_s,
@@ -194,6 +195,7 @@ module Canon
           mode: diff_config.mode,
           context_lines: diff_config.context_lines,
           diff_grouping_lines: diff_config.grouping_lines,
+          show_diffs: diff_config.show_diffs,
         )
 
         # Format the diff using the comparison result

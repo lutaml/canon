@@ -135,13 +135,15 @@ module Canon
 
     # Diff configuration for output formatting
     class DiffConfig
-      attr_accessor :mode, :use_color, :context_lines, :grouping_lines
+      attr_accessor :mode, :use_color, :context_lines, :grouping_lines,
+                    :show_diffs
 
       def initialize
         @mode = :by_line
         @use_color = true
         @context_lines = 3
         @grouping_lines = 10
+        @show_diffs = :all
       end
 
       def reset!
@@ -149,6 +151,7 @@ module Canon
         @use_color = true
         @context_lines = 3
         @grouping_lines = 10
+        @show_diffs = :all
       end
 
       # Build diff options
@@ -158,6 +161,7 @@ module Canon
           use_color: @use_color,
           context_lines: @context_lines,
           grouping_lines: @grouping_lines,
+          show_diffs: @show_diffs,
         }
       end
     end
