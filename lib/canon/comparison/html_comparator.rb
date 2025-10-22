@@ -72,8 +72,10 @@ module Canon
           child_opts = opts.merge(child_opts)
 
           # Parse nodes if they are strings, applying preprocessing if needed
-          node1 = parse_node(html1, match_opts_hash[:preprocessing], match_opts_hash)
-          node2 = parse_node(html2, match_opts_hash[:preprocessing], match_opts_hash)
+          node1 = parse_node(html1, match_opts_hash[:preprocessing],
+                             match_opts_hash)
+          node2 = parse_node(html2, match_opts_hash[:preprocessing],
+                             match_opts_hash)
 
           # Serialize preprocessed nodes for diff display (avoid re-preprocessing)
           preprocessed_str1 = serialize_for_display(node1)
@@ -171,16 +173,15 @@ module Canon
 
           # Check if string contains XML declaration but is actually HTML
           # Nokogiri::HTML4.to_s adds <?xml...?> but the content is still HTML
-          if node.strip.start_with?("<?xml")
-            # Check if this is actually HTML content after the declaration
-            # Look for <html tag which indicates HTML
-            unless node.match?(/<html[\s>]/i)
-              # No <html> tag, this is likely pure XML
-              raise Canon::CompareFormatMismatchError.new(:xml, :html)
-            end
-            # Has <?xml but also <html> tag, so it's HTML with XML declaration
-            # (common output from Nokogiri::HTML4#to_s)
+          # Check if this is actually HTML content after the declaration
+          # Look for <html tag which indicates HTML
+          if node.strip.start_with?("<?xml") && !node.match?(/<html[\s>]/i)
+            # No <html> tag, this is likely pure XML
+            raise Canon::CompareFormatMismatchError.new(:xml, :html)
           end
+
+          # Has <?xml but also <html> tag, so it's HTML with XML declaration
+          # (common output from Nokogiri::HTML4#to_s)
 
           # For :rendered preprocessing, handle separately to avoid double-parsing
           if preprocessing == :rendered
@@ -376,12 +377,12 @@ module Canon
             node.is_a?(Nokogiri::HTML5::DocumentFragment)
 
           # If it's an XML document, check for XML processing instruction
-          if node.is_a?(Nokogiri::XML::Document)
-            # XML documents often start with <?xml ...?> processing instruction
-            return true if node.children.any? do |child|
-              child.is_a?(Nokogiri::XML::ProcessingInstruction) &&
+          if node.is_a?(Nokogiri::XML::Document) && node.children.any? do |child|
+            child.is_a?(Nokogiri::XML::ProcessingInstruction) &&
                 child.name == "xml"
-            end
+          end
+            # XML documents often start with <?xml ...?> processing instruction
+            return true
 
             # Note: We don't blindly return true here because HTML documents
             # also inherit from XML::Document. We only return true if there's

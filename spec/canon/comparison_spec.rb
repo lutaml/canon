@@ -121,10 +121,8 @@ RSpec.describe Canon::Comparison do
         # Can be either DiffNode or Hash
         diff = result.differences.first
         if diff.is_a?(Canon::Diff::DiffNode)
-          expect(diff.dimension).to eq(:text_content)
-        else
-          expect(diff.dimension).to eq(:text_content)
         end
+        expect(diff.dimension).to eq(:text_content)
       end
 
       it "returns ComparisonResult with differences for different attributes" do
@@ -139,7 +137,8 @@ RSpec.describe Canon::Comparison do
         # Can be either DiffNode or Hash
         diff = result.differences.first
         if diff.is_a?(Canon::Diff::DiffNode)
-          expect([:attribute_values, :attribute_values]).to include(diff.dimension)
+          expect(%i[attribute_values
+                    attribute_values]).to include(diff.dimension)
         else
           expect(diff.dimension).to eq(:text_content)
         end

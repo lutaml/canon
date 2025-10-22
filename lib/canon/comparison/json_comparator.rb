@@ -46,7 +46,7 @@ module Canon
           )
 
           # Wrap in ResolvedMatchOptions for consistency with XML/HTML
-          match_opts = Canon::Comparison::ResolvedMatchOptions.new(
+          Canon::Comparison::ResolvedMatchOptions.new(
             match_opts_hash,
             format: :json,
           )

@@ -32,7 +32,7 @@ RSpec.describe Canon::Diff::DiffContextBuilder do
 
     context "with single block" do
       it "creates context with default context lines" do
-        all_lines = 10.times.map do |i|
+        all_lines = Array.new(10) do |i|
           Canon::Diff::DiffLine.new(
             line_number: i,
             type: i == 5 ? :removed : :unchanged,
@@ -50,7 +50,8 @@ RSpec.describe Canon::Diff::DiffContextBuilder do
           ).tap { |b| b.active = true },
         ]
 
-        contexts = described_class.build_contexts(blocks, all_lines, context_lines: 3)
+        contexts = described_class.build_contexts(blocks, all_lines,
+                                                  context_lines: 3)
 
         expect(contexts.length).to eq(1)
         expect(contexts[0].start_idx).to eq(2) # 5 - 3
@@ -62,7 +63,7 @@ RSpec.describe Canon::Diff::DiffContextBuilder do
 
     context "with context_lines at file boundaries" do
       it "doesn't go below 0" do
-        all_lines = 5.times.map do |i|
+        all_lines = Array.new(5) do |i|
           Canon::Diff::DiffLine.new(
             line_number: i,
             type: i == 0 ? :removed : :unchanged,
@@ -80,14 +81,15 @@ RSpec.describe Canon::Diff::DiffContextBuilder do
           ).tap { |b| b.active = true },
         ]
 
-        contexts = described_class.build_contexts(blocks, all_lines, context_lines: 5)
+        contexts = described_class.build_contexts(blocks, all_lines,
+                                                  context_lines: 5)
 
         expect(contexts[0].start_idx).to eq(0) # Capped at 0
         expect(contexts[0].end_idx).to eq(4)   # 0 + 5, capped at length-1
       end
 
       it "doesn't go beyond array length" do
-        all_lines = 5.times.map do |i|
+        all_lines = Array.new(5) do |i|
           Canon::Diff::DiffLine.new(
             line_number: i,
             type: i == 4 ? :removed : :unchanged,
@@ -105,7 +107,8 @@ RSpec.describe Canon::Diff::DiffContextBuilder do
           ).tap { |b| b.active = true },
         ]
 
-        contexts = described_class.build_contexts(blocks, all_lines, context_lines: 5)
+        contexts = described_class.build_contexts(blocks, all_lines,
+                                                  context_lines: 5)
 
         expect(contexts[0].start_idx).to eq(0) # 4 - 5, capped at 0
         expect(contexts[0].end_idx).to eq(4)   # Capped at length-1
@@ -114,7 +117,7 @@ RSpec.describe Canon::Diff::DiffContextBuilder do
 
     context "without grouping (grouping_lines: nil)" do
       it "creates separate context for each block" do
-        all_lines = 20.times.map do |i|
+        all_lines = Array.new(20) do |i|
           Canon::Diff::DiffLine.new(
             line_number: i,
             type: [5, 15].include?(i) ? :removed : :unchanged,
@@ -139,7 +142,7 @@ RSpec.describe Canon::Diff::DiffContextBuilder do
         ]
 
         contexts = described_class.build_contexts(blocks, all_lines,
-                                                   context_lines: 2, grouping_lines: nil)
+                                                  context_lines: 2, grouping_lines: nil)
 
         expect(contexts.length).to eq(2)
         expect(contexts[0].blocks.length).to eq(1)
@@ -149,7 +152,7 @@ RSpec.describe Canon::Diff::DiffContextBuilder do
 
     context "with grouping (grouping_lines specified)" do
       it "groups blocks within threshold" do
-        all_lines = 20.times.map do |i|
+        all_lines = Array.new(20) do |i|
           Canon::Diff::DiffLine.new(
             line_number: i,
             type: [5, 8].include?(i) ? :removed : :unchanged,
@@ -176,14 +179,14 @@ RSpec.describe Canon::Diff::DiffContextBuilder do
         # Gap between blocks: 8 - 5 - 1 = 2 lines
         # With grouping_lines: 3, they should be grouped
         contexts = described_class.build_contexts(blocks, all_lines,
-                                                   context_lines: 1, grouping_lines: 3)
+                                                  context_lines: 1, grouping_lines: 3)
 
         expect(contexts.length).to eq(1)
         expect(contexts[0].blocks.length).to eq(2)
       end
 
       it "doesn't group blocks beyond threshold" do
-        all_lines = 20.times.map do |i|
+        all_lines = Array.new(20) do |i|
           Canon::Diff::DiffLine.new(
             line_number: i,
             type: [5, 15].include?(i) ? :removed : :unchanged,
@@ -210,7 +213,7 @@ RSpec.describe Canon::Diff::DiffContextBuilder do
         # Gap between blocks: 15 - 5 - 1 = 9 lines
         # With grouping_lines: 5, they should NOT be grouped
         contexts = described_class.build_contexts(blocks, all_lines,
-                                                   context_lines: 1, grouping_lines: 5)
+                                                  context_lines: 1, grouping_lines: 5)
 
         expect(contexts.length).to eq(2)
         expect(contexts[0].blocks.length).to eq(1)
@@ -218,7 +221,7 @@ RSpec.describe Canon::Diff::DiffContextBuilder do
       end
 
       it "groups multiple consecutive blocks" do
-        all_lines = 30.times.map do |i|
+        all_lines = Array.new(30) do |i|
           Canon::Diff::DiffLine.new(
             line_number: i,
             type: [5, 8, 11].include?(i) ? :removed : :unchanged,
@@ -250,7 +253,7 @@ RSpec.describe Canon::Diff::DiffContextBuilder do
 
         # All gaps are 2 lines, with grouping_lines: 3, all should group
         contexts = described_class.build_contexts(blocks, all_lines,
-                                                   context_lines: 1, grouping_lines: 3)
+                                                  context_lines: 1, grouping_lines: 3)
 
         expect(contexts.length).to eq(1)
         expect(contexts[0].blocks.length).to eq(3)
@@ -259,7 +262,7 @@ RSpec.describe Canon::Diff::DiffContextBuilder do
 
     context "with mixed active/inactive blocks" do
       it "marks context as active if ANY block is active" do
-        all_lines = 10.times.map do |i|
+        all_lines = Array.new(10) do |i|
           type = [3, 5].include?(i) ? :removed : :unchanged
           node = if i == 3
                    diff_node_inactive
@@ -291,14 +294,14 @@ RSpec.describe Canon::Diff::DiffContextBuilder do
         ]
 
         contexts = described_class.build_contexts(blocks, all_lines,
-                                                   context_lines: 1, grouping_lines: 3)
+                                                  context_lines: 1, grouping_lines: 3)
 
         expect(contexts.length).to eq(1)
         expect(contexts[0]).to be_active
       end
 
       it "marks context as inactive if ALL blocks are inactive" do
-        all_lines = 10.times.map do |i|
+        all_lines = Array.new(10) do |i|
           type = [3, 5].include?(i) ? :removed : :unchanged
           node = [3, 5].include?(i) ? diff_node_inactive : nil
 
@@ -326,7 +329,7 @@ RSpec.describe Canon::Diff::DiffContextBuilder do
         ]
 
         contexts = described_class.build_contexts(blocks, all_lines,
-                                                   context_lines: 1, grouping_lines: 3)
+                                                  context_lines: 1, grouping_lines: 3)
 
         expect(contexts.length).to eq(1)
         expect(contexts[0]).to be_inactive
@@ -335,7 +338,7 @@ RSpec.describe Canon::Diff::DiffContextBuilder do
 
     context "edge cases" do
       it "handles context_lines: 0" do
-        all_lines = 10.times.map do |i|
+        all_lines = Array.new(10) do |i|
           Canon::Diff::DiffLine.new(
             line_number: i,
             type: i == 5 ? :removed : :unchanged,
@@ -353,19 +356,20 @@ RSpec.describe Canon::Diff::DiffContextBuilder do
           ).tap { |b| b.active = true },
         ]
 
-        contexts = described_class.build_contexts(blocks, all_lines, context_lines: 0)
+        contexts = described_class.build_contexts(blocks, all_lines,
+                                                  context_lines: 0)
 
         expect(contexts[0].start_idx).to eq(5)
         expect(contexts[0].end_idx).to eq(5)
       end
 
       it "handles multi-line blocks" do
-        all_lines = 10.times.map do |i|
+        all_lines = Array.new(10) do |i|
           Canon::Diff::DiffLine.new(
             line_number: i,
-            type: (3..5).include?(i) ? :removed : :unchanged,
+            type: (3..5).cover?(i) ? :removed : :unchanged,
             content: "line #{i}",
-            diff_node: (3..5).include?(i) ? diff_node_active : nil,
+            diff_node: (3..5).cover?(i) ? diff_node_active : nil,
           )
         end
 
@@ -378,7 +382,8 @@ RSpec.describe Canon::Diff::DiffContextBuilder do
           ).tap { |b| b.active = true },
         ]
 
-        contexts = described_class.build_contexts(blocks, all_lines, context_lines: 1)
+        contexts = described_class.build_contexts(blocks, all_lines,
+                                                  context_lines: 1)
 
         expect(contexts[0].start_idx).to eq(2) # 3 - 1
         expect(contexts[0].end_idx).to eq(6)   # 5 + 1

@@ -3,10 +3,16 @@
 require "spec_helper"
 
 RSpec.describe "IsoDoc attribute order issue" do
-  let(:expected) { File.read(File.join(__dir__, "../fixtures/html/isodoc-section-names-expected.html")) }
-  let(:actual) { File.read(File.join(__dir__, "../fixtures/html/isodoc-section-names-actual.html")) }
+  let(:expected) do
+    File.read(File.join(__dir__,
+                        "../fixtures/html/isodoc-section-names-expected.html"))
+  end
+  let(:actual) do
+    File.read(File.join(__dir__,
+                        "../fixtures/html/isodoc-section-names-actual.html"))
+  end
 
-  it "should be equivalent with spec_friendly profile (only attribute order differs)" do
+  it "is equivalent with spec_friendly profile (only attribute order differs)" do
     result = Canon::Comparison.equivalent?(
       expected,
       actual,

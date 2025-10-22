@@ -42,7 +42,7 @@ RSpec.describe Canon::Diff::DiffNodeMapper do
       )
 
       # Map DiffNodes to DiffLines
-      diff_lines = Canon::Diff::DiffNodeMapper.map(
+      diff_lines = described_class.map(
         result.differences,
         result.preprocessed_strings[0],
         result.preprocessed_strings[1],
@@ -97,7 +97,7 @@ RSpec.describe Canon::Diff::DiffNodeMapper do
       )
 
       # Map DiffNodes to DiffLines
-      diff_lines = Canon::Diff::DiffNodeMapper.map(
+      diff_lines = described_class.map(
         result.differences,
         result.preprocessed_strings[0],
         result.preprocessed_strings[1],
@@ -136,7 +136,7 @@ RSpec.describe Canon::Diff::DiffNodeMapper do
       )
 
       # Map DiffNodes to DiffLines
-      diff_lines = Canon::Diff::DiffNodeMapper.map(
+      diff_lines = described_class.map(
         result.differences,
         result.preprocessed_strings[0],
         result.preprocessed_strings[1],

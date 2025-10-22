@@ -25,11 +25,16 @@ RSpec.describe Canon::Diff::DiffBlockBuilder do
     context "with contiguous changed lines" do
       it "groups them into a single block" do
         diff_lines = [
-          Canon::Diff::DiffLine.new(line_number: 0, type: :unchanged, content: "line 1"),
-          Canon::Diff::DiffLine.new(line_number: 1, type: :removed, content: "old line 2", diff_node: diff_node_active),
-          Canon::Diff::DiffLine.new(line_number: 2, type: :added, content: "new line 2", diff_node: diff_node_active),
-          Canon::Diff::DiffLine.new(line_number: 3, type: :removed, content: "old line 3", diff_node: diff_node_active),
-          Canon::Diff::DiffLine.new(line_number: 4, type: :unchanged, content: "line 4"),
+          Canon::Diff::DiffLine.new(line_number: 0, type: :unchanged,
+                                    content: "line 1"),
+          Canon::Diff::DiffLine.new(line_number: 1, type: :removed,
+                                    content: "old line 2", diff_node: diff_node_active),
+          Canon::Diff::DiffLine.new(line_number: 2, type: :added,
+                                    content: "new line 2", diff_node: diff_node_active),
+          Canon::Diff::DiffLine.new(line_number: 3, type: :removed,
+                                    content: "old line 3", diff_node: diff_node_active),
+          Canon::Diff::DiffLine.new(line_number: 4, type: :unchanged,
+                                    content: "line 4"),
         ]
 
         blocks = described_class.build_blocks(diff_lines)
@@ -44,11 +49,16 @@ RSpec.describe Canon::Diff::DiffBlockBuilder do
     context "with non-contiguous changed lines" do
       it "creates separate blocks" do
         diff_lines = [
-          Canon::Diff::DiffLine.new(line_number: 0, type: :removed, content: "old line 1", diff_node: diff_node_active),
-          Canon::Diff::DiffLine.new(line_number: 1, type: :unchanged, content: "line 2"),
-          Canon::Diff::DiffLine.new(line_number: 2, type: :unchanged, content: "line 3"),
-          Canon::Diff::DiffLine.new(line_number: 3, type: :added, content: "new line 4", diff_node: diff_node_active),
-          Canon::Diff::DiffLine.new(line_number: 4, type: :unchanged, content: "line 5"),
+          Canon::Diff::DiffLine.new(line_number: 0, type: :removed,
+                                    content: "old line 1", diff_node: diff_node_active),
+          Canon::Diff::DiffLine.new(line_number: 1, type: :unchanged,
+                                    content: "line 2"),
+          Canon::Diff::DiffLine.new(line_number: 2, type: :unchanged,
+                                    content: "line 3"),
+          Canon::Diff::DiffLine.new(line_number: 3, type: :added,
+                                    content: "new line 4", diff_node: diff_node_active),
+          Canon::Diff::DiffLine.new(line_number: 4, type: :unchanged,
+                                    content: "line 5"),
         ]
 
         blocks = described_class.build_blocks(diff_lines)
@@ -64,9 +74,12 @@ RSpec.describe Canon::Diff::DiffBlockBuilder do
     context "with only unchanged lines" do
       it "returns empty array" do
         diff_lines = [
-          Canon::Diff::DiffLine.new(line_number: 0, type: :unchanged, content: "line 1"),
-          Canon::Diff::DiffLine.new(line_number: 1, type: :unchanged, content: "line 2"),
-          Canon::Diff::DiffLine.new(line_number: 2, type: :unchanged, content: "line 3"),
+          Canon::Diff::DiffLine.new(line_number: 0, type: :unchanged,
+                                    content: "line 1"),
+          Canon::Diff::DiffLine.new(line_number: 1, type: :unchanged,
+                                    content: "line 2"),
+          Canon::Diff::DiffLine.new(line_number: 2, type: :unchanged,
+                                    content: "line 3"),
         ]
 
         blocks = described_class.build_blocks(diff_lines)
@@ -78,8 +91,10 @@ RSpec.describe Canon::Diff::DiffBlockBuilder do
     context "with block types" do
       it "sets types based on contained line types" do
         diff_lines = [
-          Canon::Diff::DiffLine.new(line_number: 0, type: :removed, content: "old", diff_node: diff_node_active),
-          Canon::Diff::DiffLine.new(line_number: 1, type: :added, content: "new", diff_node: diff_node_active),
+          Canon::Diff::DiffLine.new(line_number: 0, type: :removed,
+                                    content: "old", diff_node: diff_node_active),
+          Canon::Diff::DiffLine.new(line_number: 1, type: :added,
+                                    content: "new", diff_node: diff_node_active),
         ]
 
         blocks = described_class.build_blocks(diff_lines)
@@ -89,7 +104,8 @@ RSpec.describe Canon::Diff::DiffBlockBuilder do
 
       it "handles changed type" do
         diff_lines = [
-          Canon::Diff::DiffLine.new(line_number: 0, type: :changed, content: "modified", diff_node: diff_node_active),
+          Canon::Diff::DiffLine.new(line_number: 0, type: :changed,
+                                    content: "modified", diff_node: diff_node_active),
         ]
 
         blocks = described_class.build_blocks(diff_lines)
@@ -196,7 +212,8 @@ RSpec.describe Canon::Diff::DiffBlockBuilder do
       it "returns only active blocks" do
         diff_lines = [
           active_line,
-          Canon::Diff::DiffLine.new(line_number: 2, type: :unchanged, content: "unchanged"),
+          Canon::Diff::DiffLine.new(line_number: 2, type: :unchanged,
+                                    content: "unchanged"),
           inactive_line,
         ]
 
@@ -219,7 +236,8 @@ RSpec.describe Canon::Diff::DiffBlockBuilder do
       it "returns only inactive blocks" do
         diff_lines = [
           active_line,
-          Canon::Diff::DiffLine.new(line_number: 2, type: :unchanged, content: "unchanged"),
+          Canon::Diff::DiffLine.new(line_number: 2, type: :unchanged,
+                                    content: "unchanged"),
           inactive_line,
         ]
 
@@ -242,7 +260,8 @@ RSpec.describe Canon::Diff::DiffBlockBuilder do
       it "returns all blocks" do
         diff_lines = [
           active_line,
-          Canon::Diff::DiffLine.new(line_number: 2, type: :unchanged, content: "unchanged"),
+          Canon::Diff::DiffLine.new(line_number: 2, type: :unchanged,
+                                    content: "unchanged"),
           inactive_line,
         ]
 
@@ -258,7 +277,8 @@ RSpec.describe Canon::Diff::DiffBlockBuilder do
       it "returns all blocks" do
         diff_lines = [
           active_line,
-          Canon::Diff::DiffLine.new(line_number: 2, type: :unchanged, content: "unchanged"),
+          Canon::Diff::DiffLine.new(line_number: 2, type: :unchanged,
+                                    content: "unchanged"),
           inactive_line,
         ]
 
@@ -301,8 +321,10 @@ RSpec.describe Canon::Diff::DiffBlockBuilder do
     context "with block at end of file" do
       it "correctly sets end_idx" do
         diff_lines = [
-          Canon::Diff::DiffLine.new(line_number: 0, type: :unchanged, content: "line 1"),
-          Canon::Diff::DiffLine.new(line_number: 1, type: :unchanged, content: "line 2"),
+          Canon::Diff::DiffLine.new(line_number: 0, type: :unchanged,
+                                    content: "line 1"),
+          Canon::Diff::DiffLine.new(line_number: 1, type: :unchanged,
+                                    content: "line 2"),
           Canon::Diff::DiffLine.new(
             line_number: 2,
             type: :removed,
@@ -328,7 +350,8 @@ RSpec.describe Canon::Diff::DiffBlockBuilder do
             content: "first line",
             diff_node: diff_node_active,
           ),
-          Canon::Diff::DiffLine.new(line_number: 1, type: :unchanged, content: "line 2"),
+          Canon::Diff::DiffLine.new(line_number: 1, type: :unchanged,
+                                    content: "line 2"),
         ]
 
         blocks = described_class.build_blocks(diff_lines)
@@ -342,9 +365,12 @@ RSpec.describe Canon::Diff::DiffBlockBuilder do
     context "with all changed lines" do
       it "creates one big block" do
         diff_lines = [
-          Canon::Diff::DiffLine.new(line_number: 0, type: :removed, content: "line 1", diff_node: diff_node_active),
-          Canon::Diff::DiffLine.new(line_number: 1, type: :added, content: "line 2", diff_node: diff_node_active),
-          Canon::Diff::DiffLine.new(line_number: 2, type: :changed, content: "line 3", diff_node: diff_node_active),
+          Canon::Diff::DiffLine.new(line_number: 0, type: :removed,
+                                    content: "line 1", diff_node: diff_node_active),
+          Canon::Diff::DiffLine.new(line_number: 1, type: :added,
+                                    content: "line 2", diff_node: diff_node_active),
+          Canon::Diff::DiffLine.new(line_number: 2, type: :changed,
+                                    content: "line 3", diff_node: diff_node_active),
         ]
 
         blocks = described_class.build_blocks(diff_lines)
@@ -359,11 +385,16 @@ RSpec.describe Canon::Diff::DiffBlockBuilder do
     context "with multiple separate single-line blocks" do
       it "creates multiple blocks" do
         diff_lines = [
-          Canon::Diff::DiffLine.new(line_number: 0, type: :removed, content: "line 1", diff_node: diff_node_active),
-          Canon::Diff::DiffLine.new(line_number: 1, type: :unchanged, content: "line 2"),
-          Canon::Diff::DiffLine.new(line_number: 2, type: :removed, content: "line 3", diff_node: diff_node_active),
-          Canon::Diff::DiffLine.new(line_number: 3, type: :unchanged, content: "line 4"),
-          Canon::Diff::DiffLine.new(line_number: 4, type: :removed, content: "line 5", diff_node: diff_node_active),
+          Canon::Diff::DiffLine.new(line_number: 0, type: :removed,
+                                    content: "line 1", diff_node: diff_node_active),
+          Canon::Diff::DiffLine.new(line_number: 1, type: :unchanged,
+                                    content: "line 2"),
+          Canon::Diff::DiffLine.new(line_number: 2, type: :removed,
+                                    content: "line 3", diff_node: diff_node_active),
+          Canon::Diff::DiffLine.new(line_number: 3, type: :unchanged,
+                                    content: "line 4"),
+          Canon::Diff::DiffLine.new(line_number: 4, type: :removed,
+                                    content: "line 5", diff_node: diff_node_active),
         ]
 
         blocks = described_class.build_blocks(diff_lines)
@@ -380,16 +411,23 @@ RSpec.describe Canon::Diff::DiffBlockBuilder do
     context "with mixed active/inactive blocks" do
       it "correctly filters and preserves block identity" do
         diff_lines = [
-          Canon::Diff::DiffLine.new(line_number: 0, type: :removed, content: "active 1", diff_node: diff_node_active),
-          Canon::Diff::DiffLine.new(line_number: 1, type: :unchanged, content: "unchanged"),
-          Canon::Diff::DiffLine.new(line_number: 2, type: :removed, content: "inactive 1", diff_node: diff_node_inactive),
-          Canon::Diff::DiffLine.new(line_number: 3, type: :unchanged, content: "unchanged"),
-          Canon::Diff::DiffLine.new(line_number: 4, type: :removed, content: "active 2", diff_node: diff_node_active),
+          Canon::Diff::DiffLine.new(line_number: 0, type: :removed,
+                                    content: "active 1", diff_node: diff_node_active),
+          Canon::Diff::DiffLine.new(line_number: 1, type: :unchanged,
+                                    content: "unchanged"),
+          Canon::Diff::DiffLine.new(line_number: 2, type: :removed,
+                                    content: "inactive 1", diff_node: diff_node_inactive),
+          Canon::Diff::DiffLine.new(line_number: 3, type: :unchanged,
+                                    content: "unchanged"),
+          Canon::Diff::DiffLine.new(line_number: 4, type: :removed,
+                                    content: "active 2", diff_node: diff_node_active),
         ]
 
         all_blocks = described_class.build_blocks(diff_lines, show_diffs: :all)
-        active_blocks = described_class.build_blocks(diff_lines, show_diffs: :active)
-        inactive_blocks = described_class.build_blocks(diff_lines, show_diffs: :inactive)
+        active_blocks = described_class.build_blocks(diff_lines,
+                                                     show_diffs: :active)
+        inactive_blocks = described_class.build_blocks(diff_lines,
+                                                       show_diffs: :inactive)
 
         expect(all_blocks.length).to eq(3)
         expect(active_blocks.length).to eq(2)
@@ -404,9 +442,12 @@ RSpec.describe Canon::Diff::DiffBlockBuilder do
     context "with block containing multiple line types" do
       it "includes all types in the block" do
         diff_lines = [
-          Canon::Diff::DiffLine.new(line_number: 0, type: :removed, content: "old", diff_node: diff_node_active),
-          Canon::Diff::DiffLine.new(line_number: 1, type: :added, content: "new", diff_node: diff_node_active),
-          Canon::Diff::DiffLine.new(line_number: 2, type: :changed, content: "mod", diff_node: diff_node_active),
+          Canon::Diff::DiffLine.new(line_number: 0, type: :removed,
+                                    content: "old", diff_node: diff_node_active),
+          Canon::Diff::DiffLine.new(line_number: 1, type: :added,
+                                    content: "new", diff_node: diff_node_active),
+          Canon::Diff::DiffLine.new(line_number: 2, type: :changed,
+                                    content: "mod", diff_node: diff_node_active),
         ]
 
         blocks = described_class.build_blocks(diff_lines)
@@ -417,7 +458,7 @@ RSpec.describe Canon::Diff::DiffBlockBuilder do
 
     context "with long contiguous block" do
       it "groups all lines into single block" do
-        diff_lines = 100.times.map do |i|
+        diff_lines = Array.new(100) do |i|
           Canon::Diff::DiffLine.new(
             line_number: i,
             type: :removed,

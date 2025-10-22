@@ -222,7 +222,7 @@ module Canon
       case @mode
       when :by_line
         by_line_diff(doc1, doc2, format: format, html_version: html_version,
-                     differences: differences)
+                                 differences: differences)
       else
         by_object_diff(differences, format)
       end
@@ -424,7 +424,8 @@ module Canon
 
     # Generate by-line diff
     # Delegates to format-specific by-line formatters
-    def by_line_diff(doc1, doc2, format: :xml, html_version: nil, differences: [])
+    def by_line_diff(doc1, doc2, format: :xml, html_version: nil,
+differences: [])
       require_relative "diff_formatter/by_line/base_formatter"
 
       # For HTML format, use html_version if provided, otherwise default to :html4

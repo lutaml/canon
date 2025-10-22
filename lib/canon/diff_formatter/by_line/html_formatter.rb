@@ -29,7 +29,7 @@ module Canon
         # @return [String] Formatted diff
         def format(doc1, doc2)
           # If we have DiffNodes from comparison, use the new pipeline
-          if @differences && @differences.any? { |d| d.is_a?(Canon::Diff::DiffNode) }
+          if @differences&.any?(Canon::Diff::DiffNode)
             # Check if we should skip based on show_diffs setting
             if should_skip_diff_display?
               return ""
@@ -175,7 +175,7 @@ module Canon
         end
 
         # Format a context using its DiffLines
-        def format_context_from_lines(context, lines1, lines2)
+        def format_context_from_lines(context, lines1, _lines2)
           output = []
 
           context.lines.each do |diff_line|
@@ -229,12 +229,12 @@ module Canon
           case @show_diffs
           when :active
             # Skip if no active diffs
-            !@differences.any? do |diff|
+            @differences.none? do |diff|
               diff.is_a?(Canon::Diff::DiffNode) && diff.active?
             end
           when :inactive
             # Skip if no inactive diffs
-            !@differences.any? do |diff|
+            @differences.none? do |diff|
               diff.is_a?(Canon::Diff::DiffNode) && diff.inactive?
             end
           else
@@ -301,7 +301,7 @@ module Canon
           elements_with_diffs = Set.new
 
           # Build set of element pairs that have semantic diffs
-          elements_with_semantic_diffs = build_elements_with_semantic_diffs_set
+          build_elements_with_semantic_diffs_set
 
           # First pass: identify elements with line differences
           # (semantic filtering happens in collect_diff_sections)
@@ -390,7 +390,6 @@ module Canon
           children
         end
 
-
         # Collect diff sections with metadata
         def collect_diff_sections(matches, map1, map2, lines1, lines2,
                                    elements_to_skip, _children_of_matched_parents)
@@ -409,12 +408,13 @@ module Canon
 
               # Only apply semantic filtering if we have DiffNode objects
               # (when called standalone or without DiffNodes, show all diffs)
-              if !@differences.nil? && !@differences.empty? && @differences.any? { |d| d.is_a?(Canon::Diff::DiffNode) }
+              if !@differences.nil? && !@differences.empty? && @differences.any?(Canon::Diff::DiffNode)
                 # Skip if no semantic diffs exist (all diffs were normalized)
                 next if elements_with_semantic_diffs.empty?
 
                 # Skip if this element has no semantic diffs in its subtree
-                next unless has_semantic_diff_in_subtree?(match.elem1, elements_with_semantic_diffs)
+                next unless has_semantic_diff_in_subtree?(match.elem1,
+                                                          elements_with_semantic_diffs)
               end
 
               range1 = map1[match.elem1]
@@ -659,6 +659,7 @@ module Canon
 
           @differences.each do |diff|
             next unless diff.is_a?(Canon::Diff::DiffNode)
+
             elements.add(diff.node1) if diff.node1
             elements.add(diff.node2) if diff.node2
           end

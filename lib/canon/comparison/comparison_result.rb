@@ -5,14 +5,16 @@ module Canon
     # Encapsulates the result of a comparison operation
     # Provides methods to query equivalence based on active diffs
     class ComparisonResult
-      attr_reader :differences, :preprocessed_strings, :format, :html_version, :match_options
+      attr_reader :differences, :preprocessed_strings, :format, :html_version,
+                  :match_options
 
       # @param differences [Array<DiffNode>] Array of difference nodes
       # @param preprocessed_strings [Array<String, String>] Pre-processed content for display
       # @param format [Symbol] Format type (:xml, :html, :json, :yaml)
       # @param html_version [Symbol, nil] HTML version (:html4 or :html5) for HTML format only
       # @param match_options [Hash, nil] Resolved match options used for comparison
-      def initialize(differences:, preprocessed_strings:, format:, html_version: nil, match_options: nil)
+      def initialize(differences:, preprocessed_strings:, format:,
+html_version: nil, match_options: nil)
         @differences = differences
         @preprocessed_strings = preprocessed_strings
         @format = format

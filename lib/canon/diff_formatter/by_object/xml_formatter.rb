@@ -90,16 +90,24 @@ module Canon
             if node1 && node2
               text1 = extract_text(node1)
               text2 = extract_text(node2)
-              output << "#{prefix}├── - #{colorize(format_text_inline(text1), :red)}"
-              output << "#{prefix}└── + #{colorize(format_text_inline(text2), :green)}"
+              output << "#{prefix}├── - #{colorize(format_text_inline(text1),
+                                                   :red)}"
+              output << "#{prefix}└── + #{colorize(format_text_inline(text2),
+                                                   :green)}"
             else
-              output << "#{prefix}└── #{colorize("[#{diff_node.dimension}: #{diff_node.reason}]", :yellow)}"
+              output << "#{prefix}└── #{colorize(
+                "[#{diff_node.dimension}: #{diff_node.reason}]", :yellow
+              )}"
             end
           when :structural_whitespace, :attribute_whitespace, :attribute_values
-            output << "#{prefix}└── #{colorize("[#{diff_node.dimension}: #{diff_node.reason}]", :yellow)}"
+            output << "#{prefix}└── #{colorize(
+              "[#{diff_node.dimension}: #{diff_node.reason}]", :yellow
+            )}"
           else
             # Fallback
-            output << "#{prefix}└── #{colorize("[#{diff_node.dimension}: #{diff_node.reason}]", :cyan)}"
+            output << "#{prefix}└── #{colorize(
+              "[#{diff_node.dimension}: #{diff_node.reason}]", :cyan
+            )}"
           end
         end
 

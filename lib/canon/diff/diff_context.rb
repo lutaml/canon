@@ -10,7 +10,8 @@ module Canon
       attr_reader :start_idx, :end_idx, :blocks, :lines
       attr_accessor :active
 
-      def initialize(start_line: nil, end_line: nil, start_idx: nil, end_idx: nil, blocks: [], lines: [], active: nil)
+      def initialize(start_line: nil, end_line: nil, start_idx: nil,
+end_idx: nil, blocks: [], lines: [], active: nil)
         # Support both old (start_idx/end_idx) and new (start_line/end_line) signatures
         @start_idx = start_line || start_idx
         @end_idx = end_line || end_idx

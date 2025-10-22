@@ -71,20 +71,19 @@ module Canon
 
         # When verbose: true, result is a ComparisonResult object
         # Use the equivalent? method to check for active differences
-        result = if @comparison_result.is_a?(Canon::Comparison::ComparisonResult)
+        case @comparison_result
+        when Canon::Comparison::ComparisonResult
           @comparison_result.equivalent?
-        elsif @comparison_result.is_a?(Hash)
+        when Hash
           # Legacy format - Hash with :differences array and :preprocessed strings
           @comparison_result[:differences].empty?
-        elsif @comparison_result.is_a?(Array)
+        when Array
           # Legacy format - XML/JSON/YAML returns []
           @comparison_result.empty?
         else
           # Boolean result
           @comparison_result
         end
-
-        result
       end
 
       def failure_message
