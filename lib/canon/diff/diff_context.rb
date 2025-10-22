@@ -8,26 +8,26 @@ module Canon
     # A context is created by grouping nearby diff blocks and expanding with context lines
     class DiffContext
       attr_reader :start_idx, :end_idx, :blocks, :lines
-      attr_accessor :active
+      attr_accessor :normative
 
       def initialize(start_line: nil, end_line: nil, start_idx: nil,
-end_idx: nil, blocks: [], lines: [], active: nil)
+                     end_idx: nil, blocks: [], lines: [], normative: nil)
         # Support both old (start_idx/end_idx) and new (start_line/end_line) signatures
         @start_idx = start_line || start_idx
         @end_idx = end_line || end_idx
         @blocks = blocks
         @lines = lines
-        @active = active
+        @normative = normative
       end
 
-      # @return [Boolean] true if this context contains active diffs
-      def active?
-        @active == true
+      # @return [Boolean] true if this context contains normative diffs
+      def normative?
+        @normative == true
       end
 
-      # @return [Boolean] true if this context contains only inactive diffs
-      def inactive?
-        @active == false
+      # @return [Boolean] true if this context contains only informative diffs
+      def informative?
+        @normative == false
       end
 
       # Number of lines in this context (including context lines)

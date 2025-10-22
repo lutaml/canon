@@ -286,10 +286,10 @@ module Canon
         # @return [Array<Canon::Diff::DiffBlock>] Filtered array
         def filter_diff_blocks(blocks)
           case @show_diffs
-          when :active
-            blocks.select(&:active?)
-          when :inactive
-            blocks.select(&:inactive?)
+          when :normative
+            blocks.select(&:normative?)
+          when :informative
+            blocks.select(&:informative?)
           else # :all or nil
             blocks
           end
@@ -302,16 +302,16 @@ module Canon
         # @param marker [String] Diff marker (' ', '-', '+', '~')
         # @param content [String] Line content
         # @param color [Symbol, nil] Color for diff lines
-        # @param inactive [Boolean] Whether this is an inactive diff
+        # @param informative [Boolean] Whether this is an informative diff
         # @return [String] Formatted line
         def format_unified_line(old_num, new_num, marker, content, color = nil,
-inactive: false)
+                                informative: false)
           old_str = old_num ? "%4d" % old_num : "    "
           new_str = new_num ? "%4d" % new_num : "    "
           marker_part = "#{marker} "
 
-          # For inactive diffs, use cyan color
-          effective_color = inactive ? :cyan : color
+          # For informative diffs, use cyan color
+          effective_color = informative ? :cyan : color
 
           visualized_content = if effective_color
                                  apply_visualization(content, effective_color)
@@ -342,14 +342,14 @@ inactive: false)
         # @param new_line [Integer] Line number in new file
         # @param old_text [String] Old line text
         # @param new_text [String] New line text
-        # @param inactive [Boolean] Whether this is an inactive diff
+        # @param informative [Boolean] Whether this is an informative diff
         # @return [String] Formatted change
         def format_changed_line(old_line, new_line, old_text, new_text,
-inactive: false)
+                                informative: false)
           output = []
 
-          # For inactive diffs, use cyan color and ~ marker
-          if inactive
+          # For informative diffs, use cyan color and ~ marker
+          if informative
             old_marker = "~"
             new_marker = "~"
             old_color = :cyan

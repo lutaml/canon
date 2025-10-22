@@ -44,12 +44,12 @@ module Canon
           output = []
 
           # Header - handle both DiffNode and Hash
-          status = if diff.respond_to?(:active?)
-                     diff.active? ? "ACTIVE" : "INACTIVE"
+          status = if diff.respond_to?(:normative?)
+                     diff.normative? ? "NORMATIVE" : "INFORMATIVE"
                    else
-                     "ACTIVE" # Hash diffs are always active
+                     "NORMATIVE" # Hash diffs are always normative
                    end
-          status_color = status == "ACTIVE" ? :green : :yellow
+          status_color = status == "NORMATIVE" ? :green : :yellow
           output << colorize("🔍 DIFFERENCE ##{number}/#{total} [#{status}]",
                              status_color, use_color, bold: true)
           output << colorize("─" * 70, :cyan, use_color)
@@ -314,7 +314,7 @@ module Canon
           detail1 = "<#{element_name}> \"#{preview1}\""
           detail2 = "<#{element_name}> \"#{preview2}\""
 
-          changes = "Whitespace-only difference (inactive)"
+          changes = "Whitespace-only difference (informative)"
 
           [detail1, detail2, changes]
         end

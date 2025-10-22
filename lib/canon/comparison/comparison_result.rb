@@ -3,7 +3,7 @@
 module Canon
   module Comparison
     # Encapsulates the result of a comparison operation
-    # Provides methods to query equivalence based on active diffs
+    # Provides methods to query equivalence based on normative diffs
     class ComparisonResult
       attr_reader :differences, :preprocessed_strings, :format, :html_version,
                   :match_options
@@ -22,24 +22,24 @@ html_version: nil, match_options: nil)
         @match_options = match_options
       end
 
-      # Check if documents are semantically equivalent (no active diffs)
+      # Check if documents are semantically equivalent (no normative diffs)
       #
-      # @return [Boolean] true if no active differences present
+      # @return [Boolean] true if no normative differences present
       def equivalent?
-        !has_active_diffs?
+        !has_normative_diffs?
       end
 
-      # Check if there are any active (semantic) differences
-      # Includes both DiffNode objects marked as active AND legacy Hash differences
+      # Check if there are any normative (semantic) differences
+      # Includes both DiffNode objects marked as normative AND legacy Hash differences
       # (which represent structural differences like element name mismatches)
       #
-      # @return [Boolean] true if at least one active diff exists
-      def has_active_diffs?
+      # @return [Boolean] true if at least one normative diff exists
+      def has_normative_diffs?
         @differences.any? do |diff|
-          # DiffNode objects - check if marked active
+          # DiffNode objects - check if marked normative
           if diff.is_a?(Canon::Diff::DiffNode)
-            diff.active?
-          # Legacy Hash format - always considered active (structural differences)
+            diff.normative?
+          # Legacy Hash format - always considered normative (structural differences)
           elsif diff.is_a?(Hash)
             true
           else
@@ -48,30 +48,30 @@ html_version: nil, match_options: nil)
         end
       end
 
-      # Check if there are any inactive (textual-only) differences
+      # Check if there are any informative (textual-only) differences
       #
-      # @return [Boolean] true if at least one inactive diff exists
-      def has_inactive_diffs?
+      # @return [Boolean] true if at least one informative diff exists
+      def has_informative_diffs?
         @differences.any? do |diff|
-          diff.is_a?(Canon::Diff::DiffNode) && diff.inactive?
+          diff.is_a?(Canon::Diff::DiffNode) && diff.informative?
         end
       end
 
-      # Get all active differences
+      # Get all normative differences
       #
-      # @return [Array<DiffNode>] Active differences only
-      def active_differences
+      # @return [Array<DiffNode>] Normative differences only
+      def normative_differences
         @differences.select do |diff|
-          diff.is_a?(Canon::Diff::DiffNode) && diff.active?
+          diff.is_a?(Canon::Diff::DiffNode) && diff.normative?
         end
       end
 
-      # Get all inactive differences
+      # Get all informative differences
       #
-      # @return [Array<DiffNode>] Inactive differences only
-      def inactive_differences
+      # @return [Array<DiffNode>] Informative differences only
+      def informative_differences
         @differences.select do |diff|
-          diff.is_a?(Canon::Diff::DiffNode) && diff.inactive?
+          diff.is_a?(Canon::Diff::DiffNode) && diff.informative?
         end
       end
     end

@@ -5,12 +5,12 @@ require_relative "diff_block"
 module Canon
   module Diff
     # Builds DiffBlocks from DiffLines
-    # Handles grouping of contiguous changed lines and filtering by active/inactive
+    # Handles grouping of contiguous changed lines and filtering by normative/informative
     class DiffBlockBuilder
       # Build diff blocks from diff lines
       #
       # @param diff_lines [Array<DiffLine>] The diff lines to process
-      # @param show_diffs [Symbol] Filter setting (:active, :inactive, :all)
+      # @param show_diffs [Symbol] Filter setting (:normative, :informative, :all)
       # @return [Array<DiffBlock>] Filtered diff blocks
       def self.build_blocks(diff_lines, show_diffs: :all)
         new(diff_lines, show_diffs).build
@@ -82,9 +82,9 @@ module Canon
           diff_lines: diff_lines,
         )
 
-        # Determine if block is active
-        # A block is active if ANY of its lines are active
-        block.active = diff_lines.any?(&:active?)
+        # Determine if block is normative
+        # A block is normative if ANY of its lines are normative
+        block.normative = diff_lines.any?(&:normative?)
 
         block
       end
@@ -92,10 +92,10 @@ module Canon
       # Filter blocks based on show_diffs setting
       def filter_blocks(blocks)
         case @show_diffs
-        when :active
-          blocks.select(&:active?)
-        when :inactive
-          blocks.select(&:inactive?)
+        when :normative
+          blocks.select(&:normative?)
+        when :informative
+          blocks.select(&:informative?)
         else # :all
           blocks
         end

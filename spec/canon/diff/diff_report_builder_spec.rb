@@ -3,22 +3,22 @@
 require "spec_helper"
 
 RSpec.describe Canon::Diff::DiffReportBuilder do
-  let(:diff_node_active) do
+  let(:diff_node_normative) do
     Canon::Diff::DiffNode.new(
       node1: "old",
       node2: "new",
       dimension: :text_content,
       reason: "Text differs",
-    ).tap { |node| node.active = true }
+    ).tap { |node| node.normative = true }
   end
 
-  let(:diff_node_inactive) do
+  let(:diff_node_informative) do
     Canon::Diff::DiffNode.new(
       node1: "a='1' b='2'",
       node2: "b='2' a='1'",
       dimension: :attribute_order,
       reason: "Order differs",
-    ).tap { |node| node.active = false }
+    ).tap { |node| node.normative = false }
   end
 
   describe ".build" do
@@ -49,14 +49,14 @@ RSpec.describe Canon::Diff::DiffReportBuilder do
       end
     end
 
-    context "with active diff lines" do
+    context "with normative diff lines" do
       it "creates report with contexts" do
         diff_lines = Array.new(10) do |i|
           Canon::Diff::DiffLine.new(
             line_number: i,
             type: i == 5 ? :removed : :unchanged,
             content: "line #{i}",
-            diff_node: i == 5 ? diff_node_active : nil,
+            diff_node: i == 5 ? diff_node_normative : nil,
           )
         end
 
@@ -69,14 +69,14 @@ RSpec.describe Canon::Diff::DiffReportBuilder do
       end
     end
 
-    context "with show_diffs: :active" do
-      it "filters out inactive diffs" do
+    context "with show_diffs: :normative" do
+      it "filters out informative diffs" do
         diff_lines = Array.new(10) do |i|
           type = [3, 7].include?(i) ? :removed : :unchanged
           node = if i == 3
-                   diff_node_inactive
+                   diff_node_informative
                  elsif i == 7
-                   diff_node_active
+                   diff_node_normative
                  end
 
           Canon::Diff::DiffLine.new(
@@ -88,24 +88,24 @@ RSpec.describe Canon::Diff::DiffReportBuilder do
         end
 
         report = described_class.build(diff_lines,
-                                       show_diffs: :active,
+                                       show_diffs: :normative,
                                        context_lines: 1)
 
         expect(report.context_count).to eq(1)
         expect(report.block_count).to eq(1)
-        # Should only have the active block at line 7
+        # Should only have the normative block at line 7
         expect(report.contexts[0].blocks[0].start_idx).to eq(7)
       end
     end
 
-    context "with show_diffs: :inactive" do
-      it "filters out active diffs" do
+    context "with show_diffs: :informative" do
+      it "filters out normative diffs" do
         diff_lines = Array.new(10) do |i|
           type = [3, 7].include?(i) ? :removed : :unchanged
           node = if i == 3
-                   diff_node_inactive
+                   diff_node_informative
                  elsif i == 7
-                   diff_node_active
+                   diff_node_normative
                  end
 
           Canon::Diff::DiffLine.new(
@@ -117,12 +117,12 @@ RSpec.describe Canon::Diff::DiffReportBuilder do
         end
 
         report = described_class.build(diff_lines,
-                                       show_diffs: :inactive,
+                                       show_diffs: :informative,
                                        context_lines: 1)
 
         expect(report.context_count).to eq(1)
         expect(report.block_count).to eq(1)
-        # Should only have the inactive block at line 3
+        # Should only have the informative block at line 3
         expect(report.contexts[0].blocks[0].start_idx).to eq(3)
       end
     end
@@ -132,9 +132,9 @@ RSpec.describe Canon::Diff::DiffReportBuilder do
         diff_lines = Array.new(10) do |i|
           type = [3, 7].include?(i) ? :removed : :unchanged
           node = if i == 3
-                   diff_node_inactive
+                   diff_node_informative
                  elsif i == 7
-                   diff_node_active
+                   diff_node_normative
                  end
 
           Canon::Diff::DiffLine.new(
@@ -159,7 +159,7 @@ RSpec.describe Canon::Diff::DiffReportBuilder do
       it "groups nearby contexts" do
         diff_lines = Array.new(20) do |i|
           type = [5, 8].include?(i) ? :removed : :unchanged
-          node = [5, 8].include?(i) ? diff_node_active : nil
+          node = [5, 8].include?(i) ? diff_node_normative : nil
 
           Canon::Diff::DiffLine.new(
             line_number: i,
@@ -187,7 +187,7 @@ RSpec.describe Canon::Diff::DiffReportBuilder do
             line_number: 0,
             type: :removed,
             content: "old",
-            diff_node: diff_node_active,
+            diff_node: diff_node_normative,
           ),
         ]
 
@@ -209,7 +209,7 @@ RSpec.describe Canon::Diff::DiffReportBuilder do
         # Create a realistic scenario with multiple blocks
         diff_lines = Array.new(30) do |i|
           type = [5, 8, 20].include?(i) ? :removed : :unchanged
-          node = [5, 8, 20].include?(i) ? diff_node_active : nil
+          node = [5, 8, 20].include?(i) ? diff_node_normative : nil
 
           Canon::Diff::DiffLine.new(
             line_number: i,
@@ -221,7 +221,7 @@ RSpec.describe Canon::Diff::DiffReportBuilder do
 
         report = described_class.build(
           diff_lines,
-          show_diffs: :active,
+          show_diffs: :normative,
           context_lines: 2,
           grouping_lines: 5,
         )
@@ -244,14 +244,14 @@ RSpec.describe Canon::Diff::DiffReportBuilder do
       end
     end
 
-    context "with mixed active/inactive blocks and filtering" do
-      it "maintains correct active/inactive state through pipeline" do
+    context "with mixed normative/informative blocks and filtering" do
+      it "maintains correct normative/informative state through pipeline" do
         diff_lines = Array.new(20) do |i|
           type = [5, 10, 15].include?(i) ? :removed : :unchanged
           node = case i
-                 when 5  then diff_node_active
-                 when 10 then diff_node_inactive
-                 when 15 then diff_node_active
+                 when 5  then diff_node_normative
+                 when 10 then diff_node_informative
+                 when 15 then diff_node_normative
                  end
 
           Canon::Diff::DiffLine.new(
@@ -262,16 +262,16 @@ RSpec.describe Canon::Diff::DiffReportBuilder do
           )
         end
 
-        # Build with show_diffs: :active
-        active_report = described_class.build(
+        # Build with show_diffs: :normative
+        normative_report = described_class.build(
           diff_lines,
-          show_diffs: :active,
+          show_diffs: :normative,
           context_lines: 1,
         )
 
         # Should only have 2 contexts (at 5 and 15)
-        expect(active_report.context_count).to eq(2)
-        expect(active_report.block_count).to eq(2)
+        expect(normative_report.context_count).to eq(2)
+        expect(normative_report.block_count).to eq(2)
 
         # Build with show_diffs: :all
         all_report = described_class.build(
@@ -286,17 +286,17 @@ RSpec.describe Canon::Diff::DiffReportBuilder do
       end
     end
 
-    context "regression: Issue 1 - inactive diffs filtering" do
-      it "filters out all-inactive contexts when show_diffs: :active" do
+    context "regression: Issue 1 - informative diffs filtering" do
+      it "filters out all-informative contexts when show_diffs: :normative" do
         # Simulate the scenario from Issue 1
         diff_lines = Array.new(100) do |i|
-          # Lines 10-50 are inactive diffs
-          # Lines 60-65 are active diffs
+          # Lines 10-50 are informative diffs
+          # Lines 60-65 are normative diffs
           type = (10..50).cover?(i) || (60..65).cover?(i) ? :removed : :unchanged
           node = if (10..50).cover?(i)
-                   diff_node_inactive
+                   diff_node_informative
                  elsif (60..65).cover?(i)
-                   diff_node_active
+                   diff_node_normative
                  end
 
           Canon::Diff::DiffLine.new(
@@ -309,26 +309,26 @@ RSpec.describe Canon::Diff::DiffReportBuilder do
 
         report = described_class.build(
           diff_lines,
-          show_diffs: :active,
+          show_diffs: :normative,
           context_lines: 3,
         )
 
-        # Should only have 1 context (the active one at 60-65)
+        # Should only have 1 context (the normative one at 60-65)
         expect(report.context_count).to eq(1)
-        expect(report.contexts[0]).to be_active
+        expect(report.contexts[0]).to be_normative
 
-        # Verify no inactive diffs are in the report
+        # Verify no informative diffs are in the report
         report.contexts.each do |context|
-          expect(context).not_to be_inactive
+          expect(context).not_to be_informative
         end
       end
     end
 
     context "regression: Issue 2 - empty diff output" do
-      it "returns empty report when only inactive diffs exist with show_diffs: :active" do
+      it "returns empty report when only informative diffs exist with show_diffs: :normative" do
         diff_lines = Array.new(20) do |i|
           type = (5..15).cover?(i) ? :removed : :unchanged
-          node = (5..15).cover?(i) ? diff_node_inactive : nil
+          node = (5..15).cover?(i) ? diff_node_informative : nil
 
           Canon::Diff::DiffLine.new(
             line_number: i,
@@ -340,10 +340,10 @@ RSpec.describe Canon::Diff::DiffReportBuilder do
 
         report = described_class.build(
           diff_lines,
-          show_diffs: :active,
+          show_diffs: :normative,
         )
 
-        # Should be empty (no active diffs)
+        # Should be empty (no normative diffs)
         expect(report.contexts).to be_empty
         expect(report).not_to have_differences
         expect(report.context_count).to eq(0)

@@ -6,7 +6,7 @@ module Canon
     # A diff block is a run of consecutive change lines (-, +, !)
     class DiffBlock
       attr_reader :start_idx, :end_idx, :types, :diff_lines, :diff_node
-      attr_accessor :active
+      attr_accessor :normative
 
       def initialize(start_idx:, end_idx:, types: [], diff_lines: [],
 diff_node: nil)
@@ -15,7 +15,7 @@ diff_node: nil)
         @types = types
         @diff_lines = diff_lines
         @diff_node = diff_node
-        @active = nil
+        @normative = nil
       end
 
       # Number of lines in this block
@@ -23,23 +23,23 @@ diff_node: nil)
         end_idx - start_idx + 1
       end
 
-      # @return [Boolean] true if this block represents a semantic difference
-      def active?
-        return @active unless @active.nil?
+      # @return [Boolean] true if this block represents a normative difference
+      def normative?
+        return @normative unless @normative.nil?
 
-        # If we have a diff_node, use its active status
-        return diff_node.active? if diff_node
+        # If we have a diff_node, use its normative status
+        return diff_node.normative? if diff_node
 
-        # If we have diff_lines, check if any are active
-        return diff_lines.any?(&:active?) if diff_lines&.any?
+        # If we have diff_lines, check if any are normative
+        return diff_lines.any?(&:normative?) if diff_lines&.any?
 
-        # Default to true (treat as active if we can't determine)
+        # Default to true (treat as normative if we can't determine)
         true
       end
 
-      # @return [Boolean] true if this block represents a textual-only difference
-      def inactive?
-        !active?
+      # @return [Boolean] true if this block represents an informative-only difference
+      def informative?
+        !normative?
       end
 
       # Check if this block contains a specific type of change
@@ -54,7 +54,7 @@ diff_node: nil)
           types: types,
           diff_lines: diff_lines.map(&:to_h),
           diff_node: diff_node&.to_h,
-          active: active?,
+          normative: normative?,
         }
       end
 

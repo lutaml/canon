@@ -4,10 +4,10 @@ module Canon
   module Diff
     # Represents a semantic difference between two nodes in a comparison tree
     # This is created during the Comparison Layer and carries information about
-    # which dimension caused the difference and whether it's active or inactive
+    # which dimension caused the difference and whether it's normative or informative
     class DiffNode
       attr_reader :node1, :node2, :dimension, :reason
-      attr_accessor :active
+      attr_accessor :normative
 
       # @param node1 [Object] The first node being compared
       # @param node2 [Object] The second node being compared
@@ -20,17 +20,17 @@ module Canon
         @node2 = node2
         @dimension = dimension
         @reason = reason
-        @active = nil # Will be set by DiffClassifier
+        @normative = nil # Will be set by DiffClassifier
       end
 
-      # @return [Boolean] true if this diff is semantically meaningful
-      def active?
-        @active == true
+      # @return [Boolean] true if this diff is normative (affects equivalence)
+      def normative?
+        @normative == true
       end
 
-      # @return [Boolean] true if this diff is textual-only
-      def inactive?
-        @active == false
+      # @return [Boolean] true if this diff is informative only (doesn't affect equivalence)
+      def informative?
+        @normative == false
       end
 
       def to_h
@@ -39,7 +39,7 @@ module Canon
           node2: node2,
           dimension: dimension,
           reason: reason,
-          active: active,
+          normative: normative,
         }
       end
 
@@ -49,7 +49,7 @@ module Canon
           node2 == other.node2 &&
           dimension == other.dimension &&
           reason == other.reason &&
-          active == other.active
+          normative == other.normative
       end
     end
   end

@@ -3,22 +3,22 @@
 require "spec_helper"
 
 RSpec.describe Canon::Diff::DiffBlockBuilder do
-  let(:diff_node_active) do
+  let(:diff_node_normative) do
     Canon::Diff::DiffNode.new(
       node1: "old text",
       node2: "new text",
       dimension: :text_content,
       reason: "Text content differs",
-    ).tap { |node| node.active = true }
+    ).tap { |node| node.normative = true }
   end
 
-  let(:diff_node_inactive) do
+  let(:diff_node_informative) do
     Canon::Diff::DiffNode.new(
       node1: "<div a='1' b='2'>",
       node2: "<div b='2' a='1'>",
       dimension: :attribute_order,
       reason: "Attribute order differs",
-    ).tap { |node| node.active = false }
+    ).tap { |node| node.normative = false }
   end
 
   describe ".build_blocks" do
@@ -28,11 +28,11 @@ RSpec.describe Canon::Diff::DiffBlockBuilder do
           Canon::Diff::DiffLine.new(line_number: 0, type: :unchanged,
                                     content: "line 1"),
           Canon::Diff::DiffLine.new(line_number: 1, type: :removed,
-                                    content: "old line 2", diff_node: diff_node_active),
+                                    content: "old line 2", diff_node: diff_node_normative),
           Canon::Diff::DiffLine.new(line_number: 2, type: :added,
-                                    content: "new line 2", diff_node: diff_node_active),
+                                    content: "new line 2", diff_node: diff_node_normative),
           Canon::Diff::DiffLine.new(line_number: 3, type: :removed,
-                                    content: "old line 3", diff_node: diff_node_active),
+                                    content: "old line 3", diff_node: diff_node_normative),
           Canon::Diff::DiffLine.new(line_number: 4, type: :unchanged,
                                     content: "line 4"),
         ]
@@ -50,13 +50,13 @@ RSpec.describe Canon::Diff::DiffBlockBuilder do
       it "creates separate blocks" do
         diff_lines = [
           Canon::Diff::DiffLine.new(line_number: 0, type: :removed,
-                                    content: "old line 1", diff_node: diff_node_active),
+                                    content: "old line 1", diff_node: diff_node_normative),
           Canon::Diff::DiffLine.new(line_number: 1, type: :unchanged,
                                     content: "line 2"),
           Canon::Diff::DiffLine.new(line_number: 2, type: :unchanged,
                                     content: "line 3"),
           Canon::Diff::DiffLine.new(line_number: 3, type: :added,
-                                    content: "new line 4", diff_node: diff_node_active),
+                                    content: "new line 4", diff_node: diff_node_normative),
           Canon::Diff::DiffLine.new(line_number: 4, type: :unchanged,
                                     content: "line 5"),
         ]
@@ -92,9 +92,9 @@ RSpec.describe Canon::Diff::DiffBlockBuilder do
       it "sets types based on contained line types" do
         diff_lines = [
           Canon::Diff::DiffLine.new(line_number: 0, type: :removed,
-                                    content: "old", diff_node: diff_node_active),
+                                    content: "old", diff_node: diff_node_normative),
           Canon::Diff::DiffLine.new(line_number: 1, type: :added,
-                                    content: "new", diff_node: diff_node_active),
+                                    content: "new", diff_node: diff_node_normative),
         ]
 
         blocks = described_class.build_blocks(diff_lines)
@@ -105,7 +105,7 @@ RSpec.describe Canon::Diff::DiffBlockBuilder do
       it "handles changed type" do
         diff_lines = [
           Canon::Diff::DiffLine.new(line_number: 0, type: :changed,
-                                    content: "modified", diff_node: diff_node_active),
+                                    content: "modified", diff_node: diff_node_normative),
         ]
 
         blocks = described_class.build_blocks(diff_lines)
@@ -115,142 +115,146 @@ RSpec.describe Canon::Diff::DiffBlockBuilder do
     end
   end
 
-  describe "active/inactive determination" do
-    context "with all active diff lines" do
-      it "marks block as active" do
+  describe "normative/informative determination" do
+    context "with all normative diff lines" do
+      it "marks block as normative" do
         diff_lines = [
           Canon::Diff::DiffLine.new(
             line_number: 0,
             type: :removed,
             content: "old",
-            diff_node: diff_node_active,
+            diff_node: diff_node_normative,
           ),
           Canon::Diff::DiffLine.new(
             line_number: 1,
             type: :added,
             content: "new",
-            diff_node: diff_node_active,
+            diff_node: diff_node_normative,
           ),
         ]
 
         blocks = described_class.build_blocks(diff_lines)
 
-        expect(blocks[0]).to be_active
-        expect(blocks[0]).not_to be_inactive
+        expect(blocks[0]).to be_normative
+        expect(blocks[0]).not_to be_informative
       end
     end
 
-    context "with all inactive diff lines" do
-      it "marks block as inactive" do
+    context "with all informative diff lines" do
+      it "marks block as informative" do
         diff_lines = [
           Canon::Diff::DiffLine.new(
             line_number: 0,
             type: :removed,
             content: "old",
-            diff_node: diff_node_inactive,
+            diff_node: diff_node_informative,
           ),
           Canon::Diff::DiffLine.new(
             line_number: 1,
             type: :added,
             content: "new",
-            diff_node: diff_node_inactive,
+            diff_node: diff_node_informative,
           ),
         ]
 
         blocks = described_class.build_blocks(diff_lines)
 
-        expect(blocks[0]).to be_inactive
-        expect(blocks[0]).not_to be_active
+        expect(blocks[0]).to be_informative
+        expect(blocks[0]).not_to be_normative
       end
     end
 
-    context "with mixed active and inactive diff lines" do
-      it "marks block as active if ANY line is active" do
+    context "with mixed normative and informative diff lines" do
+      it "marks block as normative if ANY line is normative" do
         diff_lines = [
           Canon::Diff::DiffLine.new(
             line_number: 0,
             type: :removed,
             content: "old",
-            diff_node: diff_node_inactive,
+            diff_node: diff_node_informative,
           ),
           Canon::Diff::DiffLine.new(
             line_number: 1,
             type: :added,
             content: "new",
-            diff_node: diff_node_active,
+            diff_node: diff_node_normative,
           ),
         ]
 
         blocks = described_class.build_blocks(diff_lines)
 
-        expect(blocks[0]).to be_active
-        expect(blocks[0]).not_to be_inactive
+        expect(blocks[0]).to be_normative
+        expect(blocks[0]).not_to be_informative
       end
     end
   end
 
   describe "filtering by show_diffs" do
-    let(:active_line) do
+    let(:normative_line) do
       Canon::Diff::DiffLine.new(
         line_number: 0,
         type: :removed,
-        content: "active",
-        diff_node: diff_node_active,
+        content: "normative",
+        diff_node: diff_node_normative,
       )
     end
 
-    let(:inactive_line) do
+    let(:innormative_line) do
       Canon::Diff::DiffLine.new(
         line_number: 1,
         type: :removed,
-        content: "inactive",
-        diff_node: diff_node_inactive,
+        content: "informative",
+        diff_node: diff_node_informative,
       )
     end
 
-    context "with show_diffs: :active" do
-      it "returns only active blocks" do
+    context "with show_diffs: :normative" do
+      it "returns only normative blocks" do
         diff_lines = [
-          active_line,
+          normative_line,
           Canon::Diff::DiffLine.new(line_number: 2, type: :unchanged,
                                     content: "unchanged"),
-          inactive_line,
+          innormative_line,
         ]
 
-        blocks = described_class.build_blocks(diff_lines, show_diffs: :active)
+        blocks = described_class.build_blocks(diff_lines,
+                                              show_diffs: :normative)
 
         expect(blocks.length).to eq(1)
-        expect(blocks[0]).to be_active
+        expect(blocks[0]).to be_normative
       end
 
-      it "filters out inactive blocks" do
-        diff_lines = [inactive_line]
+      it "filters out informative blocks" do
+        diff_lines = [innormative_line]
 
-        blocks = described_class.build_blocks(diff_lines, show_diffs: :active)
+        blocks = described_class.build_blocks(diff_lines,
+                                              show_diffs: :normative)
 
         expect(blocks).to be_empty
       end
     end
 
-    context "with show_diffs: :inactive" do
-      it "returns only inactive blocks" do
+    context "with show_diffs: :informative" do
+      it "returns only informative blocks" do
         diff_lines = [
-          active_line,
+          normative_line,
           Canon::Diff::DiffLine.new(line_number: 2, type: :unchanged,
                                     content: "unchanged"),
-          inactive_line,
+          innormative_line,
         ]
 
-        blocks = described_class.build_blocks(diff_lines, show_diffs: :inactive)
+        blocks = described_class.build_blocks(diff_lines,
+                                              show_diffs: :informative)
 
         expect(blocks.length).to eq(1)
-        expect(blocks[0]).to be_inactive
+        expect(blocks[0]).to be_informative
       end
 
-      it "filters out active blocks" do
-        diff_lines = [active_line]
+      it "filters out normative blocks" do
+        diff_lines = [normative_line]
 
-        blocks = described_class.build_blocks(diff_lines, show_diffs: :inactive)
+        blocks = described_class.build_blocks(diff_lines,
+                                              show_diffs: :informative)
 
         expect(blocks).to be_empty
       end
@@ -259,27 +263,27 @@ RSpec.describe Canon::Diff::DiffBlockBuilder do
     context "with show_diffs: :all" do
       it "returns all blocks" do
         diff_lines = [
-          active_line,
+          normative_line,
           Canon::Diff::DiffLine.new(line_number: 2, type: :unchanged,
                                     content: "unchanged"),
-          inactive_line,
+          innormative_line,
         ]
 
         blocks = described_class.build_blocks(diff_lines, show_diffs: :all)
 
         expect(blocks.length).to eq(2)
-        expect(blocks[0]).to be_active
-        expect(blocks[1]).to be_inactive
+        expect(blocks[0]).to be_normative
+        expect(blocks[1]).to be_informative
       end
     end
 
     context "with default (no show_diffs specified)" do
       it "returns all blocks" do
         diff_lines = [
-          active_line,
+          normative_line,
           Canon::Diff::DiffLine.new(line_number: 2, type: :unchanged,
                                     content: "unchanged"),
-          inactive_line,
+          innormative_line,
         ]
 
         blocks = described_class.build_blocks(diff_lines)
@@ -305,7 +309,7 @@ RSpec.describe Canon::Diff::DiffBlockBuilder do
             line_number: 0,
             type: :removed,
             content: "only line",
-            diff_node: diff_node_active,
+            diff_node: diff_node_normative,
           ),
         ]
 
@@ -329,7 +333,7 @@ RSpec.describe Canon::Diff::DiffBlockBuilder do
             line_number: 2,
             type: :removed,
             content: "last line",
-            diff_node: diff_node_active,
+            diff_node: diff_node_normative,
           ),
         ]
 
@@ -348,7 +352,7 @@ RSpec.describe Canon::Diff::DiffBlockBuilder do
             line_number: 0,
             type: :removed,
             content: "first line",
-            diff_node: diff_node_active,
+            diff_node: diff_node_normative,
           ),
           Canon::Diff::DiffLine.new(line_number: 1, type: :unchanged,
                                     content: "line 2"),
@@ -366,11 +370,11 @@ RSpec.describe Canon::Diff::DiffBlockBuilder do
       it "creates one big block" do
         diff_lines = [
           Canon::Diff::DiffLine.new(line_number: 0, type: :removed,
-                                    content: "line 1", diff_node: diff_node_active),
+                                    content: "line 1", diff_node: diff_node_normative),
           Canon::Diff::DiffLine.new(line_number: 1, type: :added,
-                                    content: "line 2", diff_node: diff_node_active),
+                                    content: "line 2", diff_node: diff_node_normative),
           Canon::Diff::DiffLine.new(line_number: 2, type: :changed,
-                                    content: "line 3", diff_node: diff_node_active),
+                                    content: "line 3", diff_node: diff_node_normative),
         ]
 
         blocks = described_class.build_blocks(diff_lines)
@@ -386,15 +390,15 @@ RSpec.describe Canon::Diff::DiffBlockBuilder do
       it "creates multiple blocks" do
         diff_lines = [
           Canon::Diff::DiffLine.new(line_number: 0, type: :removed,
-                                    content: "line 1", diff_node: diff_node_active),
+                                    content: "line 1", diff_node: diff_node_normative),
           Canon::Diff::DiffLine.new(line_number: 1, type: :unchanged,
                                     content: "line 2"),
           Canon::Diff::DiffLine.new(line_number: 2, type: :removed,
-                                    content: "line 3", diff_node: diff_node_active),
+                                    content: "line 3", diff_node: diff_node_normative),
           Canon::Diff::DiffLine.new(line_number: 3, type: :unchanged,
                                     content: "line 4"),
           Canon::Diff::DiffLine.new(line_number: 4, type: :removed,
-                                    content: "line 5", diff_node: diff_node_active),
+                                    content: "line 5", diff_node: diff_node_normative),
         ]
 
         blocks = described_class.build_blocks(diff_lines)
@@ -408,34 +412,34 @@ RSpec.describe Canon::Diff::DiffBlockBuilder do
   end
 
   describe "complex scenarios" do
-    context "with mixed active/inactive blocks" do
+    context "with mixed normative/informative blocks" do
       it "correctly filters and preserves block identity" do
         diff_lines = [
           Canon::Diff::DiffLine.new(line_number: 0, type: :removed,
-                                    content: "active 1", diff_node: diff_node_active),
+                                    content: "normative 1", diff_node: diff_node_normative),
           Canon::Diff::DiffLine.new(line_number: 1, type: :unchanged,
                                     content: "unchanged"),
           Canon::Diff::DiffLine.new(line_number: 2, type: :removed,
-                                    content: "inactive 1", diff_node: diff_node_inactive),
+                                    content: "informative 1", diff_node: diff_node_informative),
           Canon::Diff::DiffLine.new(line_number: 3, type: :unchanged,
                                     content: "unchanged"),
           Canon::Diff::DiffLine.new(line_number: 4, type: :removed,
-                                    content: "active 2", diff_node: diff_node_active),
+                                    content: "normative 2", diff_node: diff_node_normative),
         ]
 
         all_blocks = described_class.build_blocks(diff_lines, show_diffs: :all)
-        active_blocks = described_class.build_blocks(diff_lines,
-                                                     show_diffs: :active)
-        inactive_blocks = described_class.build_blocks(diff_lines,
-                                                       show_diffs: :inactive)
+        normative_blocks = described_class.build_blocks(diff_lines,
+                                                        show_diffs: :normative)
+        innormative_blocks = described_class.build_blocks(diff_lines,
+                                                          show_diffs: :informative)
 
         expect(all_blocks.length).to eq(3)
-        expect(active_blocks.length).to eq(2)
-        expect(inactive_blocks.length).to eq(1)
+        expect(normative_blocks.length).to eq(2)
+        expect(innormative_blocks.length).to eq(1)
 
-        expect(active_blocks[0].start_idx).to eq(0)
-        expect(active_blocks[1].start_idx).to eq(4)
-        expect(inactive_blocks[0].start_idx).to eq(2)
+        expect(normative_blocks[0].start_idx).to eq(0)
+        expect(normative_blocks[1].start_idx).to eq(4)
+        expect(innormative_blocks[0].start_idx).to eq(2)
       end
     end
 
@@ -443,11 +447,11 @@ RSpec.describe Canon::Diff::DiffBlockBuilder do
       it "includes all types in the block" do
         diff_lines = [
           Canon::Diff::DiffLine.new(line_number: 0, type: :removed,
-                                    content: "old", diff_node: diff_node_active),
+                                    content: "old", diff_node: diff_node_normative),
           Canon::Diff::DiffLine.new(line_number: 1, type: :added,
-                                    content: "new", diff_node: diff_node_active),
+                                    content: "new", diff_node: diff_node_normative),
           Canon::Diff::DiffLine.new(line_number: 2, type: :changed,
-                                    content: "mod", diff_node: diff_node_active),
+                                    content: "mod", diff_node: diff_node_normative),
         ]
 
         blocks = described_class.build_blocks(diff_lines)
@@ -463,7 +467,7 @@ RSpec.describe Canon::Diff::DiffBlockBuilder do
             line_number: i,
             type: :removed,
             content: "line #{i}",
-            diff_node: diff_node_active,
+            diff_node: diff_node_normative,
           )
         end
 
