@@ -38,49 +38,54 @@ module Canon
 
         # Format a single difference with dimension-specific details
         def format_single_diff(diff, number, total, use_color)
-          output = []
+          begin
+            output = []
 
-          # Header - handle both DiffNode and Hash
-          status = if diff.respond_to?(:active?)
-                     diff.active? ? "ACTIVE" : "INACTIVE"
-                   else
-                     "ACTIVE"  # Hash diffs are always active
-                   end
-          status_color = status == "ACTIVE" ? :green : :yellow
-          output << colorize("🔍 DIFFERENCE ##{number}/#{total} [#{status}]", status_color, use_color, bold: true)
-          output << colorize("─" * 70, :cyan, use_color)
+            # Header - handle both DiffNode and Hash
+            status = if diff.respond_to?(:active?)
+                       diff.active? ? "ACTIVE" : "INACTIVE"
+                     else
+                       "ACTIVE"  # Hash diffs are always active
+                     end
+            status_color = status == "ACTIVE" ? :green : :yellow
+            output << colorize("🔍 DIFFERENCE ##{number}/#{total} [#{status}]", status_color, use_color, bold: true)
+            output << colorize("─" * 70, :cyan, use_color)
 
-          # Dimension - handle both DiffNode and Hash
-          dimension = if diff.respond_to?(:dimension)
-                        diff.dimension
-                      elsif diff.is_a?(Hash)
-                        diff[:diff_code] || diff[:dimension] || "unknown"
-                      else
-                        "unknown"
-                      end
-          output << "#{colorize('Dimension:', :cyan, use_color, bold: true)} #{colorize(dimension.to_s, :magenta, use_color)}"
+            # Dimension - handle both DiffNode and Hash
+            dimension = if diff.respond_to?(:dimension)
+                          diff.dimension
+                        elsif diff.is_a?(Hash)
+                          diff[:diff_code] || diff[:dimension] || "unknown"
+                        else
+                          "unknown"
+                        end
+            output << "#{colorize('Dimension:', :cyan, use_color, bold: true)} #{colorize(dimension.to_s, :magenta, use_color)}"
 
-          # Location (XPath for XML/HTML, Path for JSON/YAML)
-          location = extract_location(diff)
-          output << "#{colorize('Location:', :cyan, use_color, bold: true)}  #{colorize(location, :blue, use_color)}"
-          output << ""
-
-          # Dimension-specific details
-          detail1, detail2, changes = format_dimension_details(diff, use_color)
-
-          output << colorize("⊖ Expected (File 1):", :red, use_color, bold: true)
-          output << "   #{detail1}"
-          output << ""
-          output << colorize("⊕ Actual (File 2):", :green, use_color, bold: true)
-          output << "   #{detail2}"
-
-          if changes && !changes.empty?
+            # Location (XPath for XML/HTML, Path for JSON/YAML)
+            location = extract_location(diff)
+            output << "#{colorize('Location:', :cyan, use_color, bold: true)}  #{colorize(location, :blue, use_color)}"
             output << ""
-            output << colorize("✨ Changes:", :yellow, use_color, bold: true)
-            output << "   #{changes}"
-          end
 
-          output.join("\n")
+            # Dimension-specific details
+            detail1, detail2, changes = format_dimension_details(diff, use_color)
+
+            output << colorize("⊖ Expected (File 1):", :red, use_color, bold: true)
+            output << "   #{detail1}"
+            output << ""
+            output << colorize("⊕ Actual (File 2):", :green, use_color, bold: true)
+            output << "   #{detail2}"
+
+            if changes && !changes.empty?
+              output << ""
+              output << colorize("✨ Changes:", :yellow, use_color, bold: true)
+              output << "   #{changes}"
+            end
+
+            output.join("\n")
+          rescue StandardError => e
+            # Safe fallback if formatting fails
+            colorize("🔍 DIFFERENCE ##{number}/#{total} [Error formatting: #{e.message}]", :red, use_color, bold: true)
+          end
         end
 
         # Extract XPath or JSON path for the difference location
@@ -110,27 +115,46 @@ module Canon
         def extract_xpath(node)
           return "/" if node.nil?
 
+          # Document nodes don't have meaningful XPaths
+          if node.is_a?(Nokogiri::XML::Document) ||
+             node.is_a?(Nokogiri::HTML::Document) ||
+             node.is_a?(Nokogiri::HTML4::Document) ||
+             node.is_a?(Nokogiri::HTML5::Document)
+            return "/"
+          end
+
           parts = []
           current = node
-          max_depth = 100  # Safety limit to prevent infinite loops
+          max_depth = 100
           depth = 0
 
-          while current.respond_to?(:name) && current.name && depth < max_depth
-            # Build XPath component
-            part = current.name
+          begin
+            while current.respond_to?(:name) && current.name && depth < max_depth
+              # Stop at document-level nodes
+              break if current.name == "document" || current.name == "#document"
+              break if current.is_a?(Nokogiri::XML::Document) ||
+                       current.is_a?(Nokogiri::HTML::Document)
 
-            # Stop at document-level nodes
-            break if current.name == "document" || current.name == "#document"
+              parts.unshift(current.name)
 
-            parts.unshift(part)
+              # Move to parent safely
+              break unless current.respond_to?(:parent)
 
-            # Move to parent
-            break unless current.respond_to?(:parent)
-            parent = current.parent
-            break unless parent && parent != current  # Prevent circular refs
+              parent = begin
+                current.parent
+              rescue StandardError
+                nil
+              end
 
-            current = parent
-            depth += 1
+              break unless parent
+              break if parent == current
+
+              current = parent
+              depth += 1
+            end
+          rescue StandardError
+            # If any error, return what we have
+            return "/" + parts.join("/")
           end
 
           "/" + parts.join("/")
@@ -243,7 +267,13 @@ module Canon
           detail1 = "<#{element_name}> \"#{escape_quotes(preview1)}\""
           detail2 = "<#{element_name}> \"#{escape_quotes(preview2)}\""
 
-          changes = "Text content changed"
+          # Check if inside whitespace-preserving element
+          changes = if inside_preserve_element?(node1) || inside_preserve_element?(node2)
+                      colorize("⚠️  Whitespace preserved", :yellow, use_color, bold: true) +
+                        " (inside <pre>, <code>, etc. - whitespace is significant)"
+                    else
+                      "Text content changed"
+                    end
 
           [detail1, detail2, changes]
         end
@@ -407,6 +437,57 @@ module Canon
         # Helper: Escape quotes in text
         def escape_quotes(text)
           text.gsub('"', '\\"')
+        end
+
+        # Helper: Check if node is inside a whitespace-preserving element
+        def inside_preserve_element?(node)
+          return false if node.nil?
+
+          # Document nodes and certain node types don't have meaningful parents
+          return false if node.is_a?(Nokogiri::XML::Document) ||
+                          node.is_a?(Nokogiri::HTML::Document) ||
+                          node.is_a?(Nokogiri::HTML4::Document) ||
+                          node.is_a?(Nokogiri::HTML5::Document) ||
+                          node.is_a?(Nokogiri::XML::DocumentFragment)
+
+          preserve_elements = %w[pre code textarea script style]
+
+          # Safely traverse parents with error handling
+          begin
+            current = node
+            max_depth = 50
+            depth = 0
+
+            while current && depth < max_depth
+              # Stop if we hit a document
+              break if current.is_a?(Nokogiri::XML::Document) ||
+                       current.is_a?(Nokogiri::HTML::Document)
+
+              # Check current node's parent
+              break unless current.respond_to?(:parent)
+
+              parent = begin
+                current.parent
+              rescue StandardError
+                nil
+              end
+
+              break unless parent
+              break if parent == current
+
+              if parent.respond_to?(:name) && preserve_elements.include?(parent.name.to_s.downcase)
+                return true
+              end
+
+              current = parent
+              depth += 1
+            end
+          rescue StandardError
+            # If any error occurs during traversal, safely return false
+            return false
+          end
+
+          false
         end
 
         # Helper: Format node briefly

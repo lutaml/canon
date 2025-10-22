@@ -239,18 +239,35 @@ module Canon
       # Detect format from expected content
       format = Canon::Comparison.send(:detect_format, expected)
 
-      # Output verbose diff info if enabled
-      debug_output = DebugOutput.debug_info(
+      formatter_options = {
+        use_color: @use_color,
+        mode: @mode,
+        context_lines: @context_lines,
+        diff_grouping_lines: @diff_grouping_lines,
+        show_diffs: @show_diffs,
+        verbose_diff: @verbose_diff,
+      }
+
+      output = []
+
+      # 1. CANON VERBOSE tables (ONLY if CANON_VERBOSE=1)
+      verbose_tables = DebugOutput.verbose_tables_only(
         comparison_result,
-        {
-          use_color: @use_color,
-          mode: @mode,
-          context_lines: @context_lines,
-          diff_grouping_lines: @diff_grouping_lines,
-          show_diffs: @show_diffs,
-          verbose_diff: @verbose_diff,
-        }
+        formatter_options,
       )
+      output << verbose_tables unless verbose_tables.empty?
+
+      # 2. Semantic Diff Report (ALWAYS if diffs exist)
+      if comparison_result.is_a?(Canon::Comparison::ComparisonResult) &&
+          comparison_result.differences.any?
+        require_relative "diff_formatter/diff_detail_formatter"
+        output << DiffDetailFormatter.format_report(
+          comparison_result.differences,
+          use_color: @use_color,
+        )
+      end
+
+      # 3. Main diff output (by-line or by-object) - ALWAYS
 
       # Check if comparison result is a ComparisonResult object
       if comparison_result.is_a?(Canon::Comparison::ComparisonResult)
@@ -272,11 +289,10 @@ module Canon
       end
 
       # Generate diff using existing format method
-      result = format(differences, format, doc1: doc1, doc2: doc2,
-                                           html_version: html_version)
+      output << format(differences, format, doc1: doc1, doc2: doc2,
+                                            html_version: html_version)
 
-      # Prepend debug output if enabled
-      debug_output.empty? ? result : "#{debug_output}#{result}"
+      output.compact.join("\n")
     end
 
     private
