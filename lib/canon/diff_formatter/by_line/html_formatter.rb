@@ -186,31 +186,31 @@ module Canon
                                             diff_line.content)
             when :removed
               line_num = diff_line.line_number + 1
-              inactive = diff_line.inactive?
+              informative = diff_line.informative?
               output << format_unified_line(line_num, nil, "-",
                                             diff_line.content,
-                                            inactive ? :cyan : :red,
-                                            inactive: inactive)
+                                            informative ? :cyan : :red,
+                                            informative: informative)
             when :added
               line_num = diff_line.line_number + 1
-              inactive = diff_line.inactive?
+              informative = diff_line.informative?
               output << format_unified_line(nil, line_num, "+",
                                             diff_line.content,
-                                            inactive ? :cyan : :green,
-                                            inactive: inactive)
+                                            informative ? :cyan : :green,
+                                            informative: informative)
             when :changed
               line_num = diff_line.line_number + 1
-              inactive = diff_line.inactive?
+              informative = diff_line.informative?
               old_content = lines1[diff_line.line_number]
               new_content = diff_line.content
               output << format_unified_line(line_num, nil, "-",
                                             old_content,
-                                            inactive ? :cyan : :red,
-                                            inactive: inactive)
+                                            informative ? :cyan : :red,
+                                            informative: informative)
               output << format_unified_line(nil, line_num, "+",
                                             new_content,
-                                            inactive ? :cyan : :green,
-                                            inactive: inactive)
+                                            informative ? :cyan : :green,
+                                            informative: informative)
             end
           end
 
@@ -221,21 +221,21 @@ module Canon
 
         # Check if diff display should be skipped
         # Returns true when:
-        # 1. show_diffs is :active AND there are no active differences
-        # 2. show_diffs is :inactive AND there are no inactive differences
+        # 1. show_diffs is :normative AND there are no normative differences
+        # 2. show_diffs is :informative AND there are no informative differences
         def should_skip_diff_display?
           return false if @differences.nil? || @differences.empty?
 
           case @show_diffs
-          when :active
-            # Skip if no active diffs
+          when :normative
+            # Skip if no normative diffs
             @differences.none? do |diff|
-              diff.is_a?(Canon::Diff::DiffNode) && diff.active?
+              diff.is_a?(Canon::Diff::DiffNode) && diff.normative?
             end
-          when :inactive
-            # Skip if no inactive diffs
+          when :informative
+            # Skip if no informative diffs
             @differences.none? do |diff|
-              diff.is_a?(Canon::Diff::DiffNode) && diff.inactive?
+              diff.is_a?(Canon::Diff::DiffNode) && diff.informative?
             end
           else
             # :all or other - never skip

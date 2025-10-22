@@ -13,7 +13,7 @@ module Canon
       #
       # @param diff_lines [Array<DiffLine>] The diff lines to process
       # @param options [Hash] Build options
-      # @option options [Symbol] :show_diffs (:all) Filter setting (:active, :inactive, :all)
+      # @option options [Symbol] :show_diffs (:all) Filter setting (:normative, :informative, :all)
       # @option options [Integer] :context_lines (3) Number of context lines
       # @option options [Integer, nil] :grouping_lines (nil) Max lines between blocks to group
       # @option options [String] :element_name ("root") Name of element being compared

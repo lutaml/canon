@@ -105,7 +105,7 @@ RSpec.describe Canon::Diff::DiffBlock do
                                   end_idx: 10,
                                   types: ["-", "+"],
                                 })
-      # May also include other fields like active, diff_lines, diff_node
+      # May also include other fields like normative, diff_lines, diff_node
     end
 
     it "includes empty types array" do

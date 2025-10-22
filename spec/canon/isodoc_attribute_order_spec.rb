@@ -23,14 +23,14 @@ RSpec.describe "IsoDoc attribute order issue" do
 
     puts "\n=== ATTRIBUTE ORDER FIXTURE TEST ==="
     puts "Equivalent? #{result.equivalent?}"
-    puts "Has active? #{result.has_active_diffs?}"
+    puts "Has normative? #{result.has_normative_diffs?}"
     puts "Diff count: #{result.differences.length}"
 
     result.differences.each_with_index do |d, i|
       puts "\nDiff #{i}: #{d.class}"
       if d.respond_to?(:dimension)
         puts "  Dimension: #{d.dimension}"
-        puts "  Active: #{d.active?}"
+        puts "  Normative: #{d.normative?}"
         puts "  Node1: #{d.node1.name if d.node1.respond_to?(:name)}"
         puts "  Node2: #{d.node2.name if d.node2.respond_to?(:name)}"
       end

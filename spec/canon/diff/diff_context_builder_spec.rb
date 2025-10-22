@@ -3,22 +3,22 @@
 require "spec_helper"
 
 RSpec.describe Canon::Diff::DiffContextBuilder do
-  let(:diff_node_active) do
+  let(:diff_node_normative) do
     Canon::Diff::DiffNode.new(
       node1: "old",
       node2: "new",
       dimension: :text_content,
       reason: "Text differs",
-    ).tap { |node| node.active = true }
+    ).tap { |node| node.normative = true }
   end
 
-  let(:diff_node_inactive) do
+  let(:diff_node_informative) do
     Canon::Diff::DiffNode.new(
       node1: "a='1' b='2'",
       node2: "b='2' a='1'",
       dimension: :attribute_order,
       reason: "Order differs",
-    ).tap { |node| node.active = false }
+    ).tap { |node| node.normative = false }
   end
 
   describe ".build_contexts" do
@@ -37,7 +37,7 @@ RSpec.describe Canon::Diff::DiffContextBuilder do
             line_number: i,
             type: i == 5 ? :removed : :unchanged,
             content: "line #{i}",
-            diff_node: i == 5 ? diff_node_active : nil,
+            diff_node: i == 5 ? diff_node_normative : nil,
           )
         end
 
@@ -47,7 +47,7 @@ RSpec.describe Canon::Diff::DiffContextBuilder do
             end_idx: 5,
             types: ["-"],
             diff_lines: [all_lines[5]],
-          ).tap { |b| b.active = true },
+          ).tap { |b| b.normative = true },
         ]
 
         contexts = described_class.build_contexts(blocks, all_lines,
@@ -57,7 +57,7 @@ RSpec.describe Canon::Diff::DiffContextBuilder do
         expect(contexts[0].start_idx).to eq(2) # 5 - 3
         expect(contexts[0].end_idx).to eq(8)   # 5 + 3
         expect(contexts[0].blocks.length).to eq(1)
-        expect(contexts[0]).to be_active
+        expect(contexts[0]).to be_normative
       end
     end
 
@@ -68,7 +68,7 @@ RSpec.describe Canon::Diff::DiffContextBuilder do
             line_number: i,
             type: i == 0 ? :removed : :unchanged,
             content: "line #{i}",
-            diff_node: i == 0 ? diff_node_active : nil,
+            diff_node: i == 0 ? diff_node_normative : nil,
           )
         end
 
@@ -78,7 +78,7 @@ RSpec.describe Canon::Diff::DiffContextBuilder do
             end_idx: 0,
             types: ["-"],
             diff_lines: [all_lines[0]],
-          ).tap { |b| b.active = true },
+          ).tap { |b| b.normative = true },
         ]
 
         contexts = described_class.build_contexts(blocks, all_lines,
@@ -94,7 +94,7 @@ RSpec.describe Canon::Diff::DiffContextBuilder do
             line_number: i,
             type: i == 4 ? :removed : :unchanged,
             content: "line #{i}",
-            diff_node: i == 4 ? diff_node_active : nil,
+            diff_node: i == 4 ? diff_node_normative : nil,
           )
         end
 
@@ -104,7 +104,7 @@ RSpec.describe Canon::Diff::DiffContextBuilder do
             end_idx: 4,
             types: ["-"],
             diff_lines: [all_lines[4]],
-          ).tap { |b| b.active = true },
+          ).tap { |b| b.normative = true },
         ]
 
         contexts = described_class.build_contexts(blocks, all_lines,
@@ -122,7 +122,7 @@ RSpec.describe Canon::Diff::DiffContextBuilder do
             line_number: i,
             type: [5, 15].include?(i) ? :removed : :unchanged,
             content: "line #{i}",
-            diff_node: [5, 15].include?(i) ? diff_node_active : nil,
+            diff_node: [5, 15].include?(i) ? diff_node_normative : nil,
           )
         end
 
@@ -132,13 +132,13 @@ RSpec.describe Canon::Diff::DiffContextBuilder do
             end_idx: 5,
             types: ["-"],
             diff_lines: [all_lines[5]],
-          ).tap { |b| b.active = true },
+          ).tap { |b| b.normative = true },
           Canon::Diff::DiffBlock.new(
             start_idx: 15,
             end_idx: 15,
             types: ["-"],
             diff_lines: [all_lines[15]],
-          ).tap { |b| b.active = true },
+          ).tap { |b| b.normative = true },
         ]
 
         contexts = described_class.build_contexts(blocks, all_lines,
@@ -157,7 +157,7 @@ RSpec.describe Canon::Diff::DiffContextBuilder do
             line_number: i,
             type: [5, 8].include?(i) ? :removed : :unchanged,
             content: "line #{i}",
-            diff_node: [5, 8].include?(i) ? diff_node_active : nil,
+            diff_node: [5, 8].include?(i) ? diff_node_normative : nil,
           )
         end
 
@@ -167,13 +167,13 @@ RSpec.describe Canon::Diff::DiffContextBuilder do
             end_idx: 5,
             types: ["-"],
             diff_lines: [all_lines[5]],
-          ).tap { |b| b.active = true },
+          ).tap { |b| b.normative = true },
           Canon::Diff::DiffBlock.new(
             start_idx: 8,
             end_idx: 8,
             types: ["-"],
             diff_lines: [all_lines[8]],
-          ).tap { |b| b.active = true },
+          ).tap { |b| b.normative = true },
         ]
 
         # Gap between blocks: 8 - 5 - 1 = 2 lines
@@ -191,7 +191,7 @@ RSpec.describe Canon::Diff::DiffContextBuilder do
             line_number: i,
             type: [5, 15].include?(i) ? :removed : :unchanged,
             content: "line #{i}",
-            diff_node: [5, 15].include?(i) ? diff_node_active : nil,
+            diff_node: [5, 15].include?(i) ? diff_node_normative : nil,
           )
         end
 
@@ -201,13 +201,13 @@ RSpec.describe Canon::Diff::DiffContextBuilder do
             end_idx: 5,
             types: ["-"],
             diff_lines: [all_lines[5]],
-          ).tap { |b| b.active = true },
+          ).tap { |b| b.normative = true },
           Canon::Diff::DiffBlock.new(
             start_idx: 15,
             end_idx: 15,
             types: ["-"],
             diff_lines: [all_lines[15]],
-          ).tap { |b| b.active = true },
+          ).tap { |b| b.normative = true },
         ]
 
         # Gap between blocks: 15 - 5 - 1 = 9 lines
@@ -226,7 +226,7 @@ RSpec.describe Canon::Diff::DiffContextBuilder do
             line_number: i,
             type: [5, 8, 11].include?(i) ? :removed : :unchanged,
             content: "line #{i}",
-            diff_node: [5, 8, 11].include?(i) ? diff_node_active : nil,
+            diff_node: [5, 8, 11].include?(i) ? diff_node_normative : nil,
           )
         end
 
@@ -236,19 +236,19 @@ RSpec.describe Canon::Diff::DiffContextBuilder do
             end_idx: 5,
             types: ["-"],
             diff_lines: [all_lines[5]],
-          ).tap { |b| b.active = true },
+          ).tap { |b| b.normative = true },
           Canon::Diff::DiffBlock.new(
             start_idx: 8,
             end_idx: 8,
             types: ["-"],
             diff_lines: [all_lines[8]],
-          ).tap { |b| b.active = true },
+          ).tap { |b| b.normative = true },
           Canon::Diff::DiffBlock.new(
             start_idx: 11,
             end_idx: 11,
             types: ["-"],
             diff_lines: [all_lines[11]],
-          ).tap { |b| b.active = true },
+          ).tap { |b| b.normative = true },
         ]
 
         # All gaps are 2 lines, with grouping_lines: 3, all should group
@@ -260,14 +260,14 @@ RSpec.describe Canon::Diff::DiffContextBuilder do
       end
     end
 
-    context "with mixed active/inactive blocks" do
-      it "marks context as active if ANY block is active" do
+    context "with mixed normative/informative blocks" do
+      it "marks context as normative if ANY block is normative" do
         all_lines = Array.new(10) do |i|
           type = [3, 5].include?(i) ? :removed : :unchanged
           node = if i == 3
-                   diff_node_inactive
+                   diff_node_informative
                  elsif i == 5
-                   diff_node_active
+                   diff_node_normative
                  end
 
           Canon::Diff::DiffLine.new(
@@ -284,26 +284,26 @@ RSpec.describe Canon::Diff::DiffContextBuilder do
             end_idx: 3,
             types: ["-"],
             diff_lines: [all_lines[3]],
-          ).tap { |b| b.active = false },
+          ).tap { |b| b.normative = false },
           Canon::Diff::DiffBlock.new(
             start_idx: 5,
             end_idx: 5,
             types: ["-"],
             diff_lines: [all_lines[5]],
-          ).tap { |b| b.active = true },
+          ).tap { |b| b.normative = true },
         ]
 
         contexts = described_class.build_contexts(blocks, all_lines,
                                                   context_lines: 1, grouping_lines: 3)
 
         expect(contexts.length).to eq(1)
-        expect(contexts[0]).to be_active
+        expect(contexts[0]).to be_normative
       end
 
-      it "marks context as inactive if ALL blocks are inactive" do
+      it "marks context as informative if ALL blocks are informative" do
         all_lines = Array.new(10) do |i|
           type = [3, 5].include?(i) ? :removed : :unchanged
-          node = [3, 5].include?(i) ? diff_node_inactive : nil
+          node = [3, 5].include?(i) ? diff_node_informative : nil
 
           Canon::Diff::DiffLine.new(
             line_number: i,
@@ -319,20 +319,20 @@ RSpec.describe Canon::Diff::DiffContextBuilder do
             end_idx: 3,
             types: ["-"],
             diff_lines: [all_lines[3]],
-          ).tap { |b| b.active = false },
+          ).tap { |b| b.normative = false },
           Canon::Diff::DiffBlock.new(
             start_idx: 5,
             end_idx: 5,
             types: ["-"],
             diff_lines: [all_lines[5]],
-          ).tap { |b| b.active = false },
+          ).tap { |b| b.normative = false },
         ]
 
         contexts = described_class.build_contexts(blocks, all_lines,
                                                   context_lines: 1, grouping_lines: 3)
 
         expect(contexts.length).to eq(1)
-        expect(contexts[0]).to be_inactive
+        expect(contexts[0]).to be_informative
       end
     end
 
@@ -343,7 +343,7 @@ RSpec.describe Canon::Diff::DiffContextBuilder do
             line_number: i,
             type: i == 5 ? :removed : :unchanged,
             content: "line #{i}",
-            diff_node: i == 5 ? diff_node_active : nil,
+            diff_node: i == 5 ? diff_node_normative : nil,
           )
         end
 
@@ -353,7 +353,7 @@ RSpec.describe Canon::Diff::DiffContextBuilder do
             end_idx: 5,
             types: ["-"],
             diff_lines: [all_lines[5]],
-          ).tap { |b| b.active = true },
+          ).tap { |b| b.normative = true },
         ]
 
         contexts = described_class.build_contexts(blocks, all_lines,
@@ -369,7 +369,7 @@ RSpec.describe Canon::Diff::DiffContextBuilder do
             line_number: i,
             type: (3..5).cover?(i) ? :removed : :unchanged,
             content: "line #{i}",
-            diff_node: (3..5).cover?(i) ? diff_node_active : nil,
+            diff_node: (3..5).cover?(i) ? diff_node_normative : nil,
           )
         end
 
@@ -379,7 +379,7 @@ RSpec.describe Canon::Diff::DiffContextBuilder do
             end_idx: 5,
             types: ["-"],
             diff_lines: all_lines[3..5],
-          ).tap { |b| b.active = true },
+          ).tap { |b| b.normative = true },
         ]
 
         contexts = described_class.build_contexts(blocks, all_lines,

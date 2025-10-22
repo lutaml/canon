@@ -37,16 +37,16 @@ module Canon
         require "diff/lcs"
         lcs_diffs = ::Diff::LCS.sdiff(lines1, lines2)
 
-        # Check if ALL DiffNodes are inactive
-        all_inactive = @diff_nodes && !@diff_nodes.empty? &&
-          @diff_nodes.all?(&:inactive?)
+        # Check if ALL DiffNodes are informative
+        all_informative = @diff_nodes && !@diff_nodes.empty? &&
+          @diff_nodes.all?(&:informative?)
 
         # Convert LCS diffs to DiffLines
-        # If all DiffNodes are inactive, we create a single shared inactive DiffNode
+        # If all DiffNodes are informative, we create a single shared informative DiffNode
         # for all changed lines (this avoids complex linking)
-        shared_inactive_node = if all_inactive
-                                 @diff_nodes.first # Use any inactive node
-                               end
+        shared_informative_node = if all_informative
+                                    @diff_nodes.first # Use any informative node
+                                  end
 
         diff_lines = []
         line_num = 0
@@ -65,7 +65,7 @@ module Canon
                           line_number: line_num,
                           content: change.old_element,
                           type: :removed,
-                          diff_node: shared_inactive_node || find_diff_node_for_line(
+                          diff_node: shared_informative_node || find_diff_node_for_line(
                             line_num, lines1, :removed
                           ),
                         )
@@ -74,7 +74,7 @@ module Canon
                           line_number: line_num,
                           content: change.new_element,
                           type: :added,
-                          diff_node: shared_inactive_node || find_diff_node_for_line(
+                          diff_node: shared_informative_node || find_diff_node_for_line(
                             line_num, lines2, :added
                           ),
                         )
@@ -83,7 +83,7 @@ module Canon
                           line_number: line_num,
                           content: change.new_element,
                           type: :changed,
-                          diff_node: shared_inactive_node || find_diff_node_for_line(
+                          diff_node: shared_informative_node || find_diff_node_for_line(
                             line_num, lines2, :changed
                           ),
                         )

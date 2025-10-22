@@ -18,21 +18,21 @@ module Canon
         @diff_node = diff_node
       end
 
-      # @return [Boolean] true if this line represents a semantic difference
+      # @return [Boolean] true if this line represents a normative difference
       # If diff_node is nil (not linked to any semantic difference), the line
-      # is considered inactive (cosmetic/unchanged)
-      def active?
+      # is considered informative (cosmetic/unchanged)
+      def normative?
         return false if diff_node.nil?
 
-        diff_node.active?
+        diff_node.normative?
       end
 
-      # @return [Boolean] true if this line represents a textual-only difference
-      # If diff_node is nil (not linked), it's not inactive either (it's unchanged/cosmetic)
-      def inactive?
+      # @return [Boolean] true if this line represents an informative-only difference
+      # If diff_node is nil (not linked), it's not informative either (it's unchanged/cosmetic)
+      def informative?
         return false if diff_node.nil?
 
-        diff_node.inactive?
+        diff_node.informative?
       end
 
       # @return [Boolean] true if this line is unchanged
@@ -61,7 +61,7 @@ module Canon
           content: content,
           type: type,
           diff_node: diff_node&.to_h,
-          active: active?,
+          normative: normative?,
         }
       end
 

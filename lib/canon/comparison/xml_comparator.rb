@@ -80,7 +80,7 @@ module Canon
           result = compare_nodes(node1, node2, opts, child_opts,
                                  diff_children, differences)
 
-          # Classify DiffNodes as active/inactive if we have verbose output
+          # Classify DiffNodes as normative/informative if we have verbose output
           if opts[:verbose] && !differences.empty?
             classifier = Canon::Diff::DiffClassifier.new(match_opts)
             classifier.classify_all(differences.select do |d|

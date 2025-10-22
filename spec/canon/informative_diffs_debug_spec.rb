@@ -2,8 +2,8 @@
 
 require "spec_helper"
 
-RSpec.describe "Debug inactive diffs issues" do
-  context "Issue 1: Attribute order showing as active diff" do
+RSpec.describe "Debug informative diffs issues" do
+  context "Issue 1: Attribute order showing as normative diff" do
     it "extracts and compares actual HTML from isodoc sourcecode test" do
       # From isodoc sourcecode_spec.rb line 78-93
       expected_html = <<~HTML
@@ -32,8 +32,8 @@ RSpec.describe "Debug inactive diffs issues" do
         </div>
       HTML
 
-      # With spec_friendly/html4 profile, attribute order should be INACTIVE
-      # But it's showing as ACTIVE (red/green instead of cyan)
+      # With spec_friendly/html4 profile, attribute order should be INFORMATIVE
+      # But it's showing as NORMATIVE (red/green instead of cyan)
 
       result = Canon::Comparison.equivalent?(
         expected_html,
@@ -45,8 +45,8 @@ RSpec.describe "Debug inactive diffs issues" do
 
       puts "\n=== DEBUG OUTPUT ==="
       puts "Equivalent? #{result.equivalent?}"
-      puts "Has active diffs? #{result.has_active_diffs?}"
-      puts "Has inactive diffs? #{result.has_inactive_diffs?}"
+      puts "Has normative diffs? #{result.has_normative_diffs?}"
+      puts "Has informative diffs? #{result.has_informative_diffs?}"
       puts "Differences count: #{result.differences.length}"
 
       result.differences.each_with_index do |diff, i|
@@ -54,7 +54,7 @@ RSpec.describe "Debug inactive diffs issues" do
         puts "  Class: #{diff.class}"
         if diff.respond_to?(:dimension)
           puts "  Dimension: #{diff.dimension}"
-          puts "  Active?: #{diff.active?}"
+          puts "  Active?: #{diff.normative?}"
           puts "  Reason: #{diff.reason}"
           if diff.respond_to?(:node1) && diff.node1
             puts "  Node1 path: #{diff.node1.respond_to?(:path) ? diff.node1.path : 'N/A'}"
@@ -82,14 +82,14 @@ RSpec.describe "Debug inactive diffs issues" do
       puts "Differences: #{attr_result.differences.length}"
       attr_result.differences.each do |diff|
         if diff.respond_to?(:dimension)
-          puts "  Dimension: #{diff.dimension}, Active: #{diff.active?}"
+          puts "  Dimension: #{diff.dimension}, Normative: #{diff.normative?}"
         end
       end
     end
   end
 
-  context "Issue 2: Empty diffs when only inactive diffs" do
-    it "tests scenario with only inactive diffs" do
+  context "Issue 2: Empty diffs when only informative diffs" do
+    it "tests scenario with only informative diffs" do
       # Simplified HTML with only attribute order difference
       html1 = '<div class="foo" id="bar">Content</div>'
       html2 = '<div id="bar" class="foo">Content</div>'
@@ -104,8 +104,8 @@ RSpec.describe "Debug inactive diffs issues" do
 
       puts "\n=== ISSUE 2 DEBUG ==="
       puts "Equivalent? #{result.equivalent?}"
-      puts "Has active? #{result.has_active_diffs?}"
-      puts "Has inactive? #{result.has_inactive_diffs?}"
+      puts "Has normative? #{result.has_normative_diffs?}"
+      puts "Has informative? #{result.has_informative_diffs?}"
       puts "Differences: #{result.differences.length}"
 
       # With spec_friendly, attribute order is :strict, but :rendered preprocessing
@@ -127,12 +127,12 @@ RSpec.describe "Debug inactive diffs issues" do
 
       puts "\n=== MINIMAL HTML4 TEST ==="
       puts "Equivalent? #{result.equivalent?}"
-      puts "Has active? #{result.has_active_diffs?}"
+      puts "Has normative? #{result.has_normative_diffs?}"
       puts "Differences: #{result.differences.length}"
 
       result.differences.each do |diff|
         if diff.respond_to?(:dimension)
-          puts "  Dim: #{diff.dimension}, Active: #{diff.active?}, Reason: #{diff.reason}"
+          puts "  Dim: #{diff.dimension}, Normative: #{diff.normative?}, Reason: #{diff.reason}"
         end
       end
 

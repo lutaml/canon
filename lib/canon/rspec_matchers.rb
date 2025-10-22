@@ -70,7 +70,7 @@ module Canon
         )
 
         # When verbose: true, result is a ComparisonResult object
-        # Use the equivalent? method to check for active differences
+        # Use the equivalent? method to check for normative differences
         case @comparison_result
         when Canon::Comparison::ComparisonResult
           @comparison_result.equivalent?

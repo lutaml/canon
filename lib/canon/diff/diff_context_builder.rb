@@ -41,7 +41,7 @@ grouping_lines: nil)
           create_context_for_blocks(block_group)
         end
 
-        # Filter out all-inactive contexts if show_diffs was :active
+        # Filter out all-informative contexts if show_diffs was :normative
         # Note: The filtering based on show_diffs happens at the block level
         # in DiffBlockBuilder, so we don't need to re-filter here.
         # However, we should filter out contexts that have NO blocks
@@ -90,16 +90,16 @@ grouping_lines: nil)
         # Extract lines for this context
         context_lines = @all_lines[context_start..context_end]
 
-        # Determine if context is active
-        # A context is active if ANY of its blocks are active
-        active = block_group.any?(&:active?)
+        # Determine if context is normative
+        # A context is normative if ANY of its blocks are normative
+        normative = block_group.any?(&:normative?)
 
         DiffContext.new(
           start_line: context_start,
           end_line: context_end,
           blocks: block_group,
           lines: context_lines,
-          active: active,
+          normative: normative,
         )
       end
     end

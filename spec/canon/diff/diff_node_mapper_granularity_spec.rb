@@ -33,7 +33,7 @@ RSpec.describe Canon::Diff::DiffNodeMapper do
         </bibitem>
       XML
 
-      # Compare with spec_friendly profile (attribute order inactive)
+      # Compare with spec_friendly profile (attribute order informative)
       result = Canon::Comparison::XmlComparator.equivalent?(
         xml1,
         xml2,
@@ -48,20 +48,20 @@ RSpec.describe Canon::Diff::DiffNodeMapper do
         result.preprocessed_strings[1],
       )
 
-      # Filter to active lines only (spec_friendly filters inactive)
-      active_lines = diff_lines.select(&:active?)
+      # Filter to normative lines only (spec_friendly filters informative)
+      normative_lines = diff_lines.select(&:normative?)
 
       # Should only have the semantic difference (element name change)
       # NOT the cosmetic attribute order difference
-      expect(active_lines.length).to be > 0
+      expect(normative_lines.length).to be > 0
 
-      # The active lines should be about element name difference
-      active_content = active_lines.map(&:content).join("\n")
-      expect(active_content).to include("formattedref").or include("biblio-tag")
+      # The normative lines should be about element name difference
+      normative_content = normative_lines.map(&:content).join("\n")
+      expect(normative_content).to include("formattedref").or include("biblio-tag")
 
       # Should NOT show all lines of bibitem element
       # (this is the bug we're fixing)
-      expect(active_lines.length).to be < 6
+      expect(normative_lines.length).to be < 6
     end
 
     it "shows context around semantic differences" do
@@ -104,8 +104,8 @@ RSpec.describe Canon::Diff::DiffNodeMapper do
       )
 
       # Should have the semantic diff line
-      active_lines = diff_lines.select(&:active?)
-      expect(active_lines).not_to be_empty
+      normative_lines = diff_lines.select(&:normative?)
+      expect(normative_lines).not_to be_empty
 
       # All lines include context
       all_lines_content = diff_lines.map(&:content).join("\n")
@@ -142,16 +142,16 @@ RSpec.describe Canon::Diff::DiffNodeMapper do
         result.preprocessed_strings[1],
       )
 
-      active_lines = diff_lines.select(&:active?)
+      normative_lines = diff_lines.select(&:normative?)
 
       # Should show the element name difference
-      active_content = active_lines.map(&:content).join("\n")
-      expect(active_content).to include("old-element").or include("new-element")
+      normative_content = normative_lines.map(&:content).join("\n")
+      expect(normative_content).to include("old-element").or include("new-element")
 
       # Should NOT show parent attribute order diff (cosmetic)
       # Should NOT show child attribute order diff (cosmetic)
-      # Only the element with name diff should be active
-      expect(active_lines.length).to eq(1)
+      # Only the element with name diff should be normative
+      expect(normative_lines.length).to eq(1)
     end
   end
 end
