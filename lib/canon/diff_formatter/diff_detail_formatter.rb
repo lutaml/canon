@@ -19,12 +19,15 @@ module Canon
           output = []
           output << ""
           output << colorize("=" * 70, :cyan, use_color, bold: true)
-          output << colorize("  SEMANTIC DIFF REPORT (#{differences.length} #{differences.length == 1 ? 'difference' : 'differences'})", :cyan, use_color, bold: true)
+          output << colorize(
+            "  SEMANTIC DIFF REPORT (#{differences.length} #{differences.length == 1 ? 'difference' : 'differences'})", :cyan, use_color, bold: true
+          )
           output << colorize("=" * 70, :cyan, use_color, bold: true)
 
           differences.each_with_index do |diff, i|
             output << ""
-            output << format_single_diff(diff, i + 1, differences.length, use_color)
+            output << format_single_diff(diff, i + 1, differences.length,
+                                         use_color)
           end
 
           output << ""
@@ -38,54 +41,62 @@ module Canon
 
         # Format a single difference with dimension-specific details
         def format_single_diff(diff, number, total, use_color)
-          begin
-            output = []
+          output = []
 
-            # Header - handle both DiffNode and Hash
-            status = if diff.respond_to?(:active?)
-                       diff.active? ? "ACTIVE" : "INACTIVE"
-                     else
-                       "ACTIVE"  # Hash diffs are always active
-                     end
-            status_color = status == "ACTIVE" ? :green : :yellow
-            output << colorize("🔍 DIFFERENCE ##{number}/#{total} [#{status}]", status_color, use_color, bold: true)
-            output << colorize("─" * 70, :cyan, use_color)
+          # Header - handle both DiffNode and Hash
+          status = if diff.respond_to?(:active?)
+                     diff.active? ? "ACTIVE" : "INACTIVE"
+                   else
+                     "ACTIVE" # Hash diffs are always active
+                   end
+          status_color = status == "ACTIVE" ? :green : :yellow
+          output << colorize("🔍 DIFFERENCE ##{number}/#{total} [#{status}]",
+                             status_color, use_color, bold: true)
+          output << colorize("─" * 70, :cyan, use_color)
 
-            # Dimension - handle both DiffNode and Hash
-            dimension = if diff.respond_to?(:dimension)
-                          diff.dimension
-                        elsif diff.is_a?(Hash)
-                          diff[:diff_code] || diff[:dimension] || "unknown"
-                        else
-                          "unknown"
-                        end
-            output << "#{colorize('Dimension:', :cyan, use_color, bold: true)} #{colorize(dimension.to_s, :magenta, use_color)}"
+          # Dimension - handle both DiffNode and Hash
+          dimension = if diff.respond_to?(:dimension)
+                        diff.dimension
+                      elsif diff.is_a?(Hash)
+                        diff[:diff_code] || diff[:dimension] || "unknown"
+                      else
+                        "unknown"
+                      end
+          output << "#{colorize('Dimension:', :cyan, use_color,
+                                bold: true)} #{colorize(dimension.to_s,
+                                                        :magenta, use_color)}"
 
-            # Location (XPath for XML/HTML, Path for JSON/YAML)
-            location = extract_location(diff)
-            output << "#{colorize('Location:', :cyan, use_color, bold: true)}  #{colorize(location, :blue, use_color)}"
+          # Location (XPath for XML/HTML, Path for JSON/YAML)
+          location = extract_location(diff)
+          output << "#{colorize('Location:', :cyan, use_color,
+                                bold: true)}  #{colorize(location, :blue,
+                                                         use_color)}"
+          output << ""
+
+          # Dimension-specific details
+          detail1, detail2, changes = format_dimension_details(diff,
+                                                               use_color)
+
+          output << colorize("⊖ Expected (File 1):", :red, use_color,
+                             bold: true)
+          output << "   #{detail1}"
+          output << ""
+          output << colorize("⊕ Actual (File 2):", :green, use_color,
+                             bold: true)
+          output << "   #{detail2}"
+
+          if changes && !changes.empty?
             output << ""
-
-            # Dimension-specific details
-            detail1, detail2, changes = format_dimension_details(diff, use_color)
-
-            output << colorize("⊖ Expected (File 1):", :red, use_color, bold: true)
-            output << "   #{detail1}"
-            output << ""
-            output << colorize("⊕ Actual (File 2):", :green, use_color, bold: true)
-            output << "   #{detail2}"
-
-            if changes && !changes.empty?
-              output << ""
-              output << colorize("✨ Changes:", :yellow, use_color, bold: true)
-              output << "   #{changes}"
-            end
-
-            output.join("\n")
-          rescue StandardError => e
-            # Safe fallback if formatting fails
-            colorize("🔍 DIFFERENCE ##{number}/#{total} [Error formatting: #{e.message}]", :red, use_color, bold: true)
+            output << colorize("✨ Changes:", :yellow, use_color, bold: true)
+            output << "   #{changes}"
           end
+
+          output.join("\n")
+        rescue StandardError => e
+          # Safe fallback if formatting fails
+          colorize(
+            "🔍 DIFFERENCE ##{number}/#{total} [Error formatting: #{e.message}]", :red, use_color, bold: true
+          )
         end
 
         # Extract XPath or JSON path for the difference location
@@ -99,7 +110,7 @@ module Canon
           node = diff.respond_to?(:node1) ? (diff.node1 || diff.node2) : nil
 
           # For XML/HTML element nodes
-          if node && node.respond_to?(:name)
+          if node.respond_to?(:name)
             return extract_xpath(node)
           end
 
@@ -117,9 +128,9 @@ module Canon
 
           # Document nodes don't have meaningful XPaths
           if node.is_a?(Nokogiri::XML::Document) ||
-             node.is_a?(Nokogiri::HTML::Document) ||
-             node.is_a?(Nokogiri::HTML4::Document) ||
-             node.is_a?(Nokogiri::HTML5::Document)
+              node.is_a?(Nokogiri::HTML::Document) ||
+              node.is_a?(Nokogiri::HTML4::Document) ||
+              node.is_a?(Nokogiri::HTML5::Document)
             return "/"
           end
 
@@ -131,9 +142,9 @@ module Canon
           begin
             while current.respond_to?(:name) && current.name && depth < max_depth
               # Stop at document-level nodes
-              break if current.name == "document" || current.name == "#document"
+              break if ["document", "#document"].include?(current.name)
               break if current.is_a?(Nokogiri::XML::Document) ||
-                       current.is_a?(Nokogiri::HTML::Document)
+                current.is_a?(Nokogiri::HTML::Document)
 
               parts.unshift(current.name)
 
@@ -154,10 +165,10 @@ module Canon
             end
           rescue StandardError
             # If any error, return what we have
-            return "/" + parts.join("/")
+            return "/#{parts.join('/')}"
           end
 
-          "/" + parts.join("/")
+          "/#{parts.join('/')}"
         end
 
         # Format details based on dimension type
@@ -194,7 +205,7 @@ module Canon
           attrs1 = get_attribute_names(node1)
           attrs2 = get_attribute_names(node2)
 
-          common = attrs1 & attrs2
+          attrs1 & attrs2
           missing = attrs1 - attrs2  # In node1 but not node2
           extra = attrs2 - attrs1    # In node2 but not node1
 
@@ -207,11 +218,15 @@ module Canon
           # Format changes
           changes_parts = []
           if extra.any?
-            extra_str = extra.map { |a| colorize("+#{a}", :green, use_color) }.join(", ")
+            extra_str = extra.map do |a|
+              colorize("+#{a}", :green, use_color)
+            end.join(", ")
             changes_parts << "Added: #{extra_str}"
           end
           if missing.any?
-            missing_str = missing.map { |a| colorize("-#{a}", :red, use_color) }.join(", ")
+            missing_str = missing.map do |a|
+              colorize("-#{a}", :red, use_color)
+            end.join(", ")
             changes_parts << "Removed: #{missing_str}"
           end
 
@@ -232,13 +247,15 @@ module Canon
             val1 = get_attribute_value(node1, differing_attr)
             val2 = get_attribute_value(node2, differing_attr)
 
-            detail1 = "<#{node1.name}> #{colorize(differing_attr, :cyan, use_color)}=\"#{escape_quotes(val1)}\""
-            detail2 = "<#{node2.name}> #{colorize(differing_attr, :cyan, use_color)}=\"#{escape_quotes(val2)}\""
+            detail1 = "<#{node1.name}> #{colorize(differing_attr, :cyan,
+                                                  use_color)}=\"#{escape_quotes(val1)}\""
+            detail2 = "<#{node2.name}> #{colorize(differing_attr, :cyan,
+                                                  use_color)}=\"#{escape_quotes(val2)}\""
 
             # Analyze the difference
             changes = if val1.strip == val2.strip && val1 != val2
                         "Whitespace difference only"
-                      elsif val1.gsub(/\s+/, ' ') == val2.gsub(/\s+/, ' ')
+                      elsif val1.gsub(/\s+/, " ") == val2.gsub(/\s+/, " ")
                         "Whitespace normalization difference"
                       else
                         "Value changed"
@@ -246,7 +263,8 @@ module Canon
 
             [detail1, detail2, changes]
           else
-            ["<#{node1.name}> (values differ)", "<#{node2.name}> (values differ)", nil]
+            ["<#{node1.name}> (values differ)",
+             "<#{node2.name}> (values differ)", nil]
           end
         end
 
@@ -269,7 +287,8 @@ module Canon
 
           # Check if inside whitespace-preserving element
           changes = if inside_preserve_element?(node1) || inside_preserve_element?(node2)
-                      colorize("⚠️  Whitespace preserved", :yellow, use_color, bold: true) +
+                      colorize("⚠️  Whitespace preserved", :yellow, use_color,
+                               bold: true) +
                         " (inside <pre>, <code>, etc. - whitespace is significant)"
                     else
                       "Text content changed"
@@ -279,7 +298,7 @@ module Canon
         end
 
         # Format structural_whitespace dimension details
-        def format_structural_whitespace_details(diff, use_color)
+        def format_structural_whitespace_details(diff, _use_color)
           node1 = diff.node1
           node2 = diff.node2
 
@@ -301,7 +320,7 @@ module Canon
         end
 
         # Format comments dimension details
-        def format_comments_details(diff, use_color)
+        def format_comments_details(diff, _use_color)
           node1 = diff.node1
           node2 = diff.node2
 
@@ -317,7 +336,7 @@ module Canon
         end
 
         # Format Hash diff details (JSON/YAML)
-        def format_hash_diff_details(diff, use_color)
+        def format_hash_diff_details(diff, _use_color)
           path = diff[:path] || "(root)"
           val1 = diff[:value1]
           val2 = diff[:value2]
@@ -340,7 +359,7 @@ module Canon
         end
 
         # Fallback formatter for unknown dimensions
-        def format_fallback_details(diff, use_color)
+        def format_fallback_details(diff, _use_color)
           if diff.respond_to?(:node1) && diff.respond_to?(:node2)
             node1_desc = format_node_brief(diff.node1)
             node2_desc = format_node_brief(diff.node2)
@@ -358,9 +377,9 @@ module Canon
           when String
             "\"#{truncate_text(value, 50)}\""
           when Hash
-            "{...}" + (value.empty? ? "" : " (#{value.keys.length} keys)")
+            "{...}#{value.empty? ? '' : " (#{value.keys.length} keys)"}"
           when Array
-            "[...]" + (value.empty? ? "" : " (#{value.length} items)")
+            "[...]#{value.empty? ? '' : " (#{value.length} items)"}"
           else
             value.to_s
           end
@@ -371,7 +390,11 @@ module Canon
           return [] unless node.respond_to?(:attributes)
 
           node.attributes.map do |key, _val|
-            key.is_a?(String) ? key : (key.respond_to?(:name) ? key.name : key.to_s)
+            if key.is_a?(String)
+              key
+            else
+              (key.respond_to?(:name) ? key.name : key.to_s)
+            end
           end.sort
         end
 
@@ -393,7 +416,11 @@ module Canon
 
           hash = {}
           node.attributes.each do |key, val|
-            name = key.is_a?(String) ? key : (key.respond_to?(:name) ? key.name : key.to_s)
+            name = if key.is_a?(String)
+                     key
+                   else
+                     (key.respond_to?(:name) ? key.name : key.to_s)
+                   end
             value = val.respond_to?(:value) ? val.value : val.to_s
             hash[name] = value
           end
@@ -445,10 +472,10 @@ module Canon
 
           # Document nodes and certain node types don't have meaningful parents
           return false if node.is_a?(Nokogiri::XML::Document) ||
-                          node.is_a?(Nokogiri::HTML::Document) ||
-                          node.is_a?(Nokogiri::HTML4::Document) ||
-                          node.is_a?(Nokogiri::HTML5::Document) ||
-                          node.is_a?(Nokogiri::XML::DocumentFragment)
+            node.is_a?(Nokogiri::HTML::Document) ||
+            node.is_a?(Nokogiri::HTML4::Document) ||
+            node.is_a?(Nokogiri::HTML5::Document) ||
+            node.is_a?(Nokogiri::XML::DocumentFragment)
 
           preserve_elements = %w[pre code textarea script style]
 
@@ -461,7 +488,7 @@ module Canon
             while current && depth < max_depth
               # Stop if we hit a document
               break if current.is_a?(Nokogiri::XML::Document) ||
-                       current.is_a?(Nokogiri::HTML::Document)
+                current.is_a?(Nokogiri::HTML::Document)
 
               # Check current node's parent
               break unless current.respond_to?(:parent)

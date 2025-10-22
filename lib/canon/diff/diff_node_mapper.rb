@@ -39,7 +39,7 @@ module Canon
 
         # Check if ALL DiffNodes are inactive
         all_inactive = @diff_nodes && !@diff_nodes.empty? &&
-                       @diff_nodes.all?(&:inactive?)
+          @diff_nodes.all?(&:inactive?)
 
         # Convert LCS diffs to DiffLines
         # If all DiffNodes are inactive, we create a single shared inactive DiffNode
@@ -65,21 +65,27 @@ module Canon
                           line_number: line_num,
                           content: change.old_element,
                           type: :removed,
-                          diff_node: shared_inactive_node || find_diff_node_for_line(line_num, lines1, :removed),
+                          diff_node: shared_inactive_node || find_diff_node_for_line(
+                            line_num, lines1, :removed
+                          ),
                         )
                       when "+"
                         DiffLine.new(
                           line_number: line_num,
                           content: change.new_element,
                           type: :added,
-                          diff_node: shared_inactive_node || find_diff_node_for_line(line_num, lines2, :added),
+                          diff_node: shared_inactive_node || find_diff_node_for_line(
+                            line_num, lines2, :added
+                          ),
                         )
                       when "!"
                         DiffLine.new(
                           line_number: line_num,
                           content: change.new_element,
                           type: :changed,
-                          diff_node: shared_inactive_node || find_diff_node_for_line(line_num, lines2, :changed),
+                          diff_node: shared_inactive_node || find_diff_node_for_line(
+                            line_num, lines2, :changed
+                          ),
                         )
                       end
 
@@ -109,17 +115,18 @@ module Canon
           # For changed lines, we need to check BOTH nodes since the line
           # could represent either the old or new content
           nodes_to_check = case change_type
-                          when :removed
-                            [diff_node.node1]
-                          when :added
-                            [diff_node.node2]
-                          when :changed
-                            # Check both old and new - the line could be either
-                            [diff_node.node1, diff_node.node2]
-                          end
+                           when :removed
+                             [diff_node.node1]
+                           when :added
+                             [diff_node.node2]
+                           when :changed
+                             # Check both old and new - the line could be either
+                             [diff_node.node1, diff_node.node2]
+                           end
 
           nodes_to_check.any? do |node|
             next unless node.respond_to?(:name)
+
             node.name == line_element_name
           end
         end

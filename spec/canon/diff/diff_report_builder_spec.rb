@@ -34,7 +34,7 @@ RSpec.describe Canon::Diff::DiffReportBuilder do
 
     context "with only unchanged lines" do
       it "returns empty report" do
-        diff_lines = 5.times.map do |i|
+        diff_lines = Array.new(5) do |i|
           Canon::Diff::DiffLine.new(
             line_number: i,
             type: :unchanged,
@@ -51,7 +51,7 @@ RSpec.describe Canon::Diff::DiffReportBuilder do
 
     context "with active diff lines" do
       it "creates report with contexts" do
-        diff_lines = 10.times.map do |i|
+        diff_lines = Array.new(10) do |i|
           Canon::Diff::DiffLine.new(
             line_number: i,
             type: i == 5 ? :removed : :unchanged,
@@ -71,7 +71,7 @@ RSpec.describe Canon::Diff::DiffReportBuilder do
 
     context "with show_diffs: :active" do
       it "filters out inactive diffs" do
-        diff_lines = 10.times.map do |i|
+        diff_lines = Array.new(10) do |i|
           type = [3, 7].include?(i) ? :removed : :unchanged
           node = if i == 3
                    diff_node_inactive
@@ -88,8 +88,8 @@ RSpec.describe Canon::Diff::DiffReportBuilder do
         end
 
         report = described_class.build(diff_lines,
-                                        show_diffs: :active,
-                                        context_lines: 1)
+                                       show_diffs: :active,
+                                       context_lines: 1)
 
         expect(report.context_count).to eq(1)
         expect(report.block_count).to eq(1)
@@ -100,7 +100,7 @@ RSpec.describe Canon::Diff::DiffReportBuilder do
 
     context "with show_diffs: :inactive" do
       it "filters out active diffs" do
-        diff_lines = 10.times.map do |i|
+        diff_lines = Array.new(10) do |i|
           type = [3, 7].include?(i) ? :removed : :unchanged
           node = if i == 3
                    diff_node_inactive
@@ -117,8 +117,8 @@ RSpec.describe Canon::Diff::DiffReportBuilder do
         end
 
         report = described_class.build(diff_lines,
-                                        show_diffs: :inactive,
-                                        context_lines: 1)
+                                       show_diffs: :inactive,
+                                       context_lines: 1)
 
         expect(report.context_count).to eq(1)
         expect(report.block_count).to eq(1)
@@ -129,7 +129,7 @@ RSpec.describe Canon::Diff::DiffReportBuilder do
 
     context "with show_diffs: :all" do
       it "includes all diffs" do
-        diff_lines = 10.times.map do |i|
+        diff_lines = Array.new(10) do |i|
           type = [3, 7].include?(i) ? :removed : :unchanged
           node = if i == 3
                    diff_node_inactive
@@ -146,9 +146,9 @@ RSpec.describe Canon::Diff::DiffReportBuilder do
         end
 
         report = described_class.build(diff_lines,
-                                        show_diffs: :all,
-                                        context_lines: 1,
-                                        grouping_lines: nil)
+                                       show_diffs: :all,
+                                       context_lines: 1,
+                                       grouping_lines: nil)
 
         expect(report.context_count).to eq(2)
         expect(report.block_count).to eq(2)
@@ -157,7 +157,7 @@ RSpec.describe Canon::Diff::DiffReportBuilder do
 
     context "with grouping_lines option" do
       it "groups nearby contexts" do
-        diff_lines = 20.times.map do |i|
+        diff_lines = Array.new(20) do |i|
           type = [5, 8].include?(i) ? :removed : :unchanged
           node = [5, 8].include?(i) ? diff_node_active : nil
 
@@ -172,8 +172,8 @@ RSpec.describe Canon::Diff::DiffReportBuilder do
         # Gap between blocks: 8 - 5 - 1 = 2 lines
         # With grouping_lines: 3, they should be grouped
         report = described_class.build(diff_lines,
-                                        context_lines: 1,
-                                        grouping_lines: 3)
+                                       context_lines: 1,
+                                       grouping_lines: 3)
 
         expect(report.context_count).to eq(1)
         expect(report.contexts[0].blocks.length).to eq(2)
@@ -207,7 +207,7 @@ RSpec.describe Canon::Diff::DiffReportBuilder do
     context "pipeline integration" do
       it "correctly flows through all layers" do
         # Create a realistic scenario with multiple blocks
-        diff_lines = 30.times.map do |i|
+        diff_lines = Array.new(30) do |i|
           type = [5, 8, 20].include?(i) ? :removed : :unchanged
           node = [5, 8, 20].include?(i) ? diff_node_active : nil
 
@@ -246,7 +246,7 @@ RSpec.describe Canon::Diff::DiffReportBuilder do
 
     context "with mixed active/inactive blocks and filtering" do
       it "maintains correct active/inactive state through pipeline" do
-        diff_lines = 20.times.map do |i|
+        diff_lines = Array.new(20) do |i|
           type = [5, 10, 15].include?(i) ? :removed : :unchanged
           node = case i
                  when 5  then diff_node_active
@@ -289,13 +289,13 @@ RSpec.describe Canon::Diff::DiffReportBuilder do
     context "regression: Issue 1 - inactive diffs filtering" do
       it "filters out all-inactive contexts when show_diffs: :active" do
         # Simulate the scenario from Issue 1
-        diff_lines = 100.times.map do |i|
+        diff_lines = Array.new(100) do |i|
           # Lines 10-50 are inactive diffs
           # Lines 60-65 are active diffs
-          type = (10..50).include?(i) || (60..65).include?(i) ? :removed : :unchanged
-          node = if (10..50).include?(i)
+          type = (10..50).cover?(i) || (60..65).cover?(i) ? :removed : :unchanged
+          node = if (10..50).cover?(i)
                    diff_node_inactive
-                 elsif (60..65).include?(i)
+                 elsif (60..65).cover?(i)
                    diff_node_active
                  end
 
@@ -326,9 +326,9 @@ RSpec.describe Canon::Diff::DiffReportBuilder do
 
     context "regression: Issue 2 - empty diff output" do
       it "returns empty report when only inactive diffs exist with show_diffs: :active" do
-        diff_lines = 20.times.map do |i|
-          type = (5..15).include?(i) ? :removed : :unchanged
-          node = (5..15).include?(i) ? diff_node_inactive : nil
+        diff_lines = Array.new(20) do |i|
+          type = (5..15).cover?(i) ? :removed : :unchanged
+          node = (5..15).cover?(i) ? diff_node_inactive : nil
 
           Canon::Diff::DiffLine.new(
             line_number: i,

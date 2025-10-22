@@ -14,7 +14,8 @@ module Canon
       # @param context_lines [Integer] Number of context lines to show
       # @param grouping_lines [Integer, nil] Max lines between blocks to group them
       # @return [Array<DiffContext>] Grouped contexts with context lines
-      def self.build_contexts(diff_blocks, all_lines, context_lines: 3, grouping_lines: nil)
+      def self.build_contexts(diff_blocks, all_lines, context_lines: 3,
+grouping_lines: nil)
         new(diff_blocks, all_lines, context_lines, grouping_lines).build
       end
 
@@ -83,7 +84,8 @@ module Canon
 
         # Calculate context range
         context_start = [first_block.start_idx - @context_lines, 0].max
-        context_end = [last_block.end_idx + @context_lines, @all_lines.length - 1].min
+        context_end = [last_block.end_idx + @context_lines,
+                       @all_lines.length - 1].min
 
         # Extract lines for this context
         context_lines = @all_lines[context_start..context_end]

@@ -23,10 +23,12 @@ module Canon
           if differences.respond_to?(:equivalent?)
             # ComparisonResult object
             return success_message if differences.equivalent?
+
             diffs_array = differences.differences
           else
             # Legacy Array
             return success_message if differences.empty?
+
             diffs_array = differences
           end
 

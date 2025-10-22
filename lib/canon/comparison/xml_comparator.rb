@@ -331,7 +331,9 @@ module Canon
             # - If text_content is :strict, ALL differences use :text_content dimension
             # - If text_content is :normalize, whitespace-only diffs use :structural_whitespace
             # - Otherwise use :text_content
-            dimension = if behavior == :normalize && whitespace_only_difference?(text1, text2)
+            dimension = if behavior == :normalize && whitespace_only_difference?(
+              text1, text2
+            )
                           :structural_whitespace
                         else
                           :text_content
@@ -356,6 +358,7 @@ module Canon
           # If normalized texts are the same, the difference was only whitespace
           norm1 == norm2
         end
+
         # Check if whitespace should be preserved strictly for these text nodes
         # This applies to HTML elements like pre, code, textarea, script, style
         def should_preserve_whitespace_strictly?(n1, n2)
@@ -387,7 +390,6 @@ module Canon
           end
           false
         end
-
 
         # Compare comment nodes
         def compare_comment_nodes(n1, n2, opts, differences)
@@ -545,7 +547,10 @@ module Canon
           return unless opts[:verbose]
 
           # All differences must be DiffNode objects (OO architecture)
-          raise ArgumentError, "dimension required for DiffNode" if dimension.nil?
+          if dimension.nil?
+            raise ArgumentError,
+                  "dimension required for DiffNode"
+          end
 
           diff_node = Canon::Diff::DiffNode.new(
             node1: node1,
