@@ -18,3 +18,4 @@ Gemfile.lock
 !CODE_OF_CONDUCT.md
 debug_*.rb
 .rubocop-https*
+_site

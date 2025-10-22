@@ -1,0 +1,19 @@
+---
+layout: default
+title: Customizing Behavior
+nav_order: 4
+has_children: true
+---
+= Customizing behavior
+
+Configure Canon for your specific needs:
+
+* **link:MATCH_OPTIONS[Match options]** - Match dimensions and profiles
+* **link:PREPROCESSING[Preprocessing]** - Document normalization options
+* **link:DIFF_FORMATTING[Diff formatting]** - Customizing diff output
+* **link:INPUT_VALIDATION[Input validation]** - Error handling
+* **link:CHARACTER_VISUALIZATION[Character visualization]** - Whitespace
+visibility
+
+These documents cover Canon's configuration options for fine-tuning comparison
+behavior and diff output.

@@ -1,0 +1,447 @@
+---
+layout: default
+title: Format Support
+nav_order: 20
+parent: Understanding Canon
+---
+= Format support
+:toc:
+:toclevels: 3
+
+== Scope
+
+This document describes Canon's support for XML, HTML, JSON, and YAML formats,
+including canonicalization rules, format detection, and format-specific
+features.
+
+For usage examples, see link:RUBY_API[Ruby API], link:CLI[CLI], or
+link:RSPEC[RSpec documentation].
+
+== General
+
+Canon provides unified canonicalization and comparison for four serialization
+formats. Each format has specific rules and defaults optimized for its typical
+usage.
+
+== XML format
+
+=== Canonicalization
+
+Canon implements the https://www.w3.org/TR/xml-c14n11/[W3C Canonical XML
+Version 1.1] specification.
+
+**Key features:**
+
+* Namespace declaration ordering (lexicographic by prefix)
+* Attribute ordering (lexicographic by namespace URI, then local name)
+* Character encoding normalization to UTF-8
+* Special character encoding in text and attributes
+* Removal of superfluous namespace declarations
+* Support for xml:base, xml:lang, xml:space, and xml:id attributes
+* Processing instruction and comment handling
+* Document subset support with attribute inheritance
+
+.XML canonicalization example
+[example]
+====
+[source,ruby]
+----
+xml = <<~XML
+  <root xmlns:b="http://b.com" xmlns:a="http://a.com">
+    <item b:attr="2" a:attr="1">
+      Text   content
+    </item>
+  </root>
+XML
+
+Canon.format(xml, :xml)
+# => Namespace prefixes sorted, attributes sorted, whitespace normalized
+----
+====
+
+=== Format defaults
+
+[cols="1,1"]
+|===
+|Dimension |Default Behavior
+
+|`text_content`
+|`:strict`
+
+|`structural_whitespace`
+|`:strict`
+
+|`attribute_whitespace`
+|`:strict`
+
+|`attribute_order`
+|`:strict`
+
+|`attribute_values`
+|`:strict`
+
+|`comments`
+|`:strict`
+|===
+
+Default diff mode: `:by_object` (tree-based semantic diff)
+
+=== XML-specific features
+
+**Comment handling**: XML comments are preserved in canonical form unless
+`--with-comments` is explicitly set.
+
+**Namespace normalization**: Namespace declarations are sorted and duplicate
+declarations are removed.
+
+**xml: attributes**: Special attributes like `xml:lang`, `xml:space`, `xml:id`,
+and `xml:base` are properly handled per specification.
+
+== HTML format
+
+=== Canonicalization
+
+Canon supports HTML 4, HTML5, and XHTML with automatic format detection.
+
+**Key features:**
+
+* Automatic HTML vs XHTML detection
+* HTML5 parser for modern HTML
+* XML parser for XHTML
+* Consistent attribute ordering
+* Whitespace normalization
+* Comment handling in `<style>` and `<script>` tags
+
+.HTML canonicalization example
+[example]
+====
+[source,ruby]
+----
+html = <<~HTML
+  <!DOCTYPE html>
+  <html>
+    <body>
+      <div   class="foo"   id="bar">
+        Content
+      </div>
+    </body>
+  </html>
+HTML
+
+Canon.format(html, :html)
+# => Normalized structure with consistent formatting
+----
+====
+
+=== Format defaults
+
+[cols="1,1"]
+|===
+|Dimension |Default Behavior
+
+|`text_content`
+|`:normalize`
+
+|`structural_whitespace`
+|`:normalize`
+
+|`attribute_whitespace`
+|`:normalize`
+
+|`attribute_order`
+|`:ignore`
+
+|`attribute_values`
+|`:strict`
+
+|`comments`
+|`:ignore`
+|===
+
+Default diff mode: `:by_line` (line-based diff)
+
+=== HTML-specific features
+
+**Format detection**: Automatically detects HTML5, HTML4, or XHTML based on
+DOCTYPE and structure.
+
+**Whitespace handling**: HTML whitespace is collapsed per CSS rendering rules.
+Empty text nodes between elements are removed.
+
+**Attribute order**: HTML attributes are inherently unordered per the HTML
+specification, so default is `:ignore`.
+
+**Special tags**: Comments in `<style>` and `<script>` tags are normalized
+specially to handle CSS/JavaScript syntax.
+
+== JSON format
+
+=== Canonicalization
+
+Canon provides JSON canonicalization with sorted keys at all nesting levels.
+
+**Key features:**
+
+* Alphabetically sorted object keys
+* Consistent indentation (configurable)
+* Proper escape sequences
+* No trailing commas
+* Unicode normalization
+
+.JSON canonicalization example
+[example]
+====
+[source,ruby]
+----
+json = '{"z":3,"a":1,"nested":{"y":2,"x":1}}'
+
+Canon.format(json, :json)
+# => {"a":1,"nested":{"x":1,"y":2},"z":3}
+# Keys sorted at all levels
+----
+====
+
+=== Format defaults
+
+[cols="1,1"]
+|===
+|Dimension |Default Behavior
+
+|`text_content`
+|`:strict`
+
+|`structural_whitespace`
+|`:strict`
+
+|`key_order`
+|`:strict`
+|===
+
+Default diff mode: `:by_object` (tree-based semantic diff)
+
+=== JSON-specific features
+
+**Key ordering**: Object keys are sorted alphabetically for consistent
+comparison.
+
+**Type preservation**: Distinguishes between numbers, strings, booleans, and
+null.
+
+**Nested structures**: Handles deeply nested objects and arrays.
+
+**No comments**: Standard JSON does not support comments.
+
+== YAML format
+
+=== Canonicalization
+
+Canon provides YAML canonicalization with sorted keys and standard formatting.
+
+**Key features:**
+
+* Alphabetically sorted mapping keys
+* Consistent indentation
+* Standard YAML 1.2 format
+* Comment preservation (optional)
+* Anchor and alias handling
+
+.YAML canonicalization example
+[example]
+====
+[source,ruby]
+----
+yaml = <<~YAML
+  z: 3
+  a: 1
+  nested:
+    y: 2
+    x: 1
+YAML
+
+Canon.format(yaml, :yaml)
+# => Keys sorted at all levels
+----
+====
+
+=== Format defaults
+
+[cols="1,1"]
+|===
+|Dimension |Default Behavior
+
+|`text_content`
+|`:strict`
+
+|`structural_whitespace`
+|`:strict`
+
+|`key_order`
+|`:strict`
+
+|`comments`
+|`:strict`
+|===
+
+Default diff mode: `:by_object` (tree-based semantic diff)
+
+=== YAML-specific features
+
+**Comment support**: YAML comments are preserved and can be compared.
+
+**Key ordering**: Mapping keys are sorted alphabetically for consistent output.
+
+**Type detection**: YAML's rich type system is preserved (strings, numbers,
+booleans, dates, etc.).
+
+**Anchors and aliases**: YAML anchors (`&`) and aliases (`*`) are properly
+handled.
+
+== Format detection
+
+Canon automatically detects format based on file extensions:
+
+[cols="1,1"]
+|===
+|Extension |Format
+
+|`.xml`
+|XML
+
+|`.html`, `.htm`
+|HTML
+
+|`.json`
+|JSON
+
+|`.yaml`, `.yml`
+|YAML
+|===
+
+You can override auto-detection by explicitly specifying the format:
+
+.Explicit format specification
+[example]
+====
+[source,ruby]
+----
+# Ruby API
+Canon.format(content, :xml)
+
+# CLI
+$ canon format file.txt --format xml
+
+# Comparison
+Canon::Comparison.equivalent?(doc1, doc2, format: :xml)
+----
+====
+
+== Format comparison matrix
+
+[cols="1,1,1,1,1"]
+|===
+|Feature |XML |HTML |JSON |YAML
+
+|Canonicalization standard
+|W3C C14N 1.1
+|Custom
+|Custom
+|YAML 1.2
+
+|Comment support
+|Yes
+|Yes
+|No
+|Yes
+
+|Attribute/key ordering
+|Strict default
+|Ignored default
+|Strict default
+|Strict default
+
+|Default diff mode
+|by-object
+|by-line
+|by-object
+|by-object
+
+|Whitespace handling
+|Strict default
+|Normalized default
+|Strict default
+|Strict default
+
+|Namespace support
+|Yes
+|Limited (XHTML)
+|No
+|No
+|===
+
+== Working with multiple formats
+
+Canon's unified API works consistently across all formats:
+
+.Unified API examples
+[example]
+====
+[source,ruby]
+----
+# Format any content
+Canon.format(xml_content, :xml)
+Canon.format(html_content, :html)
+Canon.format(json_content, :json)
+Canon.format(yaml_content, :yaml)
+
+# Compare any format
+Canon::Comparison.equivalent?(xml1, xml2)
+Canon::Comparison.equivalent?(html1, html2)
+Canon::Comparison.equivalent?(json1, json2)
+Canon::Comparison.equivalent?(yaml1, yaml2)
+
+# RSpec matchers
+expect(actual_xml).to be_xml_equivalent_to(expected_xml)
+expect(actual_html).to be_html_equivalent_to(expected_html)
+expect(actual_json).to be_json_equivalent_to(expected_json)
+expect(actual_yaml).to be_yaml_equivalent_to(expected_yaml)
+----
+====
+
+== Format-specific comparators
+
+You can use format-specific comparator classes directly:
+
+.Format-specific comparators
+[example]
+====
+[source,ruby]
+----
+# XML comparator
+Canon::Comparison::XmlComparator.equivalent?(xml1, xml2,
+  match: { attribute_order: :ignore }
+)
+
+# HTML comparator
+Canon::Comparison::HtmlComparator.equivalent?(html1, html2,
+  match_profile: :rendered
+)
+
+# JSON comparator
+Canon::Comparison::JsonComparator.equivalent?(json1, json2,
+  match: { key_order: :ignore }
+)
+
+# YAML comparator
+Canon::Comparison::YamlComparator.equivalent?(yaml1, yaml2,
+  match: { comments: :ignore }
+)
+----
+====
+
+== See also
+
+* link:RUBY_API[Ruby API documentation]
+* link:CLI[Command-line interface]
+* link:MATCH_OPTIONS[Match options reference]
+* link:MODES[Diff modes]
+* link:PREPROCESSING[Preprocessing options]
