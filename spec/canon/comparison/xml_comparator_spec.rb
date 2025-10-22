@@ -88,7 +88,7 @@ RSpec.describe Canon::Comparison::XmlComparator do
         expect(result.equivalent?).to be false
         diff = result.differences.first
         expect(diff).to be_a(Canon::Diff::DiffNode)
-        expect(diff.dimension).to eq(:attribute_whitespace)
+        expect(diff.dimension).to eq(:attribute_values)
       end
     end
 

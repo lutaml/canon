@@ -47,7 +47,8 @@ RSpec.describe "Match Profiles Integration" do
           match: {
             text_content: :normalize,
             structural_whitespace: :ignore,
-            attribute_whitespace: :strict,
+            attribute_presence: :strict,
+            attribute_values: :strict,
             comments: :ignore,
           },
         )
@@ -123,7 +124,8 @@ RSpec.describe "Match Profiles Integration" do
           match: {
             text_content: :strict,
             structural_whitespace: :ignore,
-            attribute_whitespace: :strict,
+            attribute_presence: :strict,
+            attribute_values: :strict,
             comments: :ignore,
           },
         )
@@ -135,7 +137,8 @@ RSpec.describe "Match Profiles Integration" do
           match: {
             text_content: :normalize,
             structural_whitespace: :ignore,
-            attribute_whitespace: :strict,
+            attribute_presence: :strict,
+            attribute_values: :strict,
             comments: :ignore,
           },
         )
@@ -160,7 +163,8 @@ RSpec.describe "Match Profiles Integration" do
           match: {
             text_content: :normalize,
             structural_whitespace: :ignore,
-            attribute_whitespace: :strict,
+            attribute_presence: :strict,
+            attribute_values: :strict,
             comments: :ignore,
           },
         )
@@ -180,7 +184,8 @@ RSpec.describe "Match Profiles Integration" do
           match: {
             text_content: :normalize,
             structural_whitespace: :ignore,
-            attribute_whitespace: :strict,
+            attribute_presence: :strict,
+            attribute_values: :strict,
             comments: :ignore,
           },
         )
@@ -192,7 +197,8 @@ RSpec.describe "Match Profiles Integration" do
           match: {
             text_content: :normalize,
             structural_whitespace: :ignore,
-            attribute_whitespace: :strict,
+            attribute_presence: :strict,
+            attribute_values: :strict,
             comments: :ignore,
           },
         )
@@ -209,7 +215,8 @@ RSpec.describe "Match Profiles Integration" do
           match: {
             text_content: :normalize,
             structural_whitespace: :ignore,
-            attribute_whitespace: :strict,
+            attribute_presence: :strict,
+            attribute_values: :strict,
             comments: :ignore,
           },
         )
@@ -221,7 +228,8 @@ RSpec.describe "Match Profiles Integration" do
           match: {
             text_content: :normalize,
             structural_whitespace: :ignore,
-            attribute_whitespace: :normalize,
+            attribute_presence: :strict,
+            attribute_values: :normalize,
             comments: :ignore,
           },
         )

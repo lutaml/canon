@@ -241,7 +241,7 @@ module Canon
           unless attrs1.keys.map(&:to_s).sort == attrs2.keys.map(&:to_s).sort
             add_difference(n1, n2, Comparison::MISSING_ATTRIBUTE,
                            Comparison::MISSING_ATTRIBUTE,
-                           :attribute_whitespace, opts, differences)
+                           :attribute_presence, opts, differences)
             return Comparison::MISSING_ATTRIBUTE
           end
 
@@ -249,7 +249,7 @@ module Canon
             unless attrs2[name] == value
               add_difference(n1, n2, Comparison::UNEQUAL_ATTRIBUTES,
                              Comparison::UNEQUAL_ATTRIBUTES,
-                             :attribute_whitespace, opts, differences)
+                             :attribute_values, opts, differences)
               return Comparison::UNEQUAL_ATTRIBUTES
             end
           end
@@ -284,16 +284,8 @@ module Canon
             next if should_ignore_attr_content?(value, opts)
 
             # Apply match options for attribute values
-            behavior = match_opts[:attribute_whitespace]
-            value = case behavior
-                    when :normalize
-                      MatchOptions.normalize_text(value)
-                    when :ignore
-                      # If ignoring, set to empty string so all match
-                      ""
-                    else
-                      value
-                    end
+            behavior = match_opts[:attribute_values] || :strict
+            value = MatchOptions.process_attribute_value(value, behavior)
 
             filtered[name] = value
           end

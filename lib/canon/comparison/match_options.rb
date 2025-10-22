@@ -46,7 +46,7 @@ module Canon
       PREPROCESSING_OPTIONS = %i[none c14n normalize format rendered].freeze
 
       # Matching behaviors (mutually exclusive)
-      MATCH_BEHAVIORS = %i[strict normalize ignore].freeze
+      MATCH_BEHAVIORS = %i[strict strip compact normalize ignore].freeze
 
       class << self
         # Apply match behavior to text comparison
@@ -85,6 +85,28 @@ module Canon
             .gsub(/[\p{Space}\u00a0]+/, " ") # Collapse all whitespace to single space
             .strip # Remove leading/trailing whitespace
         end
+
+        # Process attribute value according to match behavior
+        #
+        # @param value [String] Attribute value to process
+        # @param behavior [Symbol] Match behavior (:strict, :strip, :compact, :normalize, :ignore)
+        # @return [String] Processed value
+        def process_attribute_value(value, behavior)
+          case behavior
+          when :strict
+            value.to_s
+          when :strip
+            value.to_s.strip
+          when :compact
+            value.to_s.gsub(/[\p{Space}\u00a0]+/, " ")
+          when :normalize
+            normalize_text(value)
+          when :ignore
+            ""
+          else
+            raise Canon::Error, "Unknown attribute value behavior: #{behavior}"
+          end
+        end
       end
 
       # XML/HTML-specific matching options
@@ -93,7 +115,8 @@ module Canon
         MATCH_DIMENSIONS = %i[
           text_content
           structural_whitespace
-          attribute_whitespace
+          attribute_presence
+          attribute_values
           comments
         ].freeze
 
@@ -103,14 +126,16 @@ module Canon
             preprocessing: :rendered,
             text_content: :normalize,
             structural_whitespace: :normalize,
-            attribute_whitespace: :strict,
+            attribute_presence: :strict,
+            attribute_values: :strict,
             comments: :ignore,
           },
           xml: {
             preprocessing: :none,
             text_content: :strict,
             structural_whitespace: :strict,
-            attribute_whitespace: :strict,
+            attribute_presence: :strict,
+            attribute_values: :strict,
             comments: :strict,
           },
         }.freeze
@@ -122,7 +147,8 @@ module Canon
             preprocessing: :none,
             text_content: :strict,
             structural_whitespace: :strict,
-            attribute_whitespace: :strict,
+            attribute_presence: :strict,
+            attribute_values: :strict,
             comments: :strict,
           },
 
@@ -132,7 +158,8 @@ module Canon
             preprocessing: :none,
             text_content: :normalize,
             structural_whitespace: :normalize,
-            attribute_whitespace: :strict,
+            attribute_presence: :strict,
+            attribute_values: :strict,
             comments: :ignore,
           },
 
@@ -142,7 +169,8 @@ module Canon
             preprocessing: :rendered,
             text_content: :normalize,
             structural_whitespace: :normalize,
-            attribute_whitespace: :normalize,
+            attribute_presence: :strict,
+            attribute_values: :normalize,
             comments: :ignore,
           },
 
@@ -151,7 +179,8 @@ module Canon
             preprocessing: :rendered,
             text_content: :normalize,
             structural_whitespace: :normalize,
-            attribute_whitespace: :strict,
+            attribute_presence: :strict,
+            attribute_values: :strict,
             comments: :ignore,
           },
 
@@ -161,7 +190,8 @@ module Canon
             preprocessing: :rendered,
             text_content: :normalize,
             structural_whitespace: :ignore,
-            attribute_whitespace: :normalize,
+            attribute_presence: :strict,
+            attribute_values: :normalize,
             comments: :ignore,
           },
 
@@ -170,7 +200,8 @@ module Canon
             preprocessing: :c14n,
             text_content: :normalize,
             structural_whitespace: :ignore,
-            attribute_whitespace: :normalize,
+            attribute_presence: :strict,
+            attribute_values: :normalize,
             comments: :ignore,
           },
         }.freeze
