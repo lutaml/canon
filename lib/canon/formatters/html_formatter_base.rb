@@ -5,6 +5,42 @@ require "nokogiri"
 module Canon
   module Formatters
     # Base class for HTML formatters with shared canonicalization logic
+    #
+    # This abstract base class provides common HTML canonicalization logic
+    # for both HTML4 and HTML5 formatters. It handles:
+    # - Attribute sorting for consistency
+    # - Whitespace normalization
+    # - Block element spacing
+    #
+    # == Canonicalization Process
+    #
+    # 1. Parse HTML using format-specific parser (subclass responsibility)
+    # 2. Sort all element attributes alphabetically
+    # 3. Normalize whitespace (remove whitespace-only text nodes, collapse runs)
+    # 4. Ensure proper spacing between block-level elements
+    # 5. Serialize to HTML string
+    #
+    # == Subclass Implementation
+    #
+    # Subclasses must implement the `parse` class method:
+    #
+    #   def self.parse(html)
+    #     # Return Nokogiri::HTML4::Document or Nokogiri::HTML5::Document
+    #   end
+    #
+    # == Block Elements
+    #
+    # The following elements are treated as block-level and will have spacing
+    # preserved between them: address, article, aside, blockquote, dd, details,
+    # dialog, div, dl, dt, fieldset, figcaption, figure, footer, form, h1-h6,
+    # header, hgroup, hr, li, main, nav, ol, p, pre, section, table, tbody,
+    # td, tfoot, th, thead, tr, ul
+    #
+    # == Usage
+    #
+    #   # Via subclass (Html4Formatter or Html5Formatter)
+    #   canonical_html = Canon::Formatters::Html4Formatter.format(html_string)
+    #
     class HtmlFormatterBase
       # Block-level HTML elements that should preserve spacing between them
       BLOCK_ELEMENTS = %w[

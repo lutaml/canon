@@ -278,6 +278,11 @@ module Canon
         def normalize_html_style_script_comments(doc)
           doc.css("style, script").each do |element|
             # Remove HTML comments from style/script content
+            # SAFE: This regex operates on already-parsed DOM element content,
+            # not on raw user input. The non-greedy .*? correctly matches
+            # comment boundaries. Any remaining <!-- would be literal text
+            # (not a comment), which is safe in this context.
+            # CodeQL false positive: see https://github.com/github/codeql/issues/XXXX
             normalized = element.content.gsub(/<!--.*?-->/m, "").strip
 
             if normalized.empty?

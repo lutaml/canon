@@ -10,7 +10,57 @@ require_relative "diff_formatter/debug_output"
 
 module Canon
   # Formatter for displaying semantic differences with color support
-  # This is a pure orchestrator that delegates to mode-specific formatters
+  #
+  # This is a pure orchestrator class that delegates formatting to mode-specific
+  # and format-specific formatters. It provides a unified interface for generating
+  # both by-line and by-object diffs across multiple formats (XML, HTML, JSON, YAML).
+  #
+  # == Architecture
+  #
+  # DiffFormatter follows the orchestrator pattern with MECE (Mutually Exclusive,
+  # Collectively Exhaustive) delegation:
+  #
+  # 1. **Mode Selection**: Chooses by-line or by-object visualization
+  # 2. **Format Delegation**: Dispatches to format-specific formatter
+  # 3. **Customization**: Applies color, context, and visualization options
+  #
+  # == Diff Modes
+  #
+  # **By-Object Mode** (default for XML/JSON/YAML):
+  # - Tree-based semantic diff
+  # - Shows only what changed in the structure
+  # - Visual tree with box-drawing characters
+  # - Best for configuration files and structured data
+  #
+  # **By-Line Mode** (default for HTML):
+  # - Traditional line-by-line diff
+  # - Shows changes in document order with context
+  # - Syntax-aware token highlighting
+  # - Best for markup and when line context matters
+  #
+  # == Visualization Features
+  #
+  # - **Color support**: Red (deletions), green (additions), yellow (structure), cyan (informative)
+  # - **Whitespace visualization**: Makes invisible characters visible
+  # - **Context lines**: Shows unchanged lines around changes
+  # - **Diff grouping**: Groups nearby changes into blocks
+  # - **Character map customization**: CJK-safe Unicode symbols
+  #
+  # == Usage
+  #
+  #   # Basic usage
+  #   formatter = Canon::DiffFormatter.new(use_color: true, mode: :by_object)
+  #   output = formatter.format(differences, :xml, doc1: xml1, doc2: xml2)
+  #
+  #   # With options
+  #   formatter = Canon::DiffFormatter.new(
+  #     use_color: true,
+  #     mode: :by_line,
+  #     context_lines: 5,
+  #     diff_grouping_lines: 10,
+  #     show_diffs: :normative
+  #   )
+  #
   class DiffFormatter
     # Namespace for by-object mode formatters
     module ByObject

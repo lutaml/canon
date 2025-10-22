@@ -15,7 +15,66 @@ require_relative "diff/diff_report_builder"
 
 module Canon
   # Comparison module for XML, HTML, JSON, and YAML documents
-  # Provides format detection and delegation to format-specific comparators
+  #
+  # This module provides a unified comparison API for multiple serialization formats.
+  # It auto-detects the format and delegates to specialized comparators while
+  # maintaining a CompareXML-compatible API.
+  #
+  # == Supported Formats
+  #
+  # - **XML**: Uses Moxml for parsing, supports namespaces
+  # - **HTML**: Uses Nokogiri, handles HTML4/HTML5 differences
+  # - **JSON**: Direct Ruby object comparison with deep equality
+  # - **YAML**: Parses to Ruby objects, compares semantically
+  #
+  # == Format Detection
+  #
+  # The module automatically detects format from:
+  # - Object type (Moxml::Node, Nokogiri::HTML::Document, Hash, Array)
+  # - String content (DOCTYPE, opening tags, YAML/JSON syntax)
+  #
+  # == Comparison Options
+  #
+  # Common options across all formats:
+  # - collapse_whitespace: Normalize whitespace in text (default: true)
+  # - ignore_attr_order: Ignore attribute/key ordering (default: true)
+  # - ignore_comments: Skip comment nodes (default: true)
+  # - ignore_text_nodes: Skip all text content (default: false)
+  # - ignore_children: Skip child nodes (default: false)
+  # - verbose: Return detailed diff array (default: false)
+  #
+  # == Usage Examples
+  #
+  #   # XML comparison
+  #   Canon::Comparison.equivalent?(xml1, xml2)
+  #   Canon::Comparison.equivalent?(xml1, xml2, verbose: true)
+  #
+  #   # HTML comparison
+  #   Canon::Comparison.equivalent?(html1, html2, ignore_comments: true)
+  #
+  #   # JSON comparison
+  #   Canon::Comparison.equivalent?(json1, json2)
+  #   Canon::Comparison.equivalent?(hash1, hash2)  # Pre-parsed objects
+  #
+  #   # With detailed output
+  #   diffs = Canon::Comparison.equivalent?(doc1, doc2, verbose: true)
+  #   diffs.each { |diff| puts diff.inspect }
+  #
+  # == Return Values
+  #
+  # - When verbose: false (default) → Boolean (true if equivalent)
+  # - When verbose: true → Array of difference hashes with details
+  #
+  # == Difference Hash Format
+  #
+  # Each difference contains:
+  # - node1, node2: The nodes being compared (XML/HTML)
+  # - diff1, diff2: Comparison result codes
+  # - OR for JSON/YAML:
+  # - path: String path to the difference (e.g., "user.address.city")
+  # - value1, value2: The differing values
+  # - diff_code: Type of difference
+  #
   module Comparison
     # Comparison result constants
     EQUIVALENT = 1

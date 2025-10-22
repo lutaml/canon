@@ -5,6 +5,37 @@ require_relative "../pretty_printer/xml"
 module Canon
   module Xml
     # Maps DOM elements to line ranges in pretty-printed XML
+    #
+    # This class builds a mapping between DOM elements and their corresponding
+    # line numbers in pretty-printed XML output. This enables line-accurate
+    # diff display that can highlight specific elements even when the XML
+    # structure is complex.
+    #
+    # == How it works
+    #
+    # 1. Pretty-prints the XML with consistent indentation
+    # 2. Traverses the DOM tree depth-first
+    # 3. For each element, finds its opening and closing tags in the pretty-printed output
+    # 4. Records the line range (start_line..end_line) for that element
+    # 5. Returns a Hash mapping element → LineRange
+    #
+    # == Usage
+    #
+    #   mapper = LineRangeMapper.new(indent: 2)
+    #   root = Canon::Xml::DataModel.from_xml(xml_string)
+    #   line_map = mapper.build_map(root, xml_string)
+    #
+    #   # Look up line range for an element
+    #   range = line_map[element]
+    #   puts "Element spans lines #{range.start_line} to #{range.end_line}"
+    #
+    # == Line Range Format
+    #
+    # Each LineRange contains:
+    # - start_line: First line of the element (0-indexed)
+    # - end_line: Last line of the element (0-indexed)
+    # - elem: Reference to the DOM element
+    #
     class LineRangeMapper
       # Line range for an element
       LineRange = Struct.new(:start_line, :end_line, :elem) do
