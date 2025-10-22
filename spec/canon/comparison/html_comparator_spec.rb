@@ -135,7 +135,7 @@ RSpec.describe Canon::Comparison::HtmlComparator do
         # Differences can be DiffNode or Hash
         diff = result.differences.first
         if diff.is_a?(Canon::Diff::DiffNode)
-          expect([:attribute_whitespace, :attribute_values]).to include(diff.dimension)
+          expect([:attribute_values, :attribute_values]).to include(diff.dimension)
         else
           expect(diff.dimension).to eq(:text_content)
         end

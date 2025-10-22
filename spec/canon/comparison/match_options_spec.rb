@@ -12,7 +12,7 @@ RSpec.describe Canon::Comparison::MatchOptions do
 
     it "defines MATCH_BEHAVIORS" do
       expect(described_class::MATCH_BEHAVIORS).to eq(
-        %i[strict normalize ignore],
+        %i[strict strip compact normalize ignore],
       )
     end
   end
@@ -98,7 +98,8 @@ RSpec.describe Canon::Comparison::MatchOptions::Xml do
       expect(described_class::MATCH_DIMENSIONS).to eq(%i[
                                                         text_content
                                                         structural_whitespace
-                                                        attribute_whitespace
+                                                        attribute_presence
+                                                        attribute_values
                                                         comments
                                                       ])
     end
@@ -122,7 +123,8 @@ RSpec.describe Canon::Comparison::MatchOptions::Xml do
         preprocessing: :rendered,
         text_content: :normalize,
         structural_whitespace: :normalize,
-        attribute_whitespace: :strict,
+        attribute_presence: :strict,
+            attribute_values: :strict,
         comments: :ignore,
       )
     end
@@ -132,7 +134,8 @@ RSpec.describe Canon::Comparison::MatchOptions::Xml do
         preprocessing: :none,
         text_content: :strict,
         structural_whitespace: :strict,
-        attribute_whitespace: :strict,
+        attribute_presence: :strict,
+            attribute_values: :strict,
         comments: :strict,
       )
     end
@@ -144,7 +147,8 @@ RSpec.describe Canon::Comparison::MatchOptions::Xml do
         preprocessing: :none,
         text_content: :strict,
         structural_whitespace: :strict,
-        attribute_whitespace: :strict,
+        attribute_presence: :strict,
+            attribute_values: :strict,
         comments: :strict,
       )
     end
@@ -154,7 +158,8 @@ RSpec.describe Canon::Comparison::MatchOptions::Xml do
         preprocessing: :none,
         text_content: :normalize,
         structural_whitespace: :normalize,
-        attribute_whitespace: :strict,
+        attribute_presence: :strict,
+            attribute_values: :strict,
         comments: :ignore,
       )
     end
@@ -164,7 +169,8 @@ RSpec.describe Canon::Comparison::MatchOptions::Xml do
         preprocessing: :rendered,
         text_content: :normalize,
         structural_whitespace: :ignore,
-        attribute_whitespace: :normalize,
+        attribute_presence: :strict,
+            attribute_values: :normalize,
         comments: :ignore,
       )
     end
@@ -174,7 +180,8 @@ RSpec.describe Canon::Comparison::MatchOptions::Xml do
         preprocessing: :c14n,
         text_content: :normalize,
         structural_whitespace: :ignore,
-        attribute_whitespace: :normalize,
+        attribute_presence: :strict,
+            attribute_values: :normalize,
         comments: :ignore,
       )
     end
@@ -188,7 +195,8 @@ RSpec.describe Canon::Comparison::MatchOptions::Xml do
           preprocessing: :rendered,
           text_content: :normalize,
           structural_whitespace: :normalize,
-          attribute_whitespace: :strict,
+          attribute_presence: :strict,
+            attribute_values: :strict,
           comments: :ignore,
         )
       end
@@ -199,7 +207,8 @@ RSpec.describe Canon::Comparison::MatchOptions::Xml do
           preprocessing: :none,
           text_content: :strict,
           structural_whitespace: :strict,
-          attribute_whitespace: :strict,
+          attribute_presence: :strict,
+            attribute_values: :strict,
           comments: :strict,
         )
       end
@@ -210,7 +219,8 @@ RSpec.describe Canon::Comparison::MatchOptions::Xml do
           preprocessing: :none,
           text_content: :strict,
           structural_whitespace: :strict,
-          attribute_whitespace: :strict,
+          attribute_presence: :strict,
+            attribute_values: :strict,
           comments: :strict,
         )
       end
@@ -227,7 +237,8 @@ RSpec.describe Canon::Comparison::MatchOptions::Xml do
           preprocessing: :rendered,
           text_content: :normalize,
           structural_whitespace: :ignore,
-          attribute_whitespace: :normalize,
+          attribute_presence: :strict,
+            attribute_values: :normalize,
           comments: :ignore,
         )
       end
@@ -255,7 +266,8 @@ RSpec.describe Canon::Comparison::MatchOptions::Xml do
           preprocessing: :none,
           text_content: :normalize,
           structural_whitespace: :normalize,
-          attribute_whitespace: :strict,
+          attribute_presence: :strict,
+            attribute_values: :strict,
           comments: :ignore,
         )
       end
@@ -340,7 +352,7 @@ RSpec.describe Canon::Comparison::MatchOptions::Xml do
 
         # Third priority: match_profile
         expect(result[:structural_whitespace]).to eq(:ignore)
-        expect(result[:attribute_whitespace]).to eq(:normalize)
+        expect(result[:attribute_values]).to eq(:normalize)
 
         # Fourth priority: global_options (but overridden by match_profile)
         expect(result[:comments]).to eq(:ignore)
@@ -355,7 +367,8 @@ RSpec.describe Canon::Comparison::MatchOptions::Xml do
         preprocessing: :none,
         text_content: :normalize,
         structural_whitespace: :normalize,
-        attribute_whitespace: :strict,
+        attribute_presence: :strict,
+            attribute_values: :strict,
         comments: :ignore,
       )
     end

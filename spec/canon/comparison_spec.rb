@@ -139,7 +139,7 @@ RSpec.describe Canon::Comparison do
         # Can be either DiffNode or Hash
         diff = result.differences.first
         if diff.is_a?(Canon::Diff::DiffNode)
-          expect([:attribute_whitespace, :attribute_values]).to include(diff.dimension)
+          expect([:attribute_values, :attribute_values]).to include(diff.dimension)
         else
           expect(diff.dimension).to eq(:text_content)
         end
@@ -166,13 +166,10 @@ RSpec.describe Canon::Comparison do
         expect(result).to be_a(Canon::Comparison::ComparisonResult)
         expect(result.differences).not_to be_empty
         expect(result.equivalent?).to be false
-        # Can be either DiffNode or Hash
+        # Missing attribute should use attribute_presence dimension
         diff = result.differences.first
-        if diff.is_a?(Canon::Diff::DiffNode)
-          expect([:attribute_whitespace, :attribute_values]).to include(diff.dimension)
-        else
-          expect(diff.dimension).to eq(:text_content)
-        end
+        expect(diff).to be_a(Canon::Diff::DiffNode)
+        expect(diff.dimension).to eq(:attribute_presence)
       end
 
       it "returns ComparisonResult with multiple differences when multiple things differ" do
