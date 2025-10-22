@@ -17,3 +17,4 @@ Gemfile.lock
 !README.adoc
 !CODE_OF_CONDUCT.md
 debug_*.rb
+.rubocop-https*
