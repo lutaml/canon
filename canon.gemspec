@@ -8,9 +8,11 @@ Gem::Specification.new do |spec|
   spec.authors = ["Ribose Inc."]
   spec.email = ["open.source@ribose.com"]
 
-  spec.summary       = "Library for canonicalization of serialization formats"
-  spec.description   = "Library for canonicalizing and pretty-printing XML, YAML, and JSON with RSpec matchers for equivalence testing"
-  spec.homepage      = "https://github.com/metanorma/canon"
+  spec.summary       = "Canonicalization, formatting and comparison library for serialization formats (XML, HTML, JSON, YAML)"
+  spec.description   = "Canon provides canonicalization and pretty-printing for various serialization
+formats (XML, HTML, JSON, YAML), producing standardized forms suitable for
+comparison, testing, digital signatures, and human-readable output."
+  spec.homepage      = "https://github.com/lutaml/canon"
   spec.license       = "BSD-2-Clause"
 
   gemspec = File.basename(__FILE__)
@@ -18,7 +20,7 @@ Gem::Specification.new do |spec|
                                              err: IO::NULL) do |ls|
     ls.readlines("\x0", chomp: true).reject do |f|
       (f == gemspec) ||
-        f.start_with?(*%w[bin/ test/ spec/ features/ .git .github appveyor
+        f.start_with?(*%w[bin/ test/ spec/ features/ .git .github
                           Gemfile])
     end
   end
@@ -34,7 +36,7 @@ Gem::Specification.new do |spec|
   spec.add_dependency "paint"
   spec.add_dependency "table_tennis"
   spec.add_dependency "thor"
-  spec.add_dependency "unicode-name", "~> 1.14"
+  spec.add_dependency "unicode-name"
 
   spec.metadata["homepage_uri"] = spec.homepage
   spec.metadata["source_code_uri"] = spec.homepage
