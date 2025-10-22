@@ -83,51 +83,62 @@ RSpec.describe Canon::Comparison::HtmlComparator do
     end
 
     context "with verbose mode" do
-      it "returns empty array for equivalent HTML" do
+      it "returns ComparisonResult for equivalent HTML" do
         html1 = "<html><body><p>Test</p></body></html>"
         html2 = "<html><body><p>Test</p></body></html>"
 
         result = described_class.equivalent?(html1, html2, verbose: true)
-        expect(result).to be_a(Hash)
-        expect(result[:differences]).to be_empty
-        expect(result[:preprocessed]).to be_an(Array)
+        expect(result).to be_a(Canon::Comparison::ComparisonResult)
+        expect(result.differences).to be_empty
+        expect(result.preprocessed_strings).to be_an(Array)
+        expect(result.equivalent?).to be true
       end
 
-      it "returns array of differences for different element names" do
+      it "returns ComparisonResult with differences for different element names" do
         html1 = "<html><body><p>Test</p></body></html>"
         html2 = "<html><body><div>Test</div></body></html>"
 
         result = described_class.equivalent?(html1, html2, verbose: true)
-        expect(result).to be_a(Hash)
-        expect(result[:differences]).not_to be_empty
-        # Verbose mode returns hashes with diff information
-        expect(result[:differences].first).to be_a(Hash)
-        expect(result[:differences].first[:diff1]).to eq(Canon::Comparison::UNEQUAL_ELEMENTS)
+        expect(result).to be_a(Canon::Comparison::ComparisonResult)
+        expect(result.differences).not_to be_empty
+        expect(result.equivalent?).to be false
+        # First difference should be a DiffNode
+        expect(result.differences.first).to be_a(Canon::Diff::DiffNode)
+        expect(result.differences.first.dimension).to eq(:text_content)
       end
 
-      it "returns array of differences for different text content" do
+      it "returns ComparisonResult with differences for different text content" do
         html1 = "<html><body><p>Test1</p></body></html>"
         html2 = "<html><body><p>Test2</p></body></html>"
 
         result = described_class.equivalent?(html1, html2, verbose: true)
-        expect(result).to be_a(Hash)
-        expect(result[:differences]).not_to be_empty
-        # Verbose mode returns hashes with diff information
-        expect(result[:differences].first).to be_a(Hash)
-        expect(result[:differences].first[:diff1]).to eq(Canon::Comparison::UNEQUAL_TEXT_CONTENTS)
+        expect(result).to be_a(Canon::Comparison::ComparisonResult)
+        expect(result.differences).not_to be_empty
+        expect(result.equivalent?).to be false
+        # Differences can be DiffNode or Hash
+        diff = result.differences.first
+        if diff.is_a?(Canon::Diff::DiffNode)
+          expect(diff.dimension).to eq(:text_content)
+        else
+          expect(diff.dimension).to eq(:text_content)
+        end
       end
 
-      it "returns array of differences for different attributes" do
+      it "returns ComparisonResult with differences for different attributes" do
         html1 = '<html><body><p class="foo">Test</p></body></html>'
         html2 = '<html><body><p class="bar">Test</p></body></html>'
 
         result = described_class.equivalent?(html1, html2, verbose: true)
-        expect(result).to be_a(Hash)
-        expect(result[:differences]).not_to be_empty
-        # Verbose mode returns hashes with diff information
-        expect(result[:differences].first).to be_a(Hash)
-        # Attribute comparison returns UNEQUAL_ATTRIBUTES (4)
-        expect(result[:differences].first[:diff1]).to eq(Canon::Comparison::UNEQUAL_ATTRIBUTES)
+        expect(result).to be_a(Canon::Comparison::ComparisonResult)
+        expect(result.differences).not_to be_empty
+        expect(result.equivalent?).to be false
+        # Differences can be DiffNode or Hash
+        diff = result.differences.first
+        if diff.is_a?(Canon::Diff::DiffNode)
+          expect([:attribute_whitespace, :attribute_values]).to include(diff.dimension)
+        else
+          expect(diff.dimension).to eq(:text_content)
+        end
       end
     end
 

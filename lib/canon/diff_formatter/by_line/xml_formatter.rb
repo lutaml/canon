@@ -17,6 +17,128 @@ module Canon
         # @param doc2 [String] Second XML document
         # @return [String] Formatted diff
         def format(doc1, doc2)
+          # If we have DiffNodes from comparison, check if there are active diffs
+          # based on show_diffs setting
+          if @differences && @differences.any? { |d| d.is_a?(Canon::Diff::DiffNode) }
+            # Check if we should skip based on show_diffs setting
+            if should_skip_diff_display?
+              return ""
+            end
+
+            # Use new pipeline when DiffNodes available
+            return format_with_pipeline(doc1, doc2)
+          end
+
+          # LEGACY: Fall back to old behavior for backward compatibility
+          # This happens when @differences is nil (no comparison result provided)
+          format_legacy(doc1, doc2)
+        end
+
+        # Format using new DiffReportBuilder pipeline
+        def format_with_pipeline(doc1, doc2)
+          # Check if we should show any diffs
+          if should_skip_diff_display?
+            return ""
+          end
+
+          require_relative "../../diff/diff_node_mapper"
+          require_relative "../../diff/diff_report_builder"
+
+          # Layer 2: Map DiffNodes to DiffLines
+          diff_lines = Canon::Diff::DiffNodeMapper.map(@differences, doc1, doc2)
+
+          # Layers 3-5: Build report through pipeline
+          report = Canon::Diff::DiffReportBuilder.build(
+            diff_lines,
+            show_diffs: @show_diffs,
+            context_lines: @context_lines,
+            grouping_lines: @diff_grouping_lines,
+          )
+
+          # Layer 6: Format the report
+          format_report(report, doc1, doc2)
+        end
+
+        # Format a DiffReport for display
+        def format_report(report, doc1, doc2)
+          return "" if report.contexts.empty?
+
+          lines1 = doc1.split("\n")
+          lines2 = doc2.split("\n")
+
+          output = []
+
+          # Detect non-ASCII characters
+          all_text = (lines1 + lines2).join
+          non_ascii = Legend.detect_non_ascii(all_text, @visualization_map)
+
+          # Add Unicode legend if needed
+          unless non_ascii.empty?
+            output << Legend.build_legend(non_ascii, use_color: @use_color)
+            output << ""
+          end
+
+          # Format each context
+          report.contexts.each_with_index do |context, idx|
+            output << "" if idx.positive?
+            output << format_context_from_lines(context, lines1, lines2)
+          end
+
+          output.join("\n")
+        end
+
+        # Format a context using its DiffLines
+        def format_context_from_lines(context, lines1, lines2)
+          output = []
+
+          context.lines.each do |diff_line|
+            case diff_line.type
+            when :unchanged
+              line_num = diff_line.line_number + 1
+              output << format_unified_line(line_num, line_num, " ",
+                                            diff_line.content)
+            when :removed
+              line_num = diff_line.line_number + 1
+              inactive = diff_line.inactive?
+              output << format_unified_line(line_num, nil, "-",
+                                            diff_line.content,
+                                            inactive ? :cyan : :red,
+                                            inactive: inactive)
+            when :added
+              line_num = diff_line.line_number + 1
+              inactive = diff_line.inactive?
+              output << format_unified_line(nil, line_num, "+",
+                                            diff_line.content,
+                                            inactive ? :cyan : :green,
+                                            inactive: inactive)
+            when :changed
+              line_num = diff_line.line_number + 1
+              inactive = diff_line.inactive?
+              # For changed lines, we need both old and new content
+              # For now, show as removed + added
+              old_content = lines1[diff_line.line_number]
+              new_content = diff_line.content
+              output << format_unified_line(line_num, nil, "-",
+                                            old_content,
+                                            inactive ? :cyan : :red,
+                                            inactive: inactive)
+              output << format_unified_line(nil, line_num, "+",
+                                            new_content,
+                                            inactive ? :cyan : :green,
+                                            inactive: inactive)
+            end
+          end
+
+          output.join("\n")
+        end
+
+        # Legacy format method (for backward compatibility)
+        def format_legacy(doc1, doc2)
+          # Check if we should show any diffs based on differences array
+          if should_skip_diff_display?
+            return ""
+          end
+
           require_relative "../../xml/data_model"
           require_relative "../../xml/element_matcher"
           require_relative "../../xml/line_range_mapper"
@@ -78,6 +200,30 @@ module Canon
 
         private
 
+        # Check if diff display should be skipped
+        # Returns true when:
+        # 1. show_diffs is :active AND there are no active differences
+        # 2. show_diffs is :inactive AND there are no inactive differences
+        def should_skip_diff_display?
+          return false if @differences.nil? || @differences.empty?
+
+          case @show_diffs
+          when :active
+            # Skip if no active diffs
+            !@differences.any? do |diff|
+              diff.is_a?(Canon::Diff::DiffNode) && diff.active?
+            end
+          when :inactive
+            # Skip if no inactive diffs
+            !@differences.any? do |diff|
+              diff.is_a?(Canon::Diff::DiffNode) && diff.inactive?
+            end
+          else
+            # :all or other - never skip
+            false
+          end
+        end
+
         # Format element matches for display
         def format_element_matches(matches, map1, map2, lines1, lines2)
           output = []
@@ -129,7 +275,11 @@ module Canon
           elements_to_skip = Set.new
           elements_with_diffs = Set.new
 
+          # Build set of element pairs that have semantic diffs
+          elements_with_semantic_diffs = build_elements_with_semantic_diffs_set
+
           # First pass: identify elements with line differences
+          # (semantic filtering happens in collect_diff_sections)
           matches.each do |match|
             next unless match.status == :matched
 
@@ -140,7 +290,11 @@ module Canon
             elem_lines1 = lines1[range1.start_line..range1.end_line]
             elem_lines2 = lines2[range2.start_line..range2.end_line]
 
-            elements_with_diffs.add(match.elem1) if elem_lines1 != elem_lines2
+            # Add if there are line diffs
+            # Semantic filtering is done in collect_diff_sections
+            if elem_lines1 != elem_lines2
+              elements_with_diffs.add(match.elem1)
+            end
           end
 
           # Second pass: skip children of elements with diffs
@@ -158,6 +312,38 @@ module Canon
           end
 
           elements_to_skip
+        end
+
+        # Check if an element or its children have semantic diffs
+        def has_semantic_diff_in_subtree?(element, elements_with_semantic_diffs)
+          # Check the element itself
+          return true if elements_with_semantic_diffs.include?(element)
+
+          # Check all descendants
+          if element.respond_to?(:children)
+            element.children.any? do |child|
+              has_semantic_diff_in_subtree?(child, elements_with_semantic_diffs)
+            end
+          else
+            false
+          end
+        end
+
+        # Build set of individual elements (not pairs) that have semantic diffs
+        def build_elements_with_semantic_diffs_set
+          elements = Set.new
+
+          return elements if @differences.nil? || @differences.empty?
+
+          @differences.each do |diff|
+            next unless diff.is_a?(Canon::Diff::DiffNode)
+
+            # Add both nodes if they exist
+            elements.add(diff.node1) if diff.node1
+            elements.add(diff.node2) if diff.node2
+          end
+
+          elements
         end
 
         # Build set of children of matched parents
@@ -184,10 +370,23 @@ module Canon
                                    elements_to_skip, children_of_matched_parents)
           diff_sections = []
 
+          # If there are NO semantic diffs, don't show any matched elements
+          elements_with_semantic_diffs = build_elements_with_semantic_diffs_set
+
           matches.each do |match|
             case match.status
             when :matched
               next if elements_to_skip.include?(match.elem1)
+
+              # Only apply semantic filtering if we have DiffNode objects
+              # (when called standalone or without DiffNodes, show all diffs)
+              if !@differences.nil? && !@differences.empty? && @differences.any? { |d| d.is_a?(Canon::Diff::DiffNode) }
+                # Skip if no semantic diffs exist (all diffs were normalized)
+                next if elements_with_semantic_diffs.empty?
+
+                # Skip if this element has no semantic diffs in its subtree
+                next unless has_semantic_diff_in_subtree?(match.elem1, elements_with_semantic_diffs)
+              end
 
               section = format_matched_element_with_metadata(match, map1,
                                                              map2, lines1,
@@ -521,7 +720,7 @@ module Canon
         end
 
         # Format a unified diff line
-        def format_unified_line(old_num, new_num, marker, content, color = nil)
+        def format_unified_line(old_num, new_num, marker, content, color = nil, inactive: false)
           old_str = old_num ? "%4d" % old_num : "    "
           new_str = new_num ? "%4d" % new_num : "    "
           marker_part = "#{marker} "
@@ -608,7 +807,8 @@ module Canon
           token_diffs.each do |change|
             case change.action
             when "="
-              visual = change.old_element.chars.map do |char|
+              element = change.old_element || ""
+              visual = element.to_s.chars.map do |char|
                 @visualization_map.fetch(char, char)
               end.join
 
@@ -639,7 +839,9 @@ module Canon
 
         # Apply character visualization
         def apply_visualization(token, color = nil)
-          visual = token.chars.map do |char|
+          return "" if token.nil?
+
+          visual = token.to_s.chars.map do |char|
             @visualization_map.fetch(char, char)
           end.join
 
@@ -650,6 +852,7 @@ module Canon
             visual
           end
         end
+
       end
     end
   end

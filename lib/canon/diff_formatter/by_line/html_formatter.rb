@@ -14,11 +14,11 @@ module Canon
 
         def initialize(use_color: true, context_lines: 3,
                        diff_grouping_lines: nil, visualization_map: nil,
-                       html_version: :html4, show_diffs: :all)
+                       html_version: :html4, show_diffs: :all, differences: [])
           super(use_color: use_color, context_lines: context_lines,
                 diff_grouping_lines: diff_grouping_lines,
                 visualization_map: visualization_map,
-                show_diffs: show_diffs)
+                show_diffs: show_diffs, differences: differences)
           @html_version = html_version
         end
 
@@ -28,6 +28,23 @@ module Canon
         # @param doc2 [String] Second HTML document
         # @return [String] Formatted diff
         def format(doc1, doc2)
+          # If we have DiffNodes from comparison, use the new pipeline
+          if @differences && @differences.any? { |d| d.is_a?(Canon::Diff::DiffNode) }
+            # Check if we should skip based on show_diffs setting
+            if should_skip_diff_display?
+              return ""
+            end
+
+            # Use new pipeline when DiffNodes available
+            return format_with_pipeline(doc1, doc2)
+          end
+
+          # LEGACY: Fall back to old DOM-based behavior
+          # Check if we should show any diffs based on differences array
+          if should_skip_diff_display?
+            return ""
+          end
+
           require_relative "../../xml/data_model"
           require_relative "../../xml/element_matcher"
           require_relative "../../xml/line_range_mapper"
@@ -37,8 +54,10 @@ module Canon
 
           begin
             # Parse to DOM using HTML parser
-            root1 = Canon::Xml::DataModel.from_html(doc1, version: @html_version)
-            root2 = Canon::Xml::DataModel.from_html(doc2, version: @html_version)
+            root1 = Canon::Xml::DataModel.from_html(doc1,
+                                                    version: @html_version)
+            root2 = Canon::Xml::DataModel.from_html(doc2,
+                                                    version: @html_version)
 
             # Match elements semantically
             matcher = Canon::Xml::ElementMatcher.new
@@ -60,15 +79,21 @@ module Canon
             lines2 = pretty2.split("\n")
 
             # DEBUG
-            $stderr.puts "DEBUG: HTML Formatter - lines1.length=#{lines1.length}, lines2.length=#{lines2.length}"
-            $stderr.puts "DEBUG: HTML Formatter - matches.length=#{matches.length}"
-            $stderr.puts "DEBUG: HTML Formatter - map1.size=#{map1.size}, map2.size=#{map2.size}"
-            $stderr.puts "DEBUG: Mapped elements in map1: #{map1.keys.map(&:name).join(', ')}"
-            $stderr.puts "DEBUG: Match types: matched=#{matches.count { |m| m.status == :matched }}, deleted=#{matches.count { |m| m.status == :deleted }}, inserted=#{matches.count { |m| m.status == :inserted }}"
+            warn "DEBUG: HTML Formatter - lines1.length=#{lines1.length}, lines2.length=#{lines2.length}"
+            warn "DEBUG: HTML Formatter - matches.length=#{matches.length}"
+            warn "DEBUG: HTML Formatter - map1.size=#{map1.size}, map2.size=#{map2.size}"
+            warn "DEBUG: Mapped elements in map1: #{map1.keys.map(&:name).join(', ')}"
+            warn "DEBUG: Match types: matched=#{matches.count do |m|
+              m.status == :matched
+            end}, deleted=#{matches.count do |m|
+              m.status == :deleted
+            end}, inserted=#{matches.count do |m|
+                             m.status == :inserted
+                           end}"
 
             # Display diffs based on element matches
             result = format_element_matches(matches, map1, map2, lines1, lines2)
-            $stderr.puts "DEBUG: HTML Formatter - result.length=#{result.length}"
+            warn "DEBUG: HTML Formatter - result.length=#{result.length}"
             output << result
           rescue StandardError => e
             # Fall back to simple diff on error
@@ -101,7 +126,122 @@ module Canon
           output.join("\n")
         end
 
+        # Format using new DiffReportBuilder pipeline
+        def format_with_pipeline(doc1, doc2)
+          require_relative "../../diff/diff_node_mapper"
+          require_relative "../../diff/diff_report_builder"
+
+          # Layer 2: Map DiffNodes to DiffLines
+          diff_lines = Canon::Diff::DiffNodeMapper.map(@differences, doc1, doc2)
+
+          # Layers 3-5: Build report through pipeline
+          report = Canon::Diff::DiffReportBuilder.build(
+            diff_lines,
+            show_diffs: @show_diffs,
+            context_lines: @context_lines,
+            grouping_lines: @diff_grouping_lines,
+          )
+
+          # Layer 6: Format the report
+          format_report(report, doc1, doc2)
+        end
+
+        # Format a DiffReport for display
+        def format_report(report, doc1, doc2)
+          return "" if report.contexts.empty?
+
+          lines1 = doc1.split("\n")
+          lines2 = doc2.split("\n")
+
+          output = []
+
+          # Detect non-ASCII characters
+          all_text = (lines1 + lines2).join
+          non_ascii = Legend.detect_non_ascii(all_text, @visualization_map)
+
+          # Add Unicode legend if needed
+          unless non_ascii.empty?
+            output << Legend.build_legend(non_ascii, use_color: @use_color)
+            output << ""
+          end
+
+          # Format each context
+          report.contexts.each_with_index do |context, idx|
+            output << "" if idx.positive?
+            output << format_context_from_lines(context, lines1, lines2)
+          end
+
+          output.join("\n")
+        end
+
+        # Format a context using its DiffLines
+        def format_context_from_lines(context, lines1, lines2)
+          output = []
+
+          context.lines.each do |diff_line|
+            case diff_line.type
+            when :unchanged
+              line_num = diff_line.line_number + 1
+              output << format_unified_line(line_num, line_num, " ",
+                                            diff_line.content)
+            when :removed
+              line_num = diff_line.line_number + 1
+              inactive = diff_line.inactive?
+              output << format_unified_line(line_num, nil, "-",
+                                            diff_line.content,
+                                            inactive ? :cyan : :red,
+                                            inactive: inactive)
+            when :added
+              line_num = diff_line.line_number + 1
+              inactive = diff_line.inactive?
+              output << format_unified_line(nil, line_num, "+",
+                                            diff_line.content,
+                                            inactive ? :cyan : :green,
+                                            inactive: inactive)
+            when :changed
+              line_num = diff_line.line_number + 1
+              inactive = diff_line.inactive?
+              old_content = lines1[diff_line.line_number]
+              new_content = diff_line.content
+              output << format_unified_line(line_num, nil, "-",
+                                            old_content,
+                                            inactive ? :cyan : :red,
+                                            inactive: inactive)
+              output << format_unified_line(nil, line_num, "+",
+                                            new_content,
+                                            inactive ? :cyan : :green,
+                                            inactive: inactive)
+            end
+          end
+
+          output.join("\n")
+        end
+
         private
+
+        # Check if diff display should be skipped
+        # Returns true when:
+        # 1. show_diffs is :active AND there are no active differences
+        # 2. show_diffs is :inactive AND there are no inactive differences
+        def should_skip_diff_display?
+          return false if @differences.nil? || @differences.empty?
+
+          case @show_diffs
+          when :active
+            # Skip if no active diffs
+            !@differences.any? do |diff|
+              diff.is_a?(Canon::Diff::DiffNode) && diff.active?
+            end
+          when :inactive
+            # Skip if no inactive diffs
+            !@differences.any? do |diff|
+              diff.is_a?(Canon::Diff::DiffNode) && diff.inactive?
+            end
+          else
+            # :all or other - never skip
+            false
+          end
+        end
 
         # Format element matches for display
         def format_element_matches(matches, map1, map2, lines1, lines2)
@@ -130,9 +270,9 @@ module Canon
                                                 children_of_matched_parents)
 
           # DEBUG
-          $stderr.puts "DEBUG: format_element_matches - diff_sections.length=#{diff_sections.length}"
-          $stderr.puts "DEBUG: format_element_matches - elements_to_skip.size=#{elements_to_skip.size}"
-          $stderr.puts "DEBUG: format_element_matches - children_of_matched_parents.size=#{children_of_matched_parents.size}"
+          warn "DEBUG: format_element_matches - diff_sections.length=#{diff_sections.length}"
+          warn "DEBUG: format_element_matches - elements_to_skip.size=#{elements_to_skip.size}"
+          warn "DEBUG: format_element_matches - children_of_matched_parents.size=#{children_of_matched_parents.size}"
 
           # Sort by line number
           diff_sections.sort_by! do |section|
@@ -150,7 +290,7 @@ module Canon
                               end.compact.join("\n\n")
                             end
 
-          $stderr.puts "DEBUG: format_element_matches - formatted_diffs.length=#{formatted_diffs.length}"
+          warn "DEBUG: format_element_matches - formatted_diffs.length=#{formatted_diffs.length}"
           output << formatted_diffs
           output.join("\n")
         end
@@ -160,7 +300,11 @@ module Canon
           elements_to_skip = Set.new
           elements_with_diffs = Set.new
 
+          # Build set of element pairs that have semantic diffs
+          elements_with_semantic_diffs = build_elements_with_semantic_diffs_set
+
           # First pass: identify elements with line differences
+          # (semantic filtering happens in collect_diff_sections)
           matches.each do |match|
             next unless match.status == :matched
 
@@ -171,7 +315,11 @@ module Canon
             elem_lines1 = lines1[range1.start_line..range1.end_line]
             elem_lines2 = lines2[range2.start_line..range2.end_line]
 
-            elements_with_diffs.add(match.elem1) if elem_lines1 != elem_lines2
+            # Add if there are line diffs
+            # Semantic filtering is done in collect_diff_sections
+            if elem_lines1 != elem_lines2
+              elements_with_diffs.add(match.elem1)
+            end
           end
 
           # Second pass: skip children of elements with diffs
@@ -189,6 +337,38 @@ module Canon
           end
 
           elements_to_skip
+        end
+
+        # Check if an element or its children have semantic diffs
+        def has_semantic_diff_in_subtree?(element, elements_with_semantic_diffs)
+          # Check the element itself
+          return true if elements_with_semantic_diffs.include?(element)
+
+          # Check all descendants
+          if element.respond_to?(:children)
+            element.children.any? do |child|
+              has_semantic_diff_in_subtree?(child, elements_with_semantic_diffs)
+            end
+          else
+            false
+          end
+        end
+
+        # Build set of individual elements (not pairs) that have semantic diffs
+        def build_elements_with_semantic_diffs_set
+          elements = Set.new
+
+          return elements if @differences.nil? || @differences.empty?
+
+          @differences.each do |diff|
+            next unless diff.is_a?(Canon::Diff::DiffNode)
+
+            # Add both nodes if they exist
+            elements.add(diff.node1) if diff.node1
+            elements.add(diff.node2) if diff.node2
+          end
+
+          elements
         end
 
         # Build set of children of matched parents
@@ -210,6 +390,7 @@ module Canon
           children
         end
 
+
         # Collect diff sections with metadata
         def collect_diff_sections(matches, map1, map2, lines1, lines2,
                                    elements_to_skip, _children_of_matched_parents)
@@ -217,16 +398,30 @@ module Canon
           no_range_count = 0
           no_diff_count = 0
 
+          # If there are NO semantic diffs, don't show any matched elements
+          # (all text diffs were normalized away)
+          elements_with_semantic_diffs = build_elements_with_semantic_diffs_set
+
           matches.each do |match|
             case match.status
             when :matched
               next if elements_to_skip.include?(match.elem1)
 
+              # Only apply semantic filtering if we have DiffNode objects
+              # (when called standalone or without DiffNodes, show all diffs)
+              if !@differences.nil? && !@differences.empty? && @differences.any? { |d| d.is_a?(Canon::Diff::DiffNode) }
+                # Skip if no semantic diffs exist (all diffs were normalized)
+                next if elements_with_semantic_diffs.empty?
+
+                # Skip if this element has no semantic diffs in its subtree
+                next unless has_semantic_diff_in_subtree?(match.elem1, elements_with_semantic_diffs)
+              end
+
               range1 = map1[match.elem1]
               range2 = map2[match.elem2]
               if !range1 || !range2
                 no_range_count += 1
-                $stderr.puts "DEBUG: No range for #{match.elem1.name} (path: #{match.path.join('/')})" if no_range_count <= 5
+                warn "DEBUG: No range for #{match.elem1.name} (path: #{match.path.join('/')})" if no_range_count <= 5
               end
 
               section = format_matched_element_with_metadata(match, map1,
@@ -234,7 +429,7 @@ module Canon
                                                              lines2)
               if range1 && range2 && !section
                 no_diff_count += 1
-                $stderr.puts "DEBUG: No diff for #{match.elem1.name} (path: #{match.path.join('/')})" if no_diff_count <= 5
+                warn "DEBUG: No diff for #{match.elem1.name} (path: #{match.path.join('/')})" if no_diff_count <= 5
               end
               diff_sections << section if section
             when :deleted
@@ -250,7 +445,7 @@ module Canon
             end
           end
 
-          $stderr.puts "DEBUG: collect_diff_sections - no_range_count=#{no_range_count}, no_diff_count=#{no_diff_count}"
+          warn "DEBUG: collect_diff_sections - no_range_count=#{no_range_count}, no_diff_count=#{no_diff_count}"
           diff_sections
         end
 
@@ -442,6 +637,33 @@ module Canon
           end
 
           output.join("\n")
+        end
+
+        # Check if an element or its children have semantic diffs
+        def has_semantic_diff_in_subtree?(element, elements_with_semantic_diffs)
+          return true if elements_with_semantic_diffs.include?(element)
+
+          if element.respond_to?(:children)
+            element.children.any? do |child|
+              has_semantic_diff_in_subtree?(child, elements_with_semantic_diffs)
+            end
+          else
+            false
+          end
+        end
+
+        # Build set of individual elements that have semantic diffs
+        def build_elements_with_semantic_diffs_set
+          elements = Set.new
+          return elements if @differences.nil? || @differences.empty?
+
+          @differences.each do |diff|
+            next unless diff.is_a?(Canon::Diff::DiffNode)
+            elements.add(diff.node1) if diff.node1
+            elements.add(diff.node2) if diff.node2
+          end
+
+          elements
         end
       end
     end

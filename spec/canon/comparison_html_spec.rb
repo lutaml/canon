@@ -45,7 +45,7 @@ RSpec.describe Canon::Comparison do
         expect(described_class.equivalent?(xml1, xml1, opts)).to be true
       end
 
-      it "returns empty array for verbose comparison" do
+      it "returns ComparisonResult for verbose comparison" do
         opts = {
           match: {
             text_content: :normalize,
@@ -54,8 +54,9 @@ RSpec.describe Canon::Comparison do
           verbose: true,
         }
         result = described_class.equivalent?(xml1, xml1, opts)
-        expect(result).to be_an(Array)
-        expect(result).to be_empty
+        expect(result).to be_a(Canon::Comparison::ComparisonResult)
+        expect(result.differences).to be_empty
+        expect(result.equivalent?).to be true
       end
 
       it "returns same result regardless of argument order" do

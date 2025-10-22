@@ -136,7 +136,7 @@ module Canon
     # Diff configuration for output formatting
     class DiffConfig
       attr_accessor :mode, :use_color, :context_lines, :grouping_lines,
-                    :show_diffs
+                    :show_diffs, :verbose_diff
 
       def initialize
         @mode = :by_line
@@ -144,6 +144,7 @@ module Canon
         @context_lines = 3
         @grouping_lines = 10
         @show_diffs = :all
+        @verbose_diff = false
       end
 
       def reset!
@@ -152,6 +153,7 @@ module Canon
         @context_lines = 3
         @grouping_lines = 10
         @show_diffs = :all
+        @verbose_diff = false
       end
 
       # Build diff options
@@ -162,6 +164,7 @@ module Canon
           context_lines: @context_lines,
           grouping_lines: @grouping_lines,
           show_diffs: @show_diffs,
+          verbose_diff: @verbose_diff,
         }
       end
     end

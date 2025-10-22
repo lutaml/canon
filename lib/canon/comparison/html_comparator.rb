@@ -3,6 +3,7 @@
 require "nokogiri"
 require_relative "xml_comparator"
 require_relative "match_options"
+require_relative "comparison_result"
 require_relative "../diff/diff_node"
 require_relative "../diff/diff_classifier"
 
@@ -71,8 +72,8 @@ module Canon
           child_opts = opts.merge(child_opts)
 
           # Parse nodes if they are strings, applying preprocessing if needed
-          node1 = parse_node(html1, match_opts_hash[:preprocessing])
-          node2 = parse_node(html2, match_opts_hash[:preprocessing])
+          node1 = parse_node(html1, match_opts_hash[:preprocessing], match_opts_hash)
+          node2 = parse_node(html2, match_opts_hash[:preprocessing], match_opts_hash)
 
           # Serialize preprocessed nodes for diff display (avoid re-preprocessing)
           preprocessed_str1 = serialize_for_display(node1)
@@ -114,15 +115,19 @@ module Canon
           # Classify DiffNodes as active/inactive if we have verbose output
           if opts[:verbose] && !differences.empty?
             classifier = Canon::Diff::DiffClassifier.new(match_opts)
-            classifier.classify_all(differences.select { |d| d.is_a?(Canon::Diff::DiffNode) })
+            classifier.classify_all(differences.select do |d|
+              d.is_a?(Canon::Diff::DiffNode)
+            end)
           end
 
           if opts[:verbose]
-            {
+            ComparisonResult.new(
               differences: differences,
-              preprocessed: [preprocessed_str1, preprocessed_str2],
+              preprocessed_strings: [preprocessed_str1, preprocessed_str2],
+              format: :html,
               html_version: detect_html_version_from_node(node1),
-            }
+              match_options: match_opts_hash,
+            )
           else
             result == Comparison::EQUIVALENT
           end
@@ -132,7 +137,7 @@ module Canon
 
         # Parse a node from string or return as-is
         # Applies preprocessing transformation before parsing if specified
-        def parse_node(node, preprocessing = :none)
+        def parse_node(node, preprocessing = :none, match_opts = {})
           # If already a Nokogiri node, check for incompatible XML documents
           # Only raise error for non-string incompatible formats
           unless node.is_a?(String)
@@ -141,6 +146,7 @@ module Canon
             if is_xml_document?(node)
               raise Canon::CompareFormatMismatchError.new(:xml, :html)
             end
+
             # For :rendered preprocessing, apply normalization even to pre-parsed nodes
             if preprocessing == :rendered
               # If already a DocumentFragment with :rendered, just normalize it
@@ -149,13 +155,13 @@ module Canon
                   node.is_a?(Nokogiri::XML::DocumentFragment)
                 # Normalize whitespace directly without re-parsing
                 normalize_html_style_script_comments(node)
-                normalize_rendered_whitespace(node)
+                normalize_rendered_whitespace(node, match_opts)
                 return node
               end
 
               # Normalize whitespace directly without re-parsing
               normalize_html_style_script_comments(node)
-              normalize_rendered_whitespace(node)
+              normalize_rendered_whitespace(node, match_opts)
               return node
             end
 
@@ -163,9 +169,17 @@ module Canon
             return node
           end
 
-          # Check if string contains XML declaration - this indicates XML not HTML
+          # Check if string contains XML declaration but is actually HTML
+          # Nokogiri::HTML4.to_s adds <?xml...?> but the content is still HTML
           if node.strip.start_with?("<?xml")
-            raise Canon::CompareFormatMismatchError.new(:xml, :html)
+            # Check if this is actually HTML content after the declaration
+            # Look for <html tag which indicates HTML
+            unless node.match?(/<html[\s>]/i)
+              # No <html> tag, this is likely pure XML
+              raise Canon::CompareFormatMismatchError.new(:xml, :html)
+            end
+            # Has <?xml but also <html> tag, so it's HTML with XML declaration
+            # (common output from Nokogiri::HTML4#to_s)
           end
 
           # For :rendered preprocessing, handle separately to avoid double-parsing
@@ -175,14 +189,14 @@ module Canon
             if node.match?(/<html[\s>]/i)
               doc = Nokogiri::HTML(node, &:noblanks)
               normalize_html_style_script_comments(doc)
-              normalize_rendered_whitespace(doc)
+              normalize_rendered_whitespace(doc, match_opts)
               remove_whitespace_only_text_nodes(doc)
               return doc
             else
               # Use fragment for partial HTML
               frag = Nokogiri::HTML4.fragment(node)
               normalize_html_style_script_comments(frag)
-              normalize_rendered_whitespace(frag)
+              normalize_rendered_whitespace(frag, match_opts)
               remove_whitespace_only_text_nodes(frag)
               return frag
             end
@@ -239,7 +253,7 @@ module Canon
               node.is_a?(Nokogiri::HTML5::DocumentFragment)
             :html5
           elsif node.is_a?(Nokogiri::HTML4::Document) ||
-                node.is_a?(Nokogiri::HTML4::DocumentFragment)
+              node.is_a?(Nokogiri::HTML4::DocumentFragment)
             :html4
           else
             # Default to HTML4 for compatibility
@@ -278,14 +292,23 @@ module Canon
         # In HTML rendering, sequences of whitespace (spaces, tabs, newlines)
         # collapse to a single space, except in elements where whitespace is
         # significant (pre, code, textarea, script, style)
-        def normalize_rendered_whitespace(doc)
+        #
+        # @param doc [Nokogiri::HTML::Document] Document to normalize
+        # @param match_opts [Hash] Match options to respect during normalization
+        def normalize_rendered_whitespace(doc, match_opts = {})
+          # If text_content is :strict, don't normalize ANY text content
+          # This allows users to explicitly request strict text matching
+          return if match_opts[:text_content] == :strict
+
           # Elements where whitespace is significant - don't normalize
+          # This is an HTML rendering rule, not a match option
           preserve_whitespace = %w[pre code textarea script style]
 
           # Walk all text nodes
           doc.xpath(".//text()").each do |text_node|
             # Skip if this text node is inside a whitespace-preserving element
             # Check all ancestors, not just immediate parent
+            # Whitespace preservation happens REGARDLESS of text_content setting
             parent = text_node.parent
             next if ancestor_preserves_whitespace?(parent, preserve_whitespace)
 
@@ -303,7 +326,7 @@ module Canon
         # Check if any ancestor of the given node preserves whitespace
         def ancestor_preserves_whitespace?(node, preserve_list)
           current = node
-          while current && current.respond_to?(:name)
+          while current.respond_to?(:name)
             return true if preserve_list.include?(current.name.downcase)
 
             # Stop at document root - documents don't have parents
@@ -346,8 +369,11 @@ module Canon
         def is_xml_document?(node)
           # Check if it's a pure XML document (not HTML4/HTML5 which also
           # inherit from XML::Document)
+          # Check both Document and DocumentFragment variants
           return false if node.is_a?(Nokogiri::HTML4::Document) ||
-                          node.is_a?(Nokogiri::HTML5::Document)
+            node.is_a?(Nokogiri::HTML5::Document) ||
+            node.is_a?(Nokogiri::HTML4::DocumentFragment) ||
+            node.is_a?(Nokogiri::HTML5::DocumentFragment)
 
           # If it's an XML document, check for XML processing instruction
           if node.is_a?(Nokogiri::XML::Document)
@@ -356,16 +382,18 @@ module Canon
               child.is_a?(Nokogiri::XML::ProcessingInstruction) &&
                 child.name == "xml"
             end
-            # Also return true if it's a plain XML::Document
-            return true
+
+            # Note: We don't blindly return true here because HTML documents
+            # also inherit from XML::Document. We only return true if there's
+            # an XML processing instruction above.
           end
 
           # Check if it's a fragment that contains XML processing instructions
-          if node.respond_to?(:children)
-            return true if node.children.any? do |child|
-              child.is_a?(Nokogiri::XML::ProcessingInstruction) &&
+          if node.respond_to?(:children) && node.children.any? do |child|
+            child.is_a?(Nokogiri::XML::ProcessingInstruction) &&
                 child.name == "xml"
-            end
+          end
+            return true
           end
 
           false

@@ -2,6 +2,7 @@
 
 require "json"
 require_relative "match_options"
+require_relative "comparison_result"
 
 module Canon
   module Comparison
@@ -30,13 +31,12 @@ module Canon
         # @param json1 [String, Hash, Array] First JSON
         # @param json2 [String, Hash, Array] Second JSON
         # @param opts [Hash] Comparison options
-        # @return [Boolean, Array] true if equivalent, or array of diffs if
-        #   verbose
+        # @return [Boolean, ComparisonResult] true if equivalent, or ComparisonResult if verbose
         def equivalent?(json1, json2, opts = {})
           opts = DEFAULT_OPTS.merge(opts)
 
           # Resolve match options with format-specific defaults
-          match_opts = MatchOptions::Json.resolve(
+          match_opts_hash = MatchOptions::Json.resolve(
             format: :json,
             match_profile: opts[:match_profile],
             match: opts[:match],
@@ -45,8 +45,14 @@ module Canon
             global_options: opts[:global_options],
           )
 
+          # Wrap in ResolvedMatchOptions for consistency with XML/HTML
+          match_opts = Canon::Comparison::ResolvedMatchOptions.new(
+            match_opts_hash,
+            format: :json,
+          )
+
           # Store resolved match options for use in comparison logic
-          opts[:match_opts] = match_opts
+          opts[:match_opts] = match_opts_hash
 
           # Parse JSON if strings
           obj1 = parse_json(json1)
@@ -56,7 +62,16 @@ module Canon
           result = compare_ruby_objects(obj1, obj2, opts, differences, "")
 
           if opts[:verbose]
-            differences
+            # Format JSON for display
+            json_str1 = obj1.is_a?(String) ? obj1 : JSON.pretty_generate(obj1)
+            json_str2 = obj2.is_a?(String) ? obj2 : JSON.pretty_generate(obj2)
+
+            ComparisonResult.new(
+              differences: differences,
+              preprocessed_strings: [json_str1, json_str2],
+              format: :json,
+              match_options: match_opts_hash,
+            )
           else
             result == Comparison::EQUIVALENT
           end

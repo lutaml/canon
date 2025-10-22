@@ -100,11 +100,12 @@ RSpec.describe Canon::Diff::DiffBlock do
 
       result = block.to_h
 
-      expect(result).to eq({
-                             start_idx: 5,
-                             end_idx: 10,
-                             types: ["-", "+"],
-                           })
+      expect(result).to include({
+                                  start_idx: 5,
+                                  end_idx: 10,
+                                  types: ["-", "+"],
+                                })
+      # May also include other fields like active, diff_lines, diff_node
     end
 
     it "includes empty types array" do

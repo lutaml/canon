@@ -136,13 +136,32 @@ module Canon
             comments: :ignore,
           },
 
+          # HTML4: Match HTML4 rendered output
+          # HTML4 rendering normalizes attribute whitespace
+          html4: {
+            preprocessing: :rendered,
+            text_content: :normalize,
+            structural_whitespace: :normalize,
+            attribute_whitespace: :normalize,
+            comments: :ignore,
+          },
+
+          # HTML5: Match HTML5 rendered output (same as rendered)
+          html5: {
+            preprocessing: :rendered,
+            text_content: :normalize,
+            structural_whitespace: :normalize,
+            attribute_whitespace: :strict,
+            comments: :ignore,
+          },
+
           # Spec-friendly: Formatting doesn't matter
           # Uses :rendered preprocessing for HTML which normalizes via to_html
           spec_friendly: {
             preprocessing: :rendered,
             text_content: :normalize,
             structural_whitespace: :ignore,
-            attribute_whitespace: :strict,
+            attribute_whitespace: :normalize,
             comments: :ignore,
           },
 

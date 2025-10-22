@@ -18,7 +18,7 @@ RSpec.describe "HTML rendered whitespace normalization" do
       singleline_html = '<p class="TableTitle" style="text-align:center;">Table 1 — Repeatability and reproducibility of <i>husked</i> rice yield</p>'
 
       expect(singleline_html).to be_html_equivalent_to(multiline_html,
-                                                        preprocessing: :rendered)
+                                                       preprocessing: :rendered)
     end
 
     it "collapses whitespace sequences in text nodes" do
@@ -54,7 +54,7 @@ RSpec.describe "HTML rendered whitespace normalization" do
       html3 = "<pre>Multiple spaces and newlines should be preserved</pre>"
 
       expect(html1).not_to be_html_equivalent_to(html3,
-                                                  preprocessing: :rendered)
+                                                 preprocessing: :rendered)
     end
 
     it "preserves whitespace in code elements" do
@@ -67,7 +67,7 @@ RSpec.describe "HTML rendered whitespace normalization" do
       html3 = "<code>const x = 5;</code>"
 
       expect(html1).not_to be_html_equivalent_to(html3,
-                                                  preprocessing: :rendered)
+                                                 preprocessing: :rendered)
     end
 
     it "handles complex nested structures with mixed whitespace" do
@@ -89,7 +89,7 @@ RSpec.describe "HTML rendered whitespace normalization" do
       singleline_html = '<div class="WordSection2"><p class="page-break"><br clear="all" style="mso-special-character:line-break;page-break-before:always"></p><div><h1 class="ForewordTitle">Foreword</h1><p class="TableTitle" style="text-align:center;">Repeatability and reproducibility of <i>husked</i> rice yield</p></div></div>'
 
       expect(multiline_html).to be_html_equivalent_to(singleline_html,
-                                                       preprocessing: :rendered)
+                                                      preprocessing: :rendered)
     end
 
     it "handles text nodes at different positions in parent" do
@@ -151,7 +151,7 @@ RSpec.describe "HTML rendered whitespace normalization" do
       actual = '<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd"><html xmlns:epub="http://www.idpf.org/2007/ops"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"></head><body><div class="WordSection2"><p class="page-break"><br clear="all" style="mso-special-character:line-break;page-break-before:always"></p><div><h1 class="ForewordTitle">Foreword</h1><p class="TableTitle" style="text-align:center;">Repeatability and reproducibility of <i>husked</i> rice yield</p></div></div></body></html>'
 
       expect(actual).to be_html_equivalent_to(expected,
-                                               preprocessing: :rendered)
+                                              preprocessing: :rendered)
     end
   end
 end

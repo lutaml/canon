@@ -2,6 +2,7 @@
 
 require "diff/lcs"
 require "diff/lcs/hunk"
+require_relative "../debug_output"
 
 module Canon
   class DiffFormatter
@@ -28,7 +29,7 @@ module Canon
             version = case format
                       when :html5 then :html5
                       when :html4 then :html4
-                      else :html4  # default to html4
+                      else :html4 # default to html4
                       end
             HtmlFormatter.new(html_version: version, **options)
           when :json
@@ -45,12 +46,13 @@ module Canon
 
         def initialize(use_color: true, context_lines: 3,
                        diff_grouping_lines: nil, visualization_map: nil,
-                       show_diffs: :all)
+                       show_diffs: :all, differences: [])
           @use_color = use_color
           @context_lines = context_lines
           @diff_grouping_lines = diff_grouping_lines
           @visualization_map = visualization_map
           @show_diffs = show_diffs
+          @differences = differences
         end
 
         # Format line-by-line diff
@@ -82,7 +84,8 @@ module Canon
             # Check if we should start a new hunk
             if !current_hunk.empty? && index - last_change_index > context_lines * 2
               # Trim trailing context lines before finalizing hunk
-              trim_trailing_context!(current_hunk, last_change_index, context_lines)
+              trim_trailing_context!(current_hunk, last_change_index,
+                                     context_lines)
               hunks << current_hunk
               current_hunk = []
             end
@@ -103,7 +106,8 @@ module Canon
 
           # Trim trailing context lines and add final hunk if any
           unless current_hunk.empty?
-            trim_trailing_context!(current_hunk, last_change_index, context_lines)
+            trim_trailing_context!(current_hunk, last_change_index,
+                                   context_lines)
             hunks << current_hunk
           end
 
@@ -116,7 +120,7 @@ module Canon
         # @param hunk [Array] The hunk to trim
         # @param last_change_index [Integer] Index of last change in original diffs
         # @param context_lines [Integer] Number of context lines to keep
-        def trim_trailing_context!(hunk, last_change_index, context_lines)
+        def trim_trailing_context!(hunk, _last_change_index, context_lines)
           # Find the position of the last change in this hunk
           last_change_pos = nil
           hunk.each_with_index do |change, i|
@@ -286,7 +290,7 @@ module Canon
             blocks.select(&:active?)
           when :inactive
             blocks.select(&:inactive?)
-          else  # :all or nil
+          else # :all or nil
             blocks
           end
         end
@@ -300,7 +304,8 @@ module Canon
         # @param color [Symbol, nil] Color for diff lines
         # @param inactive [Boolean] Whether this is an inactive diff
         # @return [String] Formatted line
-        def format_unified_line(old_num, new_num, marker, content, color = nil, inactive: false)
+        def format_unified_line(old_num, new_num, marker, content, color = nil,
+inactive: false)
           old_str = old_num ? "%4d" % old_num : "    "
           new_str = new_num ? "%4d" % new_num : "    "
           marker_part = "#{marker} "
@@ -339,7 +344,8 @@ module Canon
         # @param new_text [String] New line text
         # @param inactive [Boolean] Whether this is an inactive diff
         # @return [String] Formatted change
-        def format_changed_line(old_line, new_line, old_text, new_text, inactive: false)
+        def format_changed_line(old_line, new_line, old_text, new_text,
+inactive: false)
           output = []
 
           # For inactive diffs, use cyan color and ~ marker
@@ -382,7 +388,9 @@ module Canon
         # @param color [Symbol, nil] Optional color to apply
         # @return [String] Visualized and optionally colored token
         def apply_visualization(token, color = nil)
-          visual = token.chars.map do |char|
+          return "" if token.nil?
+
+          visual = token.to_s.chars.map do |char|
             @visualization_map.fetch(char, char)
           end.join
 

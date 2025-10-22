@@ -32,6 +32,7 @@ Gem::Specification.new do |spec|
   spec.add_dependency "moxml"
   spec.add_dependency "nokogiri"
   spec.add_dependency "paint"
+  spec.add_dependency "table_tennis"
   spec.add_dependency "thor"
   spec.add_dependency "unicode-name", "~> 1.14"
 

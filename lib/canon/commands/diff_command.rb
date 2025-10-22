@@ -50,7 +50,7 @@ module Canon
           diff_grouping_lines: @options[:diff_grouping_lines],
         )
         if comp_opts[:verbose]
-          # result is an array of differences
+          # result is always a ComparisonResult object
           output = formatter.format(
             result,
             format1,
@@ -58,7 +58,7 @@ module Canon
             doc2: formatted2,
           )
           puts output
-          exit result.empty? ? 0 : 1
+          exit result.equivalent? ? 0 : 1
         elsif result
           # result is a boolean
           puts formatter.send(:success_message)

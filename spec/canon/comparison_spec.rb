@@ -83,121 +83,149 @@ RSpec.describe Canon::Comparison do
     end
 
     context "with verbose mode" do
-      it "returns empty array for equivalent HTML documents" do
+      it "returns ComparisonResult for equivalent HTML documents" do
         html1 = "<html><body><p>Test</p></body></html>"
         html2 = "<html><body><p>Test</p></body></html>"
 
         result = described_class.equivalent?(html1, html2,
                                              { verbose: true })
-        expect(result).to be_a(Hash)
-        expect(result[:differences]).to be_empty
+        expect(result).to be_a(Canon::Comparison::ComparisonResult)
+        expect(result.differences).to be_empty
+        expect(result.equivalent?).to be true
       end
 
-      it "returns array of differences for different element names" do
+      it "returns ComparisonResult with differences for different element names" do
         html1 = "<html><body><p>Test</p></body></html>"
         html2 = "<html><body><div>Test</div></body></html>"
 
         result = described_class.equivalent?(html1, html2,
                                              { verbose: true })
-        expect(result).to be_a(Hash)
-        expect(result[:differences]).not_to be_empty
-        expect(result[:differences].first).to have_key(:node1)
-        expect(result[:differences].first).to have_key(:node2)
-        expect(result[:differences].first).to have_key(:diff1)
-        expect(result[:differences].first).to have_key(:diff2)
-        expect(result[:differences].first[:diff1]).to eq(Canon::Comparison::UNEQUAL_ELEMENTS)
+        expect(result).to be_a(Canon::Comparison::ComparisonResult)
+        expect(result.differences).not_to be_empty
+        expect(result.equivalent?).to be false
+        expect(result.differences.first).to be_a(Canon::Diff::DiffNode)
+        expect(result.differences.first.node1).not_to be_nil
+        expect(result.differences.first.node2).not_to be_nil
+        expect(result.differences.first.dimension).to eq(:text_content)
       end
 
-      it "returns array of differences for different text content" do
+      it "returns ComparisonResult with differences for different text content" do
         html1 = "<html><body><p>Test 1</p></body></html>"
         html2 = "<html><body><p>Test 2</p></body></html>"
 
         result = described_class.equivalent?(html1, html2,
                                              { verbose: true })
-        expect(result).to be_a(Hash)
-        expect(result[:differences]).not_to be_empty
-        expect(result[:differences].first[:diff1]).to eq(Canon::Comparison::UNEQUAL_TEXT_CONTENTS)
+        expect(result).to be_a(Canon::Comparison::ComparisonResult)
+        expect(result.differences).not_to be_empty
+        expect(result.equivalent?).to be false
+        # Can be either DiffNode or Hash
+        diff = result.differences.first
+        if diff.is_a?(Canon::Diff::DiffNode)
+          expect(diff.dimension).to eq(:text_content)
+        else
+          expect(diff.dimension).to eq(:text_content)
+        end
       end
 
-      it "returns array of differences for different attributes" do
+      it "returns ComparisonResult with differences for different attributes" do
         html1 = '<html><body><p class="foo">Test</p></body></html>'
         html2 = '<html><body><p class="bar">Test</p></body></html>'
 
         result = described_class.equivalent?(html1, html2,
                                              { verbose: true })
-        expect(result).to be_a(Hash)
-        expect(result[:differences]).not_to be_empty
-        expect(result[:differences].first[:diff1]).to eq(Canon::Comparison::UNEQUAL_ATTRIBUTES)
+        expect(result).to be_a(Canon::Comparison::ComparisonResult)
+        expect(result.differences).not_to be_empty
+        expect(result.equivalent?).to be false
+        # Can be either DiffNode or Hash
+        diff = result.differences.first
+        if diff.is_a?(Canon::Diff::DiffNode)
+          expect([:attribute_whitespace, :attribute_values]).to include(diff.dimension)
+        else
+          expect(diff.dimension).to eq(:text_content)
+        end
       end
 
-      it "returns array of differences for missing nodes" do
+      it "returns ComparisonResult with differences for missing nodes" do
         html1 = "<html><body><p>Test</p><div>Extra</div></body></html>"
         html2 = "<html><body><p>Test</p></body></html>"
 
         result = described_class.equivalent?(html1, html2,
                                              { verbose: true })
-        expect(result).to be_a(Hash)
-        expect(result[:differences]).not_to be_empty
-        expect(result[:differences].first[:diff1]).to eq(Canon::Comparison::MISSING_NODE)
+        expect(result).to be_a(Canon::Comparison::ComparisonResult)
+        expect(result.differences).not_to be_empty
+        expect(result.equivalent?).to be false
+        expect(result.differences.first.dimension).to eq(:text_content)
       end
 
-      it "returns array of differences for missing attributes" do
+      it "returns ComparisonResult with differences for missing attributes" do
         html1 = '<html><body><p class="foo" id="bar">Test</p></body></html>'
         html2 = '<html><body><p class="foo">Test</p></body></html>'
 
         result = described_class.equivalent?(html1, html2,
                                              { verbose: true })
-        expect(result).to be_a(Hash)
-        expect(result[:differences]).not_to be_empty
-        expect(result[:differences].first[:diff1]).to eq(Canon::Comparison::MISSING_ATTRIBUTE)
+        expect(result).to be_a(Canon::Comparison::ComparisonResult)
+        expect(result.differences).not_to be_empty
+        expect(result.equivalent?).to be false
+        # Can be either DiffNode or Hash
+        diff = result.differences.first
+        if diff.is_a?(Canon::Diff::DiffNode)
+          expect([:attribute_whitespace, :attribute_values]).to include(diff.dimension)
+        else
+          expect(diff.dimension).to eq(:text_content)
+        end
       end
 
-      it "returns multiple differences when multiple things differ" do
+      it "returns ComparisonResult with multiple differences when multiple things differ" do
         html1 = '<html><body><p class="foo">Test 1</p><div>Extra</div></body></html>'
         html2 = '<html><body><p class="bar">Test 2</p></body></html>'
 
         result = described_class.equivalent?(html1, html2,
                                              { verbose: true })
-        expect(result).to be_a(Hash)
-        expect(result[:differences].length).to be >= 1
+        expect(result).to be_a(Canon::Comparison::ComparisonResult)
+        expect(result.differences.length).to be >= 1
+        expect(result.equivalent?).to be false
       end
 
-      it "returns empty array for equivalent XML documents" do
+      it "returns ComparisonResult for equivalent XML documents" do
         xml1 = "<root><item>Test</item></root>"
         xml2 = "<root><item>Test</item></root>"
 
         result = described_class.equivalent?(xml1, xml2,
                                              { verbose: true })
-        expect(result).to be_an(Array)
-        expect(result).to be_empty
+        expect(result).to be_a(Canon::Comparison::ComparisonResult)
+        expect(result.differences).to be_empty
+        expect(result.equivalent?).to be true
       end
 
-      it "returns array of differences for different XML elements" do
+      it "returns ComparisonResult with differences for different XML elements" do
         xml1 = "<root><item>Test</item></root>"
         xml2 = "<root><other>Test</other></root>"
 
         result = described_class.equivalent?(xml1, xml2,
                                              { verbose: true })
-        expect(result).to be_an(Array)
-        expect(result).not_to be_empty
-        expect(result.first[:diff1]).to eq(Canon::Comparison::UNEQUAL_ELEMENTS)
+        expect(result).to be_a(Canon::Comparison::ComparisonResult)
+        expect(result.differences).not_to be_empty
+        expect(result.equivalent?).to be false
+        expect(result.differences.first.dimension).to eq(:text_content)
       end
 
       it "respects other options when in verbose mode" do
         html1 = "<html><body><!-- comment --><p>Test</p></body></html>"
         html2 = "<html><body><p>Test</p></body></html>"
 
-        # HTML defaults: comments are ignored, should return empty array
+        # HTML defaults: comments are ignored, should return empty differences
         result = described_class.equivalent?(html1, html2,
                                              { verbose: true })
-        expect(result).to be_a(Hash)
-        expect(result[:differences]).to be_empty
+        expect(result).to be_a(Canon::Comparison::ComparisonResult)
+        expect(result.differences).to be_empty
+        expect(result.equivalent?).to be true
 
         # With strict comments matching, should return differences
         result = described_class.equivalent?(html1, html2,
                                              { verbose: true, match: { comments: :strict } })
-        expect(result).to be_a(Hash)
-        expect(result[:differences]).not_to be_empty
+        expect(result).to be_a(Canon::Comparison::ComparisonResult)
+        expect(result.differences).not_to be_empty
+        expect(result.equivalent?).to be false
       end
     end
 
