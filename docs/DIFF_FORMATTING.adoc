@@ -1,0 +1,540 @@
+---
+layout: default
+title: Diff Formatting
+nav_order: 32
+parent: Customizing Behavior
+---
+= Diff formatting
+:toc:
+:toclevels: 3
+
+== Scope
+
+This document describes Canon's diff formatting options that control how
+differences are displayed. Diff formatting is Phase 3 of Canon's comparison
+architecture.
+
+For match architecture, see link:MATCH_ARCHITECTURE[Match architecture].
+
+For character visualization, see link:CHARACTER_VISUALIZATION[Character
+visualization].
+
+== General
+
+When documents differ, Canon formats the differences for human review with
+syntax highlighting, context lines, and whitespace visualization.
+
+Diff formatting options control:
+
+* Color output
+* Context lines around changes
+* Grouping of nearby changes
+* Diff mode (by-line vs by-object)
+
+== Diff formatting options
+
+=== use_color
+
+**Purpose**: Enable/disable ANSI color codes in diff output.
+
+**Type**: Boolean
+
+**Default**: `true`
+
+**When to use**:
+
+* Enable (`true`): Terminal viewing, interactive use
+* Disable (`false`): Piping to files, CI environments, plain text output
+
+**Color scheme**:
+
+* **Red**: Deletions/removed content (`-` markers)
+* **Green**: Additions/inserted content (`+` markers)
+* **Yellow**: Line numbers, structure markers, pipe separators
+* **Cyan**: Innormative diffs (when shown)
+* **Default terminal color**: Unchanged context lines
+
+.use_color examples
+[example]
+====
+[source,ruby]
+----
+# Ruby API - enable colors
+Canon::Comparison.equivalent?(doc1, doc2,
+  verbose: true,
+  diff: { use_color: true }
+)
+
+# Ruby API - disable colors for file output
+result = Canon::Comparison.equivalent?(doc1, doc2,
+  verbose: true,
+  diff: { use_color: false }
+)
+File.write('diff.txt', result[:diff])
+
+# RSpec - disable for CI
+Canon::RSpecMatchers.configure do |config|
+  config.xml.diff.use_color = !ENV['CI']
+end
+----
+
+CLI:
+
+[source,bash]
+----
+# Enable colors (default)
+$ canon diff file1.xml file2.xml --verbose
+
+# Disable colors
+$ canon diff file1.xml file2.xml --no-color --verbose
+
+# Pipe to file
+$ canon diff file1.xml file2.xml --no-color --verbose > diff.txt
+----
+====
+
+=== context_lines
+
+**Purpose**: Number of unchanged lines to show around each change for context.
+
+**Type**: Integer
+
+**Default**: `3`
+
+**Range**: `0` to any positive integer
+
+**Effect**: Higher values show more surrounding context, lower values show
+only changes.
+
+.context_lines examples
+[example]
+====
+**With `context_lines: 3` (default)**:
+
+[source]
+----
+   2|     | <document>
+   3|     |   <preface>
+   4|  -  |     <foreword id="fwd">
+   4|  +  |     <foreword displayorder="2" id="fwd">
+   5|     |       <p>First paragraph</p>
+   6|     |     </foreword>
+   7|     |   </preface>
+----
+
+Shows 3 lines before and after the change.
+
+**With `context_lines: 1`**:
+
+[source]
+----
+   3|     |   <preface>
+   4|  -  |     <foreword id="fwd">
+   4|  +  |     <foreword displayorder="2" id="fwd">
+   5|     |       <p>First paragraph</p>
+----
+
+Shows only 1 line before and after.
+
+**With `context_lines: 0`**:
+
+[source]
+----
+   4|  -  |     <foreword id="fwd">
+   4|  +  |     <foreword displayorder="2" id="fwd">
+----
+
+Shows only the changed lines.
+
+**Usage**:
+
+[source,ruby]
+----
+# Ruby API
+Canon::Comparison.equivalent?(doc1, doc2,
+  verbose: true,
+  diff: { context_lines: 5 }
+)
+
+# RSpec
+Canon::RSpecMatchers.configure do |config|
+  config.xml.diff.context_lines = 5
+end
+----
+
+CLI:
+
+[source,bash]
+----
+$ canon diff file1.xml file2.xml --context-lines 5 --verbose
+----
+====
+
+=== diff_grouping_lines
+
+**Purpose**: Maximum line distance between separate changes to group them
+into a single context block.
+
+**Type**: Integer or `nil`
+
+**Default**: `nil` (no grouping)
+
+**Effect**: When set, changes within N lines of each other are grouped into
+context blocks with a header showing the number of diffs.
+
+.diff_grouping_lines examples
+[example]
+====
+**Without grouping** (`nil`):
+
+[source]
+----
+Context block (line 4):
+   4|  -  | <foreword id="fwd">
+   4|  +  | <foreword displayorder="2" id="fwd">
+
+Context block (line 10):
+  10|  +  | <p>New content</p>
+----
+
+Each change is a separate block.
+
+**With `diff_grouping_lines: 10`**:
+
+[source]
+----
+Context block has 2 diffs (lines 4-10):
+   4|  -  | <foreword id="fwd">
+   4|  +  | <foreword displayorder="2" id="fwd">
+   5|     |   <p>First paragraph</p>
+   6|     | </foreword>
+   ...
+  10|  +  | <p>New content</p>
+  11|     | </clause>
+----
+
+Changes within 10 lines grouped together.
+
+**Usage**:
+
+[source,ruby]
+----
+# Ruby API
+Canon::Comparison.equivalent?(doc1, doc2,
+  verbose: true,
+  diff: { grouping_lines: 10 }
+)
+
+# RSpec
+Canon::RSpecMatchers.configure do |config|
+  config.xml.diff.grouping_lines = 10
+end
+----
+
+CLI:
+
+[source,bash]
+----
+$ canon diff file1.xml file2.xml \
+  --diff-grouping-lines 10 \
+  --verbose
+----
+====
+
+=== mode
+
+**Purpose**: Diff mode - `by_line` or `by_object`.
+
+**Type**: Symbol (`:by_line` or `:by_object`)
+
+**Default**: Format-dependent (HTML: `:by_line`, XML/JSON/YAML:
+`:by_object`)
+
+**Effect**: Changes how differences are calculated and displayed.
+
+See link:MODES[Diff modes] for complete details.
+
+.mode examples
+[example]
+====
+[source,ruby]
+----
+# Ruby API - force by-line mode for XML
+Canon::Comparison.equivalent?(xml1, xml2,
+  verbose: true,
+  diff: { mode: :by_line }
+)
+
+# RSpec
+Canon::RSpecMatchers.configure do |config|
+  config.xml.diff.mode = :by_line
+end
+----
+
+CLI:
+
+[source,bash]
+----
+$ canon diff file1.xml file2.xml --by-line --verbose
+----
+====
+
+== Enhanced diff features
+
+When `use_color` is enabled, Canon provides several enhancements to make
+diffs more readable.
+
+=== Color-coded line numbers
+
+**Purpose**: Distinguish structural elements from content changes.
+
+**Color scheme**:
+
+* **Yellow**: Line numbers and pipe separators
+* **Red**: Deletion markers (`-`) and removed content
+* **Green**: Addition markers (`+`) and inserted content
+* **Default terminal color**: Unchanged context lines
+
+.Color-coded output example
+[example]
+====
+In a colored terminal:
+
+[source]
+----
+   5|   5 |   <p>First paragraph</p>     # Yellow numbers/pipes, default text
+   6|     -|   <old>Text</old>            # Yellow numbers/pipes, red marker/content
+    |   6+|   <new>Text</new>             # Yellow numbers/pipes, green marker/content
+----
+
+Colors help distinguish:
+
+* Diff structure (line numbers, pipes) - yellow
+* Removed content - red
+* Added content - green
+* Unchanged content - your terminal's default color
+====
+
+=== Whitespace visualization
+
+**Purpose**: Make invisible whitespace and special characters visible in
+diffs.
+
+**Scope**: Applied only to diff lines (additions, deletions, changes), not
+context lines.
+
+**Default characters visualized**:
+
+* Regular space (U+0020) → `░` (Light Shade)
+* Tab (U+0009) → `⇥` (Rightwards Arrow to Bar)
+* Non-breaking space (U+00A0) → `␣` (Open Box)
+* Line feed (U+000A) → `↵` (Downwards Arrow with Corner Leftwards)
+* Zero-width space (U+200B) → `→` (Rightwards Arrow)
+
+See link:CHARACTER_VISUALIZATION[Character visualization] for complete
+character map and customization.
+
+.Whitespace visualization example
+[example]
+====
+[source]
+----
+# Space added between tags
+  10|     -| <tag>Value</tag>           # No space
+    |  10+| <tag>░Value</tag>           # Space added (green light shade)
+
+# Tab character
+  15|     -| <tag>⇥Value</tag>          # Tab (red arrow-to-bar)
+    |  15+| <tag>░░Value</tag>          # Two spaces (green light shades)
+
+# Non-breaking space
+  20|     -| <tag>Value</tag>           # Regular space
+    |  20+| <tag>Value␣</tag>           # Non-breaking space (green open box)
+----
+
+Visualization makes invisible differences visible.
+====
+
+=== Non-ASCII detection
+
+**Purpose**: Alert users when diffs contain non-ASCII characters that might
+cause unexpected comparison failures.
+
+**When shown**: When Canon detects non-ASCII characters (Unicode codepoint >
+U+007F) in a diff block.
+
+**Format**: Yellow warning with specific characters and Unicode codepoints.
+
+.Non-ASCII warning example
+[example]
+====
+[source]
+----
+Context block has 1 diff (line 10):
+(WARNING: non-ASCII characters detected in diff: [' ' (U+00A0, shown as: ␣)])
+
+  10|     -| <p>Hello world</p>          # U+0020 (regular space)
+    |  10+| <p>Hello␣world</p>           # U+00A0 (non-breaking space)
+----
+
+The warning shows:
+
+* Which non-ASCII characters were found
+* Their Unicode codepoints
+* How they're visualized in the diff
+
+**Common non-ASCII characters**:
+
+* Non-breaking space (U+00A0) - from web copy-paste
+* Em dash (U+2014) - from word processors
+* Smart quotes (U+2018-U+201D) - from text editors
+====
+
+== Configuration across interfaces
+
+=== Ruby API
+
+[source,ruby]
+----
+Canon::Comparison.equivalent?(doc1, doc2,
+  verbose: true,
+  diff: {
+    mode: :by_line,
+    use_color: true,
+    context_lines: 5,
+    grouping_lines: 10
+  }
+)
+----
+
+=== CLI
+
+[source,bash]
+----
+$ canon diff file1.xml file2.xml \
+  --verbose \
+  --by-line \
+  --color \
+  --context-lines 5 \
+  --diff-grouping-lines 10
+----
+
+=== RSpec
+
+[source,ruby]
+----
+Canon::RSpecMatchers.configure do |config|
+  # Format-specific configuration
+  config.xml.diff.mode = :by_line
+  config.xml.diff.use_color = true
+  config.xml.diff.context_lines = 5
+  config.xml.diff.grouping_lines = 10
+
+  config.html.diff.mode = :by_line
+  config.html.diff.use_color = true
+
+  config.json.diff.mode = :by_object
+  config.json.diff.context_lines = 3
+end
+----
+
+== Combining formatting options
+
+.Optimal settings for different scenarios
+[example]
+====
+**Interactive terminal review**:
+
+[source,ruby]
+----
+diff: {
+  use_color: true,
+  context_lines: 5,      # More context
+  grouping_lines: 10     # Group nearby changes
+}
+----
+
+**CI/automated testing**:
+
+[source,ruby]
+----
+diff: {
+  use_color: false,      # No ANSI codes
+  context_lines: 3,      # Standard context
+  grouping_lines: nil    # No grouping
+}
+----
+
+**Minimal diff output**:
+
+[source,ruby]
+----
+diff: {
+  use_color: false,
+  context_lines: 0,      # Only changes
+  grouping_lines: nil
+}
+----
+
+**Maximum detail**:
+
+[source,ruby]
+----
+diff: {
+  use_color: true,
+  context_lines: 10,     # Lots of context
+  grouping_lines: 5,     # Group close changes
+  mode: :by_line         # Line-level detail
+}
+----
+====
+
+== Troubleshooting
+
+=== Colors not showing
+
+**Problem**: Diff output shows escape codes instead of colors.
+
+**Solutions**:
+
+* Ensure terminal supports ANSI colors
+* Check if output is being piped (colors auto-disabled)
+* Manually disable: `use_color: false`
+
+=== Too much context
+
+**Problem**: Diff shows too many unchanged lines.
+
+**Solution**: Reduce `context_lines`:
+
+[source,ruby]
+----
+diff: { context_lines: 1 }
+----
+
+=== Changes too scattered
+
+**Problem**: Many small separate diff blocks.
+
+**Solution**: Use `grouping_lines`:
+
+[source,ruby]
+----
+diff: { grouping_lines: 10 }
+----
+
+=== Whitespace not visible
+
+**Problem**: Can't see whitespace differences.
+
+**Solution**: Ensure `use_color: true` (whitespace visualization requires
+colors).
+
+== See also
+
+* link:MODES[Diff modes]
+* link:CHARACTER_VISUALIZATION[Character visualization]
+* link:MATCH_ARCHITECTURE[Match architecture]
+* link:RUBY_API[Ruby API documentation]
+* link:CLI[Command-line interface]
+* link:RSPEC[RSpec matchers]

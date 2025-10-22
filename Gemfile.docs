@@ -1,0 +1,24 @@
+# frozen_string_literal: true
+
+# Gemfile for building Canon documentation with Jekyll
+# This is separate from the main Gemfile to avoid conflicts
+#
+# Usage:
+#   BUNDLE_GEMFILE=Gemfile.docs bundle install
+#   BUNDLE_GEMFILE=Gemfile.docs bundle exec jekyll serve
+
+source "https://rubygems.org"
+
+gem "jekyll", "~> 4.3"
+gem "just-the-docs"
+
+# AsciiDoc support
+gem "jekyll-asciidoc"
+gem "asciidoctor"
+
+# SEO
+gem "jekyll-seo-tag"
+
+group :development do
+  gem "webrick"
+end

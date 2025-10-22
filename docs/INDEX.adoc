@@ -1,0 +1,222 @@
+---
+layout: default
+title: Documentation Index
+nav_order: 1
+has_children: false
+---
+= Index
+:toc:
+:toclevels: 2
+
+== Documentation overview
+
+This index organizes all Canon documentation by complexity, progressing from
+basic usage to advanced technical topics.
+
+== Level 1: Getting started
+
+Start here if you're new to Canon:
+
+* **link:../README[README]** - Project overview, installation, and quick
+start examples
+
+== Level 2: Basic usage
+
+Learn how to use Canon through different interfaces (choose based on your
+needs):
+
+* **link:RUBY_API[Ruby API]** - Using Canon from Ruby code
+* **link:CLI[Command-line interface]** - Terminal commands and options
+* **link:RSPEC[RSpec matchers]** - Testing with Canon in RSpec
+
+== Level 3: Understanding Canon
+
+Learn how Canon works internally:
+
+* **link:FORMATS[Format support]** - XML, HTML, JSON, YAML
+canonicalization
+* **link:MODES[Diff modes]** - By-line vs by-object comparison modes
+* **link:MATCH_ARCHITECTURE[Match architecture]** - Three-phase
+comparison flow
+
+== Level 4: Customizing behavior
+
+Configure Canon for your specific needs:
+
+* **link:MATCH_OPTIONS[Match options]** - Match dimensions and profiles
+* **link:PREPROCESSING[Preprocessing]** - Document normalization options
+* **link:DIFF_FORMATTING[Diff formatting]** - Customizing diff output
+* **link:INPUT_VALIDATION[Input validation]** - Error handling
+* **link:CHARACTER_VISUALIZATION[Character visualization]** - Whitespace
+visibility
+
+== Level 5: Advanced topics
+
+For developers and advanced users:
+
+* **link:VERBOSE[Verbose mode]** - Two-tier diff output architecture
+* **link:SEMANTIC_DIFF_REPORT[Semantic diff report]** - Detailed report
+format
+* **link:NORMATIVE_INFORMATIVE_DIFFS[Normative vs informative diffs]** - Diff
+classification
+* **link:DIFF_ARCHITECTURE[Diff architecture]** - Six-layer technical
+pipeline
+
+== Documentation by topic
+
+=== Canonicalization and formatting
+
+* link:FORMATS[Format support] - Format-specific canonicalization rules
+* link:RUBY_API#formatting[Ruby API: Formatting]
+* link:CLI#format-command[CLI: Format command]
+
+=== Comparison and matching
+
+* link:MATCH_ARCHITECTURE[Match architecture] - Three-phase comparison
+* link:MATCH_OPTIONS[Match options] - Dimensions and profiles
+* link:PREPROCESSING[Preprocessing] - Document normalization
+* link:RUBY_API#comparison[Ruby API: Comparison]
+* link:CLI#diff-command[CLI: Diff command]
+
+=== Diff output
+
+* link:MODES[Diff modes] - By-line vs by-object
+* link:DIFF_FORMATTING[Diff formatting] - Output customization
+* link:CHARACTER_VISUALIZATION[Character visualization] - Whitespace
+visibility
+* link:VERBOSE[Verbose mode] - Detailed diff output
+* link:SEMANTIC_DIFF_REPORT[Semantic diff report] - Report structure
+
+=== Testing
+
+* link:RSPEC[RSpec matchers] - Testing guide
+* link:MATCH_OPTIONS#match-profiles[Match profiles] - Test-friendly
+profiles
+* link:INPUT_VALIDATION[Input validation] - Error handling in tests
+
+=== Technical architecture
+
+* link:MATCH_ARCHITECTURE[Match architecture] - Comparison phases
+* link:DIFF_ARCHITECTURE[Diff architecture] - Six-layer pipeline
+* link:NORMATIVE_INFORMATIVE_DIFFS[Normative vs informative diffs] - Classification
+system
+
+== Quick reference
+
+=== Common tasks
+
+**Format a document**::
+* Ruby: link:RUBY_API#formatting[Formatting section]
+* CLI: link:CLI#format-command[Format command]
+
+**Compare documents**::
+* Ruby: link:RUBY_API#comparison[Comparison section]
+* CLI: link:CLI#diff-command[Diff command]
+* RSpec: link:RSPEC#basic-usage[Basic usage]
+
+**Configure comparison behavior**::
+* link:MATCH_OPTIONS[Match options] - Dimensions and profiles
+* link:PREPROCESSING[Preprocessing] - Normalization options
+
+**Customize diff output**::
+* link:DIFF_FORMATTING[Diff formatting] - Colors, context, grouping
+* link:MODES[Diff modes] - By-line or by-object
+
+**Debug test failures**::
+* link:RSPEC#troubleshooting[RSpec troubleshooting]
+* link:CHARACTER_VISUALIZATION[Character visualization]
+* link:INPUT_VALIDATION[Input validation]
+
+=== By format
+
+**XML**::
+* link:FORMATS#xml-format[XML format details]
+* link:RUBY_API[Ruby API] (all examples include XML)
+* link:MODES[Diff modes] (by-object default, by-line optional)
+
+**HTML**::
+* link:FORMATS#html-format[HTML format details]
+* link:MODES#by-line-mode[By-line mode] (HTML always uses this)
+
+**JSON**::
+* link:FORMATS#json-format[JSON format details]
+* link:MODES#by-object-mode[By-object mode] (JSON default)
+
+**YAML**::
+* link:FORMATS#yaml-format[YAML format details]
+* link:MODES#by-object-mode[By-object mode] (YAML default)
+
+== Contributing to documentation
+
+=== Documentation style guidelines
+
+When updating Canon documentation, follow these principles:
+
+**Heading style**::
+* Use sentence-case for all headings (e.g., "Match architecture", not "Match
+Architecture")
+* Use descriptive, clear headings that indicate content scope
+
+**Structure**::
+* Begin with a Scope section explaining what the document covers
+* Include a General section for background and key concepts
+* Organize content into logical sections with clear hierarchy
+* Use "See also" section at the end for cross-references
+
+**MECE principle**::
+* **Mutually Exclusive**: Each document covers a distinct topic without
+overlap
+* **Collectively Exhaustive**: All topics covered without gaps
+* Avoid duplicate information across documents
+
+**Examples and code**::
+* Wrap examples with `[example]` and `====` delimiters
+* Use `[source,lang]` with `----` delimiters for code blocks
+* Provide clear example titles describing what is shown
+* Include explanation after code examples
+* Use practical, real-world examples when possible
+
+**Lists**::
+* Separate lists from surrounding content with blank lines before and after
+* Ordered lists: Use `. ` flush with the line beginning
+* Unordered lists: Use `* ` flush with the line beginning
+* Second-level ordered: Use `.. `
+* Second-level unordered: Use `** `
+* Definition lists: Use `term:: description` format
+
+**Line length and formatting**::
+* Wrap lines at 80 characters
+* Exceptions: Cross-references, formulas, and code blocks
+* No "hanging paragraphs" - if needed, create a "General" subsection
+
+**Cross-references**::
+* Link to related documents using `link:DOCUMENT[Link text]`
+* Include "See also" section listing related documentation
+* Reference specific sections using anchors where appropriate
+
+**File organization**::
+* Each file uses `:toc:` and `:toclevels: 3` for navigation
+* Keep files focused on a single topic
+* Aim for 200-500 lines per document (except comprehensive references)
+
+=== Content guidelines
+
+**Clarity**::
+* Write in clear, technical prose
+* Define terms when first introduced
+* Use consistent terminology throughout
+
+**Completeness**::
+* Provide complete syntax definitions
+* Include "Where," legend explaining syntax elements
+* Show both basic and advanced usage
+
+**Accuracy**::
+* Verify all code examples work correctly
+* Ensure cross-references point to existing documents
+* Keep documentation synchronized with code changes
+
+**Accessibility**::
+* Write for users with varying expertise levels
+* Progress from simple to complex topics
+* Link to prerequisite knowledge
