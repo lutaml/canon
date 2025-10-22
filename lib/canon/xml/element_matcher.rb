@@ -3,6 +3,54 @@
 module Canon
   module Xml
     # Matches XML elements semantically across two DOM trees
+    #
+    # This class implements intelligent element matching for XML diffs.
+    # Instead of naive line-by-line comparison, it semantically matches
+    # elements across documents using identity attributes and structural
+    # position.
+    #
+    # == Matching Strategy
+    #
+    # Elements are matched in two passes:
+    #
+    # 1. **Identity attribute matching**: Elements with same identity attribute
+    #    values are matched (e.g., id="foo" matches id="foo")
+    # 2. **Position-based matching**: Remaining elements matched by name and
+    #    document position
+    #
+    # This allows detecting when elements:
+    # - Move to different positions (matched by ID)
+    # - Have content changes (matched, diff shows changes)
+    # - Are added/deleted (no match found)
+    #
+    # == Identity Attributes
+    #
+    # By default, these attributes identify elements:
+    # - id
+    # - ref
+    # - name
+    # - key
+    #
+    # Custom identity attributes can be provided to the constructor.
+    #
+    # == Usage
+    #
+    #   matcher = ElementMatcher.new
+    #   root1 = Canon::Xml::DataModel.from_xml(xml1)
+    #   root2 = Canon::Xml::DataModel.from_xml(xml2)
+    #   matches = matcher.match_trees(root1, root2)
+    #
+    #   matches.each do |match|
+    #     case match.status
+    #     when :matched
+    #       # Elements found in both trees
+    #     when :deleted
+    #       # Element only in first tree
+    #     when :inserted
+    #       # Element only in second tree
+    #     end
+    #   end
+    #
     class ElementMatcher
       # Default attributes used to identify elements
       DEFAULT_IDENTITY_ATTRS = %w[id ref name key].freeze
