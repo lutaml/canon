@@ -36,7 +36,9 @@ module Canon
         behavior = match_options.behavior_for(dimension)
 
         # :ignore → inactive (difference doesn't matter)
-        # :strict or :normalize → active (difference matters)
+        # :strict or :normalize → active (difference persisted through matching)
+        # Note: If a DiffNode exists, it means the comparison FAILED even after
+        # applying normalization, so it's a real (active) difference
         behavior != :ignore
       end
     end

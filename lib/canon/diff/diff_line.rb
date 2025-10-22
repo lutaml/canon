@@ -19,13 +19,20 @@ module Canon
       end
 
       # @return [Boolean] true if this line represents a semantic difference
+      # If diff_node is nil (not linked to any semantic difference), the line
+      # is considered inactive (cosmetic/unchanged)
       def active?
-        diff_node&.active? || false
+        return false if diff_node.nil?
+
+        diff_node.active?
       end
 
       # @return [Boolean] true if this line represents a textual-only difference
+      # If diff_node is nil (not linked), it's not inactive either (it's unchanged/cosmetic)
       def inactive?
-        diff_node&.inactive? || false
+        return false if diff_node.nil?
+
+        diff_node.inactive?
       end
 
       # @return [Boolean] true if this line is unchanged

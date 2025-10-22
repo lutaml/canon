@@ -8,7 +8,8 @@ module Canon
       attr_reader :start_idx, :end_idx, :types, :diff_lines, :diff_node
       attr_accessor :active
 
-      def initialize(start_idx:, end_idx:, types: [], diff_lines: [], diff_node: nil)
+      def initialize(start_idx:, end_idx:, types: [], diff_lines: [],
+diff_node: nil)
         @start_idx = start_idx
         @end_idx = end_idx
         @types = types

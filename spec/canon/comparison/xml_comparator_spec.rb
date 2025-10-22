@@ -44,46 +44,51 @@ RSpec.describe Canon::Comparison::XmlComparator do
     end
 
     context "with verbose mode" do
-      it "returns empty array for equivalent XML" do
+      it "returns ComparisonResult with no differences for equivalent XML" do
         xml1 = "<root><item>Test</item></root>"
         xml2 = "<root><item>Test</item></root>"
 
         result = described_class.equivalent?(xml1, xml2, { verbose: true })
-        expect(result).to be_an(Array)
-        expect(result).to be_empty
+        expect(result).to be_a(Canon::Comparison::ComparisonResult)
+        expect(result.differences).to be_empty
+        expect(result.equivalent?).to be true
       end
 
-      it "returns array of differences for different element names" do
+      it "returns ComparisonResult with differences for different element names" do
         xml1 = "<root><item>Test</item></root>"
         xml2 = "<root><other>Test</other></root>"
 
         result = described_class.equivalent?(xml1, xml2, { verbose: true })
-        expect(result).to be_an(Array)
-        expect(result).not_to be_empty
-        expect(result.first[:diff1]).to eq(Canon::Comparison::UNEQUAL_ELEMENTS)
+        expect(result).to be_a(Canon::Comparison::ComparisonResult)
+        expect(result.differences).not_to be_empty
+        expect(result.equivalent?).to be false
+        expect(result.differences.first.dimension).to eq(:text_content)
       end
 
-      it "returns array of differences for different text content" do
+      it "returns ComparisonResult with differences for different text content" do
         xml1 = "<root><item>Test 1</item></root>"
         xml2 = "<root><item>Test 2</item></root>"
 
         result = described_class.equivalent?(xml1, xml2, { verbose: true })
-        expect(result).to be_an(Array)
-        expect(result).not_to be_empty
-        expect(result.first[:diff1]).to eq(Canon::Comparison::UNEQUAL_TEXT_CONTENTS)
+        expect(result).to be_a(Canon::Comparison::ComparisonResult)
+        expect(result.differences).not_to be_empty
+        expect(result.equivalent?).to be false
+        diff = result.differences.first
+        expect(diff).to be_a(Canon::Diff::DiffNode)
+        expect(diff.dimension).to eq(:text_content)
       end
 
-      it "returns array of differences for different attributes" do
+      it "returns ComparisonResult with differences for different attributes" do
         xml1 = '<root id="1">Content</root>'
         xml2 = '<root id="2">Content</root>'
 
         result = described_class.equivalent?(xml1, xml2, verbose: true)
-        expect(result).to be_an(Array)
-        expect(result).not_to be_empty
-        # Verbose mode returns hashes with diff information
-        expect(result.first).to be_a(Hash)
-        # Attribute comparison returns UNEQUAL_ATTRIBUTES (4) when values differ
-        expect(result.first[:diff1]).to eq(Canon::Comparison::UNEQUAL_ATTRIBUTES)
+        expect(result).to be_a(Canon::Comparison::ComparisonResult)
+        expect(result.differences).not_to be_empty
+        expect(result.equivalent?).to be false
+        diff = result.differences.first
+        expect(diff).to be_a(Canon::Diff::DiffNode)
+        expect(diff.dimension).to eq(:attribute_whitespace)
       end
     end
 

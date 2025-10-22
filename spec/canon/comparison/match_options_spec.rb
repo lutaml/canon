@@ -105,7 +105,7 @@ RSpec.describe Canon::Comparison::MatchOptions::Xml do
 
     it "defines MATCH_PROFILES" do
       expect(described_class::MATCH_PROFILES.keys).to eq(%i[
-                                                           strict rendered spec_friendly content_only
+                                                           strict rendered html4 html5 spec_friendly content_only
                                                          ])
     end
 
@@ -164,7 +164,7 @@ RSpec.describe Canon::Comparison::MatchOptions::Xml do
         preprocessing: :rendered,
         text_content: :normalize,
         structural_whitespace: :ignore,
-        attribute_whitespace: :strict,
+        attribute_whitespace: :normalize,
         comments: :ignore,
       )
     end
@@ -227,7 +227,7 @@ RSpec.describe Canon::Comparison::MatchOptions::Xml do
           preprocessing: :rendered,
           text_content: :normalize,
           structural_whitespace: :ignore,
-          attribute_whitespace: :strict,
+          attribute_whitespace: :normalize,
           comments: :ignore,
         )
       end
@@ -340,7 +340,7 @@ RSpec.describe Canon::Comparison::MatchOptions::Xml do
 
         # Third priority: match_profile
         expect(result[:structural_whitespace]).to eq(:ignore)
-        expect(result[:attribute_whitespace]).to eq(:strict)
+        expect(result[:attribute_whitespace]).to eq(:normalize)
 
         # Fourth priority: global_options (but overridden by match_profile)
         expect(result[:comments]).to eq(:ignore)

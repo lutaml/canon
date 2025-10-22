@@ -69,20 +69,22 @@ module Canon
           opts,
         )
 
-        # When verbose: true, result format depends on comparator:
-        # - XML/JSON/YAML: Array (empty if equivalent, non-empty if different)
-        # - HTML: Hash with :differences array and :preprocessed strings
-        # Convert to boolean for matcher protocol
-        if @comparison_result.is_a?(Hash)
-          # HTML format returns {differences: [], preprocessed: [str1, str2]}
+        # When verbose: true, result is a ComparisonResult object
+        # Use the equivalent? method to check for active differences
+        result = if @comparison_result.is_a?(Canon::Comparison::ComparisonResult)
+          @comparison_result.equivalent?
+        elsif @comparison_result.is_a?(Hash)
+          # Legacy format - Hash with :differences array and :preprocessed strings
           @comparison_result[:differences].empty?
         elsif @comparison_result.is_a?(Array)
-          # XML/JSON/YAML format returns []
+          # Legacy format - XML/JSON/YAML returns []
           @comparison_result.empty?
         else
           # Boolean result
           @comparison_result
         end
+
+        result
       end
 
       def failure_message
@@ -196,6 +198,7 @@ module Canon
           context_lines: diff_config.context_lines,
           diff_grouping_lines: diff_config.grouping_lines,
           show_diffs: diff_config.show_diffs,
+          verbose_diff: diff_config.verbose_diff,
         )
 
         # Format the diff using the comparison result

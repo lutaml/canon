@@ -15,17 +15,26 @@ module Canon
         end
 
         # Format differences for display
-        # @param differences [Array] Array of difference hashes
+        # @param differences [ComparisonResult, Array] ComparisonResult object or legacy Array
         # @param format [Symbol] Format type (:xml, :html, :json, :yaml)
         # @return [String] Formatted output
         def format(differences, _format)
-          return success_message if differences.empty?
+          # Handle both ComparisonResult (production) and Array (low-level tests)
+          if differences.respond_to?(:equivalent?)
+            # ComparisonResult object
+            return success_message if differences.equivalent?
+            diffs_array = differences.differences
+          else
+            # Legacy Array
+            return success_message if differences.empty?
+            diffs_array = differences
+          end
 
           output = []
           output << colorize("Visual Diff:", :cyan, :bold)
 
           # Group differences by path for tree building
-          tree = build_diff_tree(differences)
+          tree = build_diff_tree(diffs_array)
 
           # Render tree
           output << render_tree(tree)
@@ -67,11 +76,16 @@ module Canon
           tree = {}
 
           differences.each do |diff|
-            if diff.key?(:path)
-              # Ruby object difference
+            # Handle both DiffNode and Hash formats
+            if diff.is_a?(Hash) && diff.key?(:path)
+              # Ruby object difference (Hash format)
               add_to_tree(tree, diff[:path], diff)
+            elsif diff.is_a?(Canon::Diff::DiffNode)
+              # DiffNode format - extract path from nodes
+              path = extract_dom_path_from_diffnode(diff)
+              add_to_tree(tree, path, diff)
             else
-              # DOM difference - extract path from node
+              # Legacy DOM difference (Hash format) - extract path from node
               path = extract_dom_path(diff)
               add_to_tree(tree, path, diff)
             end
@@ -109,6 +123,23 @@ module Canon
           end
 
           parts.join(".")
+        end
+
+        # Extract path from DiffNode object
+        def extract_dom_path_from_diffnode(diff_node)
+          # Extract path from node1 or node2 in the DiffNode
+          node = diff_node.node1 || diff_node.node2
+          return diff_node.dimension.to_s unless node
+
+          parts = []
+          current = node
+
+          while current.respond_to?(:name)
+            parts.unshift(current.name) if current.name
+            current = current.parent if current.respond_to?(:parent)
+          end
+
+          parts.empty? ? diff_node.dimension.to_s : parts.join(".")
         end
 
         # Render tree structure with box-drawing characters

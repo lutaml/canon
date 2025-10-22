@@ -6,6 +6,7 @@ require_relative "comparison"
 require_relative "diff/diff_block"
 require_relative "diff/diff_context"
 require_relative "diff/diff_report"
+require_relative "diff_formatter/debug_output"
 
 module Canon
   # Formatter for displaying semantic differences with color support
@@ -114,12 +115,13 @@ module Canon
     def initialize(use_color: true, mode: :by_object, context_lines: 3,
                    diff_grouping_lines: nil, visualization_map: nil,
                    character_map_file: nil, character_definitions: nil,
-                   show_diffs: :all)
+                   show_diffs: :all, verbose_diff: false)
       @use_color = use_color
       @mode = mode
       @context_lines = context_lines
       @diff_grouping_lines = diff_grouping_lines
       @show_diffs = show_diffs
+      @verbose_diff = verbose_diff
       @visualization_map = build_visualization_map(
         visualization_map: visualization_map,
         character_map_file: character_map_file,
@@ -200,18 +202,27 @@ module Canon
     # @param html_version [Symbol, nil] HTML version (:html4 or :html5)
     # @return [String] Formatted output
     def format(differences, format, doc1: nil, doc2: nil, html_version: nil)
-      # In by-line mode with doc1/doc2, always perform diff regardless of differences array
+      # In by-line mode with doc1/doc2, always perform diff regardless of differences
       if @mode == :by_line && doc1 && doc2
-        return by_line_diff(doc1, doc2, format: format, html_version: html_version)
+        return by_line_diff(doc1, doc2, format: format,
+                                        html_version: html_version,
+                                        differences: differences)
       end
 
-      if differences.empty?
-        return success_message
-      end
+      # Check if no differences (handle both ComparisonResult and legacy Array)
+      no_diffs = if differences.respond_to?(:equivalent?)
+                   # ComparisonResult object (production path)
+                   differences.equivalent?
+                 else
+                   # Legacy Array (for low-level tests)
+                   differences.empty?
+                 end
+      return success_message if no_diffs
 
       case @mode
       when :by_line
-        by_line_diff(doc1, doc2, format: format, html_version: html_version)
+        by_line_diff(doc1, doc2, format: format, html_version: html_version,
+                     differences: differences)
       else
         by_object_diff(differences, format)
       end
@@ -220,7 +231,7 @@ module Canon
     # Format comparison result from Canon::Comparison.equivalent?
     # This is the single entry point for generating diffs from comparison results
     #
-    # @param comparison_result [Hash, Array, Boolean] Result from Canon::Comparison.equivalent?
+    # @param comparison_result [ComparisonResult, Hash, Array, Boolean] Result from Canon::Comparison.equivalent?
     # @param expected [Object] Expected value
     # @param actual [Object] Actual value
     # @return [String] Formatted diff output
@@ -228,9 +239,27 @@ module Canon
       # Detect format from expected content
       format = Canon::Comparison.send(:detect_format, expected)
 
-      # Check if comparison result includes preprocessed strings
-      if comparison_result.is_a?(Hash) && comparison_result[:preprocessed]
+      # Output verbose diff info if enabled
+      debug_output = DebugOutput.debug_info(
+        comparison_result,
+        {
+          use_color: @use_color,
+          mode: @mode,
+          context_lines: @context_lines,
+          diff_grouping_lines: @diff_grouping_lines,
+          show_diffs: @show_diffs,
+          verbose_diff: @verbose_diff,
+        }
+      )
+
+      # Check if comparison result is a ComparisonResult object
+      if comparison_result.is_a?(Canon::Comparison::ComparisonResult)
         # Use preprocessed strings from comparison - avoids re-preprocessing
+        doc1, doc2 = comparison_result.preprocessed_strings
+        differences = comparison_result.differences
+        html_version = comparison_result.html_version
+      elsif comparison_result.is_a?(Hash) && comparison_result[:preprocessed]
+        # Legacy Hash format - Use preprocessed strings from comparison
         doc1, doc2 = comparison_result[:preprocessed]
         differences = comparison_result[:differences]
         html_version = comparison_result[:html_version]
@@ -243,7 +272,11 @@ module Canon
       end
 
       # Generate diff using existing format method
-      format(differences, format, doc1: doc1, doc2: doc2, html_version: html_version)
+      result = format(differences, format, doc1: doc1, doc2: doc2,
+                                           html_version: html_version)
+
+      # Prepend debug output if enabled
+      debug_output.empty? ? result : "#{debug_output}#{result}"
     end
 
     private
@@ -375,12 +408,12 @@ module Canon
 
     # Generate by-line diff
     # Delegates to format-specific by-line formatters
-    def by_line_diff(doc1, doc2, format: :xml, html_version: nil)
+    def by_line_diff(doc1, doc2, format: :xml, html_version: nil, differences: [])
       require_relative "diff_formatter/by_line/base_formatter"
 
       # For HTML format, use html_version if provided, otherwise default to :html4
       if format == :html && html_version
-        format = html_version  # Use :html4 or :html5
+        format = html_version # Use :html4 or :html5
       end
 
       # Format display name for header
@@ -400,6 +433,7 @@ module Canon
         diff_grouping_lines: @diff_grouping_lines,
         visualization_map: @visualization_map,
         show_diffs: @show_diffs,
+        differences: differences,
       )
 
       output << formatter.format(doc1, doc2)

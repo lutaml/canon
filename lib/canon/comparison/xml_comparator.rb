@@ -4,6 +4,7 @@ require_relative "../xml/c14n"
 require_relative "match_options"
 require_relative "../diff/diff_node"
 require_relative "../diff/diff_classifier"
+require_relative "comparison_result"
 
 module Canon
   module Comparison
@@ -82,11 +83,28 @@ module Canon
           # Classify DiffNodes as active/inactive if we have verbose output
           if opts[:verbose] && !differences.empty?
             classifier = Canon::Diff::DiffClassifier.new(match_opts)
-            classifier.classify_all(differences.select { |d| d.is_a?(Canon::Diff::DiffNode) })
+            classifier.classify_all(differences.select do |d|
+              d.is_a?(Canon::Diff::DiffNode)
+            end)
           end
 
           if opts[:verbose]
-            differences
+            # Return ComparisonResult for proper equivalence checking
+            # Format XMLfor line-by-line display by adding line breaks between elements
+            xml1 = node1.respond_to?(:to_xml) ? node1.to_xml : node1.to_s
+            xml2 = node2.respond_to?(:to_xml) ? node2.to_xml : node2.to_s
+
+            preprocessed = [
+              xml1.gsub(/></, ">\n<"),
+              xml2.gsub(/></, ">\n<"),
+            ]
+
+            ComparisonResult.new(
+              differences: differences,
+              preprocessed_strings: preprocessed,
+              format: :xml,
+              match_options: match_opts_hash,
+            )
           else
             result == Comparison::EQUIVALENT
           end
@@ -130,7 +148,7 @@ module Canon
 
             if children1.length != children2.length
               add_difference(n1, n2, Comparison::UNEQUAL_ELEMENTS,
-                             Comparison::UNEQUAL_ELEMENTS, nil, opts,
+                             Comparison::UNEQUAL_ELEMENTS, :text_content, opts,
                              differences)
               return Comparison::UNEQUAL_ELEMENTS
             elsif children1.empty?
@@ -156,14 +174,14 @@ module Canon
 
           if node_excluded?(n1, opts) || node_excluded?(n2, opts)
             add_difference(n1, n2, Comparison::MISSING_NODE,
-                           Comparison::MISSING_NODE, nil, opts, differences)
+                           Comparison::MISSING_NODE, :text_content, opts, differences)
             return Comparison::MISSING_NODE
           end
 
           # Check node types match
           unless same_node_type?(n1, n2)
             add_difference(n1, n2, Comparison::UNEQUAL_NODES_TYPES,
-                           Comparison::UNEQUAL_NODES_TYPES, nil, opts,
+                           Comparison::UNEQUAL_NODES_TYPES, :text_content, opts,
                            differences)
             return Comparison::UNEQUAL_NODES_TYPES
           end
@@ -196,7 +214,7 @@ module Canon
           # Compare element names
           unless n1.name == n2.name
             add_difference(n1, n2, Comparison::UNEQUAL_ELEMENTS,
-                           Comparison::UNEQUAL_ELEMENTS, nil, opts,
+                           Comparison::UNEQUAL_ELEMENTS, :text_content, opts,
                            differences)
             return Comparison::UNEQUAL_ELEMENTS
           end
@@ -308,15 +326,76 @@ module Canon
           match_opts = opts[:match_opts]
           behavior = match_opts[:text_content]
 
+          # For HTML, check if text node is inside whitespace-preserving element
+          # If so, always use strict comparison regardless of text_content setting
+          if should_preserve_whitespace_strictly?(n1, n2)
+            behavior = :strict
+          end
+
           if MatchOptions.match_text?(text1, text2, behavior)
             Comparison::EQUIVALENT
           else
+            # Determine the correct dimension for this difference
+            # - If text_content is :strict, ALL differences use :text_content dimension
+            # - If text_content is :normalize, whitespace-only diffs use :structural_whitespace
+            # - Otherwise use :text_content
+            dimension = if behavior == :normalize && whitespace_only_difference?(text1, text2)
+                          :structural_whitespace
+                        else
+                          :text_content
+                        end
+
             add_difference(n1, n2, Comparison::UNEQUAL_TEXT_CONTENTS,
-                           Comparison::UNEQUAL_TEXT_CONTENTS, :text_content,
+                           Comparison::UNEQUAL_TEXT_CONTENTS, dimension,
                            opts, differences)
             Comparison::UNEQUAL_TEXT_CONTENTS
           end
         end
+
+        # Check if the difference between two texts is only whitespace-related
+        # @param text1 [String] First text
+        # @param text2 [String] Second text
+        # @return [Boolean] true if difference is only in whitespace
+        def whitespace_only_difference?(text1, text2)
+          # Normalize both texts (collapse/trim whitespace)
+          norm1 = MatchOptions.normalize_text(text1)
+          norm2 = MatchOptions.normalize_text(text2)
+
+          # If normalized texts are the same, the difference was only whitespace
+          norm1 == norm2
+        end
+        # Check if whitespace should be preserved strictly for these text nodes
+        # This applies to HTML elements like pre, code, textarea, script, style
+        def should_preserve_whitespace_strictly?(n1, n2)
+          # Only applies to Nokogiri nodes (HTML)
+          return false unless n1.respond_to?(:parent) && n2.respond_to?(:parent)
+          return false unless n1.parent.respond_to?(:name) && n2.parent.respond_to?(:name)
+
+          # Elements where whitespace must be preserved in HTML
+          preserve_elements = %w[pre code textarea script style]
+
+          # Check if either node is inside a whitespace-preserving element
+          in_preserve_element?(n1, preserve_elements) ||
+            in_preserve_element?(n2, preserve_elements)
+        end
+
+        # Check if a node is inside a whitespace-preserving element
+        def in_preserve_element?(node, preserve_list)
+          current = node.parent
+          while current.respond_to?(:name)
+            return true if preserve_list.include?(current.name.downcase)
+
+            # Stop at document root
+            break if current.is_a?(Nokogiri::XML::Document) ||
+              current.is_a?(Nokogiri::HTML4::Document) ||
+              current.is_a?(Nokogiri::HTML5::Document)
+
+            current = current.parent if current.respond_to?(:parent)
+            break unless current
+          end
+          false
+        end
+
 
         # Compare comment nodes
         def compare_comment_nodes(n1, n2, opts, differences)
@@ -343,7 +422,7 @@ module Canon
         def compare_processing_instruction_nodes(n1, n2, opts, differences)
           unless n1.target == n2.target
             add_difference(n1, n2, Comparison::UNEQUAL_NODES_TYPES,
-                           Comparison::UNEQUAL_NODES_TYPES, nil, opts,
+                           Comparison::UNEQUAL_NODES_TYPES, :text_content, opts,
                            differences)
             return Comparison::UNEQUAL_NODES_TYPES
           end
@@ -370,7 +449,7 @@ module Canon
 
           if root1.nil? || root2.nil?
             add_difference(n1, n2, Comparison::MISSING_NODE,
-                           Comparison::MISSING_NODE, nil, opts, differences)
+                           Comparison::MISSING_NODE, :text_content, opts, differences)
             return Comparison::MISSING_NODE
           end
 
@@ -386,7 +465,7 @@ module Canon
 
           unless children1.length == children2.length
             add_difference(n1, n2, Comparison::MISSING_NODE,
-                           Comparison::MISSING_NODE, nil, opts, differences)
+                           Comparison::MISSING_NODE, :text_content, opts, differences)
             return Comparison::MISSING_NODE
           end
 
@@ -473,24 +552,16 @@ module Canon
                            differences)
           return unless opts[:verbose]
 
-          # Create DiffNode if we have dimension info
-          if dimension
-            diff_node = Canon::Diff::DiffNode.new(
-              node1: node1,
-              node2: node2,
-              dimension: dimension,
-              reason: "#{diff1} vs #{diff2}",
-            )
-            differences << diff_node
-          else
-            # Fallback to old hash format for backward compatibility
-            differences << {
-              node1: node1,
-              node2: node2,
-              diff1: diff1,
-              diff2: diff2,
-            }
-          end
+          # All differences must be DiffNode objects (OO architecture)
+          raise ArgumentError, "dimension required for DiffNode" if dimension.nil?
+
+          diff_node = Canon::Diff::DiffNode.new(
+            node1: node1,
+            node2: node2,
+            dimension: dimension,
+            reason: "#{diff1} vs #{diff2}",
+          )
+          differences << diff_node
         end
       end
     end

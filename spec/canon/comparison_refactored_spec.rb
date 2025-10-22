@@ -217,8 +217,8 @@ RSpec.describe Canon::Comparison do
         xml2 = "<root><a>2</a></root>"
 
         result = described_class.equivalent?(xml1, xml2, verbose: true)
-        expect(result).to be_an(Array)
-        expect(result).not_to be_empty
+        expect(result).to be_a(Canon::Comparison::ComparisonResult)
+        expect(result.differences).not_to be_empty
       end
     end
   end
@@ -244,8 +244,9 @@ RSpec.describe Canon::Comparison do
         html2 = "<div><p>goodbye</p></div>"
 
         result = described_class.equivalent?(html1, html2, verbose: true)
-        expect(result).to be_a(Hash)
-        expect(result[:differences]).not_to be_empty
+        expect(result).to be_a(Canon::Comparison::ComparisonResult)
+        expect(result.differences).not_to be_empty
+        expect(result.equivalent?).to be false
       end
     end
   end
@@ -278,9 +279,10 @@ RSpec.describe Canon::Comparison do
         json2 = '{"a":2}'
 
         result = described_class.equivalent?(json1, json2, verbose: true)
-        expect(result).to be_an(Array)
-        expect(result).not_to be_empty
-        expect(result.first[:diff_code]).to eq(Canon::Comparison::UNEQUAL_PRIMITIVES)
+        expect(result).to be_a(Canon::Comparison::ComparisonResult)
+        expect(result.differences).not_to be_empty
+        expect(result.equivalent?).to be false
+        expect(result.differences.first[:diff_code]).to eq(Canon::Comparison::UNEQUAL_PRIMITIVES)
       end
     end
   end
@@ -313,8 +315,9 @@ RSpec.describe Canon::Comparison do
         yaml2 = "a: 2"
 
         result = described_class.equivalent?(yaml1, yaml2, verbose: true)
-        expect(result).to be_an(Array)
-        expect(result).not_to be_empty
+        expect(result).to be_a(Canon::Comparison::ComparisonResult)
+        expect(result.differences).not_to be_empty
+        expect(result.equivalent?).to be false
       end
     end
   end
@@ -339,8 +342,8 @@ RSpec.describe Canon::Comparison do
       xml2 = "<root><a>2</a></root>"
 
       result = described_class.equivalent?(xml1, xml2, verbose: true)
-      expect(result).to be_an(Array)
-      expect(result).not_to be_empty
+      expect(result).to be_a(Canon::Comparison::ComparisonResult)
+      expect(result.differences).not_to be_empty
     end
   end
 end

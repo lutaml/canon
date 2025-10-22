@@ -182,8 +182,9 @@ RSpec.describe Canon::Comparison::JsonComparator do
         json2 = '{"key": "value"}'
 
         result = described_class.equivalent?(json1, json2, verbose: true)
-        expect(result).to be_an(Array)
-        expect(result).to be_empty
+        expect(result).to be_a(Canon::Comparison::ComparisonResult)
+        expect(result.differences).to be_empty
+        expect(result.equivalent?).to be true
       end
 
       it "returns array of differences for different values" do
@@ -191,11 +192,12 @@ RSpec.describe Canon::Comparison::JsonComparator do
         json2 = '{"key": "value2"}'
 
         result = described_class.equivalent?(json1, json2, verbose: true)
-        expect(result).to be_an(Array)
-        expect(result).not_to be_empty
-        expect(result.first[:path]).to eq("key")
-        expect(result.first[:value1]).to eq("value1")
-        expect(result.first[:value2]).to eq("value2")
+        expect(result).to be_a(Canon::Comparison::ComparisonResult)
+        expect(result.differences).not_to be_empty
+        expect(result.equivalent?).to be false
+        expect(result.differences.first[:path]).to eq("key")
+        expect(result.differences.first[:value1]).to eq("value1")
+        expect(result.differences.first[:value2]).to eq("value2")
       end
 
       it "returns array of differences for missing keys" do
@@ -203,9 +205,10 @@ RSpec.describe Canon::Comparison::JsonComparator do
         json2 = '{"key1": "value"}'
 
         result = described_class.equivalent?(json1, json2, verbose: true)
-        expect(result).to be_an(Array)
-        expect(result).not_to be_empty
-        expect(result.any? { |d| d[:path] == "key2" }).to be true
+        expect(result).to be_a(Canon::Comparison::ComparisonResult)
+        expect(result.differences).not_to be_empty
+        expect(result.equivalent?).to be false
+        expect(result.differences.any? { |d| d[:path] == "key2" }).to be true
       end
 
       it "returns array of differences for array elements" do
@@ -213,11 +216,12 @@ RSpec.describe Canon::Comparison::JsonComparator do
         json2 = "[1, 9, 3]"
 
         result = described_class.equivalent?(json1, json2, verbose: true)
-        expect(result).to be_an(Array)
-        expect(result).not_to be_empty
-        expect(result.first[:path]).to eq("[1]")
-        expect(result.first[:value1]).to eq(2)
-        expect(result.first[:value2]).to eq(9)
+        expect(result).to be_a(Canon::Comparison::ComparisonResult)
+        expect(result.differences).not_to be_empty
+        expect(result.equivalent?).to be false
+        expect(result.differences.first[:path]).to eq("[1]")
+        expect(result.differences.first[:value1]).to eq(2)
+        expect(result.differences.first[:value2]).to eq(9)
       end
 
       it "returns array of differences for nested structures" do
@@ -225,9 +229,10 @@ RSpec.describe Canon::Comparison::JsonComparator do
         json2 = '{"outer": {"inner": 2}}'
 
         result = described_class.equivalent?(json1, json2, verbose: true)
-        expect(result).to be_an(Array)
-        expect(result).not_to be_empty
-        expect(result.first[:path]).to eq("outer.inner")
+        expect(result).to be_a(Canon::Comparison::ComparisonResult)
+        expect(result.differences).not_to be_empty
+        expect(result.equivalent?).to be false
+        expect(result.differences.first[:path]).to eq("outer.inner")
       end
     end
 

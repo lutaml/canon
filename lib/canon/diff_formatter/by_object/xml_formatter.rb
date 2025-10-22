@@ -19,7 +19,7 @@ module Canon
           output = []
 
           # Show full path if available (path in cyan, no color on tree structure)
-          path_display = if diff[:path] && !diff[:path].empty?
+          path_display = if diff.is_a?(Hash) && diff[:path] && !diff[:path].empty?
                            colorize(diff[:path].to_s, :cyan, :bold)
                          else
                            colorize(key.to_s, :cyan)
@@ -31,24 +31,31 @@ module Canon
           continuation = connector.start_with?("├") ? "│   " : "    "
           value_prefix = prefix + continuation
 
-          diff_code = diff[:diff_code] || diff[:diff1]
-
-          case diff_code
-          when Comparison::UNEQUAL_ELEMENTS
-            render_unequal_elements(diff, value_prefix, output)
-          when Comparison::UNEQUAL_TEXT_CONTENTS
-            render_unequal_text(diff, value_prefix, output)
-          when Comparison::UNEQUAL_ATTRIBUTES
-            render_unequal_attributes(diff, value_prefix, output)
-          when Comparison::MISSING_ATTRIBUTE
-            render_missing_attribute(diff, value_prefix, output)
-          when Comparison::UNEQUAL_COMMENTS
-            render_unequal_comments(diff, value_prefix, output)
-          when Comparison::MISSING_NODE
-            render_missing_node(diff, value_prefix, output)
+          # Handle both DiffNode and Hash formats
+          if diff.is_a?(Canon::Diff::DiffNode)
+            # DiffNode format - render based on dimension
+            render_diffnode(diff, value_prefix, output)
           else
-            # Fallback for unknown diff types
-            render_fallback(diff, value_prefix, output)
+            # Hash format - use diff codes
+            diff_code = diff[:diff_code] || diff[:diff1]
+
+            case diff_code
+            when Comparison::UNEQUAL_ELEMENTS
+              render_unequal_elements(diff, value_prefix, output)
+            when Comparison::UNEQUAL_TEXT_CONTENTS
+              render_unequal_text(diff, value_prefix, output)
+            when Comparison::UNEQUAL_ATTRIBUTES
+              render_unequal_attributes(diff, value_prefix, output)
+            when Comparison::MISSING_ATTRIBUTE
+              render_missing_attribute(diff, value_prefix, output)
+            when Comparison::UNEQUAL_COMMENTS
+              render_unequal_comments(diff, value_prefix, output)
+            when Comparison::MISSING_NODE
+              render_missing_node(diff, value_prefix, output)
+            else
+              # Fallback for unknown diff types
+              render_fallback(diff, value_prefix, output)
+            end
           end
 
           output.join("\n")
@@ -59,10 +66,10 @@ module Canon
         #
         # @param tree [Hash] Tree structure to add to
         # @param path [String, Array] Path to the difference
-        # @param diff [Hash] Difference information
+        # @param diff [Hash, DiffNode] Difference information
         def add_to_tree(tree, path, diff)
-          # For DOM differences, extract path from node
-          if !diff.key?(:path) && (diff[:node1] || diff[:node2])
+          # For DOM differences (Hash format), extract path from node
+          if diff.is_a?(Hash) && !diff.key?(:path) && (diff[:node1] || diff[:node2])
             path = extract_dom_path(diff)
           end
 
@@ -70,6 +77,31 @@ module Canon
         end
 
         private
+
+        # Render DiffNode object
+        def render_diffnode(diff_node, prefix, output)
+          # Extract nodes for display
+          node1 = diff_node.node1
+          node2 = diff_node.node2
+
+          # Display based on dimension
+          case diff_node.dimension
+          when :text_content
+            if node1 && node2
+              text1 = extract_text(node1)
+              text2 = extract_text(node2)
+              output << "#{prefix}├── - #{colorize(format_text_inline(text1), :red)}"
+              output << "#{prefix}└── + #{colorize(format_text_inline(text2), :green)}"
+            else
+              output << "#{prefix}└── #{colorize("[#{diff_node.dimension}: #{diff_node.reason}]", :yellow)}"
+            end
+          when :structural_whitespace, :attribute_whitespace, :attribute_values
+            output << "#{prefix}└── #{colorize("[#{diff_node.dimension}: #{diff_node.reason}]", :yellow)}"
+          else
+            # Fallback
+            output << "#{prefix}└── #{colorize("[#{diff_node.dimension}: #{diff_node.reason}]", :cyan)}"
+          end
+        end
 
         # Render unequal elements
         def render_unequal_elements(diff, prefix, output)

@@ -7,6 +7,11 @@ require_relative "comparison/xml_comparator"
 require_relative "comparison/html_comparator"
 require_relative "comparison/json_comparator"
 require_relative "comparison/yaml_comparator"
+require_relative "diff/diff_node_mapper"
+require_relative "diff/diff_line"
+require_relative "diff/diff_block_builder"
+require_relative "diff/diff_context_builder"
+require_relative "diff/diff_report_builder"
 
 module Canon
   # Comparison module for XML, HTML, JSON, and YAML documents
