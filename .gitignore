@@ -10,12 +10,13 @@
 # rspec failure tracking
 .rspec_status
 .rubocop-https*
-Gemfile.lock
+Gemfile*.lock
 
 # Temporary/planning files (not part of repository)
 *.md
 !README.adoc
 !CODE_OF_CONDUCT.md
-debug_*.rb
+/debug_*.rb
+!lib/canon/diff_formatter/debug_output.rb
 .rubocop-https*
 _site
