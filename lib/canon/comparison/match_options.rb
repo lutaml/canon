@@ -125,6 +125,9 @@ module Canon
           attribute_order
           attribute_values
           comments
+          element_structure
+          element_position
+          element_hierarchy
         ].freeze
 
         # Format-specific defaults

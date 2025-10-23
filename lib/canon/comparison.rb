@@ -100,8 +100,122 @@ module Canon
       # @param obj2 [Object] Second object to compare
       # @param opts [Hash] Comparison options
       #   - :format - Format hint (:xml, :html, :html4, :html5, :json, :yaml, :string)
+      #   - :diff_algorithm - Algorithm to use (:dom or :semantic)
       # @return [Boolean, Array] true if equivalent, or array of diffs if verbose
       def equivalent?(obj1, obj2, opts = {})
+        # Check if semantic tree diff is requested
+        if opts[:diff_algorithm] == :semantic
+          return semantic_diff(obj1, obj2, opts)
+        end
+
+        # Otherwise use DOM-based comparison (default)
+        dom_diff(obj1, obj2, opts)
+      end
+
+      private
+
+      # Perform semantic tree diff comparison
+      def semantic_diff(obj1, obj2, opts = {})
+        require_relative "tree_diff"
+
+        # Detect format for both objects
+        format1 = opts[:format] || detect_format(obj1)
+        format2 = opts[:format] || detect_format(obj2)
+
+        # Ensure formats match
+        unless format1 == format2
+          raise Canon::CompareFormatMismatchError.new(format1, format2)
+        end
+
+        # Parse strings to documents for tree diff
+        doc1 = parse_for_tree_diff(obj1, format1)
+        doc2 = parse_for_tree_diff(obj2, format2)
+
+        # Create TreeDiff integrator for the format
+        integrator = Canon::TreeDiff::TreeDiffIntegrator.new(
+          format: format1,
+          options: opts[:match] || {}
+        )
+
+        # Perform diff
+        tree_diff_result = integrator.diff(doc1, doc2)
+
+        # Convert operations to DiffNodes for unified pipeline
+        converter = Canon::TreeDiff::OperationConverter.new(
+          format: format1,
+          match_options: opts[:match] || {}
+        )
+        diff_nodes = converter.convert(tree_diff_result[:operations])
+
+        # Serialize documents to strings for preprocessed_strings
+        str1 = serialize_document(doc1, format1)
+        str2 = serialize_document(doc2, format2)
+
+        # Store tree diff data in match_options for access via result
+        enhanced_match_options = (opts[:match] || {}).merge(
+          tree_diff_operations: tree_diff_result[:operations],
+          tree_diff_statistics: tree_diff_result[:statistics],
+          tree_diff_matching: tree_diff_result[:matching]
+        )
+
+        # Create ComparisonResult for unified handling
+        result = Canon::Comparison::ComparisonResult.new(
+          differences: diff_nodes,
+          preprocessed_strings: [str1, str2],
+          format: format1,
+          match_options: enhanced_match_options
+        )
+
+        # Return boolean or ComparisonResult based on verbose flag
+        if opts[:verbose]
+          result
+        else
+          result.equivalent?
+        end
+      end
+
+      # Serialize document back to string
+      def serialize_document(doc, format)
+        case format
+        when :xml
+          doc.to_xml
+        when :html
+          doc.to_html
+        when :json
+          require "json"
+          JSON.pretty_generate(doc)
+        when :yaml
+          require "yaml"
+          doc.to_yaml
+        else
+          doc.to_s
+        end
+      rescue StandardError
+        doc.to_s
+      end
+
+      # Parse content for tree diff (TreeDiff needs parsed documents)
+      def parse_for_tree_diff(obj, format)
+        return obj unless obj.is_a?(String)
+
+        case format
+        when :xml
+          Nokogiri::XML(obj)
+        when :html
+          Nokogiri::HTML(obj)
+        when :json
+          require "json"
+          JSON.parse(obj)
+        when :yaml
+          require "yaml"
+          YAML.safe_load(obj)
+        else
+          obj
+        end
+      end
+
+      # Perform DOM-based comparison (original behavior)
+      def dom_diff(obj1, obj2, opts = {})
         # Use format hint if provided
         if opts[:format]
           format1 = format2 = opts[:format]
@@ -158,8 +272,6 @@ module Canon
           YamlComparator.equivalent?(obj1, obj2, opts)
         end
       end
-
-      private
 
       # Parse HTML string into Nokogiri document
       #

@@ -3,6 +3,7 @@
 require "thor"
 require_relative "commands/format_command"
 require_relative "commands/diff_command"
+require_relative "options/registry"
 
 module Canon
   # Command-line interface for Canon
@@ -74,6 +75,14 @@ module Canon
       explicitly specified with --format (for both files) or --format1 and
       --format2 (for different formats).
 
+      Diff Algorithms:
+      - dom: DOM-based positional comparison (default)
+      - semantic: Tree-based semantic diff with move/insert/delete/update operations
+
+      Diff Modes:
+      - by_object: Semantic tree-based diff (default for JSON/YAML/XML)
+      - by_line: Line-by-line diff (default for HTML)
+
       Match Profiles:
       - strict: Exact matching (all whitespace significant)
       - rendered: Mimics browser/CSS rendering (HTML default)
@@ -90,6 +99,15 @@ module Canon
 
         # Basic semantic comparison (uses format defaults)
         $ canon diff file1.xml file2.xml
+
+        # Use semantic tree diff algorithm
+        $ canon diff file1.xml file2.xml --diff-algorithm semantic
+
+        # Use DOM algorithm with by-line mode
+        $ canon diff file1.xml file2.xml --diff-algorithm dom --diff-mode by_line
+
+        # Use semantic algorithm with by-object mode
+        $ canon diff file1.json file2.json --diff-algorithm semantic --diff-mode by_object
 
         # Use match profile for test-friendly comparison
         $ canon diff file1.xml file2.xml --match-profile spec_friendly
@@ -131,10 +149,20 @@ module Canon
                   type: :boolean,
                   default: false,
                   desc: "Show detailed differences"
+    method_option :diff_algorithm,
+                  aliases: "-a",
+                  type: :string,
+                  enum: %w[dom semantic],
+                  default: "dom",
+                  desc: "Diff algorithm: dom (positional) or semantic (tree-based)"
+    method_option :diff_mode,
+                  type: :string,
+                  enum: %w[by_line by_object],
+                  desc: "Diff output mode: by_line or by_object (default: format-specific)"
     method_option :by_line,
                   type: :boolean,
                   default: false,
-                  desc: "Use line-by-line diff for XML (default: by-object)"
+                  desc: "DEPRECATED: Use --diff-mode by_line instead"
     # New match options
     method_option :match_profile,
                   aliases: "-p",
@@ -157,6 +185,14 @@ module Canon
                   type: :string,
                   enum: %w[strict normalize ignore],
                   desc: "Attribute whitespace matching (XML/HTML only): strict, normalize, or ignore"
+    method_option :attribute_order,
+                  type: :string,
+                  enum: %w[strict ignore],
+                  desc: "Attribute ordering (XML/HTML only): strict or ignore"
+    method_option :attribute_values,
+                  type: :string,
+                  enum: %w[strict normalize ignore],
+                  desc: "Attribute value matching (XML/HTML only): strict, normalize, or ignore"
     method_option :key_order,
                   type: :string,
                   enum: %w[strict ignore],

@@ -102,6 +102,9 @@ RSpec.describe Canon::Comparison::MatchOptions::Xml do
                                                         attribute_order
                                                         attribute_values
                                                         comments
+                                                        element_structure
+                                                        element_position
+                                                        element_hierarchy
                                                       ])
     end
 

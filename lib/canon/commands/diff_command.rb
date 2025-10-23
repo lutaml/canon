@@ -92,6 +92,9 @@ module Canon
         opts[:ignore_attr_order] = @options.fetch(:ignore_attr_order, true)
         opts[:verbose] = @options.fetch(:verbose, false)
 
+        # Add diff algorithm option
+        opts[:diff_algorithm] = determine_algorithm
+
         opts
       end
 
@@ -113,7 +116,7 @@ module Canon
       def build_match_dimension_options
         dimensions = %i[
           text_content structural_whitespace attribute_whitespace
-          comments key_order
+          attribute_order attribute_values comments key_order
         ]
 
         dimensions.each_with_object({}) do |dim, opts|
@@ -123,14 +126,30 @@ module Canon
 
       # Determine diff mode based on format and options
       def determine_mode(format)
-        # HTML always uses by-line mode
-        return :by_line if format == :html
+        # Check for explicit --diff-mode flag (new approach)
+        if @options[:diff_mode]
+          return @options[:diff_mode].to_sym
+        end
 
-        # Check for explicit --by-line flag for XML, JSON, YAML
-        return :by_line if @options[:by_line]
+        # Backward compatibility: check --by-line flag (deprecated)
+        if @options[:by_line]
+          warn "WARNING: --by-line is deprecated. Use --diff-mode by_line instead."
+          return :by_line
+        end
 
-        # Default: by-object mode for JSON and YAML, by-object for XML
-        :by_object
+        # Format-specific defaults
+        case format
+        when :html
+          :by_line
+        else
+          :by_object
+        end
+      end
+
+      # Determine diff algorithm based on options
+      def determine_algorithm
+        algo = @options[:diff_algorithm] || "dom"
+        algo.to_sym
       end
 
       # Parse document content based on its format
