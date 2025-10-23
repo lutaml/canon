@@ -69,7 +69,7 @@ RSpec.describe Canon::TreeDiff::Adapters::HTMLAdapter do
 
         expect(a_tag.attributes).to include(
           "href" => "https://example.com",
-          "class" => "link"
+          "class" => "link",
         )
         expect(a_tag.value).to eq("Click")
       end
@@ -148,7 +148,7 @@ RSpec.describe Canon::TreeDiff::Adapters::HTMLAdapter do
       let(:tree_node) do
         Canon::TreeDiff::Core::TreeNode.new(
           label: "p",
-          value: "content"
+          value: "content",
         )
       end
 
@@ -165,15 +165,15 @@ RSpec.describe Canon::TreeDiff::Adapters::HTMLAdapter do
       let(:tree_node) do
         div = Canon::TreeDiff::Core::TreeNode.new(
           label: "div",
-          attributes: { "class" => "container" }
+          attributes: { "class" => "container" },
         )
         h1 = Canon::TreeDiff::Core::TreeNode.new(
           label: "h1",
-          value: "Title"
+          value: "Title",
         )
         p = Canon::TreeDiff::Core::TreeNode.new(
           label: "p",
-          value: "Text"
+          value: "Text",
         )
         div.add_child(h1)
         div.add_child(p)
@@ -201,8 +201,8 @@ RSpec.describe Canon::TreeDiff::Adapters::HTMLAdapter do
           value: "Link",
           attributes: {
             "href" => "https://example.com",
-            "target" => "_blank"
-          }
+            "target" => "_blank",
+          },
         )
       end
 

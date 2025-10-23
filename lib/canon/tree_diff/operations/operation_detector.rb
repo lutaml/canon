@@ -74,7 +74,7 @@ module Canon
               type: :insert,
               node: node2,
               parent: parent2,
-              position: position
+              position: position,
             )
           end
         end
@@ -94,7 +94,7 @@ module Canon
               type: :delete,
               node: node1,
               parent: parent1,
-              position: position
+              position: position,
             )
           end
         end
@@ -111,7 +111,7 @@ module Canon
               type: :update,
               node1: node1,
               node2: node2,
-              changes: changes
+              changes: changes,
             )
           end
         end
@@ -128,7 +128,7 @@ module Canon
               old_parent: node1.parent,
               new_parent: node2.parent,
               old_position: node1.parent&.children&.index(node1),
-              new_position: node2.parent&.children&.index(node2)
+              new_position: node2.parent&.children&.index(node2),
             )
           end
         end
@@ -170,13 +170,19 @@ module Canon
         def detect_changes(node1, node2)
           changes = {}
 
-          changes[:label] = { old: node1.label, new: node2.label } if node1.label != node2.label
-          changes[:value] = { old: node1.value, new: node2.value } if node1.value != node2.value
+          if node1.label != node2.label
+            changes[:label] =
+              { old: node1.label, new: node2.label }
+          end
+          if node1.value != node2.value
+            changes[:value] =
+              { old: node1.value, new: node2.value }
+          end
 
           if node1.attributes != node2.attributes
             changes[:attributes] = {
               old: node1.attributes,
-              new: node2.attributes
+              new: node2.attributes,
             }
           end
 
@@ -206,7 +212,7 @@ module Canon
           deletes_by_parent = deletes.group_by { |op| op[:parent] }
 
           deletes_by_parent.each do |parent1, del_ops|
-            next if del_ops.size < 2  # Need at least 2 deletes for merge
+            next if del_ops.size < 2 # Need at least 2 deletes for merge
 
             # Find potential merge target in updates with same parent
             parent2 = @matching.match_for1(parent1)
@@ -217,16 +223,20 @@ module Canon
               next unless node2.parent == parent2
 
               # Check if deleted content was merged into this node
-              if content_merged?(del_ops.map { |op| op[:node] }, update_op[:node1], node2)
+              if content_merged?(del_ops.map do |op|
+                op[:node]
+              end, update_op[:node1], node2)
                 # Remove the component operations
-                @operations.delete_if { |op| del_ops.include?(op) || op == update_op }
+                @operations.delete_if do |op|
+                  del_ops.include?(op) || op == update_op
+                end
 
                 # Add merge operation
                 @operations << Operation.new(
                   type: :merge,
                   source_nodes: del_ops.map { |op| op[:node] },
                   target_node: node2,
-                  merged_from: del_ops.map { |op| op[:node].label }
+                  merged_from: del_ops.map { |op| op[:node].label },
                 )
               end
             end
@@ -252,7 +262,7 @@ module Canon
 
             # Find inserts with the same parent in tree2
             candidate_inserts = inserts_by_parent[parent2] || []
-            next if candidate_inserts.size < 2  # Need at least 2 inserts for split
+            next if candidate_inserts.size < 2 # Need at least 2 inserts for split
 
             # Check if this node's content was split into multiple inserts
             if content_split?(node1, candidate_inserts.map { |op| op[:node] })
@@ -265,7 +275,7 @@ module Canon
                 type: :split,
                 source_node: node1,
                 target_nodes: candidate_inserts.map { |op| op[:node] },
-                split_into: candidate_inserts.map { |op| op[:node].label }
+                split_into: candidate_inserts.map { |op| op[:node].label },
               )
             end
           end
@@ -302,7 +312,7 @@ module Canon
                   node2: node2,
                   from_depth: depth1,
                   to_depth: depth2,
-                  promoted_by: depth1 - depth2
+                  promoted_by: depth1 - depth2,
                 )
               end
             end
@@ -340,7 +350,7 @@ module Canon
                   node2: node2,
                   from_depth: depth1,
                   to_depth: depth2,
-                  demoted_by: depth2 - depth1
+                  demoted_by: depth2 - depth1,
                 )
               end
             end
@@ -355,15 +365,18 @@ module Canon
         # @return [Boolean]
         def content_merged?(source_nodes, original_target, merged_target)
           # Collect all text content
-          source_text = source_nodes.map { |n| extract_text_content(n) }.join(" ")
+          source_text = source_nodes.map do |n|
+            extract_text_content(n)
+          end.join(" ")
           original_text = extract_text_content(original_target)
           merged_text = extract_text_content(merged_target)
 
           # Check if merged text contains both original and source content
           return false if merged_text.empty?
 
-          similarity = text_similarity(source_text + " " + original_text, merged_text)
-          similarity >= 0.8  # 80% similarity threshold for merge detection
+          similarity = text_similarity("#{source_text} #{original_text}",
+                                       merged_text)
+          similarity >= 0.8 # 80% similarity threshold for merge detection
         end
 
         # Check if content from one node was split into multiple nodes
@@ -373,12 +386,14 @@ module Canon
         # @return [Boolean]
         def content_split?(source_node, target_nodes)
           source_text = extract_text_content(source_node)
-          target_text = target_nodes.map { |n| extract_text_content(n) }.join(" ")
+          target_text = target_nodes.map do |n|
+            extract_text_content(n)
+          end.join(" ")
 
           return false if source_text.empty? || target_text.empty?
 
           similarity = text_similarity(source_text, target_text)
-          similarity >= 0.8  # 80% similarity threshold for split detection
+          similarity >= 0.8 # 80% similarity threshold for split detection
         end
 
         # Check if two nodes are similar enough for hierarchy change
@@ -398,7 +413,7 @@ module Canon
           return false if text1.empty? || text2.empty?
 
           similarity = text_similarity(text1, text2)
-          similarity >= 0.9  # 90% similarity for hierarchy changes
+          similarity >= 0.9 # 90% similarity for hierarchy changes
         end
 
         # Extract all text content from a node and its descendants

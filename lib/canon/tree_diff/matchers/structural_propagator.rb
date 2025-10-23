@@ -122,7 +122,7 @@ module Canon
         def matched_children_align?(parent1, parent2)
           # Get matched children
           matched1 = parent1.children.select { |c| @matching.matched1?(c) }
-          matched2 = parent2.children.select { |c| @matching.matched2?(c) }
+          parent2.children.select { |c| @matching.matched2?(c) }
 
           return false if matched1.empty?
 

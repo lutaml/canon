@@ -171,7 +171,7 @@ RSpec.describe "TreeDiff Integration" do
 
       integrator = Canon::TreeDiff::TreeDiffIntegrator.new(
         format: :xml,
-        options: { similarity_threshold: 0.90 }
+        options: { similarity_threshold: 0.90 },
       )
 
       result = integrator.diff(xml1, xml2)
@@ -184,7 +184,7 @@ RSpec.describe "TreeDiff Integration" do
 
       integrator = Canon::TreeDiff::TreeDiffIntegrator.new(
         format: :xml,
-        options: { hash_matching: false }
+        options: { hash_matching: false },
       )
 
       result = integrator.diff(xml1, xml2)

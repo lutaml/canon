@@ -9,8 +9,10 @@ RSpec.describe Canon::TreeDiff::Matchers::UniversalMatcher do
   # Helper to build a simple tree
   def build_simple_tree
     root = Canon::TreeDiff::Core::TreeNode.new(label: "root", value: "document")
-    child1 = Canon::TreeDiff::Core::TreeNode.new(label: "section", value: "Introduction")
-    child2 = Canon::TreeDiff::Core::TreeNode.new(label: "section", value: "Conclusion")
+    child1 = Canon::TreeDiff::Core::TreeNode.new(label: "section",
+                                                 value: "Introduction")
+    child2 = Canon::TreeDiff::Core::TreeNode.new(label: "section",
+                                                 value: "Conclusion")
     root.add_child(child1)
     root.add_child(child2)
     root
@@ -21,14 +23,18 @@ RSpec.describe Canon::TreeDiff::Matchers::UniversalMatcher do
     root = Canon::TreeDiff::Core::TreeNode.new(label: "root", value: "document")
 
     section1 = Canon::TreeDiff::Core::TreeNode.new(label: "section")
-    title1 = Canon::TreeDiff::Core::TreeNode.new(label: "title", value: "Chapter 1")
-    para1 = Canon::TreeDiff::Core::TreeNode.new(label: "para", value: "First paragraph")
+    title1 = Canon::TreeDiff::Core::TreeNode.new(label: "title",
+                                                 value: "Chapter 1")
+    para1 = Canon::TreeDiff::Core::TreeNode.new(label: "para",
+                                                value: "First paragraph")
     section1.add_child(title1)
     section1.add_child(para1)
 
     section2 = Canon::TreeDiff::Core::TreeNode.new(label: "section")
-    title2 = Canon::TreeDiff::Core::TreeNode.new(label: "title", value: "Chapter 2")
-    para2 = Canon::TreeDiff::Core::TreeNode.new(label: "para", value: "Second paragraph")
+    title2 = Canon::TreeDiff::Core::TreeNode.new(label: "title",
+                                                 value: "Chapter 2")
+    para2 = Canon::TreeDiff::Core::TreeNode.new(label: "para",
+                                                value: "Second paragraph")
     section2.add_child(title2)
     section2.add_child(para2)
 
@@ -50,7 +56,7 @@ RSpec.describe Canon::TreeDiff::Matchers::UniversalMatcher do
     it "merges custom options with defaults" do
       custom_matcher = described_class.new(
         similarity_threshold: 0.8,
-        enable_propagation: false
+        enable_propagation: false,
       )
 
       expect(custom_matcher.options[:similarity_threshold]).to eq(0.8)
@@ -95,20 +101,22 @@ RSpec.describe Canon::TreeDiff::Matchers::UniversalMatcher do
 
     context "with similar but not identical trees" do
       let(:tree1) do
-        root = Canon::TreeDiff::Core::TreeNode.new(label: "root", value: "document")
+        root = Canon::TreeDiff::Core::TreeNode.new(label: "root",
+                                                   value: "document")
         child = Canon::TreeDiff::Core::TreeNode.new(
           label: "para",
-          value: "The quick brown fox jumps over the lazy dog"
+          value: "The quick brown fox jumps over the lazy dog",
         )
         root.add_child(child)
         root
       end
 
       let(:tree2) do
-        root = Canon::TreeDiff::Core::TreeNode.new(label: "root", value: "document")
+        root = Canon::TreeDiff::Core::TreeNode.new(label: "root",
+                                                   value: "document")
         child = Canon::TreeDiff::Core::TreeNode.new(
           label: "para",
-          value: "The quick brown fox jumps over a lazy dog"
+          value: "The quick brown fox jumps over a lazy dog",
         )
         root.add_child(child)
         root
@@ -125,18 +133,22 @@ RSpec.describe Canon::TreeDiff::Matchers::UniversalMatcher do
 
     context "with structural changes" do
       let(:tree1) do
-        root = Canon::TreeDiff::Core::TreeNode.new(label: "root", value: "document")
+        root = Canon::TreeDiff::Core::TreeNode.new(label: "root",
+                                                   value: "document")
         parent = Canon::TreeDiff::Core::TreeNode.new(label: "parent")
-        child = Canon::TreeDiff::Core::TreeNode.new(label: "child", value: "text")
+        child = Canon::TreeDiff::Core::TreeNode.new(label: "child",
+                                                    value: "text")
         parent.add_child(child)
         root.add_child(parent)
         root
       end
 
       let(:tree2) do
-        root = Canon::TreeDiff::Core::TreeNode.new(label: "root", value: "document")
+        root = Canon::TreeDiff::Core::TreeNode.new(label: "root",
+                                                   value: "document")
         parent = Canon::TreeDiff::Core::TreeNode.new(label: "parent")
-        child = Canon::TreeDiff::Core::TreeNode.new(label: "child", value: "text")
+        child = Canon::TreeDiff::Core::TreeNode.new(label: "child",
+                                                    value: "text")
         parent.add_child(child)
         root.add_child(parent)
         root
@@ -152,21 +164,25 @@ RSpec.describe Canon::TreeDiff::Matchers::UniversalMatcher do
 
     context "with completely different trees" do
       let(:tree1) do
-        root = Canon::TreeDiff::Core::TreeNode.new(label: "root", value: "document1")
-        child = Canon::TreeDiff::Core::TreeNode.new(label: "section", value: "A")
+        root = Canon::TreeDiff::Core::TreeNode.new(label: "root",
+                                                   value: "document1")
+        child = Canon::TreeDiff::Core::TreeNode.new(label: "section",
+                                                    value: "A")
         root.add_child(child)
         root
       end
 
       let(:tree2) do
-        root = Canon::TreeDiff::Core::TreeNode.new(label: "root", value: "document2")
-        child = Canon::TreeDiff::Core::TreeNode.new(label: "chapter", value: "B")
+        root = Canon::TreeDiff::Core::TreeNode.new(label: "root",
+                                                   value: "document2")
+        child = Canon::TreeDiff::Core::TreeNode.new(label: "chapter",
+                                                    value: "B")
         root.add_child(child)
         root
       end
 
       it "has low match ratio" do
-        matching = matcher.match(tree1, tree2)
+        matcher.match(tree1, tree2)
 
         expect(matcher.statistics[:match_ratio_tree1]).to be < 1.0
         expect(matcher.statistics[:match_ratio_tree2]).to be < 1.0
@@ -182,7 +198,7 @@ RSpec.describe Canon::TreeDiff::Matchers::UniversalMatcher do
         matcher.match(tree1, tree2)
 
         expect(matcher.statistics[:phases_executed]).not_to include(
-          :hash_matching
+          :hash_matching,
         )
         expect(matcher.statistics[:hash_matches]).to eq(0)
       end
@@ -204,7 +220,7 @@ RSpec.describe Canon::TreeDiff::Matchers::UniversalMatcher do
         matcher.match(tree1, tree2)
 
         expect(matcher.statistics[:phases_executed]).not_to include(
-          :similarity_matching
+          :similarity_matching,
         )
         expect(matcher.statistics[:similarity_matches]).to eq(0)
       end
@@ -219,7 +235,7 @@ RSpec.describe Canon::TreeDiff::Matchers::UniversalMatcher do
         matcher.match(tree1, tree2)
 
         expect(matcher.statistics[:phases_executed]).not_to include(
-          :propagation
+          :propagation,
         )
         expect(matcher.statistics[:propagation_matches]).to eq(0)
       end
@@ -229,15 +245,19 @@ RSpec.describe Canon::TreeDiff::Matchers::UniversalMatcher do
       let(:matcher) { described_class.new(similarity_threshold: 0.7) }
 
       let(:tree1) do
-        root = Canon::TreeDiff::Core::TreeNode.new(label: "root", value: "document")
-        child = Canon::TreeDiff::Core::TreeNode.new(label: "para", value: "abc def ghi")
+        root = Canon::TreeDiff::Core::TreeNode.new(label: "root",
+                                                   value: "document")
+        child = Canon::TreeDiff::Core::TreeNode.new(label: "para",
+                                                    value: "abc def ghi")
         root.add_child(child)
         root
       end
 
       let(:tree2) do
-        root = Canon::TreeDiff::Core::TreeNode.new(label: "root", value: "document")
-        child = Canon::TreeDiff::Core::TreeNode.new(label: "para", value: "abc def xyz")
+        root = Canon::TreeDiff::Core::TreeNode.new(label: "root",
+                                                   value: "document")
+        child = Canon::TreeDiff::Core::TreeNode.new(label: "para",
+                                                    value: "abc def xyz")
         root.add_child(child)
         root
       end
@@ -283,7 +303,7 @@ RSpec.describe Canon::TreeDiff::Matchers::UniversalMatcher do
       expect(matcher.statistics[:phases_executed]).to include(
         :hash_matching,
         :similarity_matching,
-        :propagation
+        :propagation,
       )
     end
 
@@ -298,8 +318,8 @@ RSpec.describe Canon::TreeDiff::Matchers::UniversalMatcher do
       matcher.match(tree1, tree2)
 
       total = matcher.statistics[:hash_matches] +
-              matcher.statistics[:similarity_matches] +
-              matcher.statistics[:propagation_matches]
+        matcher.statistics[:similarity_matches] +
+        matcher.statistics[:propagation_matches]
 
       expect(matcher.statistics[:total_matches]).to eq(total)
     end
@@ -308,7 +328,7 @@ RSpec.describe Canon::TreeDiff::Matchers::UniversalMatcher do
   describe "integration with matcher components" do
     it "uses HashMatcher for exact matching" do
       hash_matcher = instance_double(
-        Canon::TreeDiff::Matchers::HashMatcher
+        Canon::TreeDiff::Matchers::HashMatcher,
       )
       temp_matching = Canon::TreeDiff::Core::Matching.new
       allow(Canon::TreeDiff::Matchers::HashMatcher).to receive(:new)
@@ -325,7 +345,7 @@ RSpec.describe Canon::TreeDiff::Matchers::UniversalMatcher do
 
     it "uses SimilarityMatcher for content matching" do
       similarity_matcher = instance_double(
-        Canon::TreeDiff::Matchers::SimilarityMatcher
+        Canon::TreeDiff::Matchers::SimilarityMatcher,
       )
       allow(Canon::TreeDiff::Matchers::SimilarityMatcher).to receive(:new)
         .and_return(similarity_matcher)
@@ -341,7 +361,7 @@ RSpec.describe Canon::TreeDiff::Matchers::UniversalMatcher do
 
     it "uses StructuralPropagator for propagation" do
       propagator = instance_double(
-        Canon::TreeDiff::Matchers::StructuralPropagator
+        Canon::TreeDiff::Matchers::StructuralPropagator,
       )
       allow(Canon::TreeDiff::Matchers::StructuralPropagator).to receive(:new)
         .and_return(propagator)

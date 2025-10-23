@@ -72,7 +72,7 @@ module Canon
           tree_node = Core::TreeNode.new(
             label: "object",
             value: nil,
-            attributes: attributes
+            attributes: attributes,
           )
 
           hash.each do |k, v|
@@ -94,7 +94,7 @@ module Canon
           tree_node = Core::TreeNode.new(
             label: "array",
             value: nil,
-            attributes: attributes
+            attributes: attributes,
           )
 
           array.each_with_index do |item, index|
@@ -118,7 +118,7 @@ module Canon
           Core::TreeNode.new(
             label: "value",
             value: value.to_s,
-            attributes: attributes
+            attributes: attributes,
           )
         end
 

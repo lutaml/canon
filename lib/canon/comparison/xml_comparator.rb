@@ -139,13 +139,14 @@ module Canon
           integrator_opts = {
             similarity_threshold: match_opts_hash[:similarity_threshold] || 0.95,
             hash_matching: match_opts_hash.fetch(:hash_matching, true),
-            similarity_matching: match_opts_hash.fetch(:similarity_matching, true),
+            similarity_matching: match_opts_hash.fetch(:similarity_matching,
+                                                       true),
             propagation: match_opts_hash.fetch(:propagation, true),
           }
 
           integrator = Canon::TreeDiff::TreeDiffIntegrator.new(
             format: :xml,
-            options: integrator_opts
+            options: integrator_opts,
           )
 
           # Perform tree diff
@@ -180,7 +181,7 @@ module Canon
               format: :xml,
               match_options: match_opts_hash.merge(
                 tree_diff_statistics: result[:statistics],
-                tree_diff_enabled: true
+                tree_diff_enabled: true,
               ),
             )
           else
@@ -193,7 +194,7 @@ module Canon
         def convert_to_nokogiri(node)
           # Check if it's a Nokogiri node already
           if node.is_a?(Nokogiri::XML::Node) ||
-             node.is_a?(Nokogiri::XML::Document)
+              node.is_a?(Nokogiri::XML::Document)
             return node
           end
 
@@ -203,10 +204,10 @@ module Canon
           else
             # Moxml nodes - convert via to_xml
             xml_string = if node.respond_to?(:to_xml)
-                          node.to_xml
-                        else
-                          node.to_s
-                        end
+                           node.to_xml
+                         else
+                           node.to_s
+                         end
             Nokogiri::XML(xml_string)
           end
         end
@@ -362,14 +363,6 @@ module Canon
             end
 
             # Order matches, now check values in order
-            attrs1.each do |name, value|
-              unless attrs2[name] == value
-                add_difference(n1, n2, Comparison::UNEQUAL_ATTRIBUTES,
-                               Comparison::UNEQUAL_ATTRIBUTES,
-                               :attribute_values, opts, differences)
-                return Comparison::UNEQUAL_ATTRIBUTES
-              end
-            end
           else
             # Ignore/normalize mode: sort attributes so order doesn't matter
             attrs1 = attrs1.sort_by { |k, _v| k.to_s }.to_h
@@ -382,13 +375,13 @@ module Canon
               return Comparison::MISSING_ATTRIBUTE
             end
 
-            attrs1.each do |name, value|
-              unless attrs2[name] == value
-                add_difference(n1, n2, Comparison::UNEQUAL_ATTRIBUTES,
-                               Comparison::UNEQUAL_ATTRIBUTES,
-                               :attribute_values, opts, differences)
-                return Comparison::UNEQUAL_ATTRIBUTES
-              end
+          end
+          attrs1.each do |name, value|
+            unless attrs2[name] == value
+              add_difference(n1, n2, Comparison::UNEQUAL_ATTRIBUTES,
+                             Comparison::UNEQUAL_ATTRIBUTES,
+                             :attribute_values, opts, differences)
+              return Comparison::UNEQUAL_ATTRIBUTES
             end
           end
 

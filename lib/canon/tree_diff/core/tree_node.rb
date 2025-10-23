@@ -18,8 +18,8 @@ module Canon
       # - Weight: Subtree size metric (XyDiff-style)
       # - XID: External identifier for matching (e.g., XML id attribute)
       class TreeNode
-        attr_accessor :label, :value, :children, :parent, :attributes
-        attr_accessor :signature, :weight, :xid
+        attr_accessor :label, :value, :children, :parent, :attributes,
+                      :signature, :weight, :xid
         attr_reader :metadata
 
         # Initialize a new TreeNode
@@ -353,7 +353,7 @@ module Canon
             children: cloned_children,
             parent: nil,
             attributes: attributes.dup,
-            xid: xid
+            xid: xid,
           )
         end
 
@@ -366,7 +366,7 @@ module Canon
             value: value,
             attributes: attributes,
             xid: xid,
-            children: children.map(&:to_h)
+            children: children.map(&:to_h),
           }
 
           result[:signature] = signature if signature
@@ -399,7 +399,7 @@ module Canon
           @weight = nil
 
           # Propagate upward
-          parent&.send(:invalidate_cache) if parent
+          parent&.send(:invalidate_cache)
         end
       end
     end
