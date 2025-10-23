@@ -3,8 +3,8 @@
 
 # Site settings
 title: Canon Documentation
-description: Semantic comparison for serialization formats (XML, HTML, JSON, YAML)
-url: https://lutaml.github.io
+description: Semantic comparison and formatting for serialization formats (XML, HTML, JSON, YAML)
+url: https://www.lutaml.org
 baseurl: /canon
 
 # Theme
@@ -38,7 +38,7 @@ search:
 nav_sort: case_insensitive
 
 # Footer content
-footer_content: 'Copyright &copy; Ribose. <a href="https://opensource.org/licenses/BSD-2-Clause">BSD-2-Clause License</a>.'
+footer_content: 'Copyright &copy; Ribose.'
 
 # Color scheme - use light mode
 color_scheme: light
@@ -63,54 +63,26 @@ heading_anchors: true
 back_to_top: true
 back_to_top_text: "Back to top"
 
-# Collections - for organizing documentation
-collections:
-  docs:
-    permalink: "/:collection/:path/"
-    output: true
-
 # Collection defaults
 defaults:
   - scope:
-      path: "docs"
-      type: "docs"
+      path: ""
+      type: "pages"
     values:
       layout: "default"
       nav_exclude: false
 
-# Only process documentation AsciiDoc files
+# Only process docs directory
 include:
-  - index.adoc
+  - "*.adoc"
 
-# Exclude everything except docs directory
+# Exclude everything else
 exclude:
   - Gemfile
   - Gemfile.lock
-  - Gemfile.docs
-  - README.adoc
-  - node_modules
-  - vendor
-  - lib
-  - spec
-  - bin
-  - exe
-  - pkg
-  - sig
-  - old-docs
-  - .rspec
-  - .rubocop.yml
-  - .rubocop_todo.yml
-  - .gitignore
-  - Rakefile
-  - canon.gemspec
-  - .git
-  - .github
-  - "*.md"
-  - "*.swp"
-  - "*.tmp"
-  - "**/*.md"
-  - "!docs/**"
 
-# Keep only AsciiDoc files in docs directory
-keep_files:
-  - "docs/*.adoc"
+# Set permalink structure
+permalink: pretty
+
+# Source directory - tell Jekyll to only look in docs/
+source: docs
