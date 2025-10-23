@@ -339,12 +339,221 @@ end
 ----
 ====
 
+[source,ruby]
+----
+RSpec.describe 'Verbose diff output' do
+  it 'shows detailed XML diff on failure' do
+    expect(actual_xml).to be_xml_equivalent_to(expected_xml, verbose: true)
+  end
+
+  it 'shows detailed HTML diff on failure' do
+    expect(actual_html).to be_html_equivalent_to(expected_html, verbose: true)
+  end
+
+  it 'shows detailed JSON diff on failure' do
+    expect(actual_json).to be_json_equivalent_to(expected_json, verbose: true)
+  end
+
+  # Combine with profile and options
+  it 'shows verbose diff with custom options' do
+    expect(actual_xml).to be_xml_equivalent_to(expected_xml, verbose: true)
+      .with_profile(:spec_friendly)
+      .with_options(comments: :strict)
+  end
+end
+----
+
+== Common patterns
 == Verbose output
 
 Use `verbose: true` to show detailed diff output on test failures.
 
 .Verbose diff examples
 [example]
+[source,ruby]
+----
+RSpec.describe 'Verbose diff output' do
+  it 'shows detailed XML diff on failure' do
+    expect(actual_xml).to be_xml_equivalent_to(expected_xml, verbose: true)
+  end
+
+  it 'shows detailed HTML diff on failure' do
+    expect(actual_html).to be_html_equivalent_to(expected_html, verbose: true)
+  end
+
+  it 'shows detailed JSON diff on failure' do
+    expect(actual_json).to be_json_equivalent_to(expected_json, verbose: true)
+  end
+
+  # Combine with profile and options
+  it 'shows verbose diff with custom options' do
+    expect(actual_xml).to be_xml_equivalent_to(expected_xml, verbose: true)
+      .with_profile(:spec_friendly)
+      .with_options(comments: :strict)
+  end
+end
+----
+
+== Diff algorithms
+
+Canon supports two diff algorithms that can be selected based on your needs:
+
+* **`:dom`** (default): Positional, DOM-based matching
+* **`:semantic`**: Tree-based matching with operation detection
+
+=== DOM algorithm
+
+The DOM algorithm performs positional matching and is the default behavior:
+
+.DOM algorithm usage
+[example]
+[source,ruby]
+----
+RSpec.describe 'DOM algorithm' do
+  it 'uses positional matching by default' do
+    expect(actual_xml).to be_xml_equivalent_to(expected_xml)
+  end
+
+  it 'explicitly specifies DOM algorithm' do
+    expect(actual_xml).to be_xml_equivalent_to(expected_xml,
+      diff_algorithm: :dom,
+      verbose: true
+    )
+  end
+end
+----
+
+=== Semantic algorithm
+
+The semantic algorithm uses tree-based matching and detects operations like
+insert, delete, update, move, merge, and split:
+
+.Semantic algorithm usage
+[example]
+[source,ruby]
+----
+RSpec.describe 'Semantic algorithm' do
+  it 'detects semantic operations' do
+    xml1 = '<root><a>1</a><b>2</b></root>'
+    xml2 = '<root><b>2</b><a>1</a><c>3</c></root>'
+
+    expect(xml1).to be_xml_equivalent_to(xml2,
+      diff_algorithm: :semantic,
+      verbose: true
+    )
+  end
+
+  it 'identifies element moves' do
+    html1 = '<div><p>First</p><p>Second</p></div>'
+    html2 = '<div><p>Second</p><p>First</p></div>'
+
+    expect(html1).to be_html_equivalent_to(html2,
+      diff_algorithm: :semantic,
+      verbose: true
+    )
+  end
+
+  it 'detects insertions and deletions' do
+    json1 = '{"users": [{"id": 1}, {"id": 2}]}'
+    json2 = '{"users": [{"id": 1}, {"id": 2}, {"id": 3}]}'
+
+    expect(json1).to be_json_equivalent_to(json2,
+      diff_algorithm: :semantic,
+      verbose: true
+    )
+  end
+end
+----
+
+=== Global algorithm configuration
+
+Configure the diff algorithm globally:
+
+.Global diff algorithm configuration
+[example]
+[source,ruby]
+----
+# spec_helper.rb
+Canon::RSpecMatchers.configure do |config|
+  # Use semantic algorithm for XML by default
+  config.xml.diff.algorithm = :semantic
+
+  # Use DOM algorithm for HTML (default)
+  config.html.diff.algorithm = :dom
+
+  # Use semantic algorithm for JSON
+  config.json.diff.algorithm = :semantic
+end
+----
+
+=== Per-test algorithm override
+
+Override the global algorithm configuration for specific tests:
+
+.Per-test algorithm override
+[example]
+[source,ruby]
+----
+RSpec.describe 'Algorithm override' do
+  # Global config uses :semantic
+  # But this test uses :dom
+  it 'uses DOM algorithm for this specific test' do
+    expect(actual_xml).to be_xml_equivalent_to(expected_xml,
+      diff_algorithm: :dom,
+      verbose: true
+    )
+  end
+
+  # Global config uses :dom
+  # But this test uses :semantic
+  it 'uses semantic algorithm to detect operations' do
+    expect(actual_html).to be_html_equivalent_to(expected_html,
+      diff_algorithm: :semantic,
+      verbose: true
+    )
+  end
+end
+----
+
+=== Combining algorithm with other options
+
+The diff algorithm can be combined with match profiles and options:
+
+.Algorithm with profiles and options
+[example]
+[source,ruby]
+----
+RSpec.describe 'Combined configuration' do
+  it 'uses semantic algorithm with spec_friendly profile' do
+    expect(actual_xml).to be_xml_equivalent_to(expected_xml,
+      diff_algorithm: :semantic,
+      verbose: true
+    )
+      .with_profile(:spec_friendly)
+  end
+
+  it 'uses semantic algorithm with custom match options' do
+    expect(actual_xml).to be_xml_equivalent_to(expected_xml,
+      diff_algorithm: :semantic,
+      verbose: true
+    )
+      .with_options(
+        structural_whitespace: :ignore,
+        comments: :ignore
+      )
+  end
+
+  it 'uses DOM algorithm with strict matching' do
+    expect(actual_html).to be_html_equivalent_to(expected_html,
+      diff_algorithm: :dom,
+      verbose: true
+    )
+      .with_profile(:strict)
+  end
+end
+----
+
+== Common patterns
 ====
 [source,ruby]
 ----

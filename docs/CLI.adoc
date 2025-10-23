@@ -213,6 +213,10 @@ See link:MODES[Diff modes] for details.
 `-v, --verbose`:: Show detailed differences (default: just show if files
 differ)
 
+`--diff-algorithm ALGORITHM`:: Diff algorithm to use: `dom` (default) or
+`semantic`. DOM uses positional matching, semantic uses tree-based matching
+with operation detection.
+
 `--by-line`:: Use line-by-line diff for XML (default: by-object mode)
 
 `--text-content BEHAVIOR`:: How to compare text content: `strict`,

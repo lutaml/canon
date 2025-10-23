@@ -1,8 +1,9 @@
 ---
 layout: default
-title: Documentation Index
+title: Canon Documentation
 nav_order: 1
 has_children: false
+permalink: /
 ---
 = Index
 :toc:
@@ -54,6 +55,8 @@ visibility
 
 For developers and advanced users:
 
+* **link:DOM_DIFF[DOM diff]** - Canon's default DOM diff algorithm
+* **link:TREE_DIFF[Semantic tree diff]** - Tree-level semantic operations
 * **link:VERBOSE[Verbose mode]** - Two-tier diff output architecture
 * **link:SEMANTIC_DIFF_REPORT[Semantic diff report]** - Detailed report
 format
@@ -97,6 +100,8 @@ profiles
 === Technical architecture
 
 * link:MATCH_ARCHITECTURE[Match architecture] - Comparison phases
+* link:DOM_DIFF[DOM diff] - Canon's default DOM diff algorithm
+* link:TREE_DIFF[Semantic tree diff] - Tree-level semantic operations
 * link:DIFF_ARCHITECTURE[Diff architecture] - Six-layer pipeline
 * link:NORMATIVE_INFORMATIVE_DIFFS[Normative vs informative diffs] - Classification
 system
