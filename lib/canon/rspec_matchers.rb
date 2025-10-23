@@ -44,12 +44,13 @@ module Canon
     # This is a THIN WRAPPER around Canon::Comparison API
     class SerializationMatcher
       def initialize(expected, format = nil, match_profile: nil,
-                     match: nil, preprocessing: nil)
+                     match: nil, preprocessing: nil, diff_algorithm: nil)
         @expected = expected
         @format = format&.to_sym
         @match_profile = match_profile
         @match = match
         @preprocessing = preprocessing
+        @diff_algorithm = diff_algorithm
       end
 
       def matches?(target)
@@ -134,6 +135,7 @@ module Canon
         opts[:match_profile] = @match_profile if @match_profile
         opts[:match] = @match if @match
         opts[:preprocessing] = @preprocessing if @preprocessing
+        opts[:diff_algorithm] = @diff_algorithm if @diff_algorithm
 
         # Add global configuration from Canon::Config (lower priority)
         if @format
@@ -211,27 +213,30 @@ module Canon
     # Matcher methods
     def be_serialization_equivalent_to(expected, format: :xml,
                                       match_profile: nil, match: nil,
-                                      preprocessing: nil)
+                                      preprocessing: nil, diff_algorithm: nil)
       SerializationMatcher.new(expected, format,
                                match_profile: match_profile,
                                match: match,
-                               preprocessing: preprocessing)
+                               preprocessing: preprocessing,
+                               diff_algorithm: diff_algorithm)
     end
 
     def be_analogous_with(expected, match_profile: nil, match: nil,
-                         preprocessing: nil)
+                         preprocessing: nil, diff_algorithm: nil)
       SerializationMatcher.new(expected, :xml,
                                match_profile: match_profile,
                                match: match,
-                               preprocessing: preprocessing)
+                               preprocessing: preprocessing,
+                               diff_algorithm: diff_algorithm)
     end
 
     def be_xml_equivalent_to(expected, match_profile: nil, match: nil,
-                            preprocessing: nil)
+                            preprocessing: nil, diff_algorithm: nil)
       SerializationMatcher.new(expected, :xml,
                                match_profile: match_profile,
                                match: match,
-                               preprocessing: preprocessing)
+                               preprocessing: preprocessing,
+                               diff_algorithm: diff_algorithm)
     end
 
     def be_yaml_equivalent_to(expected)
@@ -243,27 +248,30 @@ module Canon
     end
 
     def be_html_equivalent_to(expected, match_profile: nil, match: nil,
-                             preprocessing: nil)
+                             preprocessing: nil, diff_algorithm: nil)
       SerializationMatcher.new(expected, :html,
                                match_profile: match_profile,
                                match: match,
-                               preprocessing: preprocessing)
+                               preprocessing: preprocessing,
+                               diff_algorithm: diff_algorithm)
     end
 
     def be_html4_equivalent_to(expected, match_profile: nil, match: nil,
-                              preprocessing: nil)
+                              preprocessing: nil, diff_algorithm: nil)
       SerializationMatcher.new(expected, :html4,
                                match_profile: match_profile,
                                match: match,
-                               preprocessing: preprocessing)
+                               preprocessing: preprocessing,
+                               diff_algorithm: diff_algorithm)
     end
 
     def be_html5_equivalent_to(expected, match_profile: nil, match: nil,
-                              preprocessing: nil)
+                              preprocessing: nil, diff_algorithm: nil)
       SerializationMatcher.new(expected, :html5,
                                match_profile: match_profile,
                                match: match,
-                               preprocessing: preprocessing)
+                               preprocessing: preprocessing,
+                               diff_algorithm: diff_algorithm)
     end
 
     def be_equivalent_to(expected)
