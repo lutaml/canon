@@ -75,7 +75,7 @@ Canon.format(xml, :xml)
 |`:strict`
 
 |`attribute_order`
-|`:strict`
+|`:ignore`
 
 |`attribute_values`
 |`:strict`
@@ -85,6 +85,119 @@ Canon.format(xml, :xml)
 |===
 
 Default diff mode: `:by_object` (tree-based semantic diff)
+
+NOTE: XML `attribute_order` defaults to `:ignore` because the XML specification
+states that attribute order is not significant. Use the `strict` profile if you
+need to enforce specific attribute ordering.
+
+=== Match profiles for XML
+
+Canon provides predefined profiles optimized for XML documents. Each profile
+configures preprocessing, match options, diff algorithm, and formatting.
+
+==== strict profile
+
+**Purpose**: Character-perfect XML matching
+
+**Configuration**:
+
+[source,ruby]
+----
+{
+  preprocessing: :none,
+  diff_algorithm: :dom,      # DOM-based positional diff
+  diff_mode: :by_object,     # Tree-based diff output
+  match: {
+    text_content: :strict,
+    structural_whitespace: :strict,
+    attribute_whitespace: :strict,
+    attribute_order: :strict,
+    attribute_values: :strict,
+    comments: :strict
+  }
+}
+----
+
+**Use when**: Testing exact serializer output, verifying XML formatting
+compliance, character-perfect matching required.
+
+==== rendered profile
+
+**Purpose**: Browser-rendered equivalence
+
+**Configuration**:
+
+[source,ruby]
+----
+{
+  preprocessing: :none,
+  diff_algorithm: :dom,
+  diff_mode: :by_line,       # Line-based diff output
+  match: {
+    text_content: :normalize,
+    structural_whitespace: :normalize,
+    attribute_whitespace: :normalize,
+    attribute_order: :ignore,
+    attribute_values: :strict,
+    comments: :ignore
+  }
+}
+----
+
+**Use when**: Comparing how content would render (XHTML), ignoring formatting
+that doesn't affect display.
+
+==== spec_friendly profile
+
+**Purpose**: Test-friendly comparison for RSpec
+
+**Configuration**:
+
+[source,ruby]
+----
+{
+  preprocessing: :normalize,  # Applies whitespace normalization
+  diff_algorithm: :dom,
+  diff_mode: :by_object,
+  match: {
+    text_content: :normalize,
+    structural_whitespace: :ignore,
+    attribute_whitespace: :normalize,
+    attribute_order: :ignore,
+    attribute_values: :strict,
+    comments: :ignore
+  }
+}
+----
+
+**Use when**: Writing RSpec tests, testing semantic correctness, ignoring
+pretty-printing differences. Most common for testing.
+
+==== content_only profile
+
+**Purpose**: Maximum tolerance - only data matters
+
+**Configuration**:
+
+[source,ruby]
+----
+{
+  preprocessing: :normalize,
+  diff_algorithm: :dom,
+  diff_mode: :by_object,
+  match: {
+    text_content: :normalize,
+    structural_whitespace: :ignore,
+    attribute_whitespace: :ignore,
+    attribute_order: :ignore,
+    attribute_values: :ignore,
+    comments: :ignore
+  }
+}
+----
+
+**Use when**: Only structural equivalence needed, maximum flexibility for
+formatting differences.
 
 === XML-specific features
 
@@ -160,6 +273,116 @@ Canon.format(html, :html)
 
 Default diff mode: `:by_line` (line-based diff)
 
+=== Match profiles for HTML
+
+Canon provides predefined profiles optimized for HTML documents. Each profile
+configures preprocessing, match options, diff algorithm, and formatting.
+
+==== strict profile
+
+**Purpose**: Character-perfect HTML matching
+
+**Configuration**:
+
+[source,ruby]
+----
+{
+  preprocessing: :none,
+  diff_algorithm: :dom,
+  diff_mode: :by_line,       # Line-based diff output (HTML default)
+  match: {
+    text_content: :strict,
+    structural_whitespace: :strict,
+    attribute_whitespace: :strict,
+    attribute_order: :strict,
+    attribute_values: :strict,
+    comments: :strict
+  }
+}
+----
+
+**Use when**: Testing exact HTML formatter output, verifying HTML formatting
+compliance.
+
+==== rendered profile
+
+**Purpose**: Browser-rendered equivalence (most common for HTML)
+
+**Configuration**:
+
+[source,ruby]
+----
+{
+  preprocessing: :none,
+  diff_algorithm: :dom,
+  diff_mode: :by_line,
+  match: {
+    text_content: :normalize,
+    structural_whitespace: :normalize,
+    attribute_whitespace: :normalize,
+    attribute_order: :ignore,        # HTML attributes are unordered
+    attribute_values: :strict,
+    comments: :ignore
+  }
+}
+----
+
+**Use when**: Comparing HTML as browsers render it, testing web page output,
+ignoring formatting that doesn't affect display. This is the recommended
+profile for most HTML comparisons.
+
+==== spec_friendly profile
+
+**Purpose**: Test-friendly comparison for RSpec
+
+**Configuration**:
+
+[source,ruby]
+----
+{
+  preprocessing: :normalize,
+  diff_algorithm: :dom,
+  diff_mode: :by_object,     # Tree-based for better test output
+  match: {
+    text_content: :normalize,
+    structural_whitespace: :ignore,
+    attribute_whitespace: :normalize,
+    attribute_order: :ignore,
+    attribute_values: :strict,
+    comments: :ignore
+  }
+}
+----
+
+**Use when**: Writing RSpec tests for HTML generation, testing semantic HTML
+correctness.
+
+==== content_only profile
+
+**Purpose**: Maximum tolerance - only structure matters
+
+**Configuration**:
+
+[source,ruby]
+----
+{
+  preprocessing: :normalize,
+  diff_algorithm: :dom,
+  diff_mode: :by_object,
+  match: {
+    text_content: :normalize,
+    structural_whitespace: :ignore,
+    attribute_whitespace: :ignore,
+    attribute_order: :ignore,
+    attribute_values: :ignore,
+    comments: :ignore
+  }
+}
+----
+
+**Use when**: Only HTML structure needs to match, maximum flexibility for all
+formatting and attribute differences.
+
 === HTML-specific features
 
 **Format detection**: Automatically detects HTML5, HTML4, or XHTML based on
@@ -218,6 +441,102 @@ Canon.format(json, :json)
 |===
 
 Default diff mode: `:by_object` (tree-based semantic diff)
+
+=== Match profiles for JSON
+
+Canon provides predefined profiles optimized for JSON documents. Each profile
+configures preprocessing, match options, diff algorithm, and formatting.
+
+==== strict profile
+
+**Purpose**: Character-perfect JSON matching
+
+**Configuration**:
+
+[source,ruby]
+----
+{
+  preprocessing: :none,
+  diff_algorithm: :dom,
+  diff_mode: :by_object,     # Tree-based diff output (JSON default)
+  match: {
+    text_content: :strict,
+    structural_whitespace: :strict,
+    key_order: :strict
+  }
+}
+----
+
+**Use when**: Testing exact JSON serializer output, verifying JSON formatting
+compliance.
+
+==== rendered profile
+
+**Purpose**: Normalized JSON comparison
+
+**Configuration**:
+
+[source,ruby]
+----
+{
+  preprocessing: :none,
+  diff_algorithm: :dom,
+  diff_mode: :by_object,
+  match: {
+    text_content: :normalize,
+    structural_whitespace: :normalize,
+    key_order: :ignore           # Allow unordered object keys
+  }
+}
+----
+
+**Use when**: Comparing JSON data where key order and whitespace don't matter.
+
+==== spec_friendly profile
+
+**Purpose**: Test-friendly comparison for RSpec
+
+**Configuration**:
+
+[source,ruby]
+----
+{
+  preprocessing: :normalize,
+  diff_algorithm: :dom,
+  diff_mode: :by_object,
+  match: {
+    text_content: :normalize,
+    structural_whitespace: :ignore,
+    key_order: :ignore
+  }
+}
+----
+
+**Use when**: Writing RSpec tests for JSON generation, testing semantic JSON
+correctness. Most common for JSON testing.
+
+==== content_only profile
+
+**Purpose**: Maximum tolerance - only values matter
+
+**Configuration**:
+
+[source,ruby]
+----
+{
+  preprocessing: :normalize,
+  diff_algorithm: :dom,
+  diff_mode: :by_object,
+  match: {
+    text_content: :normalize,
+    structural_whitespace: :ignore,
+    key_order: :ignore
+  }
+}
+----
+
+**Use when**: Only JSON structure and values need to match, maximum flexibility
+for formatting and key order.
 
 === JSON-specific features
 
@@ -283,6 +602,107 @@ Canon.format(yaml, :yaml)
 |===
 
 Default diff mode: `:by_object` (tree-based semantic diff)
+
+=== Match profiles for YAML
+
+Canon provides predefined profiles optimized for YAML documents. Each profile
+configures preprocessing, match options, diff algorithm, and formatting.
+
+==== strict profile
+
+**Purpose**: Character-perfect YAML matching
+
+**Configuration**:
+
+[source,ruby]
+----
+{
+  preprocessing: :none,
+  diff_algorithm: :dom,
+  diff_mode: :by_object,     # Tree-based diff output (YAML default)
+  match: {
+    text_content: :strict,
+    structural_whitespace: :strict,
+    key_order: :strict,
+    comments: :strict
+  }
+}
+----
+
+**Use when**: Testing exact YAML serializer output, verifying YAML formatting
+compliance.
+
+==== rendered profile
+
+**Purpose**: Normalized YAML comparison
+
+**Configuration**:
+
+[source,ruby]
+----
+{
+  preprocessing: :none,
+  diff_algorithm: :dom,
+  diff_mode: :by_object,
+  match: {
+    text_content: :normalize,
+    structural_whitespace: :normalize,
+    key_order: :ignore,          # Allow unordered mapping keys
+    comments: :ignore
+  }
+}
+----
+
+**Use when**: Comparing YAML data where key order, whitespace, and comments
+don't matter.
+
+==== spec_friendly profile
+
+**Purpose**: Test-friendly comparison for RSpec
+
+**Configuration**:
+
+[source,ruby]
+----
+{
+  preprocessing: :normalize,
+  diff_algorithm: :dom,
+  diff_mode: :by_object,
+  match: {
+    text_content: :normalize,
+    structural_whitespace: :ignore,
+    key_order: :ignore,
+    comments: :ignore
+  }
+}
+----
+
+**Use when**: Writing RSpec tests for YAML generation, testing semantic YAML
+correctness. Most common for YAML testing.
+
+==== content_only profile
+
+**Purpose**: Maximum tolerance - only values matter
+
+**Configuration**:
+
+[source,ruby]
+----
+{
+  preprocessing: :normalize,
+  diff_algorithm: :dom,
+  diff_mode: :by_object,
+  match: {
+    text_content: :normalize,
+    structural_whitespace: :ignore,
+    key_order: :ignore,
+    comments: :ignore
+  }
+}
+----
+
+**Use when**: Only YAML structure and values need to match, maximum flexibility
+for formatting, key order, and comments.
 
 === YAML-specific features
 
@@ -354,7 +774,7 @@ Canon::Comparison.equivalent?(doc1, doc2, format: :xml)
 |Yes
 
 |Attribute/key ordering
-|Strict default
+|Ignored default
 |Ignored default
 |Strict default
 |Strict default

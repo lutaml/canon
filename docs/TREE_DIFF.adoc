@@ -1,0 +1,629 @@
+= Semantic tree diff
+:toc:
+:toclevels: 3
+
+== General
+
+Canon provides two complementary diff modes:
+
+* **DOM diff** (default): Line-based comparison that matches elements by
+  position and structure
+* **Semantic tree diff** (opt-in): Operation-based comparison that detects
+  high-level edit operations (INSERT, DELETE, UPDATE, MOVE)
+
+The semantic tree diff is based on research in XML diff algorithms (XDiff 2002,
+XyDiff/Cobena 2002, JATS-diff 2022) and provides operation-level analysis of
+changes between document trees.
+
+== Purpose
+
+The semantic tree diff enables:
+
+* **Operation detection**: Identify INSERT, DELETE, UPDATE, and MOVE operations
+* **Intelligent matching**: Match similar nodes even when positions change
+* **Format independence**: Works with XML, JSON, HTML, and YAML
+* **Statistical analysis**: Provides matching statistics and confidence scores
+
+Use semantic tree diff when you need to:
+
+* Understand what operations transformed one document into another
+* Track content that moved between positions
+* Analyze structural changes at a high level
+* Compare documents with significant rearrangement
+
+== Enabling semantic tree diff
+
+Enable semantic tree diff by setting `semantic_diff: true` in match options:
+
+[source,ruby]
+----
+require 'canon/comparison'
+
+result = Canon::Comparison.equivalent?(doc1, doc2,
+  verbose: true,
+  match: { semantic_diff: true }
+)
+----
+
+The system will use tree diff instead of the default DOM diff. Both modes
+cannot be used simultaneously.
+
+== Detected operations
+
+The semantic tree diff detects these operations:
+
+=== INSERT
+
+A new node was added to the tree.
+
+[example]
+====
+.Before
+[source,xml]
+----
+<root>
+  <a>1</a>
+</root>
+----
+
+.After
+[source,xml]
+----
+<root>
+  <a>1</a>
+  <b>2</b>
+</root>
+----
+
+Operation: INSERT `<b>2</b>`
+====
+
+=== DELETE
+
+A node was removed from the tree.
+
+[example]
+====
+.Before
+[source,xml]
+----
+<root>
+  <a>1</a>
+  <b>2</b>
+</root>
+----
+
+.After
+[source,xml]
+----
+<root>
+  <a>1</a>
+</root>
+----
+
+Operation: DELETE `<b>2</b>`
+====
+
+=== UPDATE
+
+A node's content or attributes changed.
+
+[example]
+====
+.Before
+[source,xml]
+----
+<root>
+  <a id="1">old text</a>
+</root>
+----
+
+.After
+[source,xml]
+----
+<root>
+  <a id="2">new text</a>
+</root>
+----
+
+Operation: UPDATE `<a>` (id and text changed)
+====
+
+=== MOVE
+
+A node was relocated to a different position in the tree.
+
+[example]
+====
+.Before
+[source,xml]
+----
+<root>
+  <section1>
+    <item>X</item>
+  </section1>
+  <section2>
+  </section2>
+</root>
+----
+
+.After
+[source,xml]
+----
+<root>
+  <section1>
+  </section1>
+  <section2>
+    <item>X</item>
+  </section2>
+</root>
+----
+
+Operation: MOVE `<item>X</item>` from section1 to section2
+====
+
+== Matching algorithm
+
+The semantic tree diff uses a hybrid three-phase matching pipeline:
+
+=== Phase 1: Hash-based exact matching
+
+Matches nodes with identical structure and content using hash signatures.
+
+* Fast O(n) exact matching
+* Eliminates unchanged subtrees
+* Reduces problem size for subsequent phases
+
+=== Phase 2: Similarity-based matching
+
+Matches similar but not identical nodes using similarity scoring.
+
+* Compares node names, attributes, text content, and structure
+* Configurable similarity threshold (default: 0.95)
+* Uses weighted similarity metrics
+
+=== Phase 3: Structural propagation
+
+Propagates matches from parents and children to improve matching quality.
+
+* Top-down propagation from matched parents
+* Bottom-up propagation from matched children
+* Resolves ambiguous matches
+
+== Configuration options
+
+=== similarity_threshold
+
+Controls the minimum similarity score for matching nodes.
+
+[source,ruby]
+----
+result = Canon::Comparison.equivalent?(doc1, doc2,
+  verbose: true,
+  match: {
+    semantic_diff: true,
+    similarity_threshold: 0.90  # Default: 0.95
+  }
+)
+----
+
+Where,
+
+* Higher values (e.g., 0.99): More conservative, only very similar nodes match
+* Lower values (e.g., 0.80): More aggressive, allows less similar nodes to match
+* Default 0.95: Balanced approach suitable for most use cases
+
+=== hash_matching
+
+Enable or disable hash-based exact matching phase.
+
+[source,ruby]
+----
+result = Canon::Comparison.equivalent?(doc1, doc2,
+  verbose: true,
+  match: {
+    semantic_diff: true,
+    hash_matching: true  # Default: true
+  }
+)
+----
+
+Disable only if exact matching causes issues with your data.
+
+=== similarity_matching
+
+Enable or disable similarity-based matching phase.
+
+[source,ruby]
+----
+result = Canon::Comparison.equivalent?(doc1, doc2,
+  verbose: true,
+  match: {
+    semantic_diff: true,
+    similarity_matching: true  # Default: true
+  }
+)
+----
+
+Disable for faster but less accurate matching.
+
+=== propagation
+
+Enable or disable structural propagation phase.
+
+[source,ruby]
+----
+result = Canon::Comparison.equivalent?(doc1, doc2,
+  verbose: true,
+  match: {
+    semantic_diff: true,
+    propagation: true  # Default: true
+  }
+)
+----
+
+Disable for simpler but potentially less accurate results.
+
+== Result format
+
+When `verbose: true` is set, the result includes operation details:
+
+[source,ruby]
+----
+result = Canon::Comparison.equivalent?(doc1, doc2,
+  verbose: true,
+  match: { semantic_diff: true }
+)
+
+# Access operations
+result.operations.each do |op|
+  puts "#{op.type}: #{op.node1_path} -> #{op.node2_path}"
+end
+
+# Access matching statistics
+stats = result.match_options[:tree_diff_statistics]
+puts "Total nodes tree1: #{stats[:tree1_node_count]}"
+puts "Total nodes tree2: #{stats[:tree2_node_count]}"
+puts "Matched nodes: #{stats[:matched_count]}"
+puts "Match rate: #{stats[:match_rate]}"
+
+# Access matching details
+matching = result.match_options[:tree_diff_matching]
+matching.each_pair do |node1, node2|
+  puts "Matched: #{node1.path} <-> #{node2.path}"
+end
+----
+
+== Examples
+
+=== Basic comparison with operations
+
+[example]
+====
+[source,ruby]
+----
+require 'canon/comparison'
+
+xml1 = <<~XML
+  <article>
+    <title>Old Title</title>
+    <section id="1">
+      <p>Content A</p>
+    </section>
+  </article>
+XML
+
+xml2 = <<~XML
+  <article>
+    <title>New Title</title>
+    <section id="2">
+      <p>Content B</p>
+    </section>
+    <section id="1">
+      <p>Content A</p>
+    </section>
+  </article>
+XML
+
+result = Canon::Comparison.equivalent?(xml1, xml2,
+  verbose: true,
+  match: { semantic_diff: true }
+)
+
+result.operations.each do |op|
+  case op.type
+  when :insert
+    puts "Added: #{op.node2.name} at #{op.node2_path}"
+  when :update
+    puts "Changed: #{op.node1_path}"
+  when :move
+    puts "Moved: #{op.node1_path} -> #{op.node2_path}"
+  end
+end
+----
+
+Output:
+```
+Changed: /article/title
+Added: section at /article/section[1]
+```
+====
+
+=== Detecting moves
+
+[example]
+====
+[source,ruby]
+----
+json1 = <<~JSON
+  {
+    "sections": [
+      { "id": "intro", "content": "Introduction text" },
+      { "id": "body", "content": "Body text" }
+    ]
+  }
+JSON
+
+json2 = <<~JSON
+  {
+    "sections": [
+      { "id": "body", "content": "Body text" },
+      { "id": "intro", "content": "Introduction text" }
+    ]
+  }
+JSON
+
+result = Canon::Comparison.equivalent?(json1, json2,
+  verbose: true,
+  match: { semantic_diff: true }
+)
+
+moves = result.operations.select { |op| op.type == :move }
+puts "Detected #{moves.size} move operations"
+----
+====
+
+=== Adjusting similarity threshold
+
+[example]
+====
+[source,ruby]
+----
+# Strict matching - only very similar nodes match
+result_strict = Canon::Comparison.equivalent?(doc1, doc2,
+  verbose: true,
+  match: {
+    semantic_diff: true,
+    similarity_threshold: 0.99
+  }
+)
+
+# Lenient matching - allow more variation
+result_lenient = Canon::Comparison.equivalent?(doc1, doc2,
+  verbose: true,
+  match: {
+    semantic_diff: true,
+    similarity_threshold: 0.85
+  }
+)
+
+puts "Strict: #{result_strict.operations.size} operations"
+puts "Lenient: #{result_lenient.operations.size} operations"
+----
+====
+
+== Format support
+
+Semantic tree diff works with all Canon-supported formats:
+
+=== XML
+
+Full support including namespaces, attributes, and mixed content.
+
+[source,ruby]
+----
+result = Canon::Comparison.equivalent?(xml1, xml2,
+  verbose: true,
+  match: { semantic_diff: true }
+)
+----
+
+=== JSON
+
+Supports objects, arrays, and primitive values.
+
+[source,ruby]
+----
+result = Canon::Comparison.equivalent?(json1, json2,
+  verbose: true,
+  match: { semantic_diff: true }
+)
+----
+
+=== HTML
+
+Handles HTML 4/5 and XHTML documents.
+
+[source,ruby]
+----
+result = Canon::Comparison.equivalent?(html1, html2,
+  verbose: true,
+  match: { semantic_diff: true }
+)
+----
+
+=== YAML
+
+Processes YAML documents with nested structures.
+
+[source,ruby]
+----
+result = Canon::Comparison.equivalent?(yaml1, yaml2,
+  verbose: true,
+  match: { semantic_diff: true }
+)
+----
+
+== Interaction with other options
+
+=== Preprocessing
+
+Preprocessing applies before tree diff:
+
+[source,ruby]
+----
+result = Canon::Comparison.equivalent?(doc1, doc2,
+  verbose: true,
+  preprocessing: :c14n,  # Applied first
+  match: { semantic_diff: true }  # Then tree diff
+)
+----
+
+The preprocessing option normalizes documents before tree diff runs, ensuring
+consistent comparison.
+
+=== Match dimensions
+
+Regular match dimensions (text_content, attribute_order, etc.) do NOT apply
+when semantic_diff is enabled. The tree diff uses its own matching logic.
+
+[source,ruby]
+----
+# These match dimensions are ignored when semantic_diff: true
+result = Canon::Comparison.equivalent?(doc1, doc2,
+  verbose: true,
+  match: {
+    semantic_diff: true,
+    text_content: :normalize,  # Ignored
+    attribute_order: :ignore   # Ignored
+  }
+)
+----
+
+== Performance considerations
+
+=== Time complexity
+
+* Hash matching: O(n) where n is node count
+* Similarity matching: O(n²) worst case, O(n log n) typical
+* Propagation: O(n)
+
+For large documents (>10,000 nodes), consider:
+
+* Disabling similarity_matching if exact matches suffice
+* Increasing similarity_threshold to reduce candidate matches
+* Using preprocessing to reduce document size
+
+=== Memory usage
+
+The tree diff maintains:
+
+* Full tree representations of both documents
+* Hash signatures for all nodes
+* Matching state and operations
+
+For very large documents, monitor memory usage and consider processing in
+chunks if needed.
+
+== Troubleshooting
+
+=== Too many/too few matches
+
+Adjust `similarity_threshold`:
+
+[source,ruby]
+----
+# Too many false matches? Increase threshold
+match: { semantic_diff: true, similarity_threshold: 0.98 }
+
+# Too few matches? Decrease threshold
+match: { semantic_diff: true, similarity_threshold: 0.90 }
+----
+
+=== Incorrect move detection
+
+Moves are detected when nodes match but positions change. If move detection is
+incorrect:
+
+* Verify nodes are truly similar (check attributes and content)
+* Adjust similarity_threshold
+* Check if preprocessing is needed to normalize content
+
+=== Performance issues
+
+For slow comparisons:
+
+[source,ruby]
+----
+# Disable expensive phases
+match: {
+  semantic_diff: true,
+  similarity_matching: false,  # Skip if exact matches suffice
+  propagation: false            # Skip if not needed
+}
+----
+
+== Comparison with DOM diff
+
+[cols="1,2,2"]
+|===
+|Aspect |DOM diff (default) |Semantic tree diff
+
+|Matching
+|Position-based with DOM structure
+|Similarity-based with tree operations
+
+|Operations
+|Line-by-line changes
+|INSERT, DELETE, UPDATE, MOVE
+
+|Use case
+|Traditional diff output
+|Operation-level analysis
+
+|Performance
+|Faster for large docs
+|Slower but more intelligent
+
+|Move detection
+|No
+|Yes
+
+|Rearrangement
+|Shows as delete + insert
+|Shows as MOVE
+
+|Format support
+|XML, HTML, JSON, YAML
+|XML, HTML, JSON, YAML
+
+|Output mode
+|Line-based or tree-based
+|Operation list
+
+|Verbose mode
+|Required for detailed output
+|Required for operations
+|===
+
+Both modes are first-class citizens in Canon. Choose based on your needs:
+
+* Use **DOM diff** for traditional comparison and readable output
+* Use **tree diff** for operation analysis and move detection
+
+== Research background
+
+The semantic tree diff implementation is based on:
+
+* **XDiff (2002)**: Minimum-cost edit distance with unordered tree model
+* **XyDiff/Cobena (2002)**: BULD algorithm with hash signatures and weights
+* **JATS-diff (2022)**: Semantic operations for text-centric XML
+
+Key innovations in Canon's implementation:
+
+* Hybrid matching pipeline combining hash, similarity, and propagation
+* Format adapters for XML, JSON, HTML, YAML
+* Integration with Canon's existing comparison architecture
+* Configurable similarity thresholds and matching phases
+
+See `xmldiff-resources.md` in the repository for research paper details.
