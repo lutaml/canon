@@ -35,6 +35,12 @@ module Canon
         @options[:preprocessing]
       end
 
+      # Check if semantic diff is enabled
+      # @return [Boolean] true if semantic diff is enabled
+      def semantic_diff?
+        @options[:semantic_diff] == true
+      end
+
       def to_h
         @options.dup
       end
@@ -116,6 +122,7 @@ module Canon
           text_content
           structural_whitespace
           attribute_presence
+          attribute_order
           attribute_values
           comments
         ].freeze
@@ -127,6 +134,7 @@ module Canon
             text_content: :normalize,
             structural_whitespace: :normalize,
             attribute_presence: :strict,
+            attribute_order: :ignore,
             attribute_values: :strict,
             comments: :ignore,
           },
@@ -135,6 +143,7 @@ module Canon
             text_content: :strict,
             structural_whitespace: :strict,
             attribute_presence: :strict,
+            attribute_order: :ignore,
             attribute_values: :strict,
             comments: :strict,
           },
@@ -148,6 +157,7 @@ module Canon
             text_content: :strict,
             structural_whitespace: :strict,
             attribute_presence: :strict,
+            attribute_order: :strict,
             attribute_values: :strict,
             comments: :strict,
           },
@@ -159,6 +169,7 @@ module Canon
             text_content: :normalize,
             structural_whitespace: :normalize,
             attribute_presence: :strict,
+            attribute_order: :strict,
             attribute_values: :strict,
             comments: :ignore,
           },
@@ -170,6 +181,7 @@ module Canon
             text_content: :normalize,
             structural_whitespace: :normalize,
             attribute_presence: :strict,
+            attribute_order: :strict,
             attribute_values: :normalize,
             comments: :ignore,
           },
@@ -180,6 +192,7 @@ module Canon
             text_content: :normalize,
             structural_whitespace: :normalize,
             attribute_presence: :strict,
+            attribute_order: :strict,
             attribute_values: :strict,
             comments: :ignore,
           },
@@ -191,6 +204,7 @@ module Canon
             text_content: :normalize,
             structural_whitespace: :ignore,
             attribute_presence: :strict,
+            attribute_order: :ignore,
             attribute_values: :normalize,
             comments: :ignore,
           },
@@ -201,6 +215,7 @@ module Canon
             text_content: :normalize,
             structural_whitespace: :ignore,
             attribute_presence: :strict,
+            attribute_order: :ignore,
             attribute_values: :normalize,
             comments: :ignore,
           },
@@ -293,9 +308,19 @@ module Canon
 
           # Validate match options
           def validate_match_options!(match_options)
+            # Special options that don't need validation as dimensions
+            special_options = %i[
+              preprocessing
+              semantic_diff
+              similarity_threshold
+              hash_matching
+              similarity_matching
+              propagation
+            ]
+
             match_options.each do |dimension, behavior|
-              # Skip preprocessing as it's validated separately
-              next if dimension == :preprocessing
+              # Skip special options (validated elsewhere or passed through)
+              next if special_options.include?(dimension)
 
               unless MATCH_DIMENSIONS.include?(dimension)
                 raise Canon::Error,
