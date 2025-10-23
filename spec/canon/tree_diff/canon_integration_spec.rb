@@ -13,7 +13,7 @@ RSpec.describe "Canon TreeDiff Integration" do
         xml1,
         xml2,
         verbose: true,
-        match: { semantic_diff: true }
+        match: { semantic_diff: true },
       )
 
       expect(result).to be_a(Canon::Comparison::ComparisonResult)
@@ -30,7 +30,7 @@ RSpec.describe "Canon TreeDiff Integration" do
         xml1,
         xml2,
         verbose: true,
-        match: { semantic_diff: true }
+        match: { semantic_diff: true },
       )
 
       expect(result).to be_a(Canon::Comparison::ComparisonResult)
@@ -46,7 +46,7 @@ RSpec.describe "Canon TreeDiff Integration" do
       result = Canon::Comparison.equivalent?(
         xml1,
         xml2,
-        match: { semantic_diff: true }
+        match: { semantic_diff: true },
       )
 
       expect(result).to be false
@@ -59,7 +59,7 @@ RSpec.describe "Canon TreeDiff Integration" do
       result = Canon::Comparison.equivalent?(
         xml1,
         xml2,
-        match: { semantic_diff: true }
+        match: { semantic_diff: true },
       )
 
       expect(result).to be true
@@ -73,7 +73,7 @@ RSpec.describe "Canon TreeDiff Integration" do
         xml1,
         xml2,
         verbose: true,
-        match: { semantic_diff: true }
+        match: { semantic_diff: true },
       )
 
       stats = result.match_options[:tree_diff_statistics]
@@ -92,7 +92,7 @@ RSpec.describe "Canon TreeDiff Integration" do
         xml1,
         xml2,
         verbose: true,
-        match: { semantic_diff: true }
+        match: { semantic_diff: true },
       )
 
       expect(result.equivalent?).to be false
@@ -111,7 +111,7 @@ RSpec.describe "Canon TreeDiff Integration" do
         xml1,
         xml2,
         verbose: true,
-        match: { semantic_diff: true }
+        match: { semantic_diff: true },
       )
 
       expect(result.equivalent?).to be false
@@ -130,7 +130,7 @@ RSpec.describe "Canon TreeDiff Integration" do
         xml1,
         xml2,
         verbose: true,
-        match: { semantic_diff: true }
+        match: { semantic_diff: true },
       )
 
       expect(result.equivalent?).to be false
@@ -150,7 +150,7 @@ RSpec.describe "Canon TreeDiff Integration" do
         xml1,
         xml2,
         preprocessing: :normalize,
-        match: { semantic_diff: true }
+        match: { semantic_diff: true },
       )
 
       expect(result).to be true
@@ -166,8 +166,8 @@ RSpec.describe "Canon TreeDiff Integration" do
         verbose: true,
         match: {
           semantic_diff: true,
-          similarity_threshold: 0.8
-        }
+          similarity_threshold: 0.8,
+        },
       )
 
       expect(result.equivalent?).to be true
@@ -208,7 +208,7 @@ RSpec.describe "Canon TreeDiff Integration" do
         xml1,
         xml2,
         verbose: true,
-        match: { semantic_diff: true }
+        match: { semantic_diff: true },
       )
 
       expect(result.equivalent?).to be false
@@ -230,7 +230,7 @@ RSpec.describe "Canon TreeDiff Integration" do
         xml1,
         xml2,
         verbose: true,
-        match: { semantic_diff: false }
+        match: { semantic_diff: false },
       )
 
       expect(result).to be_a(Canon::Comparison::ComparisonResult)
@@ -246,7 +246,7 @@ RSpec.describe "Canon TreeDiff Integration" do
       result = Canon::Comparison.equivalent?(
         xml1,
         xml2,
-        verbose: true
+        verbose: true,
       )
 
       expect(result).to be_a(Canon::Comparison::ComparisonResult)

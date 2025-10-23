@@ -301,7 +301,7 @@ RSpec.describe Canon::TreeDiff::Core::Matching do
       # Manually violate constraint (bypassing add validation)
       # We need to update both pairs and maps to create an invalid state
       matching.instance_variable_get(:@pairs) << [node1, node3]
-      matching.instance_variable_get(:@tree1_map)[node1] = node3  # Now node1 maps to node3, but pairs has both
+      matching.instance_variable_get(:@tree1_map)[node1] = node3 # Now node1 maps to node3, but pairs has both
 
       expect(matching.one_to_one?).to be false
     end

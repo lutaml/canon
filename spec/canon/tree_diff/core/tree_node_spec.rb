@@ -26,7 +26,7 @@ RSpec.describe Canon::TreeDiff::Core::TreeNode do
     it "creates a node with attributes" do
       node = described_class.new(
         label: "div",
-        attributes: { "class" => "container", "id" => "main" }
+        attributes: { "class" => "container", "id" => "main" },
       )
 
       expect(node.attributes).to eq({ "class" => "container", "id" => "main" })
@@ -86,7 +86,8 @@ RSpec.describe Canon::TreeDiff::Core::TreeNode do
     end
 
     it "returns true for node with attributes" do
-      node = described_class.new(label: "div", attributes: { "class" => "test" })
+      node = described_class.new(label: "div",
+                                 attributes: { "class" => "test" })
       expect(node.element?).to be true
     end
 
@@ -403,12 +404,12 @@ RSpec.describe Canon::TreeDiff::Core::TreeNode do
       node1 = described_class.new(
         label: "div",
         value: "text",
-        attributes: { "class" => "test" }
+        attributes: { "class" => "test" },
       )
       node2 = described_class.new(
         label: "div",
         value: "text",
-        attributes: { "class" => "test" }
+        attributes: { "class" => "test" },
       )
 
       expect(node1.matches?(node2)).to be true
@@ -453,12 +454,12 @@ RSpec.describe Canon::TreeDiff::Core::TreeNode do
       node1 = described_class.new(
         label: "div",
         value: "text",
-        attributes: { "class" => "test" }
+        attributes: { "class" => "test" },
       )
       node2 = described_class.new(
         label: "div",
         value: "text",
-        attributes: { "class" => "test" }
+        attributes: { "class" => "test" },
       )
 
       expect(node1.similarity_to(node2)).to eq(1.0)
@@ -476,12 +477,12 @@ RSpec.describe Canon::TreeDiff::Core::TreeNode do
       node1 = described_class.new(
         label: "div",
         value: "text",
-        attributes: { "class" => "a" }
+        attributes: { "class" => "a" },
       )
       node2 = described_class.new(
         label: "div",
         value: "text",
-        attributes: { "class" => "b" }
+        attributes: { "class" => "b" },
       )
 
       similarity = node1.similarity_to(node2)
@@ -538,7 +539,7 @@ RSpec.describe Canon::TreeDiff::Core::TreeNode do
         label: "div",
         value: "text",
         attributes: { "class" => "test" },
-        xid: "id123"
+        xid: "id123",
       )
 
       clone = original.deep_clone
@@ -573,7 +574,7 @@ RSpec.describe Canon::TreeDiff::Core::TreeNode do
         label: "div",
         value: "text",
         attributes: { "class" => "test" },
-        xid: "id123"
+        xid: "id123",
       )
 
       hash = node.to_h

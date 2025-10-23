@@ -36,9 +36,9 @@ RSpec.describe Canon::TreeDiff::Adapters::JSONAdapter do
             "name" => "Jane",
             "address" => {
               "city" => "NYC",
-              "zip" => "10001"
-            }
-          }
+              "zip" => "10001",
+            },
+          },
         }
       end
 
@@ -108,9 +108,9 @@ RSpec.describe Canon::TreeDiff::Adapters::JSONAdapter do
         {
           "users" => [
             { "id" => 1, "name" => "Alice" },
-            { "id" => 2, "name" => "Bob" }
+            { "id" => 2, "name" => "Bob" },
           ],
-          "count" => 2
+          "count" => 2,
         }
       end
 
@@ -137,12 +137,12 @@ RSpec.describe Canon::TreeDiff::Adapters::JSONAdapter do
         name_node = Canon::TreeDiff::Core::TreeNode.new(
           label: "value",
           value: "John",
-          attributes: { "key" => "name", "type" => "string" }
+          attributes: { "key" => "name", "type" => "string" },
         )
         age_node = Canon::TreeDiff::Core::TreeNode.new(
           label: "value",
           value: "30",
-          attributes: { "key" => "age", "type" => "integer" }
+          attributes: { "key" => "age", "type" => "integer" },
         )
         root.add_child(name_node)
         root.add_child(age_node)
@@ -153,9 +153,9 @@ RSpec.describe Canon::TreeDiff::Adapters::JSONAdapter do
         result = adapter.from_tree(tree_node)
 
         expect(result).to eq({
-          "name" => "John",
-          "age" => 30
-        })
+                               "name" => "John",
+                               "age" => 30,
+                             })
       end
     end
 
@@ -166,7 +166,7 @@ RSpec.describe Canon::TreeDiff::Adapters::JSONAdapter do
           node = Canon::TreeDiff::Core::TreeNode.new(
             label: "value",
             value: val.to_s,
-            attributes: { "key" => idx.to_s, "type" => "integer" }
+            attributes: { "key" => idx.to_s, "type" => "integer" },
           )
           root.add_child(node)
         end
@@ -187,27 +187,27 @@ RSpec.describe Canon::TreeDiff::Adapters::JSONAdapter do
         string_node = Canon::TreeDiff::Core::TreeNode.new(
           label: "value",
           value: "text",
-          attributes: { "key" => "0", "type" => "string" }
+          attributes: { "key" => "0", "type" => "string" },
         )
         int_node = Canon::TreeDiff::Core::TreeNode.new(
           label: "value",
           value: "42",
-          attributes: { "key" => "1", "type" => "integer" }
+          attributes: { "key" => "1", "type" => "integer" },
         )
         float_node = Canon::TreeDiff::Core::TreeNode.new(
           label: "value",
           value: "3.14",
-          attributes: { "key" => "2", "type" => "float" }
+          attributes: { "key" => "2", "type" => "float" },
         )
         bool_node = Canon::TreeDiff::Core::TreeNode.new(
           label: "value",
           value: "true",
-          attributes: { "key" => "3", "type" => "boolean" }
+          attributes: { "key" => "3", "type" => "boolean" },
         )
         null_node = Canon::TreeDiff::Core::TreeNode.new(
           label: "value",
           value: "",
-          attributes: { "key" => "4", "type" => "null" }
+          attributes: { "key" => "4", "type" => "null" },
         )
 
         root.add_child(string_node)
@@ -235,22 +235,22 @@ RSpec.describe Canon::TreeDiff::Adapters::JSONAdapter do
             "id" => 1,
             "name" => "Alice",
             "active" => true,
-            "salary" => 75000.50
+            "salary" => 75000.50,
           },
           {
             "id" => 2,
             "name" => "Bob",
             "active" => false,
-            "salary" => 65000.0
-          }
+            "salary" => 65000.0,
+          },
         ],
         "founded" => 2010,
         "public" => true,
         "headquarters" => {
           "city" => "San Francisco",
           "state" => "CA",
-          "zip" => "94105"
-        }
+          "zip" => "94105",
+        },
       }
     end
 

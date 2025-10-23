@@ -54,9 +54,9 @@ RSpec.describe Canon::TreeDiff::Adapters::XMLAdapter do
         tree = adapter.to_tree(xml)
 
         expect(tree.attributes).to eq({
-          "id" => "123",
-          "name" => "test"
-        })
+                                        "id" => "123",
+                                        "name" => "test",
+                                      })
         expect(tree.value).to eq("content")
       end
     end
@@ -112,7 +112,7 @@ RSpec.describe Canon::TreeDiff::Adapters::XMLAdapter do
       let(:tree_node) do
         Canon::TreeDiff::Core::TreeNode.new(
           label: "root",
-          value: "content"
+          value: "content",
         )
       end
 
@@ -130,11 +130,11 @@ RSpec.describe Canon::TreeDiff::Adapters::XMLAdapter do
         root = Canon::TreeDiff::Core::TreeNode.new(label: "root")
         child1 = Canon::TreeDiff::Core::TreeNode.new(
           label: "child1",
-          value: "value1"
+          value: "value1",
         )
         child2 = Canon::TreeDiff::Core::TreeNode.new(
           label: "child2",
-          value: "value2"
+          value: "value2",
         )
         root.add_child(child1)
         root.add_child(child2)
@@ -160,7 +160,7 @@ RSpec.describe Canon::TreeDiff::Adapters::XMLAdapter do
         Canon::TreeDiff::Core::TreeNode.new(
           label: "root",
           value: "content",
-          attributes: { "id" => "123", "name" => "test" }
+          attributes: { "id" => "123", "name" => "test" },
         )
       end
 
@@ -200,7 +200,7 @@ RSpec.describe Canon::TreeDiff::Adapters::XMLAdapter do
 
       # Compare children count
       expect(result.root.element_children.size).to eq(
-        original.root.element_children.size
+        original.root.element_children.size,
       )
 
       # Compare specific elements
