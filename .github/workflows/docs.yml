@@ -24,26 +24,24 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env: # $BUNDLE_GEMFILE must be set at the job level, so it is set for all steps
+      BUNDLE_GEMFILE: ${{ github.workspace }}/Gemfile.docs
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Ruby
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: '3.2'
-          bundler-cache: false
-
-      - name: Install dependencies
-        run: |
-          BUNDLE_GEMFILE=Gemfile.docs bundle install
+          ruby-version: '3.3'
+          bundler-cache: true
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
       - name: Build with Jekyll
         run: |
-          BUNDLE_GEMFILE=Gemfile.docs bundle exec jekyll build --baseurl "${{ steps.pages.outputs.base_path }}"
+          bundle exec jekyll build --baseurl "${{ steps.pages.outputs.base_path }}"
         env:
           JEKYLL_ENV: production
 
@@ -51,6 +49,7 @@ jobs:
         uses: actions/upload-pages-artifact@v4
 
   deploy:
+    if: ${{ github.ref == 'refs/heads/main' }}
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
