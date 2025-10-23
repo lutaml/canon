@@ -55,7 +55,7 @@ module Canon
           max_propagation_depth: nil,
 
           # Minimum weight for propagation
-          min_propagation_weight: 2.0
+          min_propagation_weight: 2.0,
         }.freeze
 
         attr_reader :options, :statistics
@@ -125,7 +125,7 @@ module Canon
             total_matches: 0,
             match_ratio_tree1: 0.0,
             match_ratio_tree2: 0.0,
-            phases_executed: []
+            phases_executed: [],
           }
         end
 
@@ -162,7 +162,7 @@ module Canon
             tree1,
             tree2,
             matching,
-            threshold: @options[:similarity_threshold]
+            threshold: @options[:similarity_threshold],
           )
           similarity_matcher.match
 
@@ -192,12 +192,12 @@ module Canon
           @statistics[:total_matches] = matching.size
 
           # Calculate match ratios
-          if @statistics[:tree1_nodes] > 0
+          if @statistics[:tree1_nodes].positive?
             @statistics[:match_ratio_tree1] =
               matching.size.to_f / @statistics[:tree1_nodes]
           end
 
-          if @statistics[:tree2_nodes] > 0
+          if @statistics[:tree2_nodes].positive?
             @statistics[:match_ratio_tree2] =
               matching.size.to_f / @statistics[:tree2_nodes]
           end

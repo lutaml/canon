@@ -77,7 +77,7 @@ module Canon
           tree_node = Core::TreeNode.new(
             label: label,
             value: text_value,
-            attributes: attributes
+            attributes: attributes,
           )
 
           # Process child elements
@@ -95,7 +95,7 @@ module Canon
         # @return [String, nil] Text content or nil
         def extract_text_value(element)
           # Get only direct text nodes, not from nested elements
-          text_nodes = element.children.select { |n| n.text? }
+          text_nodes = element.children.select(&:text?)
           text = text_nodes.map(&:text).join
 
           # Return nil for empty/whitespace-only text

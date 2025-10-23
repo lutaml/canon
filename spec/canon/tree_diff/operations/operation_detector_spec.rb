@@ -10,7 +10,8 @@ RSpec.describe Canon::TreeDiff::Operations::OperationDetector do
   def build_tree(label, children_data = [])
     root = Canon::TreeDiff::Core::TreeNode.new(label: label, value: "root")
     children_data.each do |child_label, child_value|
-      child = Canon::TreeDiff::Core::TreeNode.new(label: child_label, value: child_value)
+      child = Canon::TreeDiff::Core::TreeNode.new(label: child_label,
+                                                  value: child_value)
       root.add_child(child)
     end
     root
@@ -68,12 +69,16 @@ RSpec.describe Canon::TreeDiff::Operations::OperationDetector do
       end
 
       it "detects updated node labels" do
-        tree1_root = Canon::TreeDiff::Core::TreeNode.new(label: "root", value: "content")
-        child1 = Canon::TreeDiff::Core::TreeNode.new(label: "para", value: "text")
+        tree1_root = Canon::TreeDiff::Core::TreeNode.new(label: "root",
+                                                         value: "content")
+        child1 = Canon::TreeDiff::Core::TreeNode.new(label: "para",
+                                                     value: "text")
         tree1_root.add_child(child1)
 
-        tree2_root = Canon::TreeDiff::Core::TreeNode.new(label: "root", value: "content")
-        child2 = Canon::TreeDiff::Core::TreeNode.new(label: "section", value: "text")
+        tree2_root = Canon::TreeDiff::Core::TreeNode.new(label: "root",
+                                                         value: "content")
+        child2 = Canon::TreeDiff::Core::TreeNode.new(label: "section",
+                                                     value: "text")
         tree2_root.add_child(child2)
 
         matcher = Canon::TreeDiff::Matchers::UniversalMatcher.new
@@ -94,14 +99,16 @@ RSpec.describe Canon::TreeDiff::Operations::OperationDetector do
         # Tree1: root -> child1 -> grandchild
         tree1_root = Canon::TreeDiff::Core::TreeNode.new(label: "root")
         child1 = Canon::TreeDiff::Core::TreeNode.new(label: "child1")
-        grandchild = Canon::TreeDiff::Core::TreeNode.new(label: "grandchild", value: "text")
+        grandchild = Canon::TreeDiff::Core::TreeNode.new(label: "grandchild",
+                                                         value: "text")
         child1.add_child(grandchild)
         tree1_root.add_child(child1)
 
         # Tree2: root -> child1, root -> grandchild (moved up)
         tree2_root = Canon::TreeDiff::Core::TreeNode.new(label: "root")
         child2 = Canon::TreeDiff::Core::TreeNode.new(label: "child1")
-        grandchild2 = Canon::TreeDiff::Core::TreeNode.new(label: "grandchild", value: "text")
+        grandchild2 = Canon::TreeDiff::Core::TreeNode.new(label: "grandchild",
+                                                          value: "text")
         tree2_root.add_child(child2)
         tree2_root.add_child(grandchild2)
 
@@ -112,7 +119,7 @@ RSpec.describe Canon::TreeDiff::Operations::OperationDetector do
         operations = detector.detect
 
         moves = operations.select { |op| op.type?(:move) }
-        expect(moves.size).to be >= 0  # Depends on matching quality
+        expect(moves.size).to be >= 0 # Depends on matching quality
       end
     end
 
@@ -167,29 +174,35 @@ RSpec.describe Canon::TreeDiff::Operations::OperationDetector do
 
         nodes = detector.send(:collect_all_nodes, root)
 
-        expect(nodes.size).to eq(3)  # root + 2 children
+        expect(nodes.size).to eq(3) # root + 2 children
         expect(nodes.first.label).to eq("root")
       end
     end
 
     describe "#nodes_identical?" do
       it "returns true for identical nodes" do
-        node1 = Canon::TreeDiff::Core::TreeNode.new(label: "test", value: "data")
-        node2 = Canon::TreeDiff::Core::TreeNode.new(label: "test", value: "data")
+        node1 = Canon::TreeDiff::Core::TreeNode.new(label: "test",
+                                                    value: "data")
+        node2 = Canon::TreeDiff::Core::TreeNode.new(label: "test",
+                                                    value: "data")
 
         expect(detector.send(:nodes_identical?, node1, node2)).to be true
       end
 
       it "returns false for different values" do
-        node1 = Canon::TreeDiff::Core::TreeNode.new(label: "test", value: "data1")
-        node2 = Canon::TreeDiff::Core::TreeNode.new(label: "test", value: "data2")
+        node1 = Canon::TreeDiff::Core::TreeNode.new(label: "test",
+                                                    value: "data1")
+        node2 = Canon::TreeDiff::Core::TreeNode.new(label: "test",
+                                                    value: "data2")
 
         expect(detector.send(:nodes_identical?, node1, node2)).to be false
       end
 
       it "returns false for different labels" do
-        node1 = Canon::TreeDiff::Core::TreeNode.new(label: "test1", value: "data")
-        node2 = Canon::TreeDiff::Core::TreeNode.new(label: "test2", value: "data")
+        node1 = Canon::TreeDiff::Core::TreeNode.new(label: "test1",
+                                                    value: "data")
+        node2 = Canon::TreeDiff::Core::TreeNode.new(label: "test2",
+                                                    value: "data")
 
         expect(detector.send(:nodes_identical?, node1, node2)).to be false
       end
@@ -206,8 +219,10 @@ RSpec.describe Canon::TreeDiff::Operations::OperationDetector do
       end
 
       it "detects label changes" do
-        node1 = Canon::TreeDiff::Core::TreeNode.new(label: "old_label", value: "data")
-        node2 = Canon::TreeDiff::Core::TreeNode.new(label: "new_label", value: "data")
+        node1 = Canon::TreeDiff::Core::TreeNode.new(label: "old_label",
+                                                    value: "data")
+        node2 = Canon::TreeDiff::Core::TreeNode.new(label: "new_label",
+                                                    value: "data")
 
         changes = detector.send(:detect_changes, node1, node2)
 
@@ -215,8 +230,10 @@ RSpec.describe Canon::TreeDiff::Operations::OperationDetector do
       end
 
       it "returns empty hash for identical nodes" do
-        node1 = Canon::TreeDiff::Core::TreeNode.new(label: "test", value: "data")
-        node2 = Canon::TreeDiff::Core::TreeNode.new(label: "test", value: "data")
+        node1 = Canon::TreeDiff::Core::TreeNode.new(label: "test",
+                                                    value: "data")
+        node2 = Canon::TreeDiff::Core::TreeNode.new(label: "test",
+                                                    value: "data")
 
         changes = detector.send(:detect_changes, node1, node2)
 
@@ -226,7 +243,8 @@ RSpec.describe Canon::TreeDiff::Operations::OperationDetector do
 
     describe "#extract_text_content" do
       it "extracts text from a node with value" do
-        node = Canon::TreeDiff::Core::TreeNode.new(label: "para", value: "hello world")
+        node = Canon::TreeDiff::Core::TreeNode.new(label: "para",
+                                                   value: "hello world")
 
         text = detector.send(:extract_text_content, node)
 
@@ -235,8 +253,10 @@ RSpec.describe Canon::TreeDiff::Operations::OperationDetector do
 
       it "extracts text from node with children" do
         root = Canon::TreeDiff::Core::TreeNode.new(label: "root")
-        child1 = Canon::TreeDiff::Core::TreeNode.new(label: "para", value: "first")
-        child2 = Canon::TreeDiff::Core::TreeNode.new(label: "para", value: "second")
+        child1 = Canon::TreeDiff::Core::TreeNode.new(label: "para",
+                                                     value: "first")
+        child2 = Canon::TreeDiff::Core::TreeNode.new(label: "para",
+                                                     value: "second")
         root.add_child(child1)
         root.add_child(child2)
 
@@ -249,13 +269,15 @@ RSpec.describe Canon::TreeDiff::Operations::OperationDetector do
 
     describe "#text_similarity" do
       it "returns 1.0 for identical text" do
-        similarity = detector.send(:text_similarity, "hello world", "hello world")
+        similarity = detector.send(:text_similarity, "hello world",
+                                   "hello world")
 
         expect(similarity).to eq(1.0)
       end
 
       it "returns value between 0 and 1 for similar text" do
-        similarity = detector.send(:text_similarity, "hello world", "hello there")
+        similarity = detector.send(:text_similarity, "hello world",
+                                   "hello there")
 
         expect(similarity).to be_between(0, 1)
       end
@@ -294,9 +316,12 @@ RSpec.describe Canon::TreeDiff::Operations::OperationDetector do
       it "detects merge when multiple nodes combine into one" do
         # Tree1: root -> para1, para2, para3
         tree1_root = Canon::TreeDiff::Core::TreeNode.new(label: "root")
-        para1 = Canon::TreeDiff::Core::TreeNode.new(label: "para", value: "First sentence")
-        para2 = Canon::TreeDiff::Core::TreeNode.new(label: "para", value: "Second sentence")
-        para3 = Canon::TreeDiff::Core::TreeNode.new(label: "para", value: "Third sentence")
+        para1 = Canon::TreeDiff::Core::TreeNode.new(label: "para",
+                                                    value: "First sentence")
+        para2 = Canon::TreeDiff::Core::TreeNode.new(label: "para",
+                                                    value: "Second sentence")
+        para3 = Canon::TreeDiff::Core::TreeNode.new(label: "para",
+                                                    value: "Third sentence")
         tree1_root.add_child(para1)
         tree1_root.add_child(para2)
         tree1_root.add_child(para3)
@@ -305,7 +330,7 @@ RSpec.describe Canon::TreeDiff::Operations::OperationDetector do
         tree2_root = Canon::TreeDiff::Core::TreeNode.new(label: "root")
         merged_para = Canon::TreeDiff::Core::TreeNode.new(
           label: "para",
-          value: "First sentence Second sentence Third sentence"
+          value: "First sentence Second sentence Third sentence",
         )
         tree2_root.add_child(merged_para)
 
@@ -327,15 +352,18 @@ RSpec.describe Canon::TreeDiff::Operations::OperationDetector do
         tree1_root = Canon::TreeDiff::Core::TreeNode.new(label: "root")
         long_para = Canon::TreeDiff::Core::TreeNode.new(
           label: "para",
-          value: "First sentence Second sentence Third sentence"
+          value: "First sentence Second sentence Third sentence",
         )
         tree1_root.add_child(long_para)
 
         # Tree2: root -> para1, para2, para3 (split content)
         tree2_root = Canon::TreeDiff::Core::TreeNode.new(label: "root")
-        para1 = Canon::TreeDiff::Core::TreeNode.new(label: "para", value: "First sentence")
-        para2 = Canon::TreeDiff::Core::TreeNode.new(label: "para", value: "Second sentence")
-        para3 = Canon::TreeDiff::Core::TreeNode.new(label: "para", value: "Third sentence")
+        para1 = Canon::TreeDiff::Core::TreeNode.new(label: "para",
+                                                    value: "First sentence")
+        para2 = Canon::TreeDiff::Core::TreeNode.new(label: "para",
+                                                    value: "Second sentence")
+        para3 = Canon::TreeDiff::Core::TreeNode.new(label: "para",
+                                                    value: "Third sentence")
         tree2_root.add_child(para1)
         tree2_root.add_child(para2)
         tree2_root.add_child(para3)
@@ -358,7 +386,8 @@ RSpec.describe Canon::TreeDiff::Operations::OperationDetector do
         tree1_root = Canon::TreeDiff::Core::TreeNode.new(label: "root")
         section1 = Canon::TreeDiff::Core::TreeNode.new(label: "section")
         subsection1 = Canon::TreeDiff::Core::TreeNode.new(label: "subsection")
-        para1 = Canon::TreeDiff::Core::TreeNode.new(label: "para", value: "content")
+        para1 = Canon::TreeDiff::Core::TreeNode.new(label: "para",
+                                                    value: "content")
         subsection1.add_child(para1)
         section1.add_child(subsection1)
         tree1_root.add_child(section1)
@@ -366,7 +395,8 @@ RSpec.describe Canon::TreeDiff::Operations::OperationDetector do
         # Tree2: root -> section -> para (upgraded, skipping subsection)
         tree2_root = Canon::TreeDiff::Core::TreeNode.new(label: "root")
         section2 = Canon::TreeDiff::Core::TreeNode.new(label: "section")
-        para2 = Canon::TreeDiff::Core::TreeNode.new(label: "para", value: "content")
+        para2 = Canon::TreeDiff::Core::TreeNode.new(label: "para",
+                                                    value: "content")
         section2.add_child(para2)
         tree2_root.add_child(section2)
 
@@ -387,7 +417,8 @@ RSpec.describe Canon::TreeDiff::Operations::OperationDetector do
         # Tree1: root -> section -> para
         tree1_root = Canon::TreeDiff::Core::TreeNode.new(label: "root")
         section1 = Canon::TreeDiff::Core::TreeNode.new(label: "section")
-        para1 = Canon::TreeDiff::Core::TreeNode.new(label: "para", value: "content")
+        para1 = Canon::TreeDiff::Core::TreeNode.new(label: "para",
+                                                    value: "content")
         section1.add_child(para1)
         tree1_root.add_child(section1)
 
@@ -395,7 +426,8 @@ RSpec.describe Canon::TreeDiff::Operations::OperationDetector do
         tree2_root = Canon::TreeDiff::Core::TreeNode.new(label: "root")
         section2 = Canon::TreeDiff::Core::TreeNode.new(label: "section")
         subsection2 = Canon::TreeDiff::Core::TreeNode.new(label: "subsection")
-        para2 = Canon::TreeDiff::Core::TreeNode.new(label: "para", value: "content")
+        para2 = Canon::TreeDiff::Core::TreeNode.new(label: "para",
+                                                    value: "content")
         subsection2.add_child(para2)
         section2.add_child(subsection2)
         tree2_root.add_child(section2)
@@ -417,13 +449,16 @@ RSpec.describe Canon::TreeDiff::Operations::OperationDetector do
         # When a merge is detected, component DELETE and UPDATE operations
         # should be removed in favor of the MERGE operation
         tree1_root = Canon::TreeDiff::Core::TreeNode.new(label: "root")
-        para1 = Canon::TreeDiff::Core::TreeNode.new(label: "para", value: "First")
-        para2 = Canon::TreeDiff::Core::TreeNode.new(label: "para", value: "Second")
+        para1 = Canon::TreeDiff::Core::TreeNode.new(label: "para",
+                                                    value: "First")
+        para2 = Canon::TreeDiff::Core::TreeNode.new(label: "para",
+                                                    value: "Second")
         tree1_root.add_child(para1)
         tree1_root.add_child(para2)
 
         tree2_root = Canon::TreeDiff::Core::TreeNode.new(label: "root")
-        merged = Canon::TreeDiff::Core::TreeNode.new(label: "para", value: "First Second")
+        merged = Canon::TreeDiff::Core::TreeNode.new(label: "para",
+                                                     value: "First Second")
         tree2_root.add_child(merged)
 
         matcher = Canon::TreeDiff::Matchers::UniversalMatcher.new

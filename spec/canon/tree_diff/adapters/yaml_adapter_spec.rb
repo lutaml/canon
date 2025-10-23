@@ -37,9 +37,9 @@ RSpec.describe Canon::TreeDiff::Adapters::YAMLAdapter do
             "port" => 5432,
             "credentials" => {
               "username" => "admin",
-              "password" => "secret"
-            }
-          }
+              "password" => "secret",
+            },
+          },
         }
       end
 
@@ -144,15 +144,15 @@ RSpec.describe Canon::TreeDiff::Adapters::YAMLAdapter do
               "ports" => ["80:80", "443:443"],
               "environment" => {
                 "NODE_ENV" => "production",
-                "DEBUG" => false
-              }
+                "DEBUG" => false,
+              },
             },
             {
               "name" => "db",
               "image" => "postgres:14",
-              "volumes" => ["/var/lib/postgresql/data"]
-            }
-          ]
+              "volumes" => ["/var/lib/postgresql/data"],
+            },
+          ],
         }
       end
 
@@ -184,12 +184,12 @@ RSpec.describe Canon::TreeDiff::Adapters::YAMLAdapter do
         name_node = Canon::TreeDiff::Core::TreeNode.new(
           label: "value",
           value: "Alice",
-          attributes: { "key" => "name", "type" => "string" }
+          attributes: { "key" => "name", "type" => "string" },
         )
         age_node = Canon::TreeDiff::Core::TreeNode.new(
           label: "value",
           value: "25",
-          attributes: { "key" => "age", "type" => "integer" }
+          attributes: { "key" => "age", "type" => "integer" },
         )
         root.add_child(name_node)
         root.add_child(age_node)
@@ -200,9 +200,9 @@ RSpec.describe Canon::TreeDiff::Adapters::YAMLAdapter do
         result = adapter.from_tree(tree_node)
 
         expect(result).to eq({
-          "name" => "Alice",
-          "age" => 25
-        })
+                               "name" => "Alice",
+                               "age" => 25,
+                             })
       end
     end
 
@@ -213,7 +213,7 @@ RSpec.describe Canon::TreeDiff::Adapters::YAMLAdapter do
           node = Canon::TreeDiff::Core::TreeNode.new(
             label: "value",
             value: val,
-            attributes: { "key" => idx.to_s, "type" => "string" }
+            attributes: { "key" => idx.to_s, "type" => "string" },
           )
           root.add_child(node)
         end
@@ -234,32 +234,32 @@ RSpec.describe Canon::TreeDiff::Adapters::YAMLAdapter do
         string_node = Canon::TreeDiff::Core::TreeNode.new(
           label: "value",
           value: "text",
-          attributes: { "key" => "0", "type" => "string" }
+          attributes: { "key" => "0", "type" => "string" },
         )
         int_node = Canon::TreeDiff::Core::TreeNode.new(
           label: "value",
           value: "99",
-          attributes: { "key" => "1", "type" => "integer" }
+          attributes: { "key" => "1", "type" => "integer" },
         )
         float_node = Canon::TreeDiff::Core::TreeNode.new(
           label: "value",
           value: "2.71",
-          attributes: { "key" => "2", "type" => "float" }
+          attributes: { "key" => "2", "type" => "float" },
         )
         bool_true = Canon::TreeDiff::Core::TreeNode.new(
           label: "value",
           value: "true",
-          attributes: { "key" => "3", "type" => "boolean" }
+          attributes: { "key" => "3", "type" => "boolean" },
         )
         bool_false = Canon::TreeDiff::Core::TreeNode.new(
           label: "value",
           value: "false",
-          attributes: { "key" => "4", "type" => "boolean" }
+          attributes: { "key" => "4", "type" => "boolean" },
         )
         null_node = Canon::TreeDiff::Core::TreeNode.new(
           label: "value",
           value: "",
-          attributes: { "key" => "5", "type" => "null" }
+          attributes: { "key" => "5", "type" => "null" },
         )
 
         root.add_child(string_node)
@@ -284,7 +284,7 @@ RSpec.describe Canon::TreeDiff::Adapters::YAMLAdapter do
         sym_node = Canon::TreeDiff::Core::TreeNode.new(
           label: "value",
           value: "test_key",
-          attributes: { "key" => "symbol", "type" => "symbol" }
+          attributes: { "key" => "symbol", "type" => "symbol" },
         )
         root.add_child(sym_node)
         root
@@ -306,18 +306,18 @@ RSpec.describe Canon::TreeDiff::Adapters::YAMLAdapter do
         "server" => {
           "host" => "0.0.0.0",
           "port" => 8080,
-          "ssl" => true
+          "ssl" => true,
         },
         "database" => {
           "adapter" => "postgresql",
           "pool" => 5,
-          "timeout" => 5000
+          "timeout" => 5000,
         },
         "features" => ["auth", "api", "admin"],
         "metadata" => {
           "created_at" => Date.new(2023, 1, 1),
-          "tags" => ["production", "v1"]
-        }
+          "tags" => ["production", "v1"],
+        },
       }
     end
 

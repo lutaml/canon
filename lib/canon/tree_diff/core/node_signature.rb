@@ -105,7 +105,7 @@ module Canon
         #
         # @return [String]
         def compute_signature_string
-          "/" + path.join("/")
+          "/#{path.join('/')}"
         end
       end
     end

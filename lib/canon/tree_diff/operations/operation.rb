@@ -81,7 +81,9 @@ module Canon
         #
         # @return [String]
         def inspect
-          metadata_str = @metadata.map { |k, v| "#{k}: #{v.inspect}" }.join(", ")
+          metadata_str = @metadata.map do |k, v|
+            "#{k}: #{v.inspect}"
+          end.join(", ")
           "#<#{self.class.name} type=#{type} #{metadata_str}>"
         end
       end

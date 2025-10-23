@@ -24,7 +24,7 @@ RSpec.describe Canon::TreeDiff::Operations::Operation do
         type: :update,
         node1: "old",
         node2: "new",
-        changes: { value: { old: "a", new: "b" } }
+        changes: { value: { old: "a", new: "b" } },
       )
 
       expect(operation[:node1]).to eq("old")
@@ -119,7 +119,7 @@ RSpec.describe Canon::TreeDiff::Operations::Operation do
         :merge,
         :split,
         :upgrade,
-        :downgrade
+        :downgrade,
       )
     end
   end

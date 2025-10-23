@@ -223,13 +223,13 @@ module Canon
             anc2 = anc2_ancestors[idx]
 
             # If anc1 is matched, it must be matched to anc2
-            if matched1?(anc1)
-              return false unless match_for1(anc1) == anc2
+            if matched1?(anc1) && match_for1(anc1) != anc2
+              return false
             end
 
             # If anc2 is matched, it must be matched to anc1
-            if matched2?(anc2)
-              return false unless match_for2(anc2) == anc1
+            if matched2?(anc2) && match_for2(anc2) != anc1
+              return false
             end
           end
 
