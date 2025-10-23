@@ -5,6 +5,7 @@ require_relative "match_options"
 require_relative "../diff/diff_node"
 require_relative "../diff/diff_classifier"
 require_relative "comparison_result"
+require_relative "../tree_diff"
 
 module Canon
   module Comparison
@@ -67,6 +68,11 @@ module Canon
           # Store resolved match options hash for use in comparison logic
           opts[:match_opts] = match_opts_hash
 
+          # Use tree diff if semantic_diff option is enabled
+          if match_opts.semantic_diff?
+            return perform_tree_diff(n1, n2, opts, match_opts_hash)
+          end
+
           # Create child_opts with resolved options
           child_opts = opts.merge(child_opts)
 
@@ -111,6 +117,99 @@ module Canon
         end
 
         private
+
+        # Perform semantic tree diff using TreeDiffIntegrator
+        #
+        # @param n1 [String, Moxml::Node] First node
+        # @param n2 [String, Moxml::Node] Second node
+        # @param opts [Hash] Comparison options
+        # @param match_opts_hash [Hash] Resolved match options
+        # @return [Boolean, ComparisonResult] Result of tree diff comparison
+        def perform_tree_diff(n1, n2, opts, match_opts_hash)
+          # Parse nodes if strings, applying preprocessing
+          node1 = parse_node(n1, match_opts_hash[:preprocessing])
+          node2 = parse_node(n2, match_opts_hash[:preprocessing])
+
+          # Convert to Nokogiri for TreeDiffIntegrator
+          # (Moxml nodes are compatible with Nokogiri)
+          nokogiri1 = convert_to_nokogiri(node1)
+          nokogiri2 = convert_to_nokogiri(node2)
+
+          # Create integrator with tree diff options
+          integrator_opts = {
+            similarity_threshold: match_opts_hash[:similarity_threshold] || 0.95,
+            hash_matching: match_opts_hash.fetch(:hash_matching, true),
+            similarity_matching: match_opts_hash.fetch(:similarity_matching, true),
+            propagation: match_opts_hash.fetch(:propagation, true),
+          }
+
+          integrator = Canon::TreeDiff::TreeDiffIntegrator.new(
+            format: :xml,
+            options: integrator_opts
+          )
+
+          # Perform tree diff
+          result = integrator.diff(nokogiri1, nokogiri2)
+
+          # Return based on verbose mode
+          if opts[:verbose]
+            # Convert operations to a format compatible with ComparisonResult
+            differences = result[:operations].map do |op|
+              # Create a simple diff representation
+              {
+                type: op.type,
+                node1: op.metadata[:node1],
+                node2: op.metadata[:node2],
+                operation: op.type,
+              }
+            end
+
+            # Format XML for display
+            xml1 = nokogiri1.respond_to?(:to_xml) ? nokogiri1.to_xml : nokogiri1.to_s
+            xml2 = nokogiri2.respond_to?(:to_xml) ? nokogiri2.to_xml : nokogiri2.to_s
+
+            preprocessed = [
+              xml1.gsub(/></, ">\n<"),
+              xml2.gsub(/></, ">\n<"),
+            ]
+
+            # Return ComparisonResult with tree diff data
+            ComparisonResult.new(
+              differences: differences,
+              preprocessed_strings: preprocessed,
+              format: :xml,
+              match_options: match_opts_hash.merge(
+                tree_diff_statistics: result[:statistics],
+                tree_diff_enabled: true
+              ),
+            )
+          else
+            # Simple boolean result - equivalent if no operations
+            result[:operations].empty?
+          end
+        end
+
+        # Convert Moxml node to Nokogiri for tree diff
+        def convert_to_nokogiri(node)
+          # Check if it's a Nokogiri node already
+          if node.is_a?(Nokogiri::XML::Node) ||
+             node.is_a?(Nokogiri::XML::Document)
+            return node
+          end
+
+          # Convert Moxml or string to Nokogiri
+          if node.is_a?(String)
+            Nokogiri::XML(node)
+          else
+            # Moxml nodes - convert via to_xml
+            xml_string = if node.respond_to?(:to_xml)
+                          node.to_xml
+                        else
+                          node.to_s
+                        end
+            Nokogiri::XML(xml_string)
+          end
+        end
 
         # Parse a node from string or return as-is
         # Applies preprocessing transformation before parsing if specified
@@ -234,23 +333,62 @@ module Canon
           attrs1 = filter_attributes(n1.attributes, opts)
           attrs2 = filter_attributes(n2.attributes, opts)
 
-          # Always sort attributes since attribute order doesn't matter in XML/HTML
-          attrs1 = attrs1.sort_by { |k, _v| k.to_s }.to_h
-          attrs2 = attrs2.sort_by { |k, _v| k.to_s }.to_h
+          match_opts = opts[:match_opts]
+          attribute_order_behavior = match_opts[:attribute_order] || :strict
 
-          unless attrs1.keys.map(&:to_s).sort == attrs2.keys.map(&:to_s).sort
-            add_difference(n1, n2, Comparison::MISSING_ATTRIBUTE,
-                           Comparison::MISSING_ATTRIBUTE,
-                           :attribute_presence, opts, differences)
-            return Comparison::MISSING_ATTRIBUTE
-          end
+          # Check attribute order if not ignored
+          if attribute_order_behavior == :strict
+            # Strict mode: attribute order matters
+            # Check if keys are in same order
+            keys1 = attrs1.keys.map(&:to_s)
+            keys2 = attrs2.keys.map(&:to_s)
 
-          attrs1.each do |name, value|
-            unless attrs2[name] == value
-              add_difference(n1, n2, Comparison::UNEQUAL_ATTRIBUTES,
-                             Comparison::UNEQUAL_ATTRIBUTES,
-                             :attribute_values, opts, differences)
-              return Comparison::UNEQUAL_ATTRIBUTES
+            if keys1 != keys2
+              # Keys are different or in different order
+              # First check if it's just ordering (same keys, different order)
+              if keys1.sort == keys2.sort
+                # Same keys, different order - this is an attribute_order difference
+                add_difference(n1, n2, Comparison::UNEQUAL_ATTRIBUTES,
+                               Comparison::UNEQUAL_ATTRIBUTES,
+                               :attribute_order, opts, differences)
+                return Comparison::UNEQUAL_ATTRIBUTES
+              else
+                # Different keys - this is attribute_presence difference
+                add_difference(n1, n2, Comparison::MISSING_ATTRIBUTE,
+                               Comparison::MISSING_ATTRIBUTE,
+                               :attribute_presence, opts, differences)
+                return Comparison::MISSING_ATTRIBUTE
+              end
+            end
+
+            # Order matches, now check values in order
+            attrs1.each do |name, value|
+              unless attrs2[name] == value
+                add_difference(n1, n2, Comparison::UNEQUAL_ATTRIBUTES,
+                               Comparison::UNEQUAL_ATTRIBUTES,
+                               :attribute_values, opts, differences)
+                return Comparison::UNEQUAL_ATTRIBUTES
+              end
+            end
+          else
+            # Ignore/normalize mode: sort attributes so order doesn't matter
+            attrs1 = attrs1.sort_by { |k, _v| k.to_s }.to_h
+            attrs2 = attrs2.sort_by { |k, _v| k.to_s }.to_h
+
+            unless attrs1.keys.map(&:to_s).sort == attrs2.keys.map(&:to_s).sort
+              add_difference(n1, n2, Comparison::MISSING_ATTRIBUTE,
+                             Comparison::MISSING_ATTRIBUTE,
+                             :attribute_presence, opts, differences)
+              return Comparison::MISSING_ATTRIBUTE
+            end
+
+            attrs1.each do |name, value|
+              unless attrs2[name] == value
+                add_difference(n1, n2, Comparison::UNEQUAL_ATTRIBUTES,
+                               Comparison::UNEQUAL_ATTRIBUTES,
+                               :attribute_values, opts, differences)
+                return Comparison::UNEQUAL_ATTRIBUTES
+              end
             end
           end
 

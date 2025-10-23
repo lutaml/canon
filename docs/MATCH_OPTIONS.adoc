@@ -553,7 +553,7 @@ Each format has sensible defaults based on typical usage:
 |—
 
 |`attribute_order`
-|`:strict`
+|`:ignore`
 |`:ignore`
 |—
 |—

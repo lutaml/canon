@@ -99,6 +99,7 @@ RSpec.describe Canon::Comparison::MatchOptions::Xml do
                                                         text_content
                                                         structural_whitespace
                                                         attribute_presence
+                                                        attribute_order
                                                         attribute_values
                                                         comments
                                                       ])
@@ -124,6 +125,7 @@ RSpec.describe Canon::Comparison::MatchOptions::Xml do
         text_content: :normalize,
         structural_whitespace: :normalize,
         attribute_presence: :strict,
+        attribute_order: :ignore,
         attribute_values: :strict,
         comments: :ignore,
       )
@@ -135,6 +137,7 @@ RSpec.describe Canon::Comparison::MatchOptions::Xml do
         text_content: :strict,
         structural_whitespace: :strict,
         attribute_presence: :strict,
+        attribute_order: :ignore,
         attribute_values: :strict,
         comments: :strict,
       )
@@ -148,6 +151,7 @@ RSpec.describe Canon::Comparison::MatchOptions::Xml do
         text_content: :strict,
         structural_whitespace: :strict,
         attribute_presence: :strict,
+        attribute_order: :strict,
         attribute_values: :strict,
         comments: :strict,
       )
@@ -159,6 +163,7 @@ RSpec.describe Canon::Comparison::MatchOptions::Xml do
         text_content: :normalize,
         structural_whitespace: :normalize,
         attribute_presence: :strict,
+        attribute_order: :strict,
         attribute_values: :strict,
         comments: :ignore,
       )
@@ -170,6 +175,7 @@ RSpec.describe Canon::Comparison::MatchOptions::Xml do
         text_content: :normalize,
         structural_whitespace: :ignore,
         attribute_presence: :strict,
+        attribute_order: :ignore,
         attribute_values: :normalize,
         comments: :ignore,
       )
@@ -181,6 +187,7 @@ RSpec.describe Canon::Comparison::MatchOptions::Xml do
         text_content: :normalize,
         structural_whitespace: :ignore,
         attribute_presence: :strict,
+        attribute_order: :ignore,
         attribute_values: :normalize,
         comments: :ignore,
       )
@@ -196,6 +203,7 @@ RSpec.describe Canon::Comparison::MatchOptions::Xml do
           text_content: :normalize,
           structural_whitespace: :normalize,
           attribute_presence: :strict,
+          attribute_order: :ignore,
           attribute_values: :strict,
           comments: :ignore,
         )
@@ -208,6 +216,7 @@ RSpec.describe Canon::Comparison::MatchOptions::Xml do
           text_content: :strict,
           structural_whitespace: :strict,
           attribute_presence: :strict,
+          attribute_order: :ignore,
           attribute_values: :strict,
           comments: :strict,
         )
@@ -220,6 +229,7 @@ RSpec.describe Canon::Comparison::MatchOptions::Xml do
           text_content: :strict,
           structural_whitespace: :strict,
           attribute_presence: :strict,
+          attribute_order: :ignore,
           attribute_values: :strict,
           comments: :strict,
         )
@@ -238,6 +248,7 @@ RSpec.describe Canon::Comparison::MatchOptions::Xml do
           text_content: :normalize,
           structural_whitespace: :ignore,
           attribute_presence: :strict,
+          attribute_order: :ignore,
           attribute_values: :normalize,
           comments: :ignore,
         )
@@ -267,6 +278,7 @@ RSpec.describe Canon::Comparison::MatchOptions::Xml do
           text_content: :normalize,
           structural_whitespace: :normalize,
           attribute_presence: :strict,
+          attribute_order: :strict,
           attribute_values: :strict,
           comments: :ignore,
         )
@@ -368,6 +380,7 @@ RSpec.describe Canon::Comparison::MatchOptions::Xml do
         text_content: :normalize,
         structural_whitespace: :normalize,
         attribute_presence: :strict,
+        attribute_order: :strict,
         attribute_values: :strict,
         comments: :ignore,
       )
