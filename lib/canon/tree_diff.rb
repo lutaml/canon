@@ -21,6 +21,7 @@ require_relative "tree_diff/matchers/universal_matcher"
 # Load operations
 require_relative "tree_diff/operations/operation"
 require_relative "tree_diff/operations/operation_detector"
+require_relative "tree_diff/operation_converter"
 
 # Load adapters
 require_relative "tree_diff/adapters/xml_adapter"

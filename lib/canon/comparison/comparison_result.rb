@@ -74,6 +74,13 @@ html_version: nil, match_options: nil)
           diff.is_a?(Canon::Diff::DiffNode) && diff.informative?
         end
       end
+
+      # Get tree diff operations (only available when diff_algorithm: :semantic)
+      #
+      # @return [Array<Operation>] Array of tree diff operations
+      def operations
+        @match_options&.[](:tree_diff_operations) || []
+      end
     end
   end
 end
