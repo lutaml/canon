@@ -210,7 +210,14 @@ Returns:
 
 * `true` if documents are semantically equivalent
 * `false` if documents differ
-* `Hash` with `:differences` and `:preprocessed` keys if `verbose: true`
+* `ComparisonResult` object if `verbose: true`
+
+Options:
+
+* `diff_algorithm`: `:dom` (default) or `:semantic` - chooses the diff algorithm
+* `verbose`: `true` or `false` - returns detailed results when true
+* `match`: Hash of match dimension options
+* `match_profile`: Symbol specifying a predefined profile
 
 .Basic comparison examples
 [example]

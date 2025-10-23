@@ -360,6 +360,145 @@ database: prod
 * `:ignore` → Equivalent (comments ignored)
 ====
 
+=== element_structure
+
+**Applies to**: All formats (primarily used with semantic diff algorithm)
+
+**Purpose**: Controls how element/node type changes are handled during
+semantic tree comparison.
+
+**Behaviors**:
+
+`:strict`:: Element type changes are treated as differences
+
+`:ignore`:: Element type changes are ignored if content is similar
+
+**Note**: This dimension is primarily used by the semantic diff algorithm to
+detect structural changes like element upgrades/downgrades (e.g., `<p>` to
+`<div>`).
+
+.element_structure examples
+[example]
+====
+**XML input**:
+
+[source,xml]
+----
+<!-- File 1 -->
+<document>
+  <paragraph>Text content</paragraph>
+</document>
+
+<!-- File 2 -->
+<document>
+  <section>Text content</section>
+</document>
+----
+
+**Results with semantic algorithm**:
+
+* `:strict` → Different (element types differ: paragraph vs section)
+* `:ignore` → Potentially equivalent (if content matches, type change ignored)
+
+**Use case**: Useful when refactoring markup where element names change but
+semantic content remains the same.
+====
+
+=== element_position
+
+**Applies to**: All formats (primarily used with semantic diff algorithm)
+
+**Purpose**: Controls how element position/order changes are detected and
+reported.
+
+**Behaviors**:
+
+`:strict`:: Element positions must match exactly
+
+`:ignore`:: Element reordering is allowed if content matches
+
+**Note**: This dimension enables the semantic diff algorithm to detect move
+operations when elements are reordered.
+
+.element_position examples
+[example]
+====
+**XML input**:
+
+[source,xml]
+----
+<!-- File 1 -->
+<list>
+  <item id="a">First</item>
+  <item id="b">Second</item>
+  <item id="c">Third</item>
+</list>
+
+<!-- File 2 -->
+<list>
+  <item id="b">Second</item>
+  <item id="a">First</item>
+  <item id="c">Third</item>
+</list>
+----
+
+**Results with semantic algorithm**:
+
+* `:strict` → Different (items a and b are in different positions)
+* `:ignore` → Equivalent (same items present, order doesn't matter)
+
+**Use case**: Useful when testing JSON arrays or XML lists where order may
+vary but content is equivalent.
+====
+
+=== element_hierarchy
+
+**Applies to**: All formats (primarily used with semantic diff algorithm)
+
+**Purpose**: Controls how hierarchical structure changes are detected, such
+as elements being moved to different parent nodes.
+
+**Behaviors**:
+
+`:strict`:: Elements must maintain exact parent-child relationships
+
+`:ignore`:: Elements can move between parents if content matches
+
+**Note**: This dimension enables the semantic diff algorithm to detect when
+elements are reorganized into different hierarchical structures.
+
+.element_hierarchy examples
+[example]
+====
+**XML input**:
+
+[source,xml]
+----
+<!-- File 1 -->
+<document>
+  <section>
+    <note>Important information</note>
+  </section>
+</document>
+
+<!-- File 2 -->
+<document>
+  <note>Important information</note>
+  <section>
+  </section>
+</document>
+----
+
+**Results with semantic algorithm**:
+
+* `:strict` → Different (note moved from section child to document child)
+* `:ignore` → Potentially equivalent (note content preserved, hierarchy
+change ignored)
+
+**Use case**: Useful when restructuring documents where content blocks move
+between sections but the content itself remains unchanged.
+====
+
 == Match profiles
 
 Profiles are predefined combinations of dimension settings for common
@@ -388,7 +527,10 @@ scenarios.
   attribute_order: :strict,
   attribute_values: :strict,
   key_order: :strict,
-  comments: :strict
+  comments: :strict,
+  element_structure: :strict,
+  element_position: :strict,
+  element_hierarchy: :strict
 }
 ----
 
@@ -428,7 +570,10 @@ Every aspect must match exactly.
   attribute_order: :ignore,
   attribute_values: :strict,
   key_order: :ignore,
-  comments: :ignore
+  comments: :ignore,
+  element_structure: :strict,
+  element_position: :strict,
+  element_hierarchy: :strict
 }
 ----
 
@@ -469,7 +614,10 @@ differences.
   attribute_order: :ignore,
   attribute_values: :strict,
   key_order: :ignore,
-  comments: :ignore
+  comments: :ignore,
+  element_structure: :strict,
+  element_position: :ignore,
+  element_hierarchy: :strict
 }
 ----
 
@@ -509,7 +657,10 @@ Focuses on content, not formatting.
   attribute_order: :ignore,
   attribute_values: :ignore,
   key_order: :ignore,
-  comments: :ignore
+  comments: :ignore,
+  element_structure: :ignore,
+  element_position: :ignore,
+  element_hierarchy: :ignore
 }
 ----
 
@@ -574,6 +725,24 @@ Each format has sensible defaults based on typical usage:
 |`:strict`
 |`:ignore`
 |—
+|`:strict`
+
+|`element_structure`
+|`:strict`
+|`:strict`
+|`:strict`
+|`:strict`
+
+|`element_position`
+|`:strict`
+|`:strict`
+|`:strict`
+|`:strict`
+
+|`element_hierarchy`
+|`:strict`
+|`:strict`
+|`:strict`
 |`:strict`
 |===
 
@@ -660,6 +829,15 @@ Canon::Comparison.equivalent?(doc1, doc2,
     comments: :strict  # Override profile
   }
 )
+
+# Use semantic dimensions
+Canon::Comparison.equivalent?(doc1, doc2,
+  diff_algorithm: :semantic,
+  match: {
+    element_position: :ignore,
+    element_hierarchy: :ignore
+  }
+)
 ----
 
 === CLI
@@ -681,6 +859,12 @@ $ canon diff file1.xml file2.xml \
 $ canon diff file1.xml file2.xml \
   --match-profile spec_friendly \
   --comments strict \
+  --verbose
+
+# Use semantic algorithm with flexible positioning
+$ canon diff file1.xml file2.xml \
+  --diff-algorithm semantic \
+  --element-position ignore \
   --verbose
 ----
 
@@ -706,6 +890,15 @@ expect(actual).to be_xml_equivalent_to(expected)
   .with_options(
     structural_whitespace: :strict,
     text_content: :strict
+  )
+
+# Semantic algorithm with flexible hierarchy
+expect(actual).to be_xml_equivalent_to(expected,
+  diff_algorithm: :semantic
+)
+  .with_options(
+    element_position: :ignore,
+    element_hierarchy: :ignore
   )
 ----
 
