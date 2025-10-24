@@ -40,7 +40,7 @@ module Canon
 
       # Resolve match options using format-specific module
       match_opts_hash = case format
-      when :xml, :html
+      when :xml, :html, :html4, :html5
         Canon::Comparison::MatchOptions::Xml.resolve(
           format: format,
           match: match_options
@@ -71,7 +71,10 @@ module Canon
       # @param operations [Array<Operation>] Operations to convert
       # @return [Array<DiffNode>] Converted diff nodes
       def convert(operations)
-        operations.map { |operation| convert_operation(operation) }
+        diff_nodes = operations.flat_map { |operation| convert_operation(operation) }
+
+        # Post-process to detect attribute-order-only differences
+        detect_attribute_order_diffs(diff_nodes)
       end
 
       private
@@ -116,7 +119,7 @@ module Canon
           dimension: :element_structure,
           reason: build_insert_reason(operation)
         )
-        diff_node.normative = true # Insertions are always normative
+        diff_node.normative = determine_normative(:element_structure)
         diff_node
       end
 
@@ -133,29 +136,87 @@ module Canon
           dimension: :element_structure,
           reason: build_delete_reason(operation)
         )
-        diff_node.normative = true # Deletions are always normative
+        diff_node.normative = determine_normative(:element_structure)
         diff_node
       end
 
-      # Convert UPDATE operation to DiffNode
+      # Convert UPDATE operation to DiffNode(s)
+      #
+      # May return multiple DiffNodes if multiple dimensions changed
       #
       # @param operation [Operation] Update operation
-      # @return [DiffNode] Diff node representing update
+      # @return [Array<DiffNode>] Diff nodes representing updates
       def convert_update(operation)
         node1 = extract_source_node(operation[:node1])
         node2 = extract_source_node(operation[:node2])
+        changes = operation[:changes] || {}
 
-        # Determine what was updated to select appropriate dimension
-        dimension = determine_update_dimension(operation)
+        diff_nodes = []
 
-        diff_node = Canon::Diff::DiffNode.new(
-          node1: node1,
-          node2: node2,
-          dimension: dimension,
-          reason: build_update_reason(operation)
-        )
-        diff_node.normative = determine_normative(dimension)
-        diff_node
+        # Create separate DiffNode for each change dimension
+        # This ensures each dimension can be classified independently
+
+        if changes.key?(:attributes)
+          # Attribute value differences
+          diff_node = Canon::Diff::DiffNode.new(
+            node1: node1,
+            node2: node2,
+            dimension: :attribute_values,
+            reason: "attribute values differ"
+          )
+          diff_node.normative = determine_normative(:attribute_values)
+          diff_nodes << diff_node
+        end
+
+        if changes.key?(:attribute_order)
+          # Attribute order differences
+          diff_node = Canon::Diff::DiffNode.new(
+            node1: node1,
+            node2: node2,
+            dimension: :attribute_order,
+            reason: "attribute order differs"
+          )
+          diff_node.normative = determine_normative(:attribute_order)
+          diff_nodes << diff_node
+        end
+
+        if changes.key?(:value)
+          # Text content differences
+          diff_node = Canon::Diff::DiffNode.new(
+            node1: node1,
+            node2: node2,
+            dimension: :text_content,
+            reason: "text content differs"
+          )
+          diff_node.normative = determine_normative(:text_content)
+          diff_nodes << diff_node
+        end
+
+        if changes.key?(:label)
+          # Element name differences
+          diff_node = Canon::Diff::DiffNode.new(
+            node1: node1,
+            node2: node2,
+            dimension: :element_structure,
+            reason: "element name differs"
+          )
+          diff_node.normative = determine_normative(:element_structure)
+          diff_nodes << diff_node
+        end
+
+        # If no specific changes detected, create a generic update
+        if diff_nodes.empty?
+          diff_node = Canon::Diff::DiffNode.new(
+            node1: node1,
+            node2: node2,
+            dimension: :text_content,
+            reason: "content differs"
+          )
+          diff_node.normative = determine_normative(:text_content)
+          diff_nodes << diff_node
+        end
+
+        diff_nodes
       end
 
       # Convert MOVE operation to DiffNode
@@ -266,16 +327,21 @@ module Canon
       # @param operation [Operation] Update operation
       # @return [Symbol] Match dimension
       def determine_update_dimension(operation)
-        # Check metadata for hints about what changed
-        change_type = operation[:change_type]
+        changes = operation[:changes] || {}
 
-        case change_type
-        when :text, :content
-          :text_content
-        when :attributes, :attr
+        # Check what actually changed
+        if changes.key?(:attribute_order)
+          # Only attribute order changed
+          :attribute_order
+        elsif changes.key?(:attributes)
+          # Attribute values changed
           :attribute_values
-        when :whitespace
-          :structural_whitespace
+        elsif changes.key?(:value)
+          # Text content changed
+          :text_content
+        elsif changes.key?(:label)
+          # Element name changed (rare)
+          :element_structure
         else
           # Default to text_content for generic updates
           :text_content
@@ -343,6 +409,64 @@ module Canon
         else
           "moved to different position"
         end
+      end
+
+      # Detect INSERT/DELETE pairs that differ only in attribute order
+      # and reclassify them to use the attribute_order dimension
+      #
+      # @param diff_nodes [Array<DiffNode>] Diff nodes to process
+      # @return [Array<DiffNode>] Processed diff nodes
+      def detect_attribute_order_diffs(diff_nodes)
+        # Group nodes by parent and element type
+        deletes = diff_nodes.select { |dn| dn.node1 && !dn.node2 }
+        inserts = diff_nodes.select { |dn| !dn.node1 && dn.node2 }
+
+        # For each DELETE, try to find a matching INSERT
+        deletes.each do |delete_node|
+          node1 = delete_node.node1
+          next unless node1.respond_to?(:name) && node1.respond_to?(:attributes)
+
+          # Find inserts with same element name at same position
+          matching_insert = inserts.find do |insert_node|
+            node2 = insert_node.node2
+            next false unless node2.respond_to?(:name) && node2.respond_to?(:attributes)
+            next false unless node1.name == node2.name
+
+            # Check if they differ only in attribute order
+            attributes_equal_ignoring_order?(node1.attributes, node2.attributes)
+          end
+
+          next unless matching_insert
+
+          # Found an attribute-order-only difference
+          # Reclassify both nodes to use attribute_order dimension
+          delete_node.dimension = :attribute_order
+          delete_node.reason = "attribute order changed"
+          delete_node.normative = determine_normative(:attribute_order)
+
+          matching_insert.dimension = :attribute_order
+          matching_insert.reason = "attribute order changed"
+          matching_insert.normative = determine_normative(:attribute_order)
+        end
+
+        diff_nodes
+      end
+
+      # Check if two attribute hashes are equal ignoring order
+      #
+      # @param attrs1 [Hash] First attribute hash
+      # @param attrs2 [Hash] Second attribute hash
+      # @return [Boolean] True if attributes are equal (ignoring order)
+      def attributes_equal_ignoring_order?(attrs1, attrs2)
+        return true if attrs1.nil? && attrs2.nil?
+        return false if attrs1.nil? || attrs2.nil?
+
+        # Convert to hashes if needed
+        attrs1 = attrs1.to_h if attrs1.respond_to?(:to_h)
+        attrs2 = attrs2.to_h if attrs2.respond_to?(:to_h)
+
+        # Compare as sets (order-independent)
+        attrs1.sort.to_h == attrs2.sort.to_h
       end
     end
   end

@@ -41,6 +41,7 @@ module Canon
           hash_matching: options.fetch(:hash_matching, true),
           similarity_matching: options.fetch(:similarity_matching, true),
           propagation: options.fetch(:propagation, true),
+          attribute_order: options[:attribute_order] || :strict,
         }
         @matcher = Matchers::UniversalMatcher.new(matcher_options)
       end
@@ -91,7 +92,7 @@ module Canon
         case format
         when :xml
           Adapters::XMLAdapter.new
-        when :html
+        when :html, :html4, :html5
           Adapters::HTMLAdapter.new
         when :json
           Adapters::JSONAdapter.new
@@ -99,7 +100,7 @@ module Canon
           Adapters::YAMLAdapter.new
         else
           raise ArgumentError, "Unsupported format: #{format}. " \
-                               "Supported formats: :xml, :html, :json, :yaml"
+                               "Supported formats: :xml, :html, :html4, :html5, :json, :yaml"
         end
       end
     end

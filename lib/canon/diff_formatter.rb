@@ -281,11 +281,16 @@ module Canon
     # Format comparison result from Canon::Comparison.equivalent?
     # This is the single entry point for generating diffs from comparison results
     #
-    # @param comparison_result [ComparisonResult, Hash, Array, Boolean] Result from Canon::Comparison.equivalent?
+    # @param comparison_result [ComparisonResult, CombinedComparisonResult, Hash, Array, Boolean] Result from Canon::Comparison.equivalent?
     # @param expected [Object] Expected value
     # @param actual [Object] Actual value
     # @return [String] Formatted diff output
     def format_comparison_result(comparison_result, expected, actual)
+      # Handle CombinedComparisonResult (both algorithms) by formatting each sequentially
+      if comparison_result.is_a?(Canon::Comparison::CombinedComparisonResult)
+        return format_combined_comparison_result(comparison_result, expected, actual)
+      end
+
       # Detect format from expected content
       format = Canon::Comparison.send(:detect_format, expected)
 
@@ -299,6 +304,18 @@ module Canon
       }
 
       output = []
+
+      # Display the algorithm being used
+      if comparison_result.is_a?(Canon::Comparison::ComparisonResult)
+        algorithm_name = case comparison_result.algorithm
+                         when :semantic
+                           "SEMANTIC TREE DIFF"
+                         else
+                           "DOM DIFF"
+                         end
+        output << colorize("Algorithm: #{algorithm_name}", :cyan, :bold)
+        output << "" # Blank line for spacing
+      end
 
       # 1. CANON VERBOSE tables (ONLY if CANON_VERBOSE=1)
       verbose_tables = DebugOutput.verbose_tables_only(
@@ -343,6 +360,38 @@ module Canon
                                             html_version: html_version)
 
       output.compact.join("\n")
+    end
+
+    # Format combined comparison result (both algorithms)
+    # Renders each algorithm's result sequentially
+    #
+    # @param combined_result [CombinedComparisonResult] Result containing both DOM and Tree diffs
+    # @param expected [Object] Expected value
+    # @param actual [Object] Actual value
+    # @return [String] Formatted diff output for both algorithms
+    def format_combined_comparison_result(combined_result, expected, actual)
+      output = []
+
+      # Add header for combined results
+      output << colorize("=" * 80, :cyan)
+      output << colorize("RUNNING BOTH ALGORITHMS", :cyan, :bold)
+      output << colorize("=" * 80, :cyan)
+      output << ""
+
+      # Format each result individually
+      combined_result.results.each_with_index do |result, index|
+        # Add separator between results
+        if index > 0
+          output << ""
+          output << colorize("=" * 80, :cyan)
+          output << ""
+        end
+
+        # Format this individual result
+        output << format_comparison_result(result, expected, actual)
+      end
+
+      output.join("\n")
     end
 
     private
@@ -455,10 +504,15 @@ module Canon
     # Generate by-object diff with tree visualization
     # Delegates to format-specific by-object formatters
     def by_object_diff(differences, format)
-      require_relative "diff_formatter/by_object/base_formatter"
-
       output = []
       output << colorize("Visual Diff:", :cyan, :bold)
+
+      # Extract differences array from ComparisonResult if needed
+      diffs_array = if differences.is_a?(Canon::Comparison::ComparisonResult)
+                      differences.differences
+                    else
+                      differences
+                    end
 
       # Delegate to format-specific formatter
       formatter = ByObject::BaseFormatter.for_format(
@@ -467,7 +521,7 @@ module Canon
         visualization_map: @visualization_map,
       )
 
-      output << formatter.format(differences, format)
+      output << formatter.format(diffs_array, format)
 
       output.join("\n")
     end
@@ -476,8 +530,6 @@ module Canon
     # Delegates to format-specific by-line formatters
     def by_line_diff(doc1, doc2, format: :xml, html_version: nil,
 differences: [])
-      require_relative "diff_formatter/by_line/base_formatter"
-
       # For HTML format, use html_version if provided, otherwise default to :html4
       if format == :html && html_version
         format = html_version # Use :html4 or :html5
@@ -492,6 +544,13 @@ differences: [])
 
       return output.join("\n") if doc1.nil? || doc2.nil?
 
+      # Extract differences array from ComparisonResult if needed
+      diffs_array = if differences.is_a?(Canon::Comparison::ComparisonResult)
+                      differences.differences
+                    else
+                      differences
+                    end
+
       # Delegate to format-specific formatter
       formatter = ByLine::BaseFormatter.for_format(
         format,
@@ -500,7 +559,7 @@ differences: [])
         diff_grouping_lines: @diff_grouping_lines,
         visualization_map: @visualization_map,
         show_diffs: @show_diffs,
-        differences: differences,
+        differences: diffs_array,
       )
 
       output << formatter.format(doc1, doc2)

@@ -59,7 +59,12 @@ module Canon
           return "MATCH OPTIONS: (not available)" unless comparison_result.is_a?(Canon::Comparison::ComparisonResult)
           return "MATCH OPTIONS: (not available)" unless comparison_result.match_options
 
-          rows = comparison_result.match_options.map do |dimension, behavior|
+          # Filter out internal tree_diff metadata keys that should not be displayed
+          internal_keys = %i[tree_diff_operations tree_diff_statistics tree_diff_matching]
+
+          rows = comparison_result.match_options.reject do |dimension, _behavior|
+            internal_keys.include?(dimension)
+          end.map do |dimension, behavior|
             {
               dimension: dimension.to_s,
               behavior: behavior.to_s,

@@ -22,14 +22,17 @@ module Canon
       class HTMLAdapter
         # Convert Nokogiri HTML document/element to TreeNode
         #
-        # @param node [Nokogiri::HTML::Document, Nokogiri::XML::Element] HTML node
+        # @param node [Nokogiri::HTML::Document, Nokogiri::XML::Element, Nokogiri::HTML::DocumentFragment] HTML node
         # @return [Core::TreeNode] Root tree node
         def to_tree(node)
           case node
-          when Nokogiri::HTML::Document, Nokogiri::HTML4::Document
+          when Nokogiri::HTML::Document, Nokogiri::HTML4::Document, Nokogiri::HTML5::Document
             # Start from html element or root element
             root = node.at_css("html") || node.root
             root ? to_tree(root) : nil
+          when Nokogiri::HTML4::DocumentFragment, Nokogiri::HTML5::DocumentFragment
+            # For DocumentFragment, create a wrapper root node and add all fragment children
+            convert_fragment(node)
           when Nokogiri::XML::Element
             convert_element(node)
           else
@@ -57,6 +60,29 @@ module Canon
 
         private
 
+        # Convert a DocumentFragment to TreeNode
+        # Creates a synthetic root node containing the fragment's children
+        #
+        # @param fragment [Nokogiri::HTML::DocumentFragment] HTML fragment
+        # @return [Core::TreeNode] Root tree node
+        def convert_fragment(fragment)
+          # Create a synthetic root node for the fragment
+          root = Core::TreeNode.new(
+            label: "fragment",
+            value: nil,
+            attributes: {},
+            source_node: fragment,
+          )
+
+          # Add all fragment children as children of the root
+          fragment.element_children.each do |child|
+            child_node = convert_element(child)
+            root.add_child(child_node)
+          end
+
+          root
+        end
+
         # Convert a Nokogiri element to TreeNode
         #
         # @param element [Nokogiri::XML::Element] HTML element
@@ -65,7 +91,9 @@ module Canon
           # Get element name (lowercase for HTML)
           label = element.name.downcase
 
-          # Collect attributes
+          # Collect attributes (preserve original order for tree diff)
+          # The tree diff will detect attribute order differences
+          # and classify them as informative when attribute_order: ignore
           attributes = {}
           element.attributes.each do |name, attr|
             attributes[name] = attr.value
@@ -74,11 +102,12 @@ module Canon
           # Get text content (only direct text, not from children)
           text_value = extract_text_value(element)
 
-          # Create tree node
+          # Create tree node with source_node reference
           tree_node = Core::TreeNode.new(
             label: label,
             value: text_value,
             attributes: attributes,
+            source_node: element,
           )
 
           # Process child elements

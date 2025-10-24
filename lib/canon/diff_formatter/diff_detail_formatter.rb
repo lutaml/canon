@@ -16,6 +16,10 @@ module Canon
         def format_report(differences, use_color: true)
           return "" if differences.empty?
 
+          # Group differences by normative status
+          normative = differences.select { |diff| diff.respond_to?(:normative?) ? diff.normative? : true }
+          informative = differences.select { |diff| diff.respond_to?(:normative?) && !diff.normative? }
+
           output = []
           output << ""
           output << colorize("=" * 70, :cyan, use_color, bold: true)
@@ -24,10 +28,29 @@ module Canon
           )
           output << colorize("=" * 70, :cyan, use_color, bold: true)
 
-          differences.each_with_index do |diff, i|
+          # Show normative differences first
+          if normative.any?
             output << ""
-            output << format_single_diff(diff, i + 1, differences.length,
-                                         use_color)
+            output << colorize("┌─ NORMATIVE DIFFERENCES (#{normative.length}) ─┐", :green, use_color, bold: true)
+
+            normative.each_with_index do |diff, i|
+              output << ""
+              output << format_single_diff(diff, i + 1, normative.length,
+                                           use_color, section: "NORMATIVE")
+            end
+          end
+
+          # Show informative differences second
+          if informative.any?
+            output << ""
+            output << ""
+            output << colorize("┌─ INFORMATIVE DIFFERENCES (#{informative.length}) ─┐", :yellow, use_color, bold: true)
+
+            informative.each_with_index do |diff, i|
+              output << ""
+              output << format_single_diff(diff, i + 1, informative.length,
+                                           use_color, section: "INFORMATIVE")
+            end
           end
 
           output << ""
@@ -40,15 +63,15 @@ module Canon
         private
 
         # Format a single difference with dimension-specific details
-        def format_single_diff(diff, number, total, use_color)
+        def format_single_diff(diff, number, total, use_color, section: nil)
           output = []
 
           # Header - handle both DiffNode and Hash
-          status = if diff.respond_to?(:normative?)
-                     diff.normative? ? "NORMATIVE" : "INFORMATIVE"
-                   else
-                     "NORMATIVE" # Hash diffs are always normative
-                   end
+          status = section || (if diff.respond_to?(:normative?)
+                                 diff.normative? ? "NORMATIVE" : "INFORMATIVE"
+                               else
+                                 "NORMATIVE" # Hash diffs are always normative
+                               end)
           status_color = status == "NORMATIVE" ? :green : :yellow
           output << colorize("🔍 DIFFERENCE ##{number}/#{total} [#{status}]",
                              status_color, use_color, bold: true)
@@ -182,10 +205,14 @@ module Canon
           dimension = diff.respond_to?(:dimension) ? diff.dimension : nil
 
           case dimension
+          when :element_structure
+            format_element_structure_details(diff, use_color)
           when :attribute_presence
             format_attribute_presence_details(diff, use_color)
           when :attribute_values
             format_attribute_values_details(diff, use_color)
+          when :attribute_order
+            format_attribute_order_details(diff, use_color)
           when :text_content
             format_text_content_details(diff, use_color)
           when :structural_whitespace
@@ -195,6 +222,46 @@ module Canon
           else
             format_fallback_details(diff, use_color)
           end
+        end
+
+        # Format element_structure dimension details (INSERT/DELETE operations)
+        def format_element_structure_details(diff, use_color)
+          node1 = diff.node1
+          node2 = diff.node2
+
+          # Determine operation type
+          if node1.nil? && !node2.nil?
+            # INSERT operation
+            element_name = node2.respond_to?(:name) ? node2.name : "element"
+            detail1 = colorize("(not present)", :red, use_color)
+            detail2 = "<#{element_name}>"
+            changes = "Element inserted"
+          elsif !node1.nil? && node2.nil?
+            # DELETE operation
+            element_name = node1.respond_to?(:name) ? node1.name : "element"
+            detail1 = "<#{element_name}>"
+            detail2 = colorize("(not present)", :green, use_color)
+            changes = "Element deleted"
+          elsif !node1.nil? && !node2.nil?
+            # STRUCTURAL CHANGE (both nodes present)
+            name1 = node1.respond_to?(:name) ? node1.name : "element"
+            name2 = node2.respond_to?(:name) ? node2.name : "element"
+            detail1 = "<#{name1}>"
+            detail2 = "<#{name2}>"
+
+            if name1 == name2
+              changes = "Element structure changed"
+            else
+              changes = "Element type changed: #{name1} → #{name2}"
+            end
+          else
+            # Both nil (shouldn't happen)
+            detail1 = "(nil)"
+            detail2 = "(nil)"
+            changes = "Unknown structural change"
+          end
+
+          [detail1, detail2, changes]
         end
 
         # Format attribute_presence dimension details
@@ -240,32 +307,66 @@ module Canon
           node1 = diff.node1
           node2 = diff.node2
 
-          # Find which attribute has different value
-          differing_attr = find_differing_attribute(node1, node2)
+          # Find ALL attributes with different values
+          differing_attrs = find_all_differing_attributes(node1, node2)
 
-          if differing_attr
-            val1 = get_attribute_value(node1, differing_attr)
-            val2 = get_attribute_value(node2, differing_attr)
+          if differing_attrs.any?
+            # Show element name with all differing attributes
+            attrs1_str = differing_attrs.map do |attr|
+              val1 = get_attribute_value(node1, attr)
+              "#{colorize(attr, :cyan, use_color)}=\"#{escape_quotes(val1)}\""
+            end.join(" ")
 
-            detail1 = "<#{node1.name}> #{colorize(differing_attr, :cyan,
-                                                  use_color)}=\"#{escape_quotes(val1)}\""
-            detail2 = "<#{node2.name}> #{colorize(differing_attr, :cyan,
-                                                  use_color)}=\"#{escape_quotes(val2)}\""
+            attrs2_str = differing_attrs.map do |attr|
+              val2 = get_attribute_value(node2, attr)
+              "#{colorize(attr, :cyan, use_color)}=\"#{escape_quotes(val2)}\""
+            end.join(" ")
 
-            # Analyze the difference
-            changes = if val1.strip == val2.strip && val1 != val2
-                        "Whitespace difference only"
-                      elsif val1.gsub(/\s+/, " ") == val2.gsub(/\s+/, " ")
-                        "Whitespace normalization difference"
-                      else
-                        "Value changed"
-                      end
+            detail1 = "<#{node1.name}> #{attrs1_str}"
+            detail2 = "<#{node2.name}> #{attrs2_str}"
+
+            # List all attribute changes
+            changes_parts = differing_attrs.map do |attr|
+              val1 = get_attribute_value(node1, attr)
+              val2 = get_attribute_value(node2, attr)
+
+              if val1.empty? && !val2.empty?
+                "#{colorize(attr, :cyan, use_color)}: (added) → \"#{escape_quotes(val2)}\""
+              elsif !val1.empty? && val2.empty?
+                "#{colorize(attr, :cyan, use_color)}: \"#{escape_quotes(val1)}\" → (removed)"
+              else
+                "#{colorize(attr, :cyan, use_color)}: \"#{escape_quotes(val1)}\" → \"#{escape_quotes(val2)}\""
+              end
+            end
+
+            changes = changes_parts.join("; ")
 
             [detail1, detail2, changes]
           else
             ["<#{node1.name}> (values differ)",
              "<#{node2.name}> (values differ)", nil]
           end
+        end
+
+        # Format attribute_order dimension details
+        def format_attribute_order_details(diff, use_color)
+          node1 = diff.node1
+          node2 = diff.node2
+
+          # Get attribute names in order
+          attrs1 = get_attribute_names_in_order(node1)
+          attrs2 = get_attribute_names_in_order(node2)
+
+          # Format as ordered list
+          attrs1_str = "[#{attrs1.join(', ')}]"
+          attrs2_str = "[#{attrs2.join(', ')}]"
+
+          detail1 = "<#{node1.name}> attributes in order: #{colorize(attrs1_str, :cyan, use_color)}"
+          detail2 = "<#{node2.name}> attributes in order: #{colorize(attrs2_str, :cyan, use_color)}"
+
+          changes = "Attribute order changed: #{attrs1_str} → #{attrs2_str}"
+
+          [detail1, detail2, changes]
         end
 
         # Format text_content dimension details
@@ -389,25 +490,60 @@ module Canon
         def get_attribute_names(node)
           return [] unless node.respond_to?(:attributes)
 
-          node.attributes.map do |key, _val|
-            if key.is_a?(String)
-              key
-            else
-              (key.respond_to?(:name) ? key.name : key.to_s)
-            end
-          end.sort
+          attrs = node.attributes
+
+          # Handle Moxml::Element (attributes is an Array)
+          if attrs.is_a?(Array)
+            attrs.map do |attr|
+              attr.respond_to?(:name) ? attr.name : attr.to_s
+            end.sort
+          # Handle Nokogiri nodes (attributes is a Hash)
+          else
+            attrs.map do |key, _val|
+              if key.is_a?(String)
+                key
+              else
+                (key.respond_to?(:name) ? key.name : key.to_s)
+              end
+            end.sort
+          end
         end
 
-        # Helper: Find which attribute has different value
-        def find_differing_attribute(node1, node2)
-          return nil unless node1.respond_to?(:attributes) && node2.respond_to?(:attributes)
+        # Helper: Find ALL attributes with different values
+        def find_all_differing_attributes(node1, node2)
+          return [] unless node1.respond_to?(:attributes) && node2.respond_to?(:attributes)
 
           attrs1 = get_attributes_hash(node1)
           attrs2 = get_attributes_hash(node2)
 
-          # Find first attribute with different value
-          common_keys = attrs1.keys & attrs2.keys
-          common_keys.find { |key| attrs1[key] != attrs2[key] }
+          # Find all attributes with different values
+          all_keys = (attrs1.keys + attrs2.keys).uniq
+          all_keys.select do |key|
+            attrs1[key] != attrs2[key]
+          end
+        end
+
+        # Helper: Get attribute names in document order (not sorted)
+        def get_attribute_names_in_order(node)
+          return [] unless node.respond_to?(:attributes)
+
+          attrs = node.attributes
+
+          # Handle Moxml::Element (attributes is an Array)
+          if attrs.is_a?(Array)
+            attrs.map do |attr|
+              attr.respond_to?(:name) ? attr.name : attr.to_s
+            end
+          # Handle Nokogiri nodes (attributes is a Hash)
+          else
+            attrs.map do |key, _val|
+              if key.is_a?(String)
+                key
+              else
+                (key.respond_to?(:name) ? key.name : key.to_s)
+              end
+            end
+          end
         end
 
         # Helper: Get attributes as hash
@@ -415,14 +551,32 @@ module Canon
           return {} unless node.respond_to?(:attributes)
 
           hash = {}
-          node.attributes.each do |key, val|
-            name = if key.is_a?(String)
-                     key
-                   else
-                     (key.respond_to?(:name) ? key.name : key.to_s)
-                   end
-            value = val.respond_to?(:value) ? val.value : val.to_s
-            hash[name] = value
+          attrs = node.attributes
+
+          # Handle Moxml::Element (attributes is an Array of Moxml::Attribute)
+          if attrs.is_a?(Array)
+            attrs.each do |attr|
+              name = attr.respond_to?(:name) ? attr.name : attr.to_s
+              value = if attr.respond_to?(:value)
+                        attr.value
+                      elsif attr.respond_to?(:native) && attr.native.respond_to?(:value)
+                        attr.native.value
+                      else
+                        attr.to_s
+                      end
+              hash[name] = value
+            end
+          # Handle Nokogiri nodes (attributes is a Hash)
+          else
+            attrs.each do |key, val|
+              name = if key.is_a?(String)
+                       key
+                     else
+                       (key.respond_to?(:name) ? key.name : key.to_s)
+                     end
+              value = val.respond_to?(:value) ? val.value : val.to_s
+              hash[name] = value
+            end
           end
           hash
         end

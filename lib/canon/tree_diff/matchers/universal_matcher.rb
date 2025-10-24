@@ -137,7 +137,7 @@ module Canon
         def hash_matching_phase(tree1, tree2, matching)
           @statistics[:phases_executed] << :hash_matching
 
-          hash_matcher = HashMatcher.new(tree1, tree2)
+          hash_matcher = HashMatcher.new(tree1, tree2, @options)
           temp_matching = hash_matcher.match
 
           # Transfer matches to the main matching object

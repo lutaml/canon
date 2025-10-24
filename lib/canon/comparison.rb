@@ -7,6 +7,7 @@ require_relative "comparison/xml_comparator"
 require_relative "comparison/html_comparator"
 require_relative "comparison/json_comparator"
 require_relative "comparison/yaml_comparator"
+require_relative "comparison/combined_comparison_result"
 require_relative "diff/diff_node_mapper"
 require_relative "diff/diff_line"
 require_relative "diff/diff_block_builder"
@@ -101,8 +102,22 @@ module Canon
       # @param opts [Hash] Comparison options
       #   - :format - Format hint (:xml, :html, :html4, :html5, :json, :yaml, :string)
       #   - :diff_algorithm - Algorithm to use (:dom or :semantic)
+      #   - :show_compare - Show both algorithms (boolean, default: false)
       # @return [Boolean, Array] true if equivalent, or array of diffs if verbose
       def equivalent?(obj1, obj2, opts = {})
+        # Check if show_compare is enabled (orthogonal to algorithm choice)
+        if opts[:show_compare]
+          # Run both algorithms, use :diff_algorithm (or :dom default) for decision
+          decision_algorithm = opts[:diff_algorithm] || :dom
+          return both_algorithms(obj1, obj2, opts.merge(decision_algorithm: decision_algorithm))
+        end
+
+        # Legacy support: :both algorithm redirects to show_compare
+        if opts[:diff_algorithm] == :both
+          decision_algorithm = :dom # Default to DOM for decision when :both is used
+          return both_algorithms(obj1, obj2, opts.merge(decision_algorithm: decision_algorithm))
+        end
+
         # Check if semantic tree diff is requested
         if opts[:diff_algorithm] == :semantic
           return semantic_diff(obj1, obj2, opts)
@@ -113,6 +128,33 @@ module Canon
       end
 
       private
+
+      # Run both DOM and Tree algorithms sequentially
+      def both_algorithms(obj1, obj2, opts = {})
+        # Extract decision algorithm (defaults to :dom)
+        decision_algorithm = opts[:decision_algorithm] || :dom
+
+        # Run DOM diff
+        dom_opts = opts.merge(diff_algorithm: :dom)
+        dom_result = dom_diff(obj1, obj2, dom_opts)
+
+        # Run Tree diff
+        tree_opts = opts.merge(diff_algorithm: :semantic)
+        tree_result = semantic_diff(obj1, obj2, tree_opts)
+
+        # If verbose, return combined result with decision algorithm
+        if opts[:verbose]
+          CombinedComparisonResult.new(dom_result, tree_result, decision_algorithm: decision_algorithm)
+        else
+          # For non-verbose, return result from the decision algorithm
+          case decision_algorithm
+          when :semantic
+            tree_result
+          else # :dom (default)
+            dom_result
+          end
+        end
+      end
 
       # Perform semantic tree diff comparison
       def semantic_diff(obj1, obj2, opts = {})
@@ -127,32 +169,41 @@ module Canon
           raise Canon::CompareFormatMismatchError.new(format1, format2)
         end
 
-        # Parse strings to documents for tree diff
-        doc1 = parse_for_tree_diff(obj1, format1)
-        doc2 = parse_for_tree_diff(obj2, format2)
+        # Resolve match options for the format
+        match_opts_hash = resolve_match_options(format1, opts)
+
+        # Delegate parsing to comparators (reuses existing preprocessing logic)
+        doc1, doc2 = parse_with_comparator(obj1, obj2, format1, match_opts_hash)
+
+        # Normalize format for TreeDiff (html4/html5 -> html)
+        tree_diff_format = normalize_format_for_tree_diff(format1)
 
         # Create TreeDiff integrator for the format
+        # CRITICAL: Use match_opts_hash (resolved options with profile) not opts[:match]
         integrator = Canon::TreeDiff::TreeDiffIntegrator.new(
-          format: format1,
-          options: opts[:match] || {}
+          format: tree_diff_format,
+          options: match_opts_hash
         )
 
         # Perform diff
         tree_diff_result = integrator.diff(doc1, doc2)
 
         # Convert operations to DiffNodes for unified pipeline
+        # CRITICAL: Use match_opts_hash (resolved options with profile) not opts[:match]
         converter = Canon::TreeDiff::OperationConverter.new(
           format: format1,
-          match_options: opts[:match] || {}
+          match_options: match_opts_hash
         )
         diff_nodes = converter.convert(tree_diff_result[:operations])
 
-        # Serialize documents to strings for preprocessed_strings
-        str1 = serialize_document(doc1, format1)
-        str2 = serialize_document(doc2, format2)
+        # CRITICAL: Use strategy's preprocess_for_display to ensure proper line-breaking
+        # This matches DOM diff preprocessing pattern (xml_comparator.rb:106-109)
+        require_relative "comparison/strategies/semantic_tree_match_strategy"
+        strategy = Comparison::Strategies::SemanticTreeMatchStrategy.new(format1, match_opts_hash)
+        str1, str2 = strategy.preprocess_for_display(doc1, doc2)
 
         # Store tree diff data in match_options for access via result
-        enhanced_match_options = (opts[:match] || {}).merge(
+        enhanced_match_options = match_opts_hash.merge(
           tree_diff_operations: tree_diff_result[:operations],
           tree_diff_statistics: tree_diff_result[:statistics],
           tree_diff_matching: tree_diff_result[:matching]
@@ -163,7 +214,9 @@ module Canon
           differences: diff_nodes,
           preprocessed_strings: [str1, str2],
           format: format1,
-          match_options: enhanced_match_options
+          html_version: (format1 == :html4 || format1 == :html5) ? format1 : nil,
+          match_options: enhanced_match_options,
+          algorithm: :semantic
         )
 
         # Return boolean or ComparisonResult based on verbose flag
@@ -174,13 +227,106 @@ module Canon
         end
       end
 
+      # Resolve match options for a format
+      #
+      # @param format [Symbol] Format type
+      # @param opts [Hash] User options
+      # @return [Hash] Resolved match options
+      def resolve_match_options(format, opts)
+        case format
+        when :xml, :html, :html4, :html5
+          MatchOptions::Xml.resolve(
+            format: format,
+            match_profile: opts[:match_profile],
+            match: opts[:match],
+            preprocessing: opts[:preprocessing],
+            global_profile: opts[:global_profile],
+            global_options: opts[:global_options]
+          )
+        when :json
+          MatchOptions::Json.resolve(
+            format: format,
+            match_profile: opts[:match_profile],
+            match: opts[:match],
+            preprocessing: opts[:preprocessing],
+            global_profile: opts[:global_profile],
+            global_options: opts[:global_options]
+          )
+        when :yaml
+          MatchOptions::Yaml.resolve(
+            format: format,
+            match_profile: opts[:match_profile],
+            match: opts[:match],
+            preprocessing: opts[:preprocessing],
+            global_profile: opts[:global_profile],
+            global_options: opts[:global_options]
+          )
+        else
+          opts[:match] || {}
+        end
+      end
+
+      # Parse documents using comparator's parse logic (reuses preprocessing)
+      #
+      # @param obj1 [Object] First object
+      # @param obj2 [Object] Second object
+      # @param format [Symbol] Format type
+      # @param match_opts_hash [Hash] Resolved match options
+      # @return [Array<Object, Object>] Parsed documents
+      def parse_with_comparator(obj1, obj2, format, match_opts_hash)
+        preprocessing = match_opts_hash[:preprocessing] || :none
+
+        case format
+        when :xml
+          # Delegate to XmlComparator's parse_node
+          doc1 = XmlComparator.send(:parse_node, obj1, preprocessing)
+          doc2 = XmlComparator.send(:parse_node, obj2, preprocessing)
+          # Convert Moxml to Nokogiri for TreeDiff
+          [
+            XmlComparator.send(:convert_to_nokogiri, doc1),
+            XmlComparator.send(:convert_to_nokogiri, doc2)
+          ]
+        when :html, :html4, :html5
+          # Delegate to HtmlComparator's parse_node
+          [
+            HtmlComparator.send(:parse_node, obj1, preprocessing, match_opts_hash),
+            HtmlComparator.send(:parse_node, obj2, preprocessing, match_opts_hash)
+          ]
+        when :json
+          # Delegate to JsonComparator's parse_json
+          [
+            JsonComparator.send(:parse_json, obj1),
+            JsonComparator.send(:parse_json, obj2)
+          ]
+        when :yaml
+          # Delegate to YamlComparator's parse_yaml
+          [
+            YamlComparator.send(:parse_yaml, obj1),
+            YamlComparator.send(:parse_yaml, obj2)
+          ]
+        else
+          [obj1, obj2]
+        end
+      end
+
+      # Normalize format for TreeDiff (html4/html5 -> html)
+      #
+      # @param format [Symbol] Original format
+      # @return [Symbol] Normalized format for TreeDiff
+      def normalize_format_for_tree_diff(format)
+        case format
+        when :html4, :html5
+          :html
+        else
+          format
+        end
+      end
+
       # Serialize document back to string
       def serialize_document(doc, format)
         case format
-        when :xml
-          doc.to_xml
-        when :html
-          doc.to_html
+        when :xml, :html, :html4, :html5
+          doc.respond_to?(:to_html) ? doc.to_html : doc.to_xml
         when :json
           require "json"
           JSON.pretty_generate(doc)
@@ -192,26 +338,6 @@ module Canon
         end
       rescue StandardError
         doc.to_s
-      end
-
-      # Parse content for tree diff (TreeDiff needs parsed documents)
-      def parse_for_tree_diff(obj, format)
-        return obj unless obj.is_a?(String)
-
-        case format
-        when :xml
-          Nokogiri::XML(obj)
-        when :html
-          Nokogiri::HTML(obj)
-        when :json
-          require "json"
-          JSON.parse(obj)
-        when :yaml
-          require "yaml"
-          YAML.safe_load(obj)
-        else
-          obj
-        end
       end
 
       # Perform DOM-based comparison (original behavior)

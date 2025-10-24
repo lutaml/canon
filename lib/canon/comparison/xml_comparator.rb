@@ -6,6 +6,7 @@ require_relative "../diff/diff_node"
 require_relative "../diff/diff_classifier"
 require_relative "comparison_result"
 require_relative "../tree_diff"
+require_relative "strategies/match_strategy_factory"
 
 module Canon
   module Comparison
@@ -70,7 +71,7 @@ module Canon
 
           # Use tree diff if semantic_diff option is enabled
           if match_opts.semantic_diff?
-            return perform_tree_diff(n1, n2, opts, match_opts_hash)
+            return perform_semantic_tree_diff(n1, n2, opts, match_opts_hash)
           end
 
           # Create child_opts with resolved options
@@ -110,6 +111,7 @@ module Canon
               preprocessed_strings: preprocessed,
               format: :xml,
               match_options: match_opts_hash,
+              algorithm: :dom,
             )
           else
             result == Comparison::EQUIVALENT
@@ -118,75 +120,48 @@ module Canon
 
         private
 
-        # Perform semantic tree diff using TreeDiffIntegrator
+        # Perform semantic tree diff using SemanticTreeMatchStrategy
         #
         # @param n1 [String, Moxml::Node] First node
         # @param n2 [String, Moxml::Node] Second node
         # @param opts [Hash] Comparison options
         # @param match_opts_hash [Hash] Resolved match options
         # @return [Boolean, ComparisonResult] Result of tree diff comparison
-        def perform_tree_diff(n1, n2, opts, match_opts_hash)
+        def perform_semantic_tree_diff(n1, n2, opts, match_opts_hash)
           # Parse nodes if strings, applying preprocessing
           node1 = parse_node(n1, match_opts_hash[:preprocessing])
           node2 = parse_node(n2, match_opts_hash[:preprocessing])
 
-          # Convert to Nokogiri for TreeDiffIntegrator
-          # (Moxml nodes are compatible with Nokogiri)
+          # Convert to Nokogiri for strategy
           nokogiri1 = convert_to_nokogiri(node1)
           nokogiri2 = convert_to_nokogiri(node2)
 
-          # Create integrator with tree diff options
-          integrator_opts = {
-            similarity_threshold: match_opts_hash[:similarity_threshold] || 0.95,
-            hash_matching: match_opts_hash.fetch(:hash_matching, true),
-            similarity_matching: match_opts_hash.fetch(:similarity_matching,
-                                                       true),
-            propagation: match_opts_hash.fetch(:propagation, true),
-          }
-
-          integrator = Canon::TreeDiff::TreeDiffIntegrator.new(
-            format: :xml,
-            options: integrator_opts,
+          # Create strategy using factory
+          strategy = Strategies::MatchStrategyFactory.create(
+            :semantic_tree,
+            :xml,
+            match_opts_hash,
           )
 
-          # Perform tree diff
-          result = integrator.diff(nokogiri1, nokogiri2)
+          # Perform matching - returns DiffNodes
+          differences = strategy.match(nokogiri1, nokogiri2)
 
           # Return based on verbose mode
           if opts[:verbose]
-            # Convert operations to a format compatible with ComparisonResult
-            differences = result[:operations].map do |op|
-              # Create a simple diff representation
-              {
-                type: op.type,
-                node1: op.metadata[:node1],
-                node2: op.metadata[:node2],
-                operation: op.type,
-              }
-            end
+            # Get preprocessed strings for display
+            preprocessed = strategy.preprocess_for_display(nokogiri1, nokogiri2)
 
-            # Format XML for display
-            xml1 = nokogiri1.respond_to?(:to_xml) ? nokogiri1.to_xml : nokogiri1.to_s
-            xml2 = nokogiri2.respond_to?(:to_xml) ? nokogiri2.to_xml : nokogiri2.to_s
-
-            preprocessed = [
-              xml1.gsub(/></, ">\n<"),
-              xml2.gsub(/></, ">\n<"),
-            ]
-
-            # Return ComparisonResult with tree diff data
+            # Return ComparisonResult with strategy metadata
             ComparisonResult.new(
               differences: differences,
               preprocessed_strings: preprocessed,
               format: :xml,
-              match_options: match_opts_hash.merge(
-                tree_diff_statistics: result[:statistics],
-                tree_diff_enabled: true,
-              ),
+              match_options: match_opts_hash.merge(strategy.metadata),
+              algorithm: :semantic,
             )
           else
-            # Simple boolean result - equivalent if no operations
-            result[:operations].empty?
+            # Simple boolean result - equivalent if no normative differences
+            differences.none?(&:normative?)
           end
         end
 

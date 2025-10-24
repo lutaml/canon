@@ -19,7 +19,7 @@ module Canon
       # - XID: External identifier for matching (e.g., XML id attribute)
       class TreeNode
         attr_accessor :label, :value, :children, :parent, :attributes,
-                      :signature, :weight, :xid
+                      :signature, :weight, :xid, :source_node
         attr_reader :metadata
 
         # Initialize a new TreeNode
@@ -30,14 +30,16 @@ module Canon
         # @param parent [TreeNode, nil] Parent node
         # @param attributes [Hash] Node attributes
         # @param xid [String, nil] External identifier
+        # @param source_node [Object, nil] Original source node (e.g., Nokogiri node)
         def initialize(label:, value: nil, children: [], parent: nil,
-                       attributes: {}, xid: nil)
+                       attributes: {}, xid: nil, source_node: nil)
           @label = label
           @value = value
           @children = children
           @parent = parent
           @attributes = attributes
           @xid = xid
+          @source_node = source_node
           @metadata = {}
 
           # Set this node as parent for all children
@@ -341,6 +343,47 @@ module Canon
           diff_count.to_f / all_keys.size
         end
 
+        # Get XPath for this node
+        #
+        # @return [String] XPath expression
+        def xpath
+          # If we have a source node that supports xpath, use it
+          if @source_node && @source_node.respond_to?(:path)
+            return @source_node.path
+          end
+
+          # Otherwise construct path from tree structure
+          construct_path
+        end
+
+        # Construct path from tree structure
+        #
+        # @return [String] Path expression
+        def construct_path
+          segments = []
+          node = self
+
+          while node
+            if node.parent
+              # Get position among siblings with same label
+              siblings = node.parent.children.select { |c| c.label == node.label }
+              position = siblings.index(node)
+
+              if siblings.size > 1
+                segments.unshift("#{node.label}[#{position}]")
+              else
+                segments.unshift(node.label)
+              end
+            else
+              segments.unshift(node.label)
+            end
+
+            node = node.parent
+          end
+
+          "/" + segments.join("/")
+        end
+
         # Deep clone this node and its subtree
         #
         # @return [TreeNode]
@@ -354,6 +397,7 @@ module Canon
             parent: nil,
             attributes: attributes.dup,
             xid: xid,
+            source_node: source_node, # Preserve source node reference
           )
         end
 
