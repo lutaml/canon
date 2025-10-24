@@ -6,6 +6,7 @@ require_relative "match_options"
 require_relative "comparison_result"
 require_relative "../diff/diff_node"
 require_relative "../diff/diff_classifier"
+require_relative "strategies/match_strategy_factory"
 
 module Canon
   module Comparison
@@ -68,6 +69,11 @@ module Canon
           # Store resolved match options hash for use in comparison logic
           opts[:match_opts] = match_opts_hash
 
+          # Use tree diff if semantic_diff option is enabled
+          if match_opts.semantic_diff?
+            return perform_semantic_tree_diff(html1, html2, opts, match_opts_hash)
+          end
+
           # Create child_opts with resolved options
           child_opts = opts.merge(child_opts)
 
@@ -129,6 +135,7 @@ module Canon
               format: :html,
               html_version: detect_html_version_from_node(node1),
               match_options: match_opts_hash,
+              algorithm: :dom,
             )
           else
             result == Comparison::EQUIVALENT
@@ -136,6 +143,91 @@ module Canon
         end
 
         private
+
+        # Perform semantic tree diff using SemanticTreeMatchStrategy
+        #
+        # @param html1 [String, Nokogiri::HTML::Document] First HTML
+        # @param html2 [String, Nokogiri::HTML::Document] Second HTML
+        # @param opts [Hash] Comparison options
+        # @param match_opts_hash [Hash] Resolved match options
+        # @return [Boolean, ComparisonResult] Result of tree diff comparison
+        def perform_semantic_tree_diff(html1, html2, opts, match_opts_hash)
+          # Parse nodes using fragment parsers to preserve actual content
+          # without auto-generated elements (html, head, meta, etc.)
+          node1 = parse_node_as_fragment(html1, match_opts_hash[:preprocessing],
+                                          match_opts_hash)
+          node2 = parse_node_as_fragment(html2, match_opts_hash[:preprocessing],
+                                          match_opts_hash)
+
+          # Create strategy using factory
+          strategy = Strategies::MatchStrategyFactory.create(
+            :semantic_tree,
+            :html,
+            match_opts_hash,
+          )
+
+          # Perform matching - returns DiffNodes
+          differences = strategy.match(node1, node2)
+
+          # Return based on verbose mode
+          if opts[:verbose]
+            # Get preprocessed strings for display
+            preprocessed = strategy.preprocess_for_display(node1, node2)
+
+            # Detect HTML version for result
+            html_version = detect_html_version_from_node(node1)
+
+            # Return ComparisonResult with strategy metadata
+            ComparisonResult.new(
+              differences: differences,
+              preprocessed_strings: preprocessed,
+              format: :html,
+              html_version: html_version,
+              match_options: match_opts_hash.merge(strategy.metadata),
+              algorithm: :semantic,
+            )
+          else
+            # Simple boolean result - equivalent if no normative differences
+            differences.none?(&:normative?)
+          end
+        end
+
+        # Parse node as fragment to preserve actual content
+        # Uses HTML4.fragment or HTML5.fragment based on content detection
+        #
+        # @param node [String, Nokogiri node] Node to parse
+        # @param preprocessing [Symbol] Preprocessing mode
+        # @param match_opts [Hash] Match options
+        # @return [Nokogiri::HTML::DocumentFragment] Parsed fragment
+        def parse_node_as_fragment(node, preprocessing = :none, match_opts = {})
+          # If already a fragment, return it
+          if node.is_a?(Nokogiri::HTML4::DocumentFragment) ||
+              node.is_a?(Nokogiri::HTML5::DocumentFragment)
+            return node
+          end
+
+          # Convert to string if needed
+          html_string = node.is_a?(String) ? node : node.to_html
+
+          # Detect HTML version from content
+          html_version = detect_html_version(html_string)
+
+          # Parse as fragment using appropriate parser
+          frag = if html_version == :html5
+                   Nokogiri::HTML5.fragment(html_string)
+                 else
+                   Nokogiri::HTML4.fragment(html_string)
+                 end
+
+          # Apply preprocessing if needed
+          if preprocessing == :rendered
+            normalize_html_style_script_comments(frag)
+            normalize_rendered_whitespace(frag, match_opts)
+            remove_whitespace_only_text_nodes(frag)
+          end
+
+          frag
+        end
 
         # Parse a node from string or return as-is
         # Applies preprocessing transformation before parsing if specified

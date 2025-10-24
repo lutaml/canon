@@ -4,6 +4,7 @@ require_relative "../core/tree_node"
 require_relative "../core/node_signature"
 require_relative "../core/node_weight"
 require_relative "../core/matching"
+require_relative "../core/attribute_comparator"
 
 module Canon
   module TreeDiff
@@ -30,13 +31,18 @@ module Canon
         #
         # @param tree1 [TreeNode] First tree root
         # @param tree2 [TreeNode] Second tree root
-        def initialize(tree1, tree2)
+        # @param options [Hash] Match options
+        def initialize(tree1, tree2, options = {})
           @tree1 = tree1
           @tree2 = tree2
           @matching = Core::Matching.new
           @signature_map = {}
           @matched_tree1 = Set.new
           @matched_tree2 = Set.new
+          @options = options
+          @attribute_comparator = Core::AttributeComparator.new(
+            attribute_order: options[:attribute_order] || :strict,
+          )
         end
 
         # Perform hash-based matching
@@ -156,7 +162,7 @@ module Canon
         def nodes_match?(node1, node2)
           return false unless node1.label == node2.label
           return false unless node1.value == node2.value
-          return false unless node1.attributes == node2.attributes
+          return false unless @attribute_comparator.equal?(node1.attributes, node2.attributes)
 
           true
         end

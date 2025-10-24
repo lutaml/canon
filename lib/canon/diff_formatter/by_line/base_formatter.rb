@@ -308,10 +308,16 @@ module Canon
                                 informative: false)
           old_str = old_num ? "%4d" % old_num : "    "
           new_str = new_num ? "%4d" % new_num : "    "
-          marker_part = "#{marker} "
 
-          # For informative diffs, use cyan color
-          effective_color = informative ? :cyan : color
+          # For informative diffs, use ~ marker and cyan color
+          if informative
+            marker = "~"
+            effective_color = :cyan
+          else
+            effective_color = color
+          end
+
+          marker_part = "#{marker} "
 
           visualized_content = if effective_color
                                  apply_visualization(content, effective_color)

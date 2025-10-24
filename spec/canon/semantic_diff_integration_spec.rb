@@ -288,7 +288,7 @@ RSpec.describe "Semantic Diff Integration" do
       expect(result.match_options).to include(:tree_diff_statistics)
       stats = result.match_options[:tree_diff_statistics]
       expect(stats).to be_a(Hash)
-      expect(stats).to include(:tree1_node_count, :tree2_node_count, :matched_count)
+      expect(stats).to include(:tree1_nodes, :tree2_nodes, :total_matches)
     end
 
     it "provides tree diff matching via match_options" do
@@ -303,7 +303,8 @@ RSpec.describe "Semantic Diff Integration" do
 
       expect(result.match_options).to include(:tree_diff_matching)
       matching = result.match_options[:tree_diff_matching]
-      expect(matching).to respond_to(:each_pair)
+      expect(matching).to be_a(Canon::TreeDiff::Core::Matching)
+      expect(matching.pairs).not_to be_empty
     end
   end
 end

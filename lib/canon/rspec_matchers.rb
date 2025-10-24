@@ -153,6 +153,10 @@ module Canon
                 format_config.match.options
             end
             opts[:preprocessing] ||= format_config.preprocessing
+            # Add diff algorithm from config if not explicitly set
+            opts[:diff_algorithm] ||= format_config.diff.algorithm if format_config.diff.algorithm
+            # Add show_compare from config if not explicitly set
+            opts[:show_compare] ||= format_config.diff.show_compare if format_config.diff.show_compare
           elsif !%i[xml html html4 html5 json yaml
                     string].include?(@format)
             # Unsupported format - raise error early
