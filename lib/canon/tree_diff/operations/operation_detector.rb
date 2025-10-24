@@ -75,6 +75,8 @@ module Canon
               node: node2,
               parent: parent2,
               position: position,
+              path: node2.xpath,
+              content: extract_node_content(node2),
             )
           end
         end
@@ -95,6 +97,8 @@ module Canon
               node: node1,
               parent: parent1,
               position: position,
+              path: node1.xpath,
+              content: extract_node_content(node1),
             )
           end
         end
@@ -102,16 +106,20 @@ module Canon
         # Detect UPDATE operations (matched nodes with different content)
         def detect_updates
           @matching.pairs.each do |node1, node2|
-            next if nodes_identical?(node1, node2)
-
-            # Detect what changed
+            # Detect what changed (including attribute order)
             changes = detect_changes(node1, node2)
+
+            # Skip if truly identical (no changes detected)
+            next if changes.empty?
 
             @operations << Operation.new(
               type: :update,
               node1: node1,
               node2: node2,
               changes: changes,
+              path: node2.xpath,
+              old_content: extract_node_content(node1),
+              new_content: extract_node_content(node2),
             )
           end
         end
@@ -129,6 +137,8 @@ module Canon
               new_parent: node2.parent,
               old_position: node1.parent&.children&.index(node1),
               new_position: node2.parent&.children&.index(node2),
+              old_path: node1.xpath,
+              new_path: node2.xpath,
             )
           end
         end
@@ -179,10 +189,26 @@ module Canon
               { old: node1.value, new: node2.value }
           end
 
-          if node1.attributes != node2.attributes
+          # Detect attribute changes (values or order)
+          attrs1 = node1.attributes
+          attrs2 = node2.attributes
+
+          # Check if attribute values differ (ignoring order)
+          if attrs1.sort.to_h != attrs2.sort.to_h
+            # Actual attribute value differences
             changes[:attributes] = {
-              old: node1.attributes,
-              new: node2.attributes,
+              old: attrs1,
+              new: attrs2,
+            }
+          end
+
+          # Check if attribute order differs (independently)
+          # This can coexist with attribute value differences
+          if attrs1.keys != attrs2.keys
+            # Attribute order differs
+            changes[:attribute_order] = {
+              old: attrs1.keys,
+              new: attrs2.keys,
             }
           end
 
@@ -429,6 +455,34 @@ module Canon
           end
 
           texts.join(" ").strip
+        end
+
+        # Extract node content summary for display
+        #
+        # @param node [TreeNode] Node to extract from
+        # @return [String] Content summary
+        def extract_node_content(node)
+          parts = []
+
+          # Add label
+          parts << "<#{node.label}>"
+
+          # Add attributes if present
+          unless node.attributes.empty?
+            attrs = node.attributes.map { |k, v| "#{k}=\"#{v}\"" }.join(" ")
+            parts << "[#{attrs}]"
+          end
+
+          # Add value/text if present
+          if node.value && !node.value.empty?
+            # Truncate long values
+            value_preview = node.value.length > 50 ? "#{node.value[0..47]}..." : node.value
+            parts << "\"#{value_preview}\""
+          elsif !node.children.empty?
+            parts << "(#{node.children.size} children)"
+          end
+
+          parts.join(" ")
         end
 
         # Calculate text similarity using Jaccard index

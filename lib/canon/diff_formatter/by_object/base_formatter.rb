@@ -11,7 +11,7 @@ module Canon
         def initialize(use_color: true, visualization_map: nil)
           @use_color = use_color
           @visualization_map = visualization_map ||
-            DiffFormatter::DEFAULT_VISUALIZATION_MAP
+            Canon::DiffFormatter::DEFAULT_VISUALIZATION_MAP
         end
 
         # Format differences for display

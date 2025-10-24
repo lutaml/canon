@@ -64,20 +64,25 @@ module Canon
           # Get element name (with namespace prefix if present)
           label = element.name
 
-          # Collect attributes
+          # Collect attributes and sort them alphabetically
+          # This ensures attribute order doesn't affect hash matching
+          # (matches behavior of attribute_order: :ignore in match options)
           attributes = {}
           element.attributes.each do |name, attr|
             attributes[name] = attr.value
           end
+          # Sort attributes by key to normalize order
+          attributes = attributes.sort.to_h
 
           # Get text content (only direct text, not from children)
           text_value = extract_text_value(element)
 
-          # Create tree node
+          # Create tree node with source node reference
           tree_node = Core::TreeNode.new(
             label: label,
             value: text_value,
             attributes: attributes,
+            source_node: element, # Preserve reference to original Nokogiri node
           )
 
           # Process child elements
