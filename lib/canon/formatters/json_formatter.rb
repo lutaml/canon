@@ -15,6 +15,9 @@ module Canon
       def self.parse(json)
         # Validate before parsing
         Canon::Validators::JsonValidator.validate!(json)
+        # Return as-is if already parsed
+        return json if json.is_a?(Hash) || json.is_a?(Array)
+
         JSON.parse(json)
       end
 

@@ -18,22 +18,25 @@ module Canon
     #   result[:operations] # => [Operation(...), ...]
     #
     class TreeDiffIntegrator
-      attr_reader :format, :adapter, :matcher
+      attr_reader :format, :adapter, :matcher, :match_options
 
       # Initialize integrator for a specific format
       #
       # @param format [Symbol] Format type (:xml, :json, :html, :yaml)
-      # @param options [Hash] Configuration options
+      # @param options [Hash] Configuration options (match options from Canon::Comparison)
       # @option options [Float] :similarity_threshold Threshold for similarity matching (default: 0.95)
       # @option options [Boolean] :hash_matching Enable hash matching phase (default: true)
       # @option options [Boolean] :similarity_matching Enable similarity matching phase (default: true)
       # @option options [Boolean] :propagation Enable propagation phase (default: true)
+      # @option options [Symbol] :text_content How to compare text (:strict, :normalize)
+      # @option options [Symbol] :attribute_order How to compare attributes (:strict, :ignore)
       def initialize(format:, options: {})
         @format = format
         @options = options
+        @match_options = options # Store full match options for downstream use
 
-        # Initialize format-specific adapter
-        @adapter = create_adapter(format)
+        # Initialize format-specific adapter WITH match options
+        @adapter = create_adapter(format, options)
 
         # Initialize matcher with options
         matcher_options = {
@@ -41,7 +44,7 @@ module Canon
           hash_matching: options.fetch(:hash_matching, true),
           similarity_matching: options.fetch(:similarity_matching, true),
           propagation: options.fetch(:propagation, true),
-          attribute_order: options[:attribute_order] || :strict,
+          attribute_order: options[:attribute_order] || :ignore,
         }
         @matcher = Matchers::UniversalMatcher.new(matcher_options)
       end
@@ -56,11 +59,15 @@ module Canon
         tree1 = @adapter.to_tree(doc1)
         tree2 = @adapter.to_tree(doc2)
 
+        # Check node count limits
+        check_node_count_limit(tree1)
+        check_node_count_limit(tree2)
+
         # Match trees
         matching = @matcher.match(tree1, tree2)
 
-        # Detect operations (create detector per-diff with proper arguments)
-        detector = Operations::OperationDetector.new(tree1, tree2, matching)
+        # Detect operations with match_options for proper normalization
+        detector = Operations::OperationDetector.new(tree1, tree2, matching, @match_options)
         operations = detector.detect
 
         # Return comprehensive results
@@ -87,21 +94,45 @@ module Canon
       # Create format-specific adapter
       #
       # @param format [Symbol] Format type
+      # @param match_options [Hash] Match options for text/attribute normalization
       # @return [Object] Adapter instance
-      def create_adapter(format)
+      def create_adapter(format, match_options = {})
         case format
         when :xml
-          Adapters::XMLAdapter.new
+          Adapters::XMLAdapter.new(match_options: match_options)
         when :html, :html4, :html5
-          Adapters::HTMLAdapter.new
+          Adapters::HTMLAdapter.new(match_options: match_options)
         when :json
-          Adapters::JSONAdapter.new
+          Adapters::JSONAdapter.new(match_options: match_options)
         when :yaml
-          Adapters::YAMLAdapter.new
+          Adapters::YAMLAdapter.new(match_options: match_options)
         else
           raise ArgumentError, "Unsupported format: #{format}. " \
                                "Supported formats: :xml, :html, :html4, :html5, :json, :yaml"
         end
+      end
+
+      # Check if tree node count exceeds configured limit
+      #
+      # @param tree [TreeNode] Root node of tree
+      # @raise [Canon::SizeLimitExceededError] if node count exceeds limit
+      def check_node_count_limit(tree)
+        node_count = tree.size
+        max_count = get_max_node_count
+
+        return unless max_count && max_count.positive?
+        return if node_count <= max_count
+
+        raise Canon::SizeLimitExceededError.new(:node_count, node_count,
+                                                max_count)
+      end
+
+      # Get max node count limit for current format
+      #
+      # @return [Integer, nil] Max node count
+      def get_max_node_count
+        # Get from options if provided, otherwise use default
+        @options[:max_node_count] || 10_000
       end
     end
   end

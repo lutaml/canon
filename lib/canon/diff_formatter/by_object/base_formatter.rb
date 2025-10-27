@@ -38,8 +38,20 @@ module Canon
           # Group differences by path for tree building
           tree = build_diff_tree(diffs_array)
 
-          # Render tree
-          output << render_tree(tree)
+          # Render tree with line counting
+          @line_count = 0
+          @max_lines = get_max_diff_lines
+          rendered = render_tree(tree)
+
+          # Add truncation notice if needed
+          if @truncated
+            rendered += "\n\n"
+            rendered += colorize("... Output truncated at #{@max_lines} lines ...", :yellow, :bold)
+            rendered += "\n"
+            rendered += colorize("Increase limit via CANON_MAX_DIFF_LINES or config.diff.max_diff_lines", :yellow)
+          end
+
+          output << rendered
 
           output.join("\n")
         end
@@ -135,9 +147,24 @@ module Canon
 
           parts = []
           current = node
+          visited = Set.new
 
           while current.respond_to?(:name)
+            # Prevent infinite loops by tracking visited nodes
+            break if visited.include?(current.object_id)
+
+            visited << current.object_id
+
             parts.unshift(current.name) if current.name
+
+            # Stop at document or fragment roots
+            break if current.is_a?(Nokogiri::XML::Document) ||
+              current.is_a?(Nokogiri::HTML4::Document) ||
+              current.is_a?(Nokogiri::HTML5::Document) ||
+              current.is_a?(Nokogiri::XML::DocumentFragment) ||
+              current.is_a?(Nokogiri::HTML4::DocumentFragment) ||
+              current.is_a?(Nokogiri::HTML5::DocumentFragment)
+
             current = current.parent if current.respond_to?(:parent)
           end
 
@@ -156,6 +183,12 @@ module Canon
           end
 
           sorted_keys.each_with_index do |key, index|
+            # Check line limit
+            if @max_lines && @max_lines.positive? && @line_count >= @max_lines
+              @truncated = true
+              break
+            end
+
             is_last_item = (index == sorted_keys.length - 1)
             connector = is_last_item ? "└── " : "├── "
             continuation = is_last_item ? "    " : "│   "
@@ -165,16 +198,26 @@ module Canon
 
             if diff
               # Render difference
-              output << render_diff_node(key, diff, prefix, connector)
+              line = render_diff_node(key, diff, prefix, connector)
+              output << line
+              @line_count += line.count("\n") + 1
             else
               # Render intermediate path
-              output << colorize("#{prefix}#{connector}#{key}:", :cyan)
+              line = colorize("#{prefix}#{connector}#{key}:", :cyan)
+              output << line
+              @line_count += 1
+
               # Recurse into subtree
               if value.is_a?(Hash)
-                output << render_tree(value, prefix: prefix + continuation,
+                subtree = render_tree(value, prefix: prefix + continuation,
                                              is_last: is_last_item)
+                output << subtree
+                # line_count already updated in recursive call
               end
             end
+
+            # Check again after adding content
+            break if @truncated
           end
 
           output.join("\n")
@@ -192,6 +235,16 @@ module Canon
 
           require "paint"
           "\e[0m#{Paint[text, *colors]}"
+        end
+
+        # Get max diff lines limit
+        #
+        # @return [Integer, nil] Max diff output lines
+        def get_max_diff_lines
+          # Try to get from config if available
+          config = Canon::Config.instance
+          # Default to 10,000 if config not available
+          config&.xml&.diff&.max_diff_lines || 10_000
         end
       end
     end

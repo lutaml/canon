@@ -19,17 +19,19 @@ module Canon
       #   operations.each { |op| puts op.inspect }
       #
       class OperationDetector
-        attr_reader :tree1, :tree2, :matching, :operations
+        attr_reader :tree1, :tree2, :matching, :operations, :match_options
 
         # Initialize a new operation detector
         #
         # @param tree1 [TreeNode] First tree root
         # @param tree2 [TreeNode] Second tree root
         # @param matching [Matching] Matching between trees
-        def initialize(tree1, tree2, matching)
+        # @param match_options [Hash] Match options for comparison
+        def initialize(tree1, tree2, matching, match_options = {})
           @tree1 = tree1
           @tree2 = tree2
           @matching = matching
+          @match_options = match_options || {}
           @operations = []
         end
 
@@ -66,8 +68,12 @@ module Canon
           all_nodes2.each do |node2|
             next if @matching.matched2?(node2)
 
-            # Find parent context
+            # Skip if parent is also unmatched (parent will be reported instead)
+            # This prevents redundant reporting of descendants
             parent2 = node2.parent
+            next if parent2 && !@matching.matched2?(parent2)
+
+            # Find position
             position = parent2 ? parent2.children.index(node2) : 0
 
             @operations << Operation.new(
@@ -88,8 +94,12 @@ module Canon
           all_nodes1.each do |node1|
             next if @matching.matched1?(node1)
 
-            # Find parent context
+            # Skip if parent is also unmatched (parent will be reported instead)
+            # This prevents redundant reporting of descendants
             parent1 = node1.parent
+            next if parent1 && !@matching.matched1?(parent1)
+
+            # Find position
             position = parent1 ? parent1.children.index(node1) : 0
 
             @operations << Operation.new(
@@ -184,7 +194,9 @@ module Canon
             changes[:label] =
               { old: node1.label, new: node2.label }
           end
-          if node1.value != node2.value
+
+          # CRITICAL FIX: Use normalized text comparison based on match_options
+          if !text_equivalent?(node1, node2)
             changes[:value] =
               { old: node1.value, new: node2.value }
           end
@@ -204,8 +216,13 @@ module Canon
 
           # Check if attribute order differs (independently)
           # This can coexist with attribute value differences
-          if attrs1.keys != attrs2.keys
-            # Attribute order differs
+          # Only detect order differences when the same attributes exist in different order
+          # AND when attribute_order mode is :strict
+          attribute_order_mode = @match_options[:attribute_order] || :ignore
+          if attribute_order_mode == :strict &&
+             attrs1.keys.sort == attrs2.keys.sort &&
+             attrs1.keys != attrs2.keys
+            # Same attributes but in different order
             changes[:attribute_order] = {
               old: attrs1.keys,
               new: attrs2.keys,
@@ -213,6 +230,65 @@ module Canon
           end
 
           changes
+        end
+
+        # Check if text values are equivalent according to match options
+        #
+        # @param node1 [TreeNode] First node
+        # @param node2 [TreeNode] Second node
+        # @return [Boolean] True if text values are equivalent
+        def text_equivalent?(node1, node2)
+          text1 = node1.value
+          text2 = node2.value
+
+          # Both nil or empty = equivalent
+          return true if (text1.nil? || text1.empty?) && (text2.nil? || text2.empty?)
+          return false if (text1.nil? || text1.empty?) || (text2.nil? || text2.empty?)
+
+          # Check if node is in a whitespace-sensitive context
+          is_ws_sensitive = whitespace_sensitive?(node1) || whitespace_sensitive?(node2)
+          if is_ws_sensitive
+            # For whitespace-sensitive elements, use strict comparison
+            return text1 == text2
+          end
+
+          # For non-whitespace-sensitive elements, apply normalization
+          norm1 = normalize_text(text1)
+          norm2 = normalize_text(text2)
+
+          # If both normalize to empty (whitespace-only), treat as equivalent
+          # This only applies to non-whitespace-sensitive contexts
+          return true if norm1.empty? && norm2.empty?
+
+          # Apply normalization based on match_options
+          text_content_mode = @match_options[:text_content] || :normalize
+
+          case text_content_mode
+          when :strict
+            # Strict mode: must match exactly
+            text1 == text2
+          when :normalize, :normalized
+            # Normalize mode: normalize whitespace before comparing
+            norm1 == norm2
+          else
+            # Default to normalize behavior
+            norm1 == norm2
+          end
+        end
+
+        # Normalize text for comparison
+        #
+        # Collapses multiple whitespace into single space and strips.
+        # This matches the behavior of Canon's text_content: normalize option.
+        #
+        # @param text [String, nil] Text to normalize
+        # @return [String] Normalized text
+        def normalize_text(text)
+          return "" if text.nil? || text.empty?
+
+          # Collapse multiple whitespace (including newlines) into single space
+          # Then strip leading/trailing whitespace
+          text.gsub(/\s+/, ' ').strip
         end
 
         # Collect all nodes in a tree (depth-first)
@@ -515,6 +591,34 @@ module Canon
             current = current.parent
           end
           depth
+        end
+
+        # Check if a node is in a whitespace-sensitive context
+        #
+        # HTML elements where whitespace is significant: <pre>, <code>, <textarea>, <script>, <style>
+        #
+        # @param node [TreeNode] Node to check
+        # @return [Boolean] True if node is in whitespace-sensitive context
+        def whitespace_sensitive?(node)
+          return false unless node
+
+          # List of HTML elements where whitespace is semantically significant
+          whitespace_sensitive_tags = %w[pre code textarea script style]
+
+          # Check if this node or any ancestor is whitespace-sensitive
+          current = node
+          while current
+            if current.respond_to?(:label)
+              label = current.label.to_s.downcase
+              return true if whitespace_sensitive_tags.include?(label)
+            end
+
+            # Check parent
+            current = current.parent if current.respond_to?(:parent)
+            break unless current
+          end
+
+          false
         end
       end
     end

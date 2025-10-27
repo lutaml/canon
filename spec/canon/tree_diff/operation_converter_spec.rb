@@ -5,7 +5,9 @@ require "spec_helper"
 RSpec.describe Canon::TreeDiff::OperationConverter do
   let(:format) { :xml }
   let(:match_options) { {} }
-  let(:converter) { described_class.new(format: format, match_options: match_options) }
+  let(:converter) do
+    described_class.new(format: format, match_options: match_options)
+  end
 
   describe "#initialize" do
     it "creates converter with format and match options" do
@@ -21,7 +23,7 @@ RSpec.describe Canon::TreeDiff::OperationConverter do
         node = double("TreeNode", label: "div", source_node: double("Node"))
         operation = Canon::TreeDiff::Operations::Operation.new(
           type: :insert,
-          node: node
+          node: node,
         )
 
         diff_nodes = converter.convert([operation])
@@ -41,7 +43,7 @@ RSpec.describe Canon::TreeDiff::OperationConverter do
         node = double("TreeNode", label: "span", source_node: double("Node"))
         operation = Canon::TreeDiff::Operations::Operation.new(
           type: :delete,
-          node: node
+          node: node,
         )
 
         diff_nodes = converter.convert([operation])
@@ -63,13 +65,13 @@ RSpec.describe Canon::TreeDiff::OperationConverter do
           type: :update,
           node1: node1,
           node2: node2,
-          change_type: :text
+          changes: { value: true },
         )
 
         diff_nodes = converter.convert([operation])
 
         expect(diff_nodes.first.dimension).to eq(:text_content)
-        expect(diff_nodes.first.reason).to include("text")
+        expect(diff_nodes.first.reason).to eq("text content differs")
       end
 
       it "converts attribute update to DiffNode" do
@@ -79,28 +81,29 @@ RSpec.describe Canon::TreeDiff::OperationConverter do
           type: :update,
           node1: node1,
           node2: node2,
-          change_type: :attributes
+          changes: { attributes: true },
         )
 
         diff_nodes = converter.convert([operation])
 
         expect(diff_nodes.first.dimension).to eq(:attribute_values)
-        expect(diff_nodes.first.reason).to include("attributes")
+        expect(diff_nodes.first.reason).to eq("attribute values differ")
       end
 
-      it "converts whitespace update to DiffNode" do
+      it "converts attribute order update to DiffNode" do
         node1 = double("TreeNode", source_node: double("Node1"))
         node2 = double("TreeNode", source_node: double("Node2"))
         operation = Canon::TreeDiff::Operations::Operation.new(
           type: :update,
           node1: node1,
           node2: node2,
-          change_type: :whitespace
+          changes: { attribute_order: true },
         )
 
         diff_nodes = converter.convert([operation])
 
-        expect(diff_nodes.first.dimension).to eq(:structural_whitespace)
+        expect(diff_nodes.first.dimension).to eq(:attribute_order)
+        expect(diff_nodes.first.reason).to eq("attribute order differs")
       end
 
       it "defaults to text_content for generic updates" do
@@ -109,7 +112,7 @@ RSpec.describe Canon::TreeDiff::OperationConverter do
         operation = Canon::TreeDiff::Operations::Operation.new(
           type: :update,
           node1: node1,
-          node2: node2
+          node2: node2,
         )
 
         diff_nodes = converter.convert([operation])
@@ -127,7 +130,7 @@ RSpec.describe Canon::TreeDiff::OperationConverter do
           node1: node1,
           node2: node2,
           from_position: 2,
-          to_position: 5
+          to_position: 5,
         )
 
         diff_nodes = converter.convert([operation])
@@ -149,7 +152,7 @@ RSpec.describe Canon::TreeDiff::OperationConverter do
         operation = Canon::TreeDiff::Operations::Operation.new(
           type: :merge,
           nodes: nodes,
-          result: result
+          result: result,
         )
 
         diff_nodes = converter.convert([operation])
@@ -170,7 +173,7 @@ RSpec.describe Canon::TreeDiff::OperationConverter do
         operation = Canon::TreeDiff::Operations::Operation.new(
           type: :split,
           node: node,
-          results: results
+          results: results,
         )
 
         diff_nodes = converter.convert([operation])
@@ -188,7 +191,7 @@ RSpec.describe Canon::TreeDiff::OperationConverter do
         operation = Canon::TreeDiff::Operations::Operation.new(
           type: :upgrade,
           node1: node1,
-          node2: node2
+          node2: node2,
         )
 
         diff_nodes = converter.convert([operation])
@@ -205,7 +208,7 @@ RSpec.describe Canon::TreeDiff::OperationConverter do
         operation = Canon::TreeDiff::Operations::Operation.new(
           type: :downgrade,
           node1: node1,
-          node2: node2
+          node2: node2,
         )
 
         diff_nodes = converter.convert([operation])
@@ -217,12 +220,16 @@ RSpec.describe Canon::TreeDiff::OperationConverter do
 
     context "with multiple operations" do
       it "converts all operations in order" do
-        insert_node = double("TreeNode", label: "div", source_node: double("InsertNode"))
-        delete_node = double("TreeNode", label: "span", source_node: double("DeleteNode"))
+        insert_node = double("TreeNode", label: "div",
+                                         source_node: double("InsertNode"))
+        delete_node = double("TreeNode", label: "span",
+                                         source_node: double("DeleteNode"))
 
         operations = [
-          Canon::TreeDiff::Operations::Operation.new(type: :insert, node: insert_node),
-          Canon::TreeDiff::Operations::Operation.new(type: :delete, node: delete_node),
+          Canon::TreeDiff::Operations::Operation.new(type: :insert,
+                                                     node: insert_node),
+          Canon::TreeDiff::Operations::Operation.new(type: :delete,
+                                                     node: delete_node),
         ]
 
         diff_nodes = converter.convert(operations)
@@ -244,7 +251,7 @@ RSpec.describe Canon::TreeDiff::OperationConverter do
         operation = Canon::TreeDiff::Operations::Operation.new(
           type: :move,
           node1: node1,
-          node2: node2
+          node2: node2,
         )
 
         diff_nodes = converter.convert([operation])
@@ -261,7 +268,7 @@ RSpec.describe Canon::TreeDiff::OperationConverter do
       tree_node = double("TreeNode", source_node: source, label: "div")
       operation = Canon::TreeDiff::Operations::Operation.new(
         type: :insert,
-        node: tree_node
+        node: tree_node,
       )
 
       diff_nodes = converter.convert([operation])
@@ -272,7 +279,7 @@ RSpec.describe Canon::TreeDiff::OperationConverter do
     it "handles nil nodes" do
       operation = Canon::TreeDiff::Operations::Operation.new(
         type: :insert,
-        node: nil
+        node: nil,
       )
 
       diff_nodes = converter.convert([operation])
@@ -284,7 +291,7 @@ RSpec.describe Canon::TreeDiff::OperationConverter do
       raw_node = double("RawNode")
       operation = Canon::TreeDiff::Operations::Operation.new(
         type: :insert,
-        node: raw_node
+        node: raw_node,
       )
 
       diff_nodes = converter.convert([operation])

@@ -20,6 +20,15 @@ module Canon
       #   tree = adapter.to_tree(html)
       #
       class HTMLAdapter
+        attr_reader :match_options
+
+        # Initialize adapter with match options
+        #
+        # @param match_options [Hash] Match options for text/attribute normalization
+        def initialize(match_options: {})
+          @match_options = match_options
+        end
+
         # Convert Nokogiri HTML document/element to TreeNode
         #
         # @param node [Nokogiri::HTML::Document, Nokogiri::XML::Element, Nokogiri::HTML::DocumentFragment] HTML node
@@ -30,7 +39,7 @@ module Canon
             # Start from html element or root element
             root = node.at_css("html") || node.root
             root ? to_tree(root) : nil
-          when Nokogiri::HTML4::DocumentFragment, Nokogiri::HTML5::DocumentFragment
+          when Nokogiri::HTML4::DocumentFragment, Nokogiri::HTML5::DocumentFragment, Nokogiri::XML::DocumentFragment
             # For DocumentFragment, create a wrapper root node and add all fragment children
             convert_fragment(node)
           when Nokogiri::XML::Element
@@ -94,8 +103,18 @@ module Canon
           # Collect attributes (preserve original order for tree diff)
           # The tree diff will detect attribute order differences
           # and classify them as informative when attribute_order: ignore
+          #
+          # CRITICAL FIX: Filter out xmlns attributes for HTML documents
+          # These are typically added by parsers (e.g., MS Word) and aren't
+          # semantically significant for HTML comparison. Keeping them causes
+          # false mismatches that prevent the entire subtree from matching due
+          # to prefix closure constraints.
           attributes = {}
           element.attributes.each do |name, attr|
+            # Skip xmlns namespace declarations for HTML (but keep regular attributes)
+            # This prevents false mismatches caused by parser-added namespace declarations
+            next if name.start_with?("xmlns")
+
             attributes[name] = attr.value
           end
 
@@ -121,15 +140,51 @@ module Canon
 
         # Extract direct text content from element
         #
+        # Preserves original text for proper normalization during comparison.
+        # Normalization happens in OperationDetector based on match_options,
+        # NOT during tree conversion.
+        #
+        # For mixed content (text nodes + child elements), joins text nodes
+        # with a space to prevent text from running together when elements
+        # like <br/> separate the text.
+        #
         # @param element [Nokogiri::XML::Element] HTML element
         # @return [String, nil] Text content or nil
         def extract_text_value(element)
           # Get only direct text nodes, not from nested elements
           text_nodes = element.children.select(&:text?)
-          text = text_nodes.map(&:text).join
 
-          # Return nil for empty/whitespace-only text
-          text.strip.empty? ? nil : text.strip
+          # For mixed content (has both text nodes and element children),
+          # join text nodes with space to handle implicit whitespace around
+          # block-level elements like <br/>
+          # Example: "Text<br/>More" should become "Text More" not "TextMore"
+          # EXCEPT for whitespace-sensitive elements (<pre>, <code>, etc.)
+          # where we must preserve exact whitespace
+          if element.element_children.any? && !whitespace_sensitive?(element)
+            separator = " "
+          else
+            separator = ""
+          end
+          text = text_nodes.map(&:text).join(separator)
+
+          # CRITICAL FIX: Return original text without stripping
+          # Normalization will be applied during comparison based on match_options
+          # Only return nil for truly empty text
+          text.empty? ? nil : text
+        end
+
+        # Check if an element is whitespace-sensitive
+        #
+        # HTML elements where whitespace is significant: <pre>, <code>, <textarea>, <script>, <style>
+        #
+        # @param element [Nokogiri::XML::Element] Element to check
+        # @return [Boolean] True if element is whitespace-sensitive
+        def whitespace_sensitive?(element)
+          return false unless element.respond_to?(:name)
+
+          # List of HTML elements where whitespace is semantically significant
+          whitespace_sensitive_tags = %w[pre code textarea script style]
+          whitespace_sensitive_tags.include?(element.name.downcase)
         end
 
         # Build Nokogiri element from TreeNode

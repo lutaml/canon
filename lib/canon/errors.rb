@@ -53,4 +53,60 @@ module Canon
       parts.join("\n")
     end
   end
+
+  # Error raised when input exceeds size limits
+  #
+  # This error is raised when input files or trees exceed configured size
+  # limits to prevent performance issues or hangs.
+  class SizeLimitExceededError < Error
+    attr_reader :limit_type, :actual, :limit
+
+    # Initialize a new SizeLimitExceededError
+    #
+    # @param limit_type [Symbol] The type of limit exceeded (:file_size,
+    #   :node_count, :diff_lines)
+    # @param actual [Integer] The actual size that exceeded the limit
+    # @param limit [Integer] The configured limit
+    def initialize(limit_type, actual, limit)
+      @limit_type = limit_type
+      @actual = actual
+      @limit = limit
+      super(build_message)
+    end
+
+    private
+
+    # Build a descriptive error message
+    #
+    # @return [String] The formatted error message
+    def build_message
+      case limit_type
+      when :file_size
+        "File size (#{format_bytes(actual)}) exceeds limit (#{format_bytes(limit)}). " \
+          "Increase limit via CANON_MAX_FILE_SIZE or config.diff.max_file_size"
+      when :node_count
+        "Tree node count (#{actual}) exceeds limit (#{limit}). " \
+          "Increase limit via CANON_MAX_NODE_COUNT or config.diff.max_node_count"
+      when :diff_lines
+        "Diff output (#{actual} lines) exceeds limit (#{limit} lines). " \
+          "Output truncated. Increase limit via CANON_MAX_DIFF_LINES or config.diff.max_diff_lines"
+      else
+        "Size limit exceeded: #{limit_type} (#{actual} > #{limit})"
+      end
+    end
+
+    # Format bytes into human-readable size
+    #
+    # @param bytes [Integer] Size in bytes
+    # @return [String] Formatted size string
+    def format_bytes(bytes)
+      if bytes < 1024
+        "#{bytes} bytes"
+      elsif bytes < 1_048_576
+        "#{(bytes / 1024.0).round(2)} KB"
+      else
+        "#{(bytes / 1_048_576.0).round(2)} MB"
+      end
+    end
+  end
 end

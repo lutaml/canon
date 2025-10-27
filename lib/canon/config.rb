@@ -156,7 +156,7 @@ module Canon
         OverrideResolver.new(
           defaults: defaults,
           programmatic: {},
-          env: env
+          env: env,
         )
       end
     end
@@ -229,12 +229,31 @@ module Canon
         @resolver.set_programmatic(:algorithm, value)
       end
 
-      def show_compare
-        @resolver.resolve(:show_compare)
+      # File size limit in bytes (default 5MB)
+      def max_file_size
+        @resolver.resolve(:max_file_size)
       end
 
-      def show_compare=(value)
-        @resolver.set_programmatic(:show_compare, value)
+      def max_file_size=(value)
+        @resolver.set_programmatic(:max_file_size, value)
+      end
+
+      # Maximum node count in tree (default 10,000)
+      def max_node_count
+        @resolver.resolve(:max_node_count)
+      end
+
+      def max_node_count=(value)
+        @resolver.set_programmatic(:max_node_count, value)
+      end
+
+      # Maximum diff output lines (default 10,000)
+      def max_diff_lines
+        @resolver.resolve(:max_diff_lines)
+      end
+
+      def max_diff_lines=(value)
+        @resolver.set_programmatic(:max_diff_lines, value)
       end
 
       # Build diff options
@@ -247,7 +266,9 @@ module Canon
           show_diffs: show_diffs,
           verbose_diff: verbose_diff,
           diff_algorithm: algorithm,
-          show_compare: show_compare,
+          max_file_size: max_file_size,
+          max_node_count: max_node_count,
+          max_diff_lines: max_diff_lines,
         }
       end
 
@@ -262,7 +283,9 @@ module Canon
           show_diffs: :all,
           verbose_diff: false,
           algorithm: :dom,
-          show_compare: false,
+          max_file_size: 5_242_880, # 5MB in bytes
+          max_node_count: 10_000,   # Maximum nodes in tree
+          max_diff_lines: 10_000,   # Maximum diff output lines
         }
 
         env = format ? EnvProvider.load_diff_for_format(format) : {}
@@ -270,7 +293,7 @@ module Canon
         OverrideResolver.new(
           defaults: defaults,
           programmatic: {},
-          env: env
+          env: env,
         )
       end
     end

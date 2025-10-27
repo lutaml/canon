@@ -90,9 +90,9 @@ module Canon
               similarity_threshold: @match_options[:similarity_threshold] || 0.95,
               hash_matching: @match_options.fetch(:hash_matching, true),
               similarity_matching: @match_options.fetch(:similarity_matching,
-                                                          true),
+                                                        true),
               propagation: @match_options.fetch(:propagation, true),
-              attribute_order: @match_options[:attribute_order] || :strict,
+              attribute_order: @match_options[:attribute_order] || :ignore,
             },
           )
         end
@@ -132,7 +132,7 @@ module Canon
           # Simple pattern: add newline between adjacent tags
           [
             xml1.gsub(/></, ">\n<"),
-            xml2.gsub(/></, ">\n<")
+            xml2.gsub(/></, ">\n<"),
           ]
         end
 
@@ -145,8 +145,23 @@ module Canon
         # @param doc2 [Object] Second HTML document
         # @return [Array<String>] Preprocessed strings
         def preprocess_html(doc1, doc2)
-          html1 = doc1.respond_to?(:to_html) ? doc1.to_html : doc1.to_s
-          html2 = doc2.respond_to?(:to_html) ? doc2.to_html : doc2.to_s
+          # For XML::DocumentFragment (from parse_node_as_fragment), use to_s
+          # to avoid Nokogiri auto-inserting meta tags during to_html serialization
+          html1 = if doc1.is_a?(Nokogiri::XML::DocumentFragment)
+                    doc1.to_s
+                  elsif doc1.respond_to?(:to_html)
+                    doc1.to_html
+                  else
+                    doc1.to_s
+                  end
+
+          html2 = if doc2.is_a?(Nokogiri::XML::DocumentFragment)
+                    doc2.to_s
+                  elsif doc2.respond_to?(:to_html)
+                    doc2.to_html
+                  else
+                    doc2.to_s
+                  end
 
           # KEY FIX: Use simple gsub, NOT Canon.format
           # This ensures proper line-by-line display matching DOM diff format
