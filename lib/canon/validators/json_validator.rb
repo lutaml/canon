@@ -17,7 +17,9 @@ module Canon
       # @raise [Canon::ValidationError] If JSON is malformed
       # @return [void]
       def self.validate!(input)
-        return if input.nil? || input.strip.empty?
+        return if input.nil?
+        return if input.is_a?(Hash) || input.is_a?(Array) # Already parsed
+        return if input.strip.empty?
 
         JSON.parse(input)
       rescue JSON::ParserError => e

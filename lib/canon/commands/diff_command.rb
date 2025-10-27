@@ -20,6 +20,10 @@ module Canon
         format1 = @options[:format1] || @options[:format] || detect_format(file1)
         format2 = @options[:format2] || @options[:format] || detect_format(file2)
 
+        # Check file sizes before reading
+        check_file_size(file1, format1)
+        check_file_size(file2, format2)
+
         # Read raw content for potential by-line diff
         content1 = File.read(file1)
         content2 = File.read(file2)
@@ -207,6 +211,41 @@ module Canon
         else
           abort "Error: Cannot detect format from extension '#{ext}'. " \
                 "Please specify --format (xml, html, json, or yaml)"
+        end
+      end
+
+      # Check if file size exceeds configured limit
+      #
+      # @param filename [String] Path to file
+      # @param format [Symbol] File format
+      # @raise [Canon::SizeLimitExceededError] if file exceeds limit
+      def check_file_size(filename, format)
+        file_size = File.size(filename)
+        max_size = get_max_file_size(format)
+
+        return unless max_size && max_size.positive?
+        return if file_size <= max_size
+
+        raise Canon::SizeLimitExceededError.new(:file_size, file_size, max_size)
+      end
+
+      # Get max file size limit for format
+      #
+      # @param format [Symbol] File format
+      # @return [Integer, nil] Max file size in bytes
+      def get_max_file_size(format)
+        config = Canon::Config.instance
+        case format
+        when :xml
+          config.xml.diff.max_file_size
+        when :html
+          config.html.diff.max_file_size
+        when :json
+          config.json.diff.max_file_size
+        when :yaml
+          config.yaml.diff.max_file_size
+        else
+          5_242_880 # Default 5MB
         end
       end
     end

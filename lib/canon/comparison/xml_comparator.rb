@@ -138,9 +138,8 @@ module Canon
 
           # Create strategy using factory
           strategy = Strategies::MatchStrategyFactory.create(
-            :semantic_tree,
-            :xml,
-            match_opts_hash,
+            format: :xml,
+            match_options: match_opts_hash,
           )
 
           # Perform matching - returns DiffNodes

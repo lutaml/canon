@@ -91,13 +91,6 @@ RSpec.describe "ENV override system" do
     end
 
     context "all diff attributes" do
-      it "supports show_compare ENV override" do
-        ENV["CANON_XML_DIFF_SHOW_COMPARE"] = "true"
-        config = Canon::Config.new
-
-        expect(config.xml.diff.show_compare).to be true
-      end
-
       it "supports verbose_diff ENV override" do
         ENV["CANON_VERBOSE_DIFF"] = "true"
         config = Canon::Config.new

@@ -14,13 +14,17 @@ module Canon
         show_diffs: :symbol,
         verbose_diff: :boolean,
         algorithm: :symbol,
-        show_compare: :boolean,
 
         # MatchConfig attributes
         profile: :symbol,
 
         # FormatConfig attributes
         preprocessing: :string,
+
+        # Size limits to prevent hangs on large files
+        max_file_size: :integer,
+        max_node_count: :integer,
+        max_diff_lines: :integer,
       }.freeze
 
       class << self
@@ -38,7 +42,7 @@ module Canon
 
         def all_diff_attributes
           %i[mode use_color context_lines grouping_lines show_diffs
-             verbose_diff algorithm show_compare]
+             verbose_diff algorithm max_file_size max_node_count max_diff_lines]
         end
 
         def all_match_attributes

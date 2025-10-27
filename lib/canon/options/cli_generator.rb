@@ -25,7 +25,7 @@ module Canon
 
           thor_class.method_option(
             opt[:name],
-            **thor_opts
+            **thor_opts,
           )
         end
 

@@ -49,6 +49,12 @@ module Canon
         header hgroup hr li main nav ol p pre section table tbody
         td tfoot th thead tr ul
       ].freeze
+
+      # HTML elements where whitespace is semantically significant
+      # and should NOT be normalized
+      WHITESPACE_SENSITIVE_ELEMENTS = %w[
+        pre code textarea script style
+      ].freeze
       # Format HTML using canonical form
       # @param html [String] HTML document to canonicalize
       # @return [String] Canonical form of HTML
@@ -108,6 +114,13 @@ module Canon
         doc.traverse do |node|
           next unless node.text?
 
+          # CRITICAL: Skip normalization for whitespace-sensitive elements
+          # In elements like <pre>, <code>, etc., whitespace is semantically
+          # significant and must be preserved exactly as-is
+          if whitespace_sensitive_element?(node.parent)
+            next
+          end
+
           # Handle whitespace-only text nodes
           if node.text.strip.empty? && node.parent&.element?
             # Check if this text node is between block-level elements
@@ -156,8 +169,26 @@ module Canon
         node&.element? && BLOCK_ELEMENTS.include?(node.name.downcase)
       end
 
+      # Check if a node is a whitespace-sensitive element
+      # @param node [Nokogiri::XML::Node, nil] Node to check
+      # @return [Boolean] true if node is whitespace-sensitive
+      def self.whitespace_sensitive_element?(node)
+        return false unless node&.element?
+
+        # Check if this element or any ancestor is whitespace-sensitive
+        current = node
+        while current
+          if current.element? && WHITESPACE_SENSITIVE_ELEMENTS.include?(current.name.downcase)
+            return true
+          end
+          current = current.parent
+        end
+        false
+      end
+
       private_class_method :sort_attributes, :normalize_whitespace,
-                           :ensure_block_element_spacing, :block_element?
+                           :ensure_block_element_spacing, :block_element?,
+                           :whitespace_sensitive_element?
     end
   end
 end

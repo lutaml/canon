@@ -252,6 +252,7 @@ module Canon
         # @return [String] Formatted context
         def format_context(context, diffs, base_line1, base_line2)
           output = []
+          max_lines = get_max_diff_lines
 
           (context.start_idx..context.end_idx).each do |idx|
             change = diffs[idx]
@@ -274,6 +275,14 @@ module Canon
               output << format_changed_line(line1, line2,
                                             change.old_element,
                                             change.new_element)
+            end
+
+            # Check if we've exceeded the line limit
+            if max_lines && max_lines.positive? && output.size >= max_lines
+              output << ""
+              output << colorize("... Output truncated at #{max_lines} lines ...", :yellow, :bold)
+              output << colorize("Increase limit via CANON_MAX_DIFF_LINES or config.diff.max_diff_lines", :yellow)
+              break
             end
           end
 
@@ -406,6 +415,16 @@ module Canon
           else
             visual
           end
+        end
+
+        # Get max diff lines limit
+        #
+        # @return [Integer, nil] Max diff output lines
+        def get_max_diff_lines
+          # Try to get from config if available
+          config = Canon::Config.instance
+          # Default to 10,000 if config not available
+          config&.xml&.diff&.max_diff_lines || 10_000
         end
       end
     end

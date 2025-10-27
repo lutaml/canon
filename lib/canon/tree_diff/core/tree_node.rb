@@ -348,7 +348,7 @@ module Canon
         # @return [String] XPath expression
         def xpath
           # If we have a source node that supports xpath, use it
-          if @source_node && @source_node.respond_to?(:path)
+          if @source_node.respond_to?(:path)
             return @source_node.path
           end
 
@@ -366,14 +366,13 @@ module Canon
           while node
             if node.parent
               # Get position among siblings with same label
-              siblings = node.parent.children.select { |c| c.label == node.label }
-              position = siblings.index(node)
-
-              if siblings.size > 1
-                segments.unshift("#{node.label}[#{position}]")
-              else
-                segments.unshift(node.label)
+              siblings = node.parent.children.select do |c|
+                c.label == node.label
               end
+              position = siblings.index(node) + 1 # 1-based indexing for XPath
+
+              # Always include index for clarity and precision
+              segments.unshift("#{node.label}[#{position}]")
             else
               segments.unshift(node.label)
             end
@@ -381,7 +380,7 @@ module Canon
             node = node.parent
           end
 
-          "/" + segments.join("/")
+          "/#{segments.join('/')}"
         end
 
         # Deep clone this node and its subtree

@@ -51,11 +51,12 @@ module Canon
           # Check for semantic diff option
           if match_options[:semantic_diff]
             require_relative "semantic_tree_match_strategy"
-            SemanticTreeMatchStrategy.new(format, match_options)
+            SemanticTreeMatchStrategy.new(format: format,
+                                          match_options: match_options)
           else
             # Default to DOM matching
             require_relative "dom_match_strategy"
-            DomMatchStrategy.new(format, match_options)
+            DomMatchStrategy.new(format: format, match_options: match_options)
           end
 
           # Future: Add more strategies here

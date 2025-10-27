@@ -25,13 +25,13 @@ module Canon
       # - Automatic ancestor propagation
       # - Handles both element and text nodes
       class HashMatcher
-        attr_reader :tree1, :tree2, :matching
+        attr_reader :tree1, :tree2, :matching, :match_options
 
         # Initialize matcher with two trees
         #
         # @param tree1 [TreeNode] First tree root
         # @param tree2 [TreeNode] Second tree root
-        # @param options [Hash] Match options
+        # @param options [Hash] Match options (includes text_content, attribute_order, etc.)
         def initialize(tree1, tree2, options = {})
           @tree1 = tree1
           @tree2 = tree2
@@ -40,8 +40,9 @@ module Canon
           @matched_tree1 = Set.new
           @matched_tree2 = Set.new
           @options = options
+          @match_options = options # Store full match options for text comparison
           @attribute_comparator = Core::AttributeComparator.new(
-            attribute_order: options[:attribute_order] || :strict,
+            attribute_order: options[:attribute_order] || :ignore,
           )
         end
 
@@ -156,15 +157,63 @@ module Canon
 
         # Check if two nodes match (not including subtrees)
         #
+        # Uses normalized text comparison based on match_options.
+        #
         # @param node1 [TreeNode] Node from tree1
         # @param node2 [TreeNode] Node from tree2
         # @return [Boolean]
         def nodes_match?(node1, node2)
           return false unless node1.label == node2.label
-          return false unless node1.value == node2.value
-          return false unless @attribute_comparator.equal?(node1.attributes, node2.attributes)
+
+          # CRITICAL FIX: Use normalized text comparison
+          return false unless text_equivalent?(node1, node2)
+
+          return false unless @attribute_comparator.equal?(node1.attributes,
+                                                           node2.attributes)
 
           true
+        end
+
+        # Check if text values are equivalent according to match options
+        #
+        # Same logic as in OperationDetector for consistency.
+        #
+        # @param node1 [TreeNode] First node
+        # @param node2 [TreeNode] Second node
+        # @return [Boolean] True if text values are equivalent
+        def text_equivalent?(node1, node2)
+          text1 = node1.value
+          text2 = node2.value
+
+          # Both nil or empty = equivalent
+          return true if (text1.nil? || text1.empty?) && (text2.nil? || text2.empty?)
+          return false if (text1.nil? || text1.empty?) || (text2.nil? || text2.empty?)
+
+          # If both normalize to empty (whitespace-only), treat as equivalent
+          norm1 = normalize_text(text1)
+          norm2 = normalize_text(text2)
+          return true if norm1.empty? && norm2.empty?
+
+          # Apply normalization based on match_options
+          text_content_mode = @match_options[:text_content] || :normalize
+
+          case text_content_mode
+          when :strict
+            text1 == text2
+          when :normalize, :normalized
+            norm1 == norm2
+          else
+            norm1 == norm2
+          end
+        end
+
+        # Normalize text for comparison
+        #
+        # @param text [String, nil] Text to normalize
+        # @return [String] Normalized text
+        def normalize_text(text)
+          return "" if text.nil? || text.empty?
+          text.gsub(/\s+/, ' ').strip
         end
 
         # Propagate match to ancestors if possible
