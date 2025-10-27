@@ -17,8 +17,12 @@ module Canon
           return "" if differences.empty?
 
           # Group differences by normative status
-          normative = differences.select { |diff| diff.respond_to?(:normative?) ? diff.normative? : true }
-          informative = differences.select { |diff| diff.respond_to?(:normative?) && !diff.normative? }
+          normative = differences.select do |diff|
+            diff.respond_to?(:normative?) ? diff.normative? : true
+          end
+          informative = differences.select do |diff|
+            diff.respond_to?(:normative?) && !diff.normative?
+          end
 
           output = []
           output << ""
@@ -31,7 +35,9 @@ module Canon
           # Show normative differences first
           if normative.any?
             output << ""
-            output << colorize("┌─ NORMATIVE DIFFERENCES (#{normative.length}) ─┐", :green, use_color, bold: true)
+            output << colorize(
+              "┌─ NORMATIVE DIFFERENCES (#{normative.length}) ─┐", :green, use_color, bold: true
+            )
 
             normative.each_with_index do |diff, i|
               output << ""
@@ -44,7 +50,9 @@ module Canon
           if informative.any?
             output << ""
             output << ""
-            output << colorize("┌─ INFORMATIVE DIFFERENCES (#{informative.length}) ─┐", :yellow, use_color, bold: true)
+            output << colorize(
+              "┌─ INFORMATIVE DIFFERENCES (#{informative.length}) ─┐", :yellow, use_color, bold: true
+            )
 
             informative.each_with_index do |diff, i|
               output << ""
@@ -231,29 +239,31 @@ module Canon
 
           # Determine operation type
           if node1.nil? && !node2.nil?
-            # INSERT operation
+            # INSERT operation - show content preview
             element_name = node2.respond_to?(:name) ? node2.name : "element"
+            content_preview = extract_content_preview(node2, 50)
             detail1 = colorize("(not present)", :red, use_color)
-            detail2 = "<#{element_name}>"
+            detail2 = content_preview
             changes = "Element inserted"
           elsif !node1.nil? && node2.nil?
-            # DELETE operation
+            # DELETE operation - show content preview
             element_name = node1.respond_to?(:name) ? node1.name : "element"
-            detail1 = "<#{element_name}>"
+            content_preview = extract_content_preview(node1, 50)
+            detail1 = content_preview
             detail2 = colorize("(not present)", :green, use_color)
             changes = "Element deleted"
           elsif !node1.nil? && !node2.nil?
-            # STRUCTURAL CHANGE (both nodes present)
+            # STRUCTURAL CHANGE (both nodes present) - show both previews
             name1 = node1.respond_to?(:name) ? node1.name : "element"
             name2 = node2.respond_to?(:name) ? node2.name : "element"
-            detail1 = "<#{name1}>"
-            detail2 = "<#{name2}>"
+            detail1 = extract_content_preview(node1, 50)
+            detail2 = extract_content_preview(node2, 50)
 
-            if name1 == name2
-              changes = "Element structure changed"
-            else
-              changes = "Element type changed: #{name1} → #{name2}"
-            end
+            changes = if name1 == name2
+                        "Element structure changed"
+                      else
+                        "Element type changed: #{name1} → #{name2}"
+                      end
           else
             # Both nil (shouldn't happen)
             detail1 = "(nil)"
@@ -331,11 +341,14 @@ module Canon
               val2 = get_attribute_value(node2, attr)
 
               if val1.empty? && !val2.empty?
-                "#{colorize(attr, :cyan, use_color)}: (added) → \"#{escape_quotes(val2)}\""
+                "#{colorize(attr, :cyan,
+                            use_color)}: (added) → \"#{escape_quotes(val2)}\""
               elsif !val1.empty? && val2.empty?
-                "#{colorize(attr, :cyan, use_color)}: \"#{escape_quotes(val1)}\" → (removed)"
+                "#{colorize(attr, :cyan,
+                            use_color)}: \"#{escape_quotes(val1)}\" → (removed)"
               else
-                "#{colorize(attr, :cyan, use_color)}: \"#{escape_quotes(val1)}\" → \"#{escape_quotes(val2)}\""
+                "#{colorize(attr, :cyan,
+                            use_color)}: \"#{escape_quotes(val1)}\" → \"#{escape_quotes(val2)}\""
               end
             end
 
@@ -361,8 +374,12 @@ module Canon
           attrs1_str = "[#{attrs1.join(', ')}]"
           attrs2_str = "[#{attrs2.join(', ')}]"
 
-          detail1 = "<#{node1.name}> attributes in order: #{colorize(attrs1_str, :cyan, use_color)}"
-          detail2 = "<#{node2.name}> attributes in order: #{colorize(attrs2_str, :cyan, use_color)}"
+          detail1 = "<#{node1.name}> attributes in order: #{colorize(
+            attrs1_str, :cyan, use_color
+          )}"
+          detail2 = "<#{node2.name}> attributes in order: #{colorize(
+            attrs2_str, :cyan, use_color
+          )}"
 
           changes = "Attribute order changed: #{attrs1_str} → #{attrs2_str}"
 
@@ -518,8 +535,8 @@ module Canon
 
           # Find all attributes with different values
           all_keys = (attrs1.keys + attrs2.keys).uniq
-          all_keys.select do |key|
-            attrs1[key] != attrs2[key]
+          all_keys.reject do |key|
+            attrs1[key] == attrs2[key]
           end
         end
 
@@ -687,6 +704,56 @@ module Canon
           else
             node.class.name
           end
+        end
+
+        # Helper: Extract content preview from a node
+        # Shows element name, attributes, and text content for clarity
+        def extract_content_preview(node, max_length = 50)
+          return "(nil)" if node.nil?
+
+          parts = []
+
+          # Add element name
+          if node.respond_to?(:name)
+            parts << "<#{node.name}>"
+          end
+
+          # Add key attributes (id, class, name, type)
+          if node.respond_to?(:attributes) && node.attributes&.any?
+            key_attrs = %w[id class name type]
+            attrs_hash = get_attributes_hash(node)
+
+            key_attr_strs = key_attrs.map do |key|
+              next unless attrs_hash.key?(key)
+              val = attrs_hash[key]
+              next if val.nil? || val.empty?
+
+              # Truncate long attribute values
+              val_preview = val.length > 20 ? "#{val[0..17]}..." : val
+              "#{key}=\"#{val_preview}\""
+            end.compact
+
+            parts << "[#{key_attr_strs.join(' ')}]" if key_attr_strs.any?
+          end
+
+          # Add text content preview
+          text = get_node_text(node)
+          if text && !text.empty?
+            text_preview = text.strip
+            # Only show text if meaningful (not just whitespace)
+            if text_preview.length > 0
+              text_preview = text_preview.length > 40 ? "#{text_preview[0..37]}..." : text_preview
+              parts << "\"#{text_preview}\""
+            end
+          elsif node.respond_to?(:children) && node.children&.any?
+            # Show child count if no text but has children
+            parts << "(#{node.children.length} children)"
+          end
+
+          result = parts.join(" ")
+
+          # Truncate if still too long
+          result.length > max_length ? "#{result[0...max_length - 3]}..." : result
         end
 
         # Helper: Colorize text

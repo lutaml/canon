@@ -21,7 +21,8 @@ module Canon
 
         # Load environment overrides for a specific format's format config
         def load_format_for_format(format)
-          load_config_for_format(format, :format, EnvSchema.all_format_attributes)
+          load_config_for_format(format, :format,
+                                 EnvSchema.all_format_attributes)
         end
 
         # Load global environment overrides (apply to all formats)

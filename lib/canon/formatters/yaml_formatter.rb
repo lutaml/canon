@@ -15,6 +15,9 @@ module Canon
       def self.parse(yaml)
         # Validate before parsing
         Canon::Validators::YamlValidator.validate!(yaml)
+        # Return as-is if already parsed
+        return yaml if yaml.is_a?(Hash) || yaml.is_a?(Array)
+
         YAML.safe_load(yaml, permitted_classes: [Symbol, Date, Time])
       end
 

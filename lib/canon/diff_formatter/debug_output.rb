@@ -60,7 +60,8 @@ module Canon
           return "MATCH OPTIONS: (not available)" unless comparison_result.match_options
 
           # Filter out internal tree_diff metadata keys that should not be displayed
-          internal_keys = %i[tree_diff_operations tree_diff_statistics tree_diff_matching]
+          internal_keys = %i[tree_diff_operations tree_diff_statistics
+                             tree_diff_matching]
 
           rows = comparison_result.match_options.reject do |dimension, _behavior|
             internal_keys.include?(dimension)

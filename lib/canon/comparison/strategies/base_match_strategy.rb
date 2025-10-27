@@ -32,7 +32,7 @@ module Canon
         #
         # @param format [Symbol] Document format (:xml, :html, :json, :yaml)
         # @param match_options [Hash] Match options for comparison
-        def initialize(format, match_options)
+        def initialize(format:, match_options:)
           @format = format
           @match_options = match_options
         end

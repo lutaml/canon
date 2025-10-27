@@ -19,7 +19,9 @@ module Canon
       # @raise [Canon::ValidationError] If YAML is malformed
       # @return [void]
       def self.validate!(input)
-        return if input.nil? || input.strip.empty?
+        return if input.nil?
+        return if input.is_a?(Hash) || input.is_a?(Array) # Already parsed
+        return if input.strip.empty?
 
         YAML.safe_load(input, permitted_classes: [Symbol, Date, Time])
       rescue Psych::SyntaxError => e

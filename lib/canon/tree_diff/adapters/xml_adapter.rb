@@ -20,6 +20,15 @@ module Canon
       #   tree = adapter.to_tree(xml)
       #
       class XMLAdapter
+        attr_reader :match_options
+
+        # Initialize adapter with match options
+        #
+        # @param match_options [Hash] Match options for text/attribute normalization
+        def initialize(match_options: {})
+          @match_options = match_options
+        end
+
         # Convert Nokogiri XML document/element to TreeNode
         #
         # @param node [Nokogiri::XML::Document, Nokogiri::XML::Element] XML node
@@ -96,15 +105,31 @@ module Canon
 
         # Extract direct text content from element
         #
+        # Preserves original text for proper normalization during comparison.
+        # Normalization happens in OperationDetector based on match_options,
+        # NOT during tree conversion.
+        #
+        # For mixed content (text nodes + child elements), joins text nodes
+        # with a space to prevent text from running together when elements
+        # like <br/> separate the text.
+        #
         # @param element [Nokogiri::XML::Element] XML element
         # @return [String, nil] Text content or nil
         def extract_text_value(element)
           # Get only direct text nodes, not from nested elements
           text_nodes = element.children.select(&:text?)
-          text = text_nodes.map(&:text).join
 
-          # Return nil for empty/whitespace-only text
-          text.strip.empty? ? nil : text.strip
+          # For mixed content (has both text nodes and element children),
+          # join text nodes with space to handle implicit whitespace around
+          # block-level elements like <br/>
+          # Example: "Text<br/>More" should become "Text More" not "TextMore"
+          separator = element.element_children.any? ? " " : ""
+          text = text_nodes.map(&:text).join(separator)
+
+          # CRITICAL FIX: Return original text without stripping
+          # Normalization will be applied during comparison based on match_options
+          # Only return nil for truly empty text
+          text.empty? ? nil : text
         end
 
         # Build Nokogiri element from TreeNode

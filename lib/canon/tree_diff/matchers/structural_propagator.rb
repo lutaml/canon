@@ -187,6 +187,13 @@ module Canon
             child1 = nodes1.first
             child2 = nodes2.first
 
+            # CRITICAL: For whitespace-sensitive elements, check text values match
+            # Don't auto-match <pre>, <code>, etc. with different whitespace
+            if whitespace_sensitive?(child1) || whitespace_sensitive?(child2)
+              # For whitespace-sensitive elements, text must match exactly
+              next unless child1.value == child2.value
+            end
+
             # Check propagation depth
             weight1 = Core::NodeWeight.for(child1).value
             depth = propagation_depth(weight1)
@@ -196,6 +203,27 @@ module Canon
             # Try to match
             @matching.add(child1, child2)
           end
+        end
+
+        # Check if a node is whitespace-sensitive
+        #
+        # HTML elements where whitespace is significant: <pre>, <code>, <textarea>, <script>, <style>
+        #
+        # @param node [TreeNode] Node to check
+        # @return [Boolean] True if node is whitespace-sensitive
+        def whitespace_sensitive?(node)
+          return false unless node
+
+          # List of HTML elements where whitespace is semantically significant
+          whitespace_sensitive_tags = %w[pre code textarea script style]
+
+          # Check if this node is whitespace-sensitive
+          if node.respond_to?(:label)
+            label = node.label.to_s.downcase
+            return true if whitespace_sensitive_tags.include?(label)
+          end
+
+          false
         end
 
         # Calculate propagation depth based on node weight

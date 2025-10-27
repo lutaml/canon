@@ -9,13 +9,15 @@ RSpec.describe "Semantic Diff Integration" do
       let(:xml2) { "<root><item>Hello</item></root>" }
 
       it "returns true for identical documents" do
-        result = Canon::Comparison.equivalent?(xml1, xml2, diff_algorithm: :semantic)
+        result = Canon::Comparison.equivalent?(xml1, xml2,
+                                               diff_algorithm: :semantic)
         expect(result).to be true
       end
 
       it "returns false for different documents" do
         xml_different = "<root><item>Goodbye</item></root>"
-        result = Canon::Comparison.equivalent?(xml1, xml_different, diff_algorithm: :semantic)
+        result = Canon::Comparison.equivalent?(xml1, xml_different,
+                                               diff_algorithm: :semantic)
         expect(result).to be false
       end
 
@@ -103,8 +105,8 @@ RSpec.describe "Semantic Diff Integration" do
       end
 
       it "can detect element structure changes" do
-        xml_added = '<root><item>New</item></root>'
-        xml_empty = '<root></root>'
+        xml_added = "<root><item>New</item></root>"
+        xml_empty = "<root></root>"
 
         result = Canon::Comparison.equivalent?(
           xml_empty, xml_added,
@@ -194,7 +196,8 @@ RSpec.describe "Semantic Diff Integration" do
       xml1 = "<root>Test</root>"
       xml2 = "<root>Test</root>"
 
-      result = Canon::Comparison.equivalent?(xml1, xml2, diff_algorithm: :semantic)
+      result = Canon::Comparison.equivalent?(xml1, xml2,
+                                             diff_algorithm: :semantic)
       expect(result).to be true
     end
 
@@ -202,7 +205,8 @@ RSpec.describe "Semantic Diff Integration" do
       json1 = '{"test": "value"}'
       json2 = '{"test": "value"}'
 
-      result = Canon::Comparison.equivalent?(json1, json2, diff_algorithm: :semantic)
+      result = Canon::Comparison.equivalent?(json1, json2,
+                                             diff_algorithm: :semantic)
       expect(result).to be true
     end
 
@@ -210,7 +214,8 @@ RSpec.describe "Semantic Diff Integration" do
       yaml1 = "test: value"
       yaml2 = "test: value"
 
-      result = Canon::Comparison.equivalent?(yaml1, yaml2, diff_algorithm: :semantic)
+      result = Canon::Comparison.equivalent?(yaml1, yaml2,
+                                             diff_algorithm: :semantic)
       expect(result).to be true
     end
   end

@@ -98,8 +98,10 @@ RSpec.describe "Canon TreeDiff Integration" do
       expect(result.equivalent?).to be false
       expect(result.differences).not_to be_empty
 
-      # Check that we have an insert operation
-      insert_diffs = result.differences.select { |d| d[:type] == :insert }
+      # Check that we have an insert operation (node1 nil, node2 present)
+      insert_diffs = result.differences.select do |d|
+        d.node1.nil? && !d.node2.nil?
+      end
       expect(insert_diffs).not_to be_empty
     end
 
@@ -117,8 +119,10 @@ RSpec.describe "Canon TreeDiff Integration" do
       expect(result.equivalent?).to be false
       expect(result.differences).not_to be_empty
 
-      # Check that we have a delete operation
-      delete_diffs = result.differences.select { |d| d[:type] == :delete }
+      # Check that we have a delete operation (node1 present, node2 nil)
+      delete_diffs = result.differences.select do |d|
+        !d.node1.nil? && d.node2.nil?
+      end
       expect(delete_diffs).not_to be_empty
     end
 
@@ -136,8 +140,10 @@ RSpec.describe "Canon TreeDiff Integration" do
       expect(result.equivalent?).to be false
       expect(result.differences).not_to be_empty
 
-      # Check that we have an update operation
-      update_diffs = result.differences.select { |d| d[:type] == :update }
+      # Check that we have an update operation (both node1 and node2 present)
+      update_diffs = result.differences.select do |d|
+        !d.node1.nil? && !d.node2.nil?
+      end
       expect(update_diffs).not_to be_empty
     end
 
@@ -214,10 +220,13 @@ RSpec.describe "Canon TreeDiff Integration" do
       expect(result.equivalent?).to be false
       expect(result.differences).not_to be_empty
 
-      # Should detect email update and chapter insertion
-      operation_types = result.differences.map { |d| d[:type] }.uniq
-      expect(operation_types).to include(:update)
-      expect(operation_types).to include(:insert)
+      # Should detect email update (both nodes present) and chapter insertion (node1 nil)
+      has_update = result.differences.any? do |d|
+        !d.node1.nil? && !d.node2.nil?
+      end
+      has_insert = result.differences.any? { |d| d.node1.nil? && !d.node2.nil? }
+      expect(has_update).to be true
+      expect(has_insert).to be true
     end
   end
 

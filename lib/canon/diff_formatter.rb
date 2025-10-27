@@ -281,16 +281,11 @@ module Canon
     # Format comparison result from Canon::Comparison.equivalent?
     # This is the single entry point for generating diffs from comparison results
     #
-    # @param comparison_result [ComparisonResult, CombinedComparisonResult, Hash, Array, Boolean] Result from Canon::Comparison.equivalent?
+    # @param comparison_result [ComparisonResult, Hash, Array, Boolean] Result from Canon::Comparison.equivalent?
     # @param expected [Object] Expected value
     # @param actual [Object] Actual value
     # @return [String] Formatted diff output
     def format_comparison_result(comparison_result, expected, actual)
-      # Handle CombinedComparisonResult (both algorithms) by formatting each sequentially
-      if comparison_result.is_a?(Canon::Comparison::CombinedComparisonResult)
-        return format_combined_comparison_result(comparison_result, expected, actual)
-      end
-
       # Detect format from expected content
       format = Canon::Comparison.send(:detect_format, expected)
 
@@ -360,38 +355,6 @@ module Canon
                                             html_version: html_version)
 
       output.compact.join("\n")
-    end
-
-    # Format combined comparison result (both algorithms)
-    # Renders each algorithm's result sequentially
-    #
-    # @param combined_result [CombinedComparisonResult] Result containing both DOM and Tree diffs
-    # @param expected [Object] Expected value
-    # @param actual [Object] Actual value
-    # @return [String] Formatted diff output for both algorithms
-    def format_combined_comparison_result(combined_result, expected, actual)
-      output = []
-
-      # Add header for combined results
-      output << colorize("=" * 80, :cyan)
-      output << colorize("RUNNING BOTH ALGORITHMS", :cyan, :bold)
-      output << colorize("=" * 80, :cyan)
-      output << ""
-
-      # Format each result individually
-      combined_result.results.each_with_index do |result, index|
-        # Add separator between results
-        if index > 0
-          output << ""
-          output << colorize("=" * 80, :cyan)
-          output << ""
-        end
-
-        # Format this individual result
-        output << format_comparison_result(result, expected, actual)
-      end
-
-      output.join("\n")
     end
 
     private

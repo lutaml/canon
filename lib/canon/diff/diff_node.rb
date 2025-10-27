@@ -6,8 +6,8 @@ module Canon
     # This is created during the Comparison Layer and carries information about
     # which dimension caused the difference and whether it's normative or informative
     class DiffNode
-      attr_reader :node1, :node2, :dimension, :reason
-      attr_accessor :normative
+      attr_reader :node1, :node2
+      attr_accessor :dimension, :reason, :normative
 
       # @param node1 [Object] The first node being compared
       # @param node2 [Object] The second node being compared

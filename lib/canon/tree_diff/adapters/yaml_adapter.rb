@@ -25,6 +25,15 @@ module Canon
       #   tree = adapter.to_tree(yaml)
       #
       class YAMLAdapter
+        attr_reader :match_options
+
+        # Initialize adapter with match options
+        #
+        # @param match_options [Hash] Match options (for future use)
+        def initialize(match_options: {})
+          @match_options = match_options
+        end
+
         # Convert YAML structure to TreeNode
         #
         # @param data [Hash, Array, String, Numeric, Boolean, nil] YAML data

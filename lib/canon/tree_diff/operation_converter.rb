@@ -29,49 +29,59 @@ module Canon
         downgrade: :element_hierarchy,
       }.freeze
 
+      # Metadata/presentation elements that should be treated as informative
+      # These elements don't affect semantic equivalence
+      METADATA_ELEMENTS = %w[
+        semx fmt-concept fmt-name fmt-title fmt-xref fmt-eref
+        fmt-termref fmt-element-name fmt-link autonum
+        meta link base title style script
+      ].freeze
+
       attr_reader :format, :match_options
 
       # Initialize converter
       #
       # @param format [Symbol] Document format (:xml, :html, :json, :yaml)
       # @param match_options [Hash] Match options for determining normative/informative
-    def initialize(format:, match_options: {})
-      @format = format
+      def initialize(format:, match_options: {})
+        @format = format
 
-      # Resolve match options using format-specific module
-      match_opts_hash = case format
-      when :xml, :html, :html4, :html5
-        Canon::Comparison::MatchOptions::Xml.resolve(
+        # Resolve match options using format-specific module
+        match_opts_hash = case format
+                          when :xml, :html, :html4, :html5
+                            Canon::Comparison::MatchOptions::Xml.resolve(
+                              format: format,
+                              match: match_options,
+                            )
+                          when :json
+                            Canon::Comparison::MatchOptions::Json.resolve(
+                              format: format,
+                              match: match_options,
+                            )
+                          when :yaml
+                            Canon::Comparison::MatchOptions::Yaml.resolve(
+                              format: format,
+                              match: match_options,
+                            )
+                          else
+                            raise ArgumentError, "Unknown format: #{format}"
+                          end
+
+        # Wrap in ResolvedMatchOptions
+        @match_options = Canon::Comparison::ResolvedMatchOptions.new(
+          match_opts_hash,
           format: format,
-          match: match_options
         )
-      when :json
-        Canon::Comparison::MatchOptions::Json.resolve(
-          format: format,
-          match: match_options
-        )
-      when :yaml
-        Canon::Comparison::MatchOptions::Yaml.resolve(
-          format: format,
-          match: match_options
-        )
-      else
-        raise ArgumentError, "Unknown format: #{format}"
       end
-
-      # Wrap in ResolvedMatchOptions
-      @match_options = Canon::Comparison::ResolvedMatchOptions.new(
-        match_opts_hash,
-        format: format
-      )
-    end
 
       # Convert array of Operations to array of DiffNodes
       #
       # @param operations [Array<Operation>] Operations to convert
       # @return [Array<DiffNode>] Converted diff nodes
       def convert(operations)
-        diff_nodes = operations.flat_map { |operation| convert_operation(operation) }
+        diff_nodes = operations.flat_map do |operation|
+          convert_operation(operation)
+        end
 
         # Post-process to detect attribute-order-only differences
         detect_attribute_order_diffs(diff_nodes)
@@ -117,9 +127,10 @@ module Canon
           node1: nil,
           node2: node2,
           dimension: :element_structure,
-          reason: build_insert_reason(operation)
+          reason: build_insert_reason(operation),
         )
-        diff_node.normative = determine_normative(:element_structure)
+        # Metadata elements are informative (don't affect equivalence)
+        diff_node.normative = metadata_element?(node2) ? false : determine_normative(:element_structure)
         diff_node
       end
 
@@ -134,9 +145,10 @@ module Canon
           node1: node1,
           node2: nil,
           dimension: :element_structure,
-          reason: build_delete_reason(operation)
+          reason: build_delete_reason(operation),
         )
-        diff_node.normative = determine_normative(:element_structure)
+        # Metadata elements are informative (don't affect equivalence)
+        diff_node.normative = metadata_element?(node1) ? false : determine_normative(:element_structure)
         diff_node
       end
 
@@ -151,56 +163,74 @@ module Canon
         node2 = extract_source_node(operation[:node2])
         changes = operation[:changes] || {}
 
+        # Check if nodes are metadata elements
+        is_metadata = metadata_element?(node1) || metadata_element?(node2)
+
         diff_nodes = []
 
         # Create separate DiffNode for each change dimension
         # This ensures each dimension can be classified independently
 
         if changes.key?(:attributes)
-          # Attribute value differences
+          # Attribute value differences - be specific about what changed
+          old_attrs = changes[:attributes][:old]
+          new_attrs = changes[:attributes][:new]
+          diff_details = build_attribute_diff_details(old_attrs, new_attrs)
+
           diff_node = Canon::Diff::DiffNode.new(
             node1: node1,
             node2: node2,
             dimension: :attribute_values,
-            reason: "attribute values differ"
+            reason: diff_details,
           )
-          diff_node.normative = determine_normative(:attribute_values)
+          diff_node.normative = is_metadata ? false : determine_normative(:attribute_values)
           diff_nodes << diff_node
         end
 
         if changes.key?(:attribute_order)
           # Attribute order differences
+          old_order = changes[:attribute_order][:old]
+          new_order = changes[:attribute_order][:new]
+
           diff_node = Canon::Diff::DiffNode.new(
             node1: node1,
             node2: node2,
             dimension: :attribute_order,
-            reason: "attribute order differs"
+            reason: "Attribute order changed: [#{old_order.join(', ')}] → [#{new_order.join(', ')}]",
           )
-          diff_node.normative = determine_normative(:attribute_order)
+          diff_node.normative = is_metadata ? false : determine_normative(:attribute_order)
           diff_nodes << diff_node
         end
 
         if changes.key?(:value)
-          # Text content differences
+          # Text content differences - show preview
+          old_val = changes[:value][:old] || ""
+          new_val = changes[:value][:new] || ""
+          preview_old = truncate_for_reason(old_val.to_s, 40)
+          preview_new = truncate_for_reason(new_val.to_s, 40)
+
           diff_node = Canon::Diff::DiffNode.new(
             node1: node1,
             node2: node2,
             dimension: :text_content,
-            reason: "text content differs"
+            reason: "Text content changed: \"#{preview_old}\" → \"#{preview_new}\"",
           )
-          diff_node.normative = determine_normative(:text_content)
+          diff_node.normative = is_metadata ? false : determine_normative(:text_content)
           diff_nodes << diff_node
         end
 
         if changes.key?(:label)
           # Element name differences
+          old_label = changes[:label][:old]
+          new_label = changes[:label][:new]
+
           diff_node = Canon::Diff::DiffNode.new(
             node1: node1,
             node2: node2,
             dimension: :element_structure,
-            reason: "element name differs"
+            reason: "Element name changed: <#{old_label}> → <#{new_label}>",
           )
-          diff_node.normative = determine_normative(:element_structure)
+          diff_node.normative = is_metadata ? false : determine_normative(:element_structure)
           diff_nodes << diff_node
         end
 
@@ -210,9 +240,9 @@ module Canon
             node1: node1,
             node2: node2,
             dimension: :text_content,
-            reason: "content differs"
+            reason: "content differs",
           )
-          diff_node.normative = determine_normative(:text_content)
+          diff_node.normative = is_metadata ? false : determine_normative(:text_content)
           diff_nodes << diff_node
         end
 
@@ -231,9 +261,11 @@ module Canon
           node1: node1,
           node2: node2,
           dimension: :element_position,
-          reason: build_move_reason(operation)
+          reason: build_move_reason(operation),
         )
-        diff_node.normative = determine_normative(:element_position)
+        # Metadata elements are informative (don't affect equivalence)
+        is_metadata = metadata_element?(node1) || metadata_element?(node2)
+        diff_node.normative = is_metadata ? false : determine_normative(:element_position)
         diff_node
       end
 
@@ -251,7 +283,7 @@ module Canon
           node1: node1,
           node2: node2,
           dimension: :element_structure,
-          reason: "merged #{operation[:nodes]&.length || 0} nodes"
+          reason: "merged #{operation[:nodes]&.length || 0} nodes",
         )
         diff_node.normative = true # Merges are structural changes, always normative
         diff_node
@@ -271,7 +303,7 @@ module Canon
           node1: node1,
           node2: node2,
           dimension: :element_structure,
-          reason: "split into #{operation[:results]&.length || 0} nodes"
+          reason: "split into #{operation[:results]&.length || 0} nodes",
         )
         diff_node.normative = true # Splits are structural changes, always normative
         diff_node
@@ -289,7 +321,7 @@ module Canon
           node1: node1,
           node2: node2,
           dimension: :element_hierarchy,
-          reason: "promoted to higher level"
+          reason: "promoted to higher level",
         )
         diff_node.normative = determine_normative(:element_hierarchy)
         diff_node
@@ -307,7 +339,7 @@ module Canon
           node1: node1,
           node2: node2,
           dimension: :element_hierarchy,
-          reason: "demoted to lower level"
+          reason: "demoted to lower level",
         )
         diff_node.normative = determine_normative(:element_hierarchy)
         diff_node
@@ -319,6 +351,7 @@ module Canon
       # @return [Object, nil] Source node (Nokogiri, Hash, etc.)
       def extract_source_node(tree_node)
         return nil if tree_node.nil?
+
         tree_node.respond_to?(:source_node) ? tree_node.source_node : tree_node
       end
 
@@ -367,10 +400,13 @@ module Canon
       # @return [String] Reason description
       def build_insert_reason(operation)
         node = operation[:node]
-        if node && node.respond_to?(:label)
-          "inserted <#{node.label}>"
+        content = operation[:content]
+
+        if node.respond_to?(:label)
+          # Include content preview for clarity
+          "Missing element: #{content || "<#{node.label}>"}"
         else
-          "inserted element"
+          "Missing element"
         end
       end
 
@@ -380,10 +416,13 @@ module Canon
       # @return [String] Reason description
       def build_delete_reason(operation)
         node = operation[:node]
-        if node && node.respond_to?(:label)
-          "deleted <#{node.label}>"
+        content = operation[:content]
+
+        if node.respond_to?(:label)
+          # Include content preview for clarity
+          "Extra element: #{content || "<#{node.label}>"}"
         else
-          "deleted element"
+          "Extra element"
         end
       end
 
@@ -426,14 +465,25 @@ module Canon
           node1 = delete_node.node1
           next unless node1.respond_to?(:name) && node1.respond_to?(:attributes)
 
+          # Skip if node has no attributes (can't be attribute order diff)
+          next if node1.attributes.nil? || node1.attributes.empty?
+
           # Find inserts with same element name at same position
           matching_insert = inserts.find do |insert_node|
             node2 = insert_node.node2
             next false unless node2.respond_to?(:name) && node2.respond_to?(:attributes)
             next false unless node1.name == node2.name
 
+            # Must have attributes to differ in order
+            next false if node2.attributes.nil? || node2.attributes.empty?
+
             # Check if they differ only in attribute order
-            attributes_equal_ignoring_order?(node1.attributes, node2.attributes)
+            next false unless attributes_equal_ignoring_order?(
+              node1.attributes, node2.attributes
+            )
+
+            # Ensure same content (text and children structure)
+            nodes_same_except_attr_order?(node1, node2)
           end
 
           next unless matching_insert
@@ -467,6 +517,82 @@ module Canon
 
         # Compare as sets (order-independent)
         attrs1.sort.to_h == attrs2.sort.to_h
+      end
+
+      # Check if two nodes are the same except for attribute order
+      #
+      # @param node1 [Nokogiri::XML::Node] First node
+      # @param node2 [Nokogiri::XML::Node] Second node
+      # @return [Boolean] True if nodes are same except attribute order
+      def nodes_same_except_attr_order?(node1, node2)
+        # Same text content
+        return false if node1.text != node2.text
+
+        # Same number of children
+        return false if node1.children.length != node2.children.length
+
+        # If has children, they should have same structure
+        if node1.children.any?
+          node1.children.zip(node2.children).all? do |child1, child2|
+            child1.name == child2.name
+          end
+        else
+          true
+        end
+      end
+
+      # Check if a node is a metadata/presentation element
+      #
+      # @param node [Object] Node to check (could be TreeNode or Nokogiri node)
+      # @return [Boolean] true if node is a metadata element
+      def metadata_element?(node)
+        return false if node.nil?
+
+        # Get element name from node
+        element_name = if node.respond_to?(:label)
+                        node.label  # TreeNode
+                       elsif node.respond_to?(:name)
+                         node.name   # Nokogiri node
+                       else
+                         return false
+                       end
+
+        # Check if it's in our metadata elements list
+        METADATA_ELEMENTS.include?(element_name)
+      end
+
+      # Build detailed reason for attribute differences
+      #
+      # @param old_attrs [Hash] Old attributes
+      # @param new_attrs [Hash] New attributes
+      # @return [String] Detailed reason
+      def build_attribute_diff_details(old_attrs, new_attrs)
+        old_keys = Set.new(old_attrs.keys)
+        new_keys = Set.new(new_attrs.keys)
+
+        missing = old_keys - new_keys
+        extra = new_keys - old_keys
+        changed = (old_keys & new_keys).select { |k| old_attrs[k] != new_attrs[k] }
+
+        parts = []
+        parts << "Missing: #{missing.to_a.join(', ')}" if missing.any?
+        parts << "Extra: #{extra.to_a.join(', ')}" if extra.any?
+        parts << "Changed: #{changed.map { |k| "#{k}=\"#{truncate_for_reason(old_attrs[k], 20)}\" → \"#{truncate_for_reason(new_attrs[k], 20)}\"" }.join(', ')}" if changed.any?
+
+        parts.any? ? "Attributes differ (#{parts.join('; ')})" : "Attribute values differ"
+      end
+
+      # Truncate text for reason messages
+      #
+      # @param text [String] Text to truncate
+      # @param max_length [Integer] Maximum length
+      # @return [String] Truncated text
+      def truncate_for_reason(text, max_length)
+        return "" if text.nil?
+        text = text.to_s
+        return text if text.length <= max_length
+
+        "#{text[0...max_length - 3]}..."
       end
     end
   end

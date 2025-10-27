@@ -71,7 +71,8 @@ module Canon
 
           # Use tree diff if semantic_diff option is enabled
           if match_opts.semantic_diff?
-            return perform_semantic_tree_diff(html1, html2, opts, match_opts_hash)
+            return perform_semantic_tree_diff(html1, html2, opts,
+                                              match_opts_hash)
           end
 
           # Create child_opts with resolved options
@@ -92,8 +93,10 @@ module Canon
 
           # DocumentFragment nodes need special handling - compare their children
           # instead of the fragment nodes themselves
-          if node1.is_a?(Nokogiri::HTML4::DocumentFragment) &&
-              node2.is_a?(Nokogiri::HTML4::DocumentFragment)
+          if (node1.is_a?(Nokogiri::HTML4::DocumentFragment) ||
+              node1.is_a?(Nokogiri::XML::DocumentFragment)) &&
+              (node2.is_a?(Nokogiri::HTML4::DocumentFragment) ||
+              node2.is_a?(Nokogiri::XML::DocumentFragment))
             # Compare children of fragments
             children1 = node1.children.to_a
             children2 = node2.children.to_a
@@ -155,9 +158,9 @@ module Canon
           # Parse nodes using fragment parsers to preserve actual content
           # without auto-generated elements (html, head, meta, etc.)
           node1 = parse_node_as_fragment(html1, match_opts_hash[:preprocessing],
-                                          match_opts_hash)
+                                         match_opts_hash)
           node2 = parse_node_as_fragment(html2, match_opts_hash[:preprocessing],
-                                          match_opts_hash)
+                                         match_opts_hash)
 
           # Create strategy using factory
           strategy = Strategies::MatchStrategyFactory.create(
@@ -200,24 +203,26 @@ module Canon
         # @param match_opts [Hash] Match options
         # @return [Nokogiri::HTML::DocumentFragment] Parsed fragment
         def parse_node_as_fragment(node, preprocessing = :none, match_opts = {})
-          # If already a fragment, return it
-          if node.is_a?(Nokogiri::HTML4::DocumentFragment) ||
-              node.is_a?(Nokogiri::HTML5::DocumentFragment)
+          # If already an XML fragment (no meta tags), return it
+          if node.is_a?(Nokogiri::XML::DocumentFragment)
             return node
           end
 
-          # Convert to string if needed
-          html_string = node.is_a?(String) ? node : node.to_html
+          # Convert HTML fragments to string and re-parse as XML to remove phantom tags
+          # This handles cases where pre-parsed HTML4/HTML5 fragments have auto-inserted meta
+          html_string = if node.is_a?(Nokogiri::HTML4::DocumentFragment) ||
+              node.is_a?(Nokogiri::HTML5::DocumentFragment)
+                          node.to_s # Use to_s to avoid re-inserting meta tags
+                        elsif node.is_a?(String)
+                          node
+                        else
+                          node.to_html
+                        end
 
-          # Detect HTML version from content
-          html_version = detect_html_version(html_string)
-
-          # Parse as fragment using appropriate parser
-          frag = if html_version == :html5
-                   Nokogiri::HTML5.fragment(html_string)
-                 else
-                   Nokogiri::HTML4.fragment(html_string)
-                 end
+          # Use XML fragment parser to preserve structure without auto-generated elements
+          # This avoids both HTML4's meta tag insertion and HTML5's tag stripping
+          # See: https://stackoverflow.com/questions/25998824/stop-nokogiri-from-adding-doctype-and-meta-tags
+          frag = Nokogiri::XML.fragment(html_string)
 
           # Apply preprocessing if needed
           if preprocessing == :rendered
@@ -286,8 +291,9 @@ module Canon
               remove_whitespace_only_text_nodes(doc)
               return doc
             else
-              # Use fragment for partial HTML
-              frag = Nokogiri::HTML4.fragment(node)
+              # Use XML fragment parser to avoid auto-inserted meta tags
+              # (consistent with semantic tree diff)
+              frag = Nokogiri::XML.fragment(node)
               normalize_html_style_script_comments(frag)
               normalize_rendered_whitespace(frag, match_opts)
               remove_whitespace_only_text_nodes(frag)
@@ -452,8 +458,18 @@ module Canon
         # Remove whitespace-only text nodes from the document
         # These are typically insignificant in HTML rendering (e.g., between
         # block elements)
+        #
+        # CRITICAL: Do NOT remove whitespace-only text nodes from whitespace-sensitive
+        # elements like <pre>, <code>, <textarea>, <script>, <style>
         def remove_whitespace_only_text_nodes(doc)
+          # Elements where whitespace is significant - don't remove whitespace-only nodes
+          preserve_whitespace = %w[pre code textarea script style]
+
           doc.xpath(".//text()").each do |text_node|
+            # CRITICAL: Skip if this text node is inside a whitespace-preserving element
+            parent = text_node.parent
+            next if ancestor_preserves_whitespace?(parent, preserve_whitespace)
+
             # Remove if the text is only whitespace (after normalization)
             if text_node.content.strip.empty?
               text_node.remove
