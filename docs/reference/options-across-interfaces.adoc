@@ -1,0 +1,417 @@
+---
+layout: default
+title: Options Across Interfaces
+parent: Reference
+nav_order: 5
+---
+
+:toc:
+:toclevels: 3
+
+== Purpose
+
+Canon provides a unified option system across all three interfaces: CLI, Ruby API, and RSpec. Each option can be expressed in different ways depending on the interface, but they all control the same underlying behavior.
+
+This reference shows how to express the same configuration across all interfaces, making it easy to:
+
+* Translate between interfaces
+* Understand option equivalence
+* Choose the right interface for your needs
+* Maintain consistent configuration
+
+== Option Equivalence Table
+
+The following table shows how major Canon options are expressed in each interface:
+
+=== Layer 1: Preprocessing Options
+
+[cols="2,2,3,3,3"]
+|===
+|Option |CLI Flag |Ruby API |RSpec Config |ENV Variable
+
+|Preprocessing
+|`--preprocessing normalize`
+|`preprocessing: :normalize`
+|`config.canon.xml.preprocessing = :normalize`
+|`CANON_PREPROCESSING=normalize`
+|===
+
+Preprocessing values: `none`, `c14n`, `normalize`, `format`
+
+=== Layer 2: Algorithm Selection
+
+[cols="2,2,3,3,3"]
+|===
+|Option |CLI Flag |Ruby API |RSpec Config |ENV Variable
+
+|Diff Algorithm
+|`--diff-algorithm semantic`
+|`diff_algorithm: :semantic`
+|`config.canon.xml.diff.algorithm = :semantic`
+|`CANON_ALGORITHM=semantic`
+
+|Diff Mode
+|`--diff-mode by_object`
+|`diff_mode: :by_object`
+|`config.canon.xml.diff.mode = :by_object`
+|`CANON_MODE=by_object`
+|===
+
+Algorithm values: `dom`, `semantic` +
+Diff mode values: `by_line`, `by_object`
+
+=== Layer 3: Match Options
+
+==== Match Profile
+
+[cols="2,2,3,3,3"]
+|===
+|Option |CLI Flag |Ruby API |RSpec Config |ENV Variable
+
+|Match Profile
+|`--match-profile strict`
+|`match_profile: :strict`
+|`config.canon.xml.match.profile = :strict`
+|`CANON_PROFILE=strict`
+|===
+
+Profile values: `strict`, `rendered`, `spec_friendly`, `content_only`
+
+==== Match Dimensions (All Formats)
+
+[cols="2,2,3,3,3"]
+|===
+|Dimension |CLI Flag |Ruby API |RSpec Config |ENV Variable
+
+|Text Content
+|`--text-content normalize`
+|`match: { text_content: :normalize }`
+|`config.canon.xml.match.options = { text_content: :normalize }`
+|`CANON_TEXT_CONTENT=normalize`
+
+|Structural Whitespace
+|`--structural-whitespace ignore`
+|`match: { structural_whitespace: :ignore }`
+|`config.canon.xml.match.options = { structural_whitespace: :ignore }`
+|`CANON_STRUCTURAL_WHITESPACE=ignore`
+
+|Comments
+|`--comments ignore`
+|`match: { comments: :ignore }`
+|`config.canon.xml.match.options = { comments: :ignore }`
+|`CANON_COMMENTS=ignore`
+
+|Element Structure
+|`--element-structure strict`
+|`match: { element_structure: :strict }`
+|`config.canon.xml.match.options = { element_structure: :strict }`
+|`CANON_ELEMENT_STRUCTURE=strict`
+
+|Element Position
+|`--element-position ignore`
+|`match: { element_position: :ignore }`
+|`config.canon.xml.match.options = { element_position: :ignore }`
+|`CANON_ELEMENT_POSITION=ignore`
+
+|Element Hierarchy
+|`--element-hierarchy strict`
+|`match: { element_hierarchy: :strict }`
+|`config.canon.xml.match.options = { element_hierarchy: :strict }`
+|`CANON_ELEMENT_HIERARCHY=strict`
+|===
+
+Values: `strict`, `normalize`, `ignore` (or `strict`, `ignore` for structure/position/hierarchy)
+
+==== XML/HTML-Specific Match Dimensions
+
+[cols="2,2,3,3,3"]
+|===
+|Dimension |CLI Flag |Ruby API |RSpec Config |ENV Variable
+
+|Attribute Whitespace
+|`--attribute-whitespace normalize`
+|`match: { attribute_whitespace: :normalize }`
+|`config.canon.xml.match.options = { attribute_whitespace: :normalize }`
+|`CANON_ATTRIBUTE_WHITESPACE=normalize`
+
+|Attribute Order
+|`--attribute-order ignore`
+|`match: { attribute_order: :ignore }`
+|`config.canon.xml.match.options = { attribute_order: :ignore }`
+|`CANON_ATTRIBUTE_ORDER=ignore`
+
+|Attribute Values
+|`--attribute-values normalize`
+|`match: { attribute_values: :normalize }`
+|`config.canon.xml.match.options = { attribute_values: :normalize }`
+|`CANON_ATTRIBUTE_VALUES=normalize`
+|===
+
+Values: `strict`, `normalize`, `ignore` (or `strict`, `ignore` for order)
+
+==== JSON/YAML-Specific Match Dimensions
+
+[cols="2,2,3,3,3"]
+|===
+|Dimension |CLI Flag |Ruby API |RSpec Config |ENV Variable
+
+|Key Order
+|`--key-order ignore`
+|`match: { key_order: :ignore }`
+|`config.canon.json.match.options = { key_order: :ignore }`
+|`CANON_KEY_ORDER=ignore`
+|===
+
+Values: `strict`, `ignore`
+
+=== Layer 4: Diff Formatting Options
+
+[cols="2,2,3,3,3"]
+|===
+|Option |CLI Flag |Ruby API |RSpec Config |ENV Variable
+
+|Use Color
+|`--color` / `--no-color`
+|`color: true` / `color: false`
+|`config.canon.xml.diff.use_color = true`
+|`CANON_USE_COLOR=true`
+
+|Verbose
+|`--verbose` / `-v`
+|`verbose: true`
+|`config.canon.xml.diff.verbose_diff = true`
+|`CANON_VERBOSE_DIFF=true`
+
+|Context Lines
+|`--context-lines 5`
+|`context_lines: 5`
+|`config.canon.xml.diff.context_lines = 5`
+|`CANON_CONTEXT_LINES=5`
+
+|Grouping Lines
+|`--diff-grouping-lines 15`
+|`diff_grouping_lines: 15`
+|`config.canon.xml.diff.grouping_lines = 15`
+|`CANON_GROUPING_LINES=15`
+|===
+
+=== Size Limit Options
+
+[cols="2,2,3,3,3"]
+|===
+|Option |CLI Flag |Ruby API |RSpec Config |ENV Variable
+
+|Max File Size
+|N/A
+|N/A (config only)
+|`config.canon.xml.diff.max_file_size = 10485760`
+|`CANON_MAX_FILE_SIZE=10485760`
+
+|Max Node Count
+|N/A
+|N/A (config only)
+|`config.canon.xml.diff.max_node_count = 50000`
+|`CANON_MAX_NODE_COUNT=50000`
+
+|Max Diff Lines
+|N/A
+|N/A (config only)
+|`config.canon.xml.diff.max_diff_lines = 20000`
+|`CANON_MAX_DIFF_LINES=20000`
+|===
+
+NOTE: Size limit options are only available through environment variables or programmatic configuration (Ruby API/RSpec), not via CLI flags.
+
+== Complete Example: Same Configuration
+
+This example shows the SAME configuration expressed in all four ways:
+
+.Configuration Goal
+====
+* Use semantic diff algorithm
+* Apply strict match profile
+* Ignore attribute order (XML/HTML)
+* Normalize text content
+* Disable color output
+* Show 5 context lines
+====
+
+=== Via Environment Variables
+
+[source,bash]
+----
+export CANON_ALGORITHM=semantic
+export CANON_PROFILE=strict
+export CANON_ATTRIBUTE_ORDER=ignore
+export CANON_TEXT_CONTENT=normalize
+export CANON_USE_COLOR=false
+export CANON_CONTEXT_LINES=5
+----
+
+=== Via CLI
+
+[source,bash]
+----
+canon diff file1.xml file2.xml \
+  --diff-algorithm semantic \
+  --match-profile strict \
+  --attribute-order ignore \
+  --text-content normalize \
+  --no-color \
+  --context-lines 5
+----
+
+=== Via Ruby API
+
+[source,ruby]
+----
+Canon.compare(file1, file2,
+  format: :xml,
+  diff_algorithm: :semantic,
+  match_profile: :strict,
+  match: {
+    attribute_order: :ignore,
+    text_content: :normalize
+  },
+  color: false,
+  context_lines: 5
+)
+----
+
+=== Via RSpec
+
+[source,ruby]
+----
+RSpec.configure do |config|
+  # Algorithm
+  config.canon.xml.diff.algorithm = :semantic
+
+  # Match configuration
+  config.canon.xml.match.profile = :strict
+  config.canon.xml.match.options = {
+    attribute_order: :ignore,
+    text_content: :normalize
+  }
+
+  # Formatting
+  config.canon.xml.diff.use_color = false
+  config.canon.xml.diff.context_lines = 5
+end
+
+# In specs
+expect(actual_xml).to match_xml(expected_xml)
+----
+
+== Format-Specific Configuration
+
+Different formats can have different configurations:
+
+=== Via Environment Variables
+
+[source,bash]
+----
+# XML-specific
+export CANON_XML_DIFF_ALGORITHM=semantic
+export CANON_XML_MATCH_PROFILE=strict
+
+# HTML-specific
+export CANON_HTML_DIFF_ALGORITHM=dom
+export CANON_HTML_MATCH_PROFILE=rendered
+
+# JSON-specific
+export CANON_JSON_MATCH_PROFILE=content_only
+----
+
+=== Via RSpec
+
+[source,ruby]
+----
+RSpec.configure do |config|
+  # XML configuration
+  config.canon.xml.diff.algorithm = :semantic
+  config.canon.xml.match.profile = :strict
+
+  # HTML configuration
+  config.canon.html.diff.algorithm = :dom
+  config.canon.html.match.profile = :rendered
+
+  # JSON configuration
+  config.canon.json.match.profile = :content_only
+end
+----
+
+== Option Naming Conventions
+
+=== CLI Naming
+
+* Uses kebab-case: `--diff-algorithm`, `--match-profile`
+* Boolean flags: `--color`, `--no-color`, `--verbose`
+* Underscores become hyphens: `text_content` → `--text-content`
+
+=== Ruby API Naming
+
+* Uses snake_case symbols: `:diff_algorithm`, `:match_profile`
+* Boolean values: `true`, `false`
+* Match dimensions in hash: `match: { text_content: :normalize }`
+
+=== RSpec Naming
+
+* Uses snake_case methods: `.diff.algorithm`, `.match.profile`
+* Boolean values: `true`, `false`
+* Match dimensions in hash: `.match.options = { text_content: :normalize }`
+
+=== ENV Variable Naming
+
+* Uses SCREAMING_SNAKE_CASE: `CANON_ALGORITHM`, `CANON_PROFILE`
+* Prefixed with `CANON_`
+* Format-specific: `CANON_XML_DIFF_ALGORITHM`
+* Boolean as strings: `"true"`, `"false"`
+
+== Priority Order
+
+When multiple configuration sources are present:
+
+1. **Explicit arguments** (highest priority)
+   * CLI flags
+   * Ruby API parameters
+
+2. **Environment variables**
+   * Format-specific ENV vars
+   * Global ENV vars
+
+3. **Programmatic configuration**
+   * `Canon.configure` blocks
+   * `RSpec.configure` blocks
+
+4. **Default values** (lowest priority)
+   * Built-in Canon defaults
+
+.Priority example
+[example]
+====
+[source,bash]
+----
+# Environment variable
+export CANON_ALGORITHM=semantic
+
+# RSpec configuration
+RSpec.configure do |config|
+  config.canon.xml.diff.algorithm = :dom
+end
+
+# Explicit in test - WINS
+expect(actual).to match_xml(expected).with_options(
+  diff_algorithm: :semantic
+)
+# Result: Uses semantic (explicit argument overrides all)
+----
+====
+
+== See Also
+
+* link:environment-variables.html[Environment Variables Reference]
+* link:cli-options.html[CLI Options Reference]
+* link:../interfaces/cli/index.html[CLI Interface]
+* link:../interfaces/ruby-api/index.html[Ruby API Interface]
+* link:../interfaces/rspec/index.html[RSpec Interface]
+* link:../guides/choosing-configuration.html[Choosing Configuration Guide]

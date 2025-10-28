@@ -1,0 +1,365 @@
+---
+layout: default
+title: Diff Classification
+parent: Advanced
+nav_order: 1
+---
+
+:toc:
+:toclevels: 3
+
+== Purpose
+
+Canon distinguishes between two types of differences when comparing documents:
+
+* **Normative diffs**: Differences that affect equivalence based on your match options
+* **Informative diffs**: Differences that don't affect equivalence (semantically equivalent per match options)
+
+This allows you to focus on differences that matter while optionally viewing formatting-only changes.
+
+== Classification System
+
+=== How Classification Works
+
+Each difference is classified based on the match dimension's behavior:
+
+[cols="2,2,3"]
+|===
+|Match Behavior |Classification |Meaning
+
+|`:strict`
+|Normative
+|Must match exactly - any difference fails equivalence
+
+|`:normalize`
+|Normative
+|Must match after normalization - remaining differences fail equivalence
+
+|`:ignore`
+|Informative
+|Difference exists but doesn't affect equivalence
+|===
+
+.Example: Attribute order classification
+[example]
+====
+Given:
+[source,xml]
+----
+<div class="TOC" id="_">   <!-- Document 1 -->
+<div id="_" class="TOC">   <!-- Document 2 -->
+----
+
+Classification depends on `attribute_order` setting:
+
+* `attribute_order: :strict` → **NORMATIVE** (order matters)
+** Shown in red/green
+** Causes equivalence to fail
+
+* `attribute_order: :ignore` → **INFORMATIVE** (order doesn't matter)
+** Shown in cyan with `~~` markers
+** Documents are still equivalent
+====
+
+== Architecture
+
+[source]
+----
+┌──────────────────────────────────────────────────────────────────┐
+│ COMPARISON LAYER                                                  │
+│                                                                   │
+│ Tree Comparator creates DiffNodes for each difference            │
+│  ├─ References to nodes in both trees                            │
+│  ├─ Dimension (:text_content, :attribute_order, etc.)            │
+│  ├─ Reason code (UNEQUAL_TEXT_CONTENTS, etc.)                    │
+│  └─ Normative flag (nil, to be classified)                       │
+└───────────────────────────────────┬───────────────────────────────┘
+                                    ↓
+┌──────────────────────────────────────────────────────────────────┐
+│ CLASSIFICATION LAYER                                              │
+│                                                                   │
+│ DiffClassifier examines each DiffNode:                           │
+│                                                                   │
+│ For each dimension:                                               │
+│   behavior = match_options.behavior_for(dimension)                │
+│                                                                   │
+│   if behavior == :ignore                                          │
+│     → INFORMATIVE (difference doesn't matter)                     │
+│   else  # :strict or :normalize                                   │
+│     → NORMATIVE (difference matters)                              │
+│                                                                   │
+│ Sets diff_node.normative = true/false                            │
+└───────────────────────────────────┬───────────────────────────────┘
+                                    ↓
+┌──────────────────────────────────────────────────────────────────┐
+│ RENDERING LAYER                                                   │
+│                                                                   │
+│ Normative diffs:      Informative diffs:                         │
+│  18| - | <div ...>     18| ~~ | <div ...>                        │
+│  18| + | <div ...>     18| ~~ | <div ...>                        │
+│      ▲                      ▲                                     │
+│  Red/Green markers      Cyan markers                              │
+└──────────────────────────────────────────────────────────────────┘
+----
+
+== Visual Indicators
+
+=== Normative Diffs
+
+**Colors**: Red (deletions) and Green (additions)
+
+**Symbols**:
+* `-` for deletions
+* `+` for additions
+* `~` for changes
+
+.Normative diff example
+[example]
+====
+[source]
+----
+  10|  - | <title>Old Title</title>
+     | 11+ | <title>New Title</title>
+----
+
+Red and green indicate this difference causes files to be non-equivalent.
+====
+
+=== Informative Diffs
+
+**Color**: Cyan
+
+**Symbol**: `~~` (double tilde)
+
+.Informative diff example
+[example]
+====
+[source]
+----
+  10| ~~ | <div class="TOC" id="_">
+     | ~~ | <div id="_" class="TOC">
+----
+
+Cyan color indicates this difference is informational only - files are still equivalent.
+====
+
+== Controlling Diff Display
+
+Use the `show_diffs` option to filter which types of diffs are shown:
+
+[cols="2,3"]
+|===
+|Option |What's Shown
+
+|`:all` (default)
+|Both normative and informative diffs
+
+|`:normative`
+|Only normative diffs (differences that matter)
+
+|`:informative`
+|Only informative diffs (for reference)
+|===
+
+=== CLI
+
+[source,bash]
+----
+# Show only normative diffs
+canon diff file1.xml file2.xml --show-diffs normative
+
+# Show only informative diffs
+canon diff file1.xml file2.xml --show-diffs informative
+
+# Show all diffs (default)
+canon diff file1.xml file2.xml --show-diffs all
+----
+
+=== Ruby API
+
+[source,ruby]
+----
+# Show only normative diffs
+Canon.compare(file1, file2,
+  format: :xml,
+  show_diffs: :normative
+)
+
+# Show all diffs
+Canon.compare(file1, file2,
+  format: :xml,
+  show_diffs: :all
+)
+----
+
+=== RSpec
+
+[source,ruby]
+----
+# Configure globally
+RSpec.configure do |config|
+  config.canon.xml.diff.show_diffs = :normative
+end
+
+# Or per-test
+expect(actual).to match_xml(expected).with_options(
+  show_diffs: :normative
+)
+----
+
+== Common Scenarios
+
+=== Whitespace Differences
+
+.With `structural_whitespace: :ignore`
+[example]
+====
+[source]
+----
+  5| ~~ | <p>Hello  world</p>    # Extra space (informative)
+    | ~~ | <p>Hello world</p>
+----
+
+The difference is shown in cyan because extra whitespace is ignored.
+====
+
+.With `structural_whitespace: :strict`
+[example]
+====
+[source]
+----
+  5|  - | <p>Hello  world</p>    # Extra space (normative)
+    |  6+ | <p>Hello world</p>
+----
+
+The difference is shown in red/green because whitespace must match exactly.
+====
+
+=== Attribute Order
+
+.With `attribute_order: :ignore`
+[example]
+====
+[source]
+----
+ 10| ~~ | <div class="x" id="y">    # Informative
+    | ~~ | <div id="y" class="x">
+----
+====
+
+.With `attribute_order: :strict`
+[example]
+====
+[source]
+----
+ 10|  - | <div class="x" id="y">    # Normative
+    | 11+ | <div id="y" class="x">
+----
+====
+
+=== Comments
+
+.With `comments: :ignore`
+[example]
+====
+[source]
+----
+  3| ~~ | <!-- Old comment -->      # Informative
+    | ~~ | <!-- New comment -->
+----
+====
+
+.With `comments: :strict`
+[example]
+====
+[source]
+----
+  3|  - | <!-- Old comment -->      # Normative
+    |  4+ | <!-- New comment -->
+----
+====
+
+== Implementation
+
+=== DiffClassifier
+
+The [`DiffClassifier`](../../lib/canon/diff/diff_classifier.rb) class handles classification:
+
+[source,ruby]
+----
+class DiffClassifier
+  def initialize(match_options)
+    @match_options = match_options
+  end
+
+  def classify(diff_node)
+    behavior = @match_options.behavior_for(diff_node.dimension)
+    diff_node.normative = (behavior != :ignore)
+    diff_node
+  end
+end
+----
+
+=== Match Options Integration
+
+Classification uses the resolved match options:
+
+[source,ruby]
+----
+# Match options define behavior for each dimension
+match_options = ResolvedMatchOptions.new(
+  text_content: :normalize,        # Normative after normalization
+  structural_whitespace: :ignore,  # Informative
+  attribute_order: :ignore,        # Informative
+  comments: :strict                # Normative
+)
+
+# Classifier uses these to determine normative/informative
+classifier = DiffClassifier.new(match_options)
+----
+
+== Use Cases
+
+=== Focus on Real Differences
+
+Use `show_diffs: :normative` to hide formatting changes:
+
+[source,bash]
+----
+canon diff spec1.xml spec2.xml \
+  --match-profile spec_friendly \
+  --show-diffs normative
+----
+
+This shows only semantic differences, hiding attribute order, whitespace, and comments.
+
+=== Review All Changes
+
+Use `show_diffs: :all` during code review to see everything:
+
+[source,bash]
+----
+canon diff old.xml new.xml --show-diffs all
+----
+
+This shows both semantic and formatting changes for complete visibility.
+
+=== Understand Match Configuration
+
+Use `show_diffs: :informative` to see what's being ignored:
+
+[source,bash]
+----
+canon diff file1.xml file2.xml \
+  --match-profile strict \
+  --show-diffs informative
+----
+
+This helps verify your match configuration is working as expected.
+
+== See Also
+
+* link:../features/match-options/index.html[Match Options] - Configure match behavior
+* link:../features/diff-formatting/colors-and-symbols.html[Colors and Symbols] - Visual indicators
+* link:semantic-diff-report.html[Semantic Diff Report] - Detailed difference analysis
+* link:../guides/choosing-configuration.html[Choosing Configuration] - Match profile selection

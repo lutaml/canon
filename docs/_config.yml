@@ -7,25 +7,29 @@ description: Semantic comparison and formatting for serialization formats (XML, 
 url: https://www.lutaml.org
 baseurl: /canon
 
+# Repository
+repository: lutaml/canon
+
 # Theme
 theme: just-the-docs
-remote_theme: just-the-docs/just-the-docs
+color_scheme: light
 
 # AsciiDoc support
 asciidoc: {}
 asciidoctor:
   attributes:
-    - idprefix=_
-    - source-highlighter=rouge
-    - icons=font
-    - experimental=''
+    idprefix: ''
+    idseparator: '-'
+    source-highlighter: rouge
+    icons: font
+    experimental: true
+    sectanchors: true
+    linkattrs: true
+    sectnums: true
+    toc: left
+    toclevels: 3
 
-# Build settings
-plugins:
-  - jekyll-asciidoc
-  - jekyll-seo-tag
-
-# Just the Docs theme configuration
+# Search configuration
 search_enabled: true
 search:
   heading_level: 3
@@ -33,56 +37,64 @@ search:
   preview_words_before: 5
   preview_words_after: 10
   tokenizer_separator: /[\s/]+/
+  rel_url: true
+  button: true
 
 # Navigation
 nav_sort: case_insensitive
+nav_fold: true
 
-# Footer content
-footer_content: 'Copyright &copy; Ribose.'
-
-# Color scheme - use light mode
-color_scheme: light
-
-# Logo
-logo: false
-
-# Aux links for the upper right navigation
+# External links
 aux_links:
-  "Canon on GitHub":
+  "Source":
     - "https://github.com/lutaml/canon"
-  "Report Issue":
+  "Report Issues":
     - "https://github.com/lutaml/canon/issues"
 
-# Aux links configuration
 aux_links_new_tab: true
+
+# Back to top
+back_to_top: true
+back_to_top_text: "Back to top"
 
 # Heading anchors
 heading_anchors: true
 
-# Back to top link
-back_to_top: true
-back_to_top_text: "Back to top"
+# Footer
+footer_content: 'Copyright &copy; 2025 Ribose. Distributed under the <a href="https://github.com/lutaml/canon/blob/main/LICENSE.txt">BSD 2-Clause License</a>.'
 
-# Collection defaults
+# Plugins
+plugins:
+  - jekyll-asciidoc
+  - jekyll-seo-tag
+
+# Markdown settings (for any markdown files)
+markdown: kramdown
+kramdown:
+  input: GFM
+  hard_wrap: false
+  syntax_highlighter: rouge
+
+# Defaults
 defaults:
   - scope:
       path: ""
-      type: "pages"
+      type: pages
     values:
-      layout: "default"
-      nav_exclude: false
+      layout: default
 
-# Only process docs directory
-include:
-  - "*.adoc"
-
-# Exclude everything else
+# Exclude from processing
 exclude:
   - Gemfile
   - Gemfile.lock
+  - node_modules
+  - vendor
+  - .sass-cache
+  - .jekyll-cache
+  - .bundle
+  - README.md
+  - LICENSE
+  - .git
+  - .gitignore
 
-# Set permalink structure
 permalink: pretty
-
-# Source directory - tell Jekyll to only look in docs/
-source: docs

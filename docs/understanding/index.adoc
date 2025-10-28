@@ -1,0 +1,130 @@
+---
+layout: default
+title: Understanding Canon
+nav_order: 4
+has_children: true
+---
+= Understanding Canon
+
+Learn how Canon works internally and the principles behind its design.
+
+== Overview
+
+This section explains Canon's architecture, algorithms, and design decisions. Understanding these concepts will help you use Canon more effectively and troubleshoot issues when they arise.
+
+== What You'll Learn
+
+link:architecture[**Architecture**]::
+High-level system overview, module responsibilities, and design principles (MECE, orchestrator pattern).
+
+link:formats/[**Format Support**]::
+How Canon handles XML, HTML, JSON, and YAML, including format-specific canonicalization rules and comparison behaviors.
+
+link:algorithms/[**Comparison Algorithms**]::
+The two comparison strategies: DOM diff (stable, position-based) and Semantic Tree Diff (experimental, structure-aware).
+
+link:diff-modes/[**Diff Output Modes**]::
+How differences are displayed: by-line (traditional) vs by-object (tree-based semantic).
+
+== The Comparison Pipeline
+
+Canon's comparison system has 4 distinct layers:
+
+[source]
+----
+┌─────────────────────────────────────────────────┐
+│ Layer 1: Preprocessing                          │
+│ Options: none, c14n, normalize, format          │
+└─────────────────────────────────────────────────┘
+                      ↓
+┌─────────────────────────────────────────────────┐
+│ Layer 2: Match Algorithm Selection              │
+│ Options: dom, semantic                          │
+└─────────────────────────────────────────────────┘
+                      ↓
+┌─────────────────────────────────────────────────┐
+│ Layer 3: Match Options                          │
+│ • Match dimensions (what to compare)            │
+│ • Match profiles (preset combinations)          │
+└─────────────────────────────────────────────────┘
+                      ↓
+┌─────────────────────────────────────────────────┐
+│ Layer 4: Diff Formatting                        │
+│ • Diff mode (by-line, by-object)                │
+│ • Colors, symbols, context                      │
+└─────────────────────────────────────────────────┘
+----
+
+See link:../features/[Features] for detailed configuration of each layer.
+
+== Key Concepts
+
+=== Canonicalization
+
+Converting documents to a standardized, normalized form where semantically equivalent documents produce identical output.
+
+Benefits:
+
+* Enables reliable comparison
+* Simplifies digital signatures
+* Facilitates caching and deduplication
+
+See link:formats/[Format Support] for format-specific canonicalization rules.
+
+=== Semantic Comparison
+
+Comparing documents based on their meaning and structure, not just textual representation.
+
+Examples:
+
+* Element order doesn't matter (unless explicitly required)
+* Whitespace between elements is insignificant
+* Comments can be ignored
+* Attribute order is flexible
+
+See link:../features/match-options/[Match Options] for controlling semantic comparison.
+
+=== Diff Algorithms
+
+**DOM Diff** (default):
+
+* Position-based element matching
+* Fast and stable
+* Traditional line-by-line output
+* No move detection
+
+**Semantic Tree Diff** (experimental):
+
+* Signature-based tree matching
+* Detects moves, merges, splits
+* Operation-based output (INSERT, DELETE, UPDATE, MOVE)
+* Slower but more intelligent
+
+See link:algorithms/[Comparison Algorithms] for details.
+
+== Design Principles
+
+**MECE Organization**::
+Canon follows Mutually Exclusive, Collectively Exhaustive principles. Each module has a clear, non-overlapping responsibility.
+
+**Orchestrator Pattern**::
+High-level orchestrators coordinate specialized workers. This makes the codebase modular and testable.
+
+**Progressive Disclosure**::
+Simple operations require minimal configuration. Advanced features are available when needed.
+
+**Format Agnostic Core**::
+Core comparison logic is independent of specific formats. Format adapters handle format-specific details.
+
+== Next Steps
+
+* Read link:architecture[Architecture] for the big picture
+* Explore link:algorithms/[Comparison Algorithms] to understand matching strategies
+* Check link:formats/[Format Support] for format-specific behaviors
+* Review link:diff-modes/[Diff Modes] to understand output options
+
+== See Also
+
+* link:../features/[Features] - Customizing Canon's behavior
+* link:../advanced/[Advanced Topics] - Deep dives into internals
+* link:../interfaces/[Interfaces] - How to use Canon

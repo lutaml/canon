@@ -1,0 +1,504 @@
+---
+title: YAML Format
+parent: Format Support
+grand_parent: Understanding
+nav_order: 4
+---
+= YAML format
+:toc:
+:toclevels: 3
+
+== Purpose
+
+This page describes Canon's YAML format support, including canonicalization with sorted keys, comment preservation, anchors and aliases, and YAML-specific features.
+
+== Canonicalization
+
+Canon provides YAML canonicalization with sorted keys and standard formatting.
+
+**Key features:**
+
+* Alphabetically sorted mapping keys
+* Consistent indentation
+* Standard YAML 1.2 format
+* Comment preservation (optional)
+* Anchor and alias handling
+
+.YAML canonicalization example
+[example]
+====
+[source,ruby]
+----
+yaml = <<~YAML
+  z: 3
+  a: 1
+  nested:
+    y: 2
+    x: 1
+YAML
+
+Canon.format(yaml, :yaml)
+# => Keys sorted at all levels
+----
+====
+
+== Format defaults
+
+[cols="1,1"]
+|===
+|Dimension |Default Behavior
+
+|`text_content`
+|`:strict`
+
+|`structural_whitespace`
+|`:strict`
+
+|`key_order`
+|`:strict`
+
+|`comments`
+|`:strict`
+|===
+
+Default diff mode: `:by_object` (tree-based semantic diff)
+
+== Match profiles for YAML
+
+Canon provides predefined profiles optimized for YAML documents. Each profile configures preprocessing, match options, diff algorithm, and formatting.
+
+=== strict profile
+
+**Purpose**: Character-perfect YAML matching
+
+**Configuration**:
+
+[source,ruby]
+----
+{
+  preprocessing: :none,
+  diff_algorithm: :dom,
+  diff_mode: :by_object,     # Tree-based diff output (YAML default)
+  match: {
+    text_content: :strict,
+    structural_whitespace: :strict,
+    key_order: :strict,
+    comments: :strict
+  }
+}
+----
+
+**Use when**: Testing exact YAML serializer output, verifying YAML formatting compliance.
+
+=== rendered profile
+
+**Purpose**: Normalized YAML comparison
+
+**Configuration**:
+
+[source,ruby]
+----
+{
+  preprocessing: :none,
+  diff_algorithm: :dom,
+  diff_mode: :by_object,
+  match: {
+    text_content: :normalize,
+    structural_whitespace: :normalize,
+    key_order: :ignore,          # Allow unordered mapping keys
+    comments: :ignore
+  }
+}
+----
+
+**Use when**: Comparing YAML data where key order, whitespace, and comments don't matter.
+
+=== spec_friendly profile
+
+**Purpose**: Test-friendly comparison for RSpec
+
+**Configuration**:
+
+[source,ruby]
+----
+{
+  preprocessing: :normalize,
+  diff_algorithm: :dom,
+  diff_mode: :by_object,
+  match: {
+    text_content: :normalize,
+    structural_whitespace: :ignore,
+    key_order: :ignore,
+    comments: :ignore
+  }
+}
+----
+
+**Use when**: Writing RSpec tests for YAML generation, testing semantic YAML correctness. Most common for YAML testing.
+
+=== content_only profile
+
+**Purpose**: Maximum tolerance - only values matter
+
+**Configuration**:
+
+[source,ruby]
+----
+{
+  preprocessing: :normalize,
+  diff_algorithm: :dom,
+  diff_mode: :by_object,
+  match: {
+    text_content: :normalize,
+    structural_whitespace: :ignore,
+    key_order: :ignore,
+    comments: :ignore
+  }
+}
+----
+
+**Use when**: Only YAML structure and values need to match, maximum flexibility for formatting, key order, and comments.
+
+== YAML-specific features
+
+=== Comment support
+
+YAML comments are preserved and can be compared.
+
+.Comment handling example
+[example]
+====
+[source,yaml]
+----
+# Configuration file
+name: test
+# Database settings
+database:
+  host: localhost
+  port: 5432
+----
+
+Comments can be preserved or ignored using the `comments` dimension:
+
+[source,ruby]
+----
+# Preserve comments
+Canon::Comparison.equivalent?(yaml1, yaml2,
+  match: { comments: :strict }
+)
+
+# Ignore comments
+Canon::Comparison.equivalent?(yaml1, yaml2,
+  match: { comments: :ignore }
+)
+----
+====
+
+=== Key ordering
+
+Mapping keys are sorted alphabetically for consistent output.
+
+.Key ordering example
+[example]
+====
+[source,yaml]
+----
+# Unordered input
+name: Alice
+age: 30
+city: NYC
+
+# Canonicalized output (keys sorted)
+age: 30
+city: NYC
+name: Alice
+----
+====
+
+=== Type detection
+
+YAML's rich type system is preserved (strings, numbers, booleans, dates, etc.).
+
+.Type detection example
+[example]
+====
+[source,yaml]
+----
+string: "123"
+number: 123
+boolean: true
+null_value: null
+date: 2024-01-01
+float: 123.45
+unquoted: hello
+----
+
+YAML automatically detects types:
+* `123` (number) ≠ `"123"` (string)
+* `true` (boolean) ≠ `"true"` (string)
+* `null` ≠ `"null"` (string)
+* `2024-01-01` (date object) ≠ `"2024-01-01"` (string)
+====
+
+=== Anchors and aliases
+
+YAML anchors (`&`) and aliases (`*`) are properly handled.
+
+.Anchors and aliases example
+[example]
+====
+[source,yaml]
+----
+defaults: &defaults
+  timeout: 30
+  retries: 3
+
+production:
+  <<: *defaults
+  host: prod.example.com
+
+development:
+  <<: *defaults
+  host: dev.example.com
+----
+
+Canon correctly expands anchors and aliases during comparison:
+
+[source,yaml]
+----
+# Expanded equivalent
+production:
+  timeout: 30
+  retries: 3
+  host: prod.example.com
+
+development:
+  timeout: 30
+  retries: 3
+  host: dev.example.com
+----
+====
+
+=== Multi-line strings
+
+YAML supports multiple styles for multi-line strings.
+
+.Multi-line string styles
+[example]
+====
+[source,yaml]
+----
+# Literal block scalar (preserves newlines)
+literal: |
+  Line 1
+  Line 2
+  Line 3
+
+# Folded block scalar (folds newlines to spaces)
+folded: >
+  This is a very long line that will be
+  folded into a single line with spaces
+  replacing the newlines.
+
+# Plain string
+plain: "This is a plain string"
+----
+
+These are treated as different values unless `text_content: :normalize` is used.
+====
+
+== Usage examples
+
+=== Basic YAML comparison
+
+[source,ruby]
+----
+yaml1 = File.read("config1.yml")
+yaml2 = File.read("config2.yml")
+
+Canon::Comparison.equivalent?(yaml1, yaml2)
+----
+
+=== Ignoring comments and key order
+
+[source,ruby]
+----
+Canon::Comparison.equivalent?(yaml1, yaml2,
+  match: {
+    key_order: :ignore,
+    comments: :ignore
+  }
+)
+----
+
+=== Test-friendly YAML comparison
+
+[source,ruby]
+----
+expect(actual_yaml).to be_yaml_equivalent_to(expected_yaml)
+  .with_profile(:spec_friendly)
+----
+
+=== Using YAML comparator directly
+
+[source,ruby]
+----
+Canon::Comparison::YamlComparator.equivalent?(yaml1, yaml2,
+  match: { comments: :ignore }
+)
+----
+
+=== CLI usage
+
+[source,bash]
+----
+# Basic comparison
+canon diff config1.yml config2.yml --verbose
+
+# Ignore comments and key order
+canon diff file1.yml file2.yml \
+  --match-profile spec_friendly \
+  --verbose
+----
+
+== Common YAML comparison scenarios
+
+=== Configuration file comparison
+
+[source,ruby]
+----
+# Compare config files ignoring formatting
+Canon::Comparison.equivalent?(config1, config2,
+  match_profile: :spec_friendly,
+  verbose: true
+)
+----
+
+=== CI/CD configuration comparison
+
+[source,ruby]
+----
+# Compare workflow files with comments ignored
+Canon::Comparison.equivalent?(workflow1, workflow2,
+  match: {
+    comments: :ignore,
+    key_order: :ignore
+  },
+  verbose: true
+)
+----
+
+=== Array vs sequence
+
+.Array order example
+[example]
+====
+[source,yaml]
+----
+# File 1
+items:
+  - one
+  - two
+  - three
+
+# File 2
+items:
+  - three
+  - two
+  - one
+----
+
+These are **NOT** equivalent because YAML sequences (arrays) are ordered, just like JSON arrays.
+====
+
+== YAML quirks and edge cases
+
+=== Boolean interpretation
+
+.Boolean interpretation
+[example]
+====
+[source,yaml]
+----
+# All these are boolean true
+value1: true
+value2: True
+value3: TRUE
+value4: yes
+value5: Yes
+value6: YES
+value7: on
+value8: On
+value9: ON
+----
+
+YAML 1.1 has many boolean synonyms. YAML 1.2 (which Canon uses) is stricter: only `true` and `false` are booleans.
+====
+
+=== Numeric strings
+
+.Numeric strings
+[example]
+====
+[source,yaml]
+----
+# Number
+port: 8080
+
+# String (quoted)
+port: "8080"
+
+# String (with non-numeric character)
+port: 8080a
+----
+
+Quoting forces string interpretation.
+====
+
+=== Empty values
+
+.Empty values
+[example]
+====
+[source,yaml]
+----
+# Different meanings
+key1:           # null (no value)
+key2: ""        # empty string
+key3: null      # explicit null
+key4: []        # empty array
+key5: {}        # empty object
+----
+
+These are all different and not equivalent.
+====
+
+=== Indentation sensitivity
+
+.Indentation example
+[example]
+====
+[source,yaml]
+----
+# Valid YAML
+parent:
+  child1: value1
+  child2: value2
+
+# Invalid YAML (inconsistent indentation)
+parent:
+  child1: value1
+   child2: value2  # Wrong indentation!
+----
+
+YAML is sensitive to indentation. Use `structural_whitespace: :ignore` to handle minor indentation differences.
+====
+
+== See also
+
+* link:../comparison-pipeline.adoc[Comparison Pipeline] - Understanding the 4 layers
+* link:../../features/match-options/[Match Options] - All matching options
+* link:../../guides/choosing-configuration.adoc[Choosing Configuration] - Decision guide
+* link:index.adoc[Format Support] - Overview of all formats
+* link:json.adoc[JSON Format] - JSON-specific features (similar to YAML)
+* link:xml.adoc[XML Format] - XML-specific features

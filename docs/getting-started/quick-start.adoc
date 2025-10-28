@@ -1,0 +1,73 @@
+---
+layout: default
+title: Quick Start
+parent: Getting Started
+nav_order: 1
+---
+
+:toc:
+:toclevels: 2
+
+== Choose Your Interface
+
+Canon provides three ways to work with document comparisons:
+
+* **link:../interfaces/ruby-api/index.html[Ruby API]** - Using Canon from Ruby code
+* **link:../interfaces/cli/index.html[Command-line Interface]** - Terminal commands and options
+* **link:../interfaces/rspec/index.html[RSpec Matchers]** - Testing with Canon in RSpec
+
+== Quick Examples
+
+=== Ruby API
+
+[source,ruby]
+----
+require 'canon'
+
+# Compare two XML files
+result = Canon.compare(
+  File.read('expected.xml'),
+  File.read('actual.xml'),
+  format: :xml
+)
+
+puts result ? "✅ Equivalent" : "❌ Different"
+----
+
+=== Command Line
+
+[source,bash]
+----
+# Compare two files
+canon diff expected.xml actual.xml
+
+# With options
+canon diff expected.xml actual.xml \
+  --diff-algorithm semantic \
+  --match-profile strict \
+  --verbose
+----
+
+=== RSpec
+
+[source,ruby]
+----
+RSpec.describe "My XML" do
+  it "matches expected output" do
+    expect(actual_xml).to match_xml(expected_xml)
+  end
+end
+----
+
+== Next Steps
+
+* link:../interfaces/index.html[Explore all interfaces in detail]
+* link:../understanding/index.html[Understand how Canon works]
+* link:../features/index.html[Learn about Canon's features]
+* link:../guides/index.html[Read practical guides]
+
+== See Also
+
+* link:../reference/cli-options.html[CLI Options Reference]
+* link:../reference/options-across-interfaces.html[Options Across Interfaces]
+* link:../guides/choosing-configuration.html[Choosing Configuration]

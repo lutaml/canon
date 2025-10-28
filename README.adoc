@@ -71,7 +71,7 @@ Canon::Comparison.equivalent?(xml1, xml2)
 # Use semantic tree diff for operation-level analysis
 result = Canon::Comparison.equivalent?(xml1, xml2,
   verbose: true,
-  match: { semantic_diff: true }
+  diff_algorithm: :semantic
 )
 result.operations  # => [INSERT, DELETE, UPDATE, MOVE operations]
 ----
@@ -126,6 +126,8 @@ $ canon help
   profiles
 * **link:docs/TREE_DIFF[Semantic tree diff]** - Operation-level tree
   comparison
+* **link:docs/SEMANTIC_TREE_DIFF[Semantic tree diff algorithm]** - Comprehensive guide to semantic diff
+* **link:docs/ENV_CONFIG[Environment configuration]** - Configure via ENV variables including size limits
 * **link:docs/DIFF_FORMATTING[Diff formatting]** - Customizing diff output
 * **link:docs/CHARACTER_VISUALIZATION[Character visualization]** -
   Whitespace and special characters
@@ -166,6 +168,72 @@ Compare documents based on meaning, not formatting:
 * Predefined match profiles (strict, rendered, spec_friendly, content_only)
 
 See link:docs/MATCH_OPTIONS[Match options] for details.
+
+=== Algorithm choice
+
+Canon provides two diff algorithms:
+
+* **DOM diff** (default): Stable, position-based comparison for traditional line-by-line output
+* **Semantic tree diff** (experimental): Advanced operation detection (INSERT, DELETE, UPDATE, MOVE, MERGE, SPLIT, UPGRADE, DOWNGRADE)
+
+[source,ruby]
+----
+# Use DOM diff (default, stable)
+result = Canon::Comparison.equivalent?(doc1, doc2,
+  verbose: true,
+  diff_algorithm: :dom
+)
+
+# Use semantic tree diff (experimental, more intelligent)
+result = Canon::Comparison.equivalent?(doc1, doc2,
+  verbose: true,
+  diff_algorithm: :semantic
+)
+----
+
+**When to use semantic tree diff:**
+
+* Need to detect high-level operations (moves, merges, splits)
+* Documents have significant rearrangement
+* Want statistical analysis of changes
+* Need operation-level transformation analysis
+
+**When to use DOM diff:**
+
+* Need stable, well-tested comparison
+* Want traditional line-by-line output
+* Documents are similar in structure
+* Maximum performance for large files
+
+See link:docs/SEMANTIC_TREE_DIFF[Semantic tree diff algorithm] for comprehensive guide.
+
+=== Size limits for large files
+
+Canon provides configurable size limits to prevent hangs on pathologically large files:
+
+* **File size limit**: Default 5MB (configurable)
+* **Node count limit**: Default 10,000 nodes (configurable)
+* **Diff output limit**: Default 10,000 lines (configurable)
+
+[source,bash]
+----
+# Configure via environment variables
+export CANON_MAX_FILE_SIZE=10485760      # 10MB
+export CANON_MAX_NODE_COUNT=50000        # 50,000 nodes
+export CANON_MAX_DIFF_LINES=20000        # 20,000 lines
+
+bundle exec rspec
+----
+
+[source,ruby]
+----
+# Or programmatically
+Canon::Config.instance.xml.diff.max_file_size = 10_485_760
+Canon::Config.instance.xml.diff.max_node_count = 50_000
+Canon::Config.instance.xml.diff.max_diff_lines = 20_000
+----
+
+See link:docs/ENV_CONFIG#size-limits[ENV_CONFIG] for details on size limit configuration.
 
 === Smart diff output
 

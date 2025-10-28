@@ -1,0 +1,83 @@
+---
+layout: default
+title: Getting Started
+nav_order: 2
+has_children: true
+---
+= Getting Started
+
+Welcome to Canon! This section will help you get up and running quickly.
+
+== Overview
+
+Canon is a Ruby library for canonicalization, pretty-printing, and semantic comparison of structured documents in multiple formats (XML, HTML, JSON, YAML).
+
+Whether you're:
+
+* A developer integrating Canon into an application
+* A QA engineer writing tests for document generation
+* A DevOps engineer comparing configuration files
+* An architect evaluating Canon's design
+
+This section provides everything you need to start using Canon effectively.
+
+== What You'll Learn
+
+This section covers:
+
+link:installation[**Installation**]::
+How to install Canon in your Ruby environment, including gem installation and bundler setup.
+
+link:quick-start[**Quick Start**]::
+Your first Canon operations - formatting and comparing documents with minimal code.
+
+link:core-concepts[**Core Concepts**]::
+Essential concepts to understand how Canon works: canonicalization, semantic comparison, and diff modes.
+
+== Quick Example
+
+Here's a taste of what Canon can do:
+
+[source,ruby]
+----
+require 'canon'
+
+# Format XML in canonical form
+xml = '<root><b>2</b><a>1</a></root>'
+canonical = Canon.format(xml, :xml, mode: :c14n)
+# => "<root><a>1</a><b>2</b></root>"
+
+# Compare documents semantically
+doc1 = '<root><a>1</a><b>2</b></root>'
+doc2 = '<root>  <b>2</b>  <a>1</a>  </root>'
+Canon::Comparison.equivalent?(doc1, doc2)
+# => true (ignores whitespace and element order)
+----
+
+== Next Steps
+
+After completing this section:
+
+* Explore link:../interfaces/[Interfaces] to learn Ruby API, CLI, and RSpec usage
+* Read link:../understanding/[Understanding Canon] to learn how it works internally
+* Check link:../features/[Features] to customize Canon's behavior
+
+== Common Questions
+
+**Which Ruby versions are supported?**::
+Canon supports Ruby 2.7 and higher.
+
+**What formats does Canon support?**::
+XML, HTML, JSON, and YAML. See link:../understanding/formats/[Format Support] for details.
+
+**Can I use Canon without RSpec?**::
+Yes! Canon works as a standalone library. RSpec matchers are optional.
+
+**Is Canon suitable for production use?**::
+Yes. The core DOM diff algorithm is stable and well-tested. The semantic tree diff is experimental.
+
+== See Also
+
+* link:../interfaces/[Interfaces] - Choose your preferred way to use Canon
+* link:../understanding/formats/[Format Support] - Format-specific details
+* link:../features/match-options/[Match Options] - Customizing comparison behavior

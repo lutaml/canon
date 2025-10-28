@@ -1,0 +1,436 @@
+---
+title: Override System
+parent: Environment Configuration
+grand_parent: Features
+nav_order: 2
+---
+= Override system
+:toc:
+:toclevels: 3
+
+== Purpose
+
+Canon's override system allows environment variables to take precedence over programmatic configuration, enabling flexible deployment without code changes.
+
+This page explains how the priority chain works, when overrides apply, and how to use them effectively.
+
+== Priority chain
+
+Configuration values are resolved using a strict three-level priority:
+
+[source]
+----
+┌─────────────────────────────────┐
+│ 1. Environment Variables        │ ← Highest Priority
+│    (CANON_XML_DIFF_ALGORITHM)   │
+└──────────────┬──────────────────┘
+               ↓ overrides
+┌─────────────────────────────────┐
+│ 2. Programmatic Configuration   │ ← Medium Priority
+│    (config.xml.diff.algorithm)  │
+└──────────────┬──────────────────┘
+               ↓ overrides
+┌─────────────────────────────────┐
+│ 3. Default Values               │ ← Lowest Priority
+│    (defined in Canon::Config)   │
+└─────────────────────────────────┘
+----
+
+**Rule**: Higher priority always wins, regardless of when values are set.
+
+== How overrides work
+
+=== Environment variables override programmatic settings
+
+When an environment variable is set, it **always** takes precedence:
+
+[source,ruby]
+----
+# Set ENV before requiring Canon
+ENV['CANON_XML_DIFF_ALGORITHM'] = 'semantic'
+
+# Programmatic setting is IGNORED
+config = Canon::Config.instance
+config.xml.diff.algorithm = :dom
+
+# ENV wins
+puts config.xml.diff.algorithm  # => :semantic (not :dom)
+----
+
+=== Format-specific variables override global variables
+
+Format-specific ENV vars override global ENV vars:
+
+[source,bash]
+----
+# Global setting
+export CANON_ALGORITHM=dom
+
+# Format-specific override
+export CANON_XML_DIFF_ALGORITHM=semantic
+
+# Result:
+# - XML uses semantic (format-specific wins)
+# - HTML, JSON, YAML use dom (global applies)
+----
+
+=== Setting order doesn't matter
+
+Unlike programmatic configuration, ENV variable priority is **positional**, not temporal:
+
+[source,ruby]
+----
+# Set ENV first
+ENV['CANON_ALGORITHM'] = 'semantic'
+
+# Configure programmatically later
+config = Canon::Config.instance
+config.xml.diff.algorithm = :dom  # This is IGNORED
+
+# ENV still wins, even though set "earlier"
+puts config.xml.diff.algorithm  # => :semantic
+----
+
+== When to use environment variables
+
+=== Use ENV variables for
+
+**CI/CD configuration**::
+Different test runs need different settings without code changes.
++
+[source,bash]
+----
+# In .github/workflows/test.yml
+env:
+  CANON_ALGORITHM: semantic
+  CANON_USE_COLOR: false
+----
+
+**Container deployment**::
+Docker containers with different comparison behavior.
++
+[source,dockerfile]
+----
+# Dockerfile
+ENV CANON_XML_DIFF_ALGORITHM=semantic
+ENV CANON_CONTEXT_LINES=5
+----
+
+**Environment-specific behavior**::
+Different settings for development, staging, production.
++
+[source,bash]
+----
+# Development
+export CANON_VERBOSE_DIFF=true
+
+# Production
+export CANON_VERBOSE_DIFF=false
+----
+
+**Testing algorithm behavior**::
+Quick switching between algorithms for comparison.
++
+[source,bash]
+----
+# Test with DOM
+CANON_ALGORITHM=dom bundle exec rspec
+
+# Test with semantic
+CANON_ALGORITHM=semantic bundle exec rspec
+----
+
+=== Use programmatic config for
+
+**Application defaults**::
+Set sensible defaults in your application code.
++
+[source,ruby]
+----
+# config/initializers/canon.rb
+Canon::Config.configure do |config|
+  config.xml.diff.algorithm = :dom
+  config.xml.diff.use_color = true
+end
+----
+
+**Test-specific overrides**::
+Per-test configuration in RSpec.
++
+[source,ruby]
+----
+RSpec.describe "My feature" do
+  it "compares with specific options" do
+    result = Canon::Comparison.equivalent?(doc1, doc2,
+      diff_algorithm: :semantic  # Test-specific
+    )
+  end
+end
+----
+
+**Dynamic configuration**::
+Runtime decisions based on document size or other factors.
++
+[source,ruby]
+----
+algorithm = file_size > 100_000 ? :dom : :semantic
+Canon::Comparison.equivalent?(doc1, doc2,
+  diff_algorithm: algorithm
+)
+----
+
+== Verification and debugging
+
+=== Check which source provides a value
+
+Use the resolver to inspect configuration sources:
+
+[source,ruby]
+----
+config = Canon::Config.instance
+resolver = config.xml.diff.instance_variable_get(:@resolver)
+
+# Check sources
+puts "Algorithm from: #{resolver.source_for(:algorithm)}"
+# => "env" | "programmatic" | "default"
+
+# See all sources
+puts "ENV values: #{resolver.env.inspect}"
+puts "Programmatic values: #{resolver.programmatic.inspect}"
+puts "Defaults: #{resolver.defaults.inspect}"
+----
+
+=== List all active ENV variables
+
+[source,ruby]
+----
+# Get all Canon ENV variables
+canon_env = ENV.select { |k, v| k.start_with?('CANON_') }
+puts "Active Canon ENV variables:"
+canon_env.each do |key, value|
+  puts "  #{key} = #{value}"
+end
+----
+
+=== Test ENV override behavior
+
+[source,ruby]
+----
+# Verify ENV takes precedence
+ENV['CANON_ALGORITHM'] = 'semantic'
+
+config = Canon::Config.instance
+config.xml.diff.algorithm = :dom  # Should be ignored
+
+if config.xml.diff.algorithm == :semantic
+  puts "✓ ENV override working correctly"
+else
+  puts "✗ ENV override NOT working!"
+end
+----
+
+== Common patterns
+
+=== Pattern 1: Sensible defaults with ENV override
+
+[source,ruby]
+----
+# config/initializers/canon.rb
+# Set defaults that work for most cases
+Canon::RSpecMatchers.configure do |config|
+  config.xml.diff.algorithm = :dom
+  config.xml.diff.use_color = !ENV['CI']
+end
+
+# Users can override per test run:
+# CANON_ALGORITHM=semantic bundle exec rspec
+----
+
+=== Pattern 2: Environment-based configuration
+
+[source,ruby]
+----
+# config/environments/development.rb
+ENV['CANON_VERBOSE_DIFF'] = 'true'
+ENV['CANON_USE_COLOR'] = 'true'
+
+# config/environments/production.rb
+ENV['CANON_VERBOSE_DIFF'] = 'false'
+ENV['CANON_USE_COLOR'] = 'false'
+----
+
+=== Pattern 3: CI matrix testing
+
+[source,yaml]
+----
+# .github/workflows/test.yml
+strategy:
+  matrix:
+    algorithm: [dom, semantic]
+steps:
+  - name: Run tests
+    env:
+      CANON_ALGORITHM: ${{ matrix.algorithm }}
+    run: bundle exec rspec
+----
+
+=== Pattern 4: Format-specific CI configuration
+
+[source,yaml]
+----
+# .github/workflows/test.yml
+env:
+  CANON_XML_DIFF_ALGORITHM: semantic  # XML uses semantic
+  CANON_HTML_DIFF_ALGORITHM: dom      # HTML uses DOM
+  CANON_USE_COLOR: false              # All formats: no color
+----
+
+== Troubleshooting
+
+=== ENV variable not working
+
+**Problem**: ENV variable seems to be ignored.
+
+**Checklist**:
+
+1. **Variable name correct?**
++
+[source,bash]
+----
+# Correct
+export CANON_XML_DIFF_ALGORITHM=semantic
+
+# Wrong (underscore placement)
+export CANON_XML_DIFFALGORITHM=semantic
+----
+
+2. **ENV set before Canon loads?**
++
+[source,ruby]
+----
+# Wrong order
+require 'canon'
+ENV['CANON_ALGORITHM'] = 'semantic'  # Too late!
+
+# Correct order
+ENV['CANON_ALGORITHM'] = 'semantic'
+require 'canon'
+----
+
+3. **Value valid for attribute type?**
++
+[source,bash]
+----
+# Wrong (should be symbol name)
+export CANON_ALGORITHM=:semantic
+
+# Correct
+export CANON_ALGORITHM=semantic
+----
+
+=== Programmatic setting not working
+
+**Problem**: Setting `config.xml.diff.algorithm = :semantic` doesn't work.
+
+**Solution**: Check if ENV variable is set:
+
+[source,bash]
+----
+# Check current ENV
+echo $CANON_XML_DIFF_ALGORITHM
+echo $CANON_ALGORITHM
+
+# If set, unset it
+unset CANON_XML_DIFF_ALGORITHM
+unset CANON_ALGORITHM
+----
+
+=== Inconsistent behavior across runs
+
+**Problem**: Tests behave differently on different machines.
+
+**Cause**: One machine has Canon ENV variables set in shell profile.
+
+**Solution**: Document required ENV variables or unset them in test setup:
+
+[source,ruby]
+----
+# spec/spec_helper.rb
+RSpec.configure do |config|
+  config.before(:suite) do
+    # Clear any Canon ENV vars to ensure consistent tests
+    ENV.keys.select { |k| k.start_with?('CANON_') }.each do |key|
+      ENV.delete(key)
+    end
+  end
+end
+----
+
+== Best practices
+
+=== Document expected ENV variables
+
+Create a `.env.example` or document ENV variables:
+
+[source,bash]
+----
+# .env.example
+# Canon Configuration
+# Uncomment and modify as needed
+
+# CANON_ALGORITHM=dom
+# CANON_USE_COLOR=true
+# CANON_MAX_FILE_SIZE=5242880
+----
+
+=== Use ENV for deployment, code for defaults
+
+[source,ruby]
+----
+# Good: Code provides defaults
+Canon::RSpecMatchers.configure do |config|
+  config.xml.diff.algorithm = :dom  # Default
+end
+
+# Good: ENV overrides for deployment
+# In production: CANON_ALGORITHM=semantic
+----
+
+=== Avoid mixing ENV and programmatic for same attribute
+
+[source,ruby]
+----
+# Confusing: Don't do this
+ENV['CANON_ALGORITHM'] = 'semantic'
+config.xml.diff.algorithm = :dom  # Ignored, but confusing
+
+# Better: Use one or the other consistently
+ENV['CANON_ALGORITHM'] = 'semantic'
+# OR
+config.xml.diff.algorithm = :dom
+----
+
+=== Test with both ENV and without
+
+[source,ruby]
+----
+RSpec.describe "Canon behavior" do
+  context "without ENV override" do
+    before { ENV.delete('CANON_ALGORITHM') }
+    # Tests...
+  end
+
+  context "with ENV override" do
+    before { ENV['CANON_ALGORITHM'] = 'semantic' }
+    after { ENV.delete('CANON_ALGORITHM') }
+    # Tests...
+  end
+end
+----
+
+== See also
+
+* link:index.adoc[Environment Configuration] - Overview and usage
+* link:size-limits.adoc[Size Limits] - Limit-specific ENV variables
+* link:../../reference/environment-variables.adoc[Environment Variables Reference] - Complete listing
+* link:../../reference/options-across-interfaces.adoc[Options Across Interfaces] - How options work in CLI, Ruby, RSpec
