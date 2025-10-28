@@ -1,227 +1,139 @@
 ---
 layout: default
-title: Canon Documentation
+title: Home
 nav_order: 1
-has_children: false
+description: "Canon: Semantic comparison and formatting for serialization formats"
 permalink: /
 ---
-= Index
-:toc:
+= Canon Documentation
+:toc: macro
 :toclevels: 2
 
-== Documentation overview
+[.lead]
+Canon provides canonicalization, pretty-printing, and semantic comparison for XML, HTML, JSON, and YAML formats.
 
-This index organizes all Canon documentation by complexity, progressing from
-basic usage to advanced technical topics.
+toc::[]
 
-== Level 1: Getting started
+== Welcome
 
-Start here if you're new to Canon:
+Canon helps you:
 
-* **link:../README[README]** - Project overview, installation, and quick
-start examples
+* **Format** documents into canonical or human-readable forms
+* **Compare** documents semantically, not just textually
+* **Test** with RSpec matchers that understand structure
+* **Debug** with clear, color-coded diff output
 
-== Level 2: Basic usage
+== Quick Navigation
 
-Learn how to use Canon through different interfaces (choose based on your
-needs):
+=== By Your Role
 
-* **link:RUBY_API[Ruby API]** - Using Canon from Ruby code
-* **link:CLI[Command-line interface]** - Terminal commands and options
-* **link:RSPEC[RSpec matchers]** - Testing with Canon in RSpec
+**Developer**::
+Start with link:interfaces/ruby-api/[Ruby API] to integrate Canon into your applications.
 
-== Level 3: Understanding Canon
+**QA Engineer**::
+Start with link:interfaces/rspec/[RSpec Matchers] for testing XML/JSON/YAML generation.
 
-Learn how Canon works internally:
+**DevOps**::
+Start with link:interfaces/cli/[CLI] for command-line formatting and comparison.
 
-* **link:FORMATS[Format support]** - XML, HTML, JSON, YAML
-canonicalization
-* **link:MODES[Diff modes]** - By-line vs by-object comparison modes
-* **link:MATCH_ARCHITECTURE[Match architecture]** - Three-phase
-comparison flow
+**Architect**::
+Start with link:understanding/architecture[Architecture] to understand Canon's design.
 
-== Level 4: Customizing behavior
-
-Configure Canon for your specific needs:
-
-* **link:MATCH_OPTIONS[Match options]** - Match dimensions and profiles
-* **link:PREPROCESSING[Preprocessing]** - Document normalization options
-* **link:DIFF_FORMATTING[Diff formatting]** - Customizing diff output
-* **link:INPUT_VALIDATION[Input validation]** - Error handling
-* **link:CHARACTER_VISUALIZATION[Character visualization]** - Whitespace
-visibility
-
-== Level 5: Advanced topics
-
-For developers and advanced users:
-
-* **link:DOM_DIFF[DOM diff]** - Canon's default DOM diff algorithm
-* **link:TREE_DIFF[Semantic tree diff]** - Tree-level semantic operations
-* **link:VERBOSE[Verbose mode]** - Two-tier diff output architecture
-* **link:SEMANTIC_DIFF_REPORT[Semantic diff report]** - Detailed report
-format
-* **link:NORMATIVE_INFORMATIVE_DIFFS[Normative vs informative diffs]** - Diff
-classification
-* **link:DIFF_ARCHITECTURE[Diff architecture]** - Six-layer technical
-pipeline
-
-== Documentation by topic
-
-=== Canonicalization and formatting
-
-* link:FORMATS[Format support] - Format-specific canonicalization rules
-* link:RUBY_API#formatting[Ruby API: Formatting]
-* link:CLI#format-command[CLI: Format command]
-
-=== Comparison and matching
-
-* link:MATCH_ARCHITECTURE[Match architecture] - Three-phase comparison
-* link:MATCH_OPTIONS[Match options] - Dimensions and profiles
-* link:PREPROCESSING[Preprocessing] - Document normalization
-* link:RUBY_API#comparison[Ruby API: Comparison]
-* link:CLI#diff-command[CLI: Diff command]
-
-=== Diff output
-
-* link:MODES[Diff modes] - By-line vs by-object
-* link:DIFF_FORMATTING[Diff formatting] - Output customization
-* link:CHARACTER_VISUALIZATION[Character visualization] - Whitespace
-visibility
-* link:VERBOSE[Verbose mode] - Detailed diff output
-* link:SEMANTIC_DIFF_REPORT[Semantic diff report] - Report structure
-
-=== Testing
-
-* link:RSPEC[RSpec matchers] - Testing guide
-* link:MATCH_OPTIONS#match-profiles[Match profiles] - Test-friendly
-profiles
-* link:INPUT_VALIDATION[Input validation] - Error handling in tests
-
-=== Technical architecture
-
-* link:MATCH_ARCHITECTURE[Match architecture] - Comparison phases
-* link:DOM_DIFF[DOM diff] - Canon's default DOM diff algorithm
-* link:TREE_DIFF[Semantic tree diff] - Tree-level semantic operations
-* link:DIFF_ARCHITECTURE[Diff architecture] - Six-layer pipeline
-* link:NORMATIVE_INFORMATIVE_DIFFS[Normative vs informative diffs] - Classification
-system
-
-== Quick reference
-
-=== Common tasks
+=== By Task
 
 **Format a document**::
-* Ruby: link:RUBY_API#formatting[Formatting section]
-* CLI: link:CLI#format-command[Format command]
+* link:getting-started/quick-start#formatting[Quick Start: Formatting]
+* link:interfaces/ruby-api/formatting[Ruby API: Formatting]
+* link:interfaces/cli/format-command[CLI: format command]
 
 **Compare documents**::
-* Ruby: link:RUBY_API#comparison[Comparison section]
-* CLI: link:CLI#diff-command[Diff command]
-* RSpec: link:RSPEC#basic-usage[Basic usage]
+* link:getting-started/quick-start#comparing[Quick Start: Comparing]
+* link:interfaces/ruby-api/comparison[Ruby API: Comparison]
+* link:interfaces/cli/diff-command[CLI: diff command]
 
-**Configure comparison behavior**::
-* link:MATCH_OPTIONS[Match options] - Dimensions and profiles
-* link:PREPROCESSING[Preprocessing] - Normalization options
-
-**Customize diff output**::
-* link:DIFF_FORMATTING[Diff formatting] - Colors, context, grouping
-* link:MODES[Diff modes] - By-line or by-object
+**Test XML generation**::
+* link:guides/testing-xml-generation[Guide: Testing XML Generation]
+* link:interfaces/rspec/matchers[RSpec Matchers]
 
 **Debug test failures**::
-* link:RSPEC#troubleshooting[RSpec troubleshooting]
-* link:CHARACTER_VISUALIZATION[Character visualization]
-* link:INPUT_VALIDATION[Input validation]
+* link:guides/debugging-test-failures[Guide: Debugging Test Failures]
+* link:features/diff-formatting/character-visualization[Character Visualization]
 
-=== By format
+=== By Format
 
-**XML**::
-* link:FORMATS#xml-format[XML format details]
-* link:RUBY_API[Ruby API] (all examples include XML)
-* link:MODES[Diff modes] (by-object default, by-line optional)
+link:understanding/formats/xml[**XML**]::
+W3C Canonical XML 1.1, namespace handling, attribute ordering
 
-**HTML**::
-* link:FORMATS#html-format[HTML format details]
-* link:MODES#by-line-mode[By-line mode] (HTML always uses this)
+link:understanding/formats/html[**HTML**]::
+HTML4/5 detection, rendered whitespace handling
 
-**JSON**::
-* link:FORMATS#json-format[JSON format details]
-* link:MODES#by-object-mode[By-object mode] (JSON default)
+link:understanding/formats/json[**JSON**]::
+Sorted keys, semantic comparison
 
-**YAML**::
-* link:FORMATS#yaml-format[YAML format details]
-* link:MODES#by-object-mode[By-object mode] (YAML default)
+link:understanding/formats/yaml[**YAML**]::
+Sorted keys, alias handling
 
-== Contributing to documentation
+== Learning Path
 
-=== Documentation style guidelines
+=== Level 1: Get Started (5 minutes)
 
-When updating Canon documentation, follow these principles:
+. link:getting-started/installation[Install Canon]
+. link:getting-started/quick-start[Try basic examples]
+. link:getting-started/core-concepts[Understand core concepts]
 
-**Heading style**::
-* Use sentence-case for all headings (e.g., "Match architecture", not "Match
-Architecture")
-* Use descriptive, clear headings that indicate content scope
+=== Level 2: Learn Interfaces (15 minutes)
 
-**Structure**::
-* Begin with a Scope section explaining what the document covers
-* Include a General section for background and key concepts
-* Organize content into logical sections with clear hierarchy
-* Use "See also" section at the end for cross-references
+Choose your interface:
 
-**MECE principle**::
-* **Mutually Exclusive**: Each document covers a distinct topic without
-overlap
-* **Collectively Exhaustive**: All topics covered without gaps
-* Avoid duplicate information across documents
+* link:interfaces/ruby-api/[Ruby API] - Integrate into applications
+* link:interfaces/cli/[CLI] - Command-line usage
+* link:interfaces/rspec/[RSpec] - Testing integration
 
-**Examples and code**::
-* Wrap examples with `[example]` and `====` delimiters
-* Use `[source,lang]` with `----` delimiters for code blocks
-* Provide clear example titles describing what is shown
-* Include explanation after code examples
-* Use practical, real-world examples when possible
+=== Level 3: Understand Canon (30 minutes)
 
-**Lists**::
-* Separate lists from surrounding content with blank lines before and after
-* Ordered lists: Use `. ` flush with the line beginning
-* Unordered lists: Use `* ` flush with the line beginning
-* Second-level ordered: Use `.. `
-* Second-level unordered: Use `** `
-* Definition lists: Use `term:: description` format
+. link:understanding/architecture[Architecture overview]
+. link:understanding/algorithms/[Comparison algorithms]
+. link:understanding/diff-modes/[Diff output modes]
 
-**Line length and formatting**::
-* Wrap lines at 80 characters
-* Exceptions: Cross-references, formulas, and code blocks
-* No "hanging paragraphs" - if needed, create a "General" subsection
+=== Level 4: Master Features (1 hour)
 
-**Cross-references**::
-* Link to related documents using `link:DOCUMENT[Link text]`
-* Include "See also" section listing related documentation
-* Reference specific sections using anchors where appropriate
+. link:features/match-options/[Match options and profiles]
+. link:features/canonicalization/[Format-specific canonicalization]
+. link:features/diff-formatting/[Customizing diff output]
 
-**File organization**::
-* Each file uses `:toc:` and `:toclevels: 3` for navigation
-* Keep files focused on a single topic
-* Aim for 200-500 lines per document (except comprehensive references)
+=== Level 5: Advanced Topics (As needed)
 
-=== Content guidelines
+* link:advanced/dom-diff-internals[DOM Diff Algorithm Details]
+* link:advanced/semantic-tree-diff-internals[Semantic Tree Diff Details]
+* link:advanced/extending-canon[Extending Canon]
 
-**Clarity**::
-* Write in clear, technical prose
-* Define terms when first introduced
-* Use consistent terminology throughout
+== Popular Topics
 
-**Completeness**::
-* Provide complete syntax definitions
-* Include "Where," legend explaining syntax elements
-* Show both basic and advanced usage
+* link:reference/options-across-interfaces[Options Across Interfaces] - Same options in CLI, Ruby API, and RSpec
+* link:reference/environment-variables[Environment Variables] - Configure Canon via ENV variables
+* link:features/match-options/profiles[Match Profiles] - Pre-configured comparison strategies
+* link:features/diff-formatting/colors-and-symbols[Color-Coded Diffs] - Understanding diff output
+* link:features/environment-configuration/size-limits[Size Limits] - Preventing hangs on large files
+* link:reference/cli-options[CLI Options Reference] - Complete option listing
 
-**Accuracy**::
-* Verify all code examples work correctly
-* Ensure cross-references point to existing documents
-* Keep documentation synchronized with code changes
+== Getting Help
 
-**Accessibility**::
-* Write for users with varying expertise levels
-* Progress from simple to complex topics
-* Link to prerequisite knowledge
+**Found a bug?**::
+link:https://github.com/lutaml/canon/issues[Report an issue on GitHub]
+
+**Have a question?**::
+Check link:reference/glossary[Glossary] or search this documentation
+
+**Want to contribute?**::
+See link:contributing[Contributing to Documentation]
+
+== What's New
+
+=== Version 0.x (Current)
+
+* Semantic tree diff algorithm (experimental)
+* Size limits for large files
+* Enhanced character visualization
+* Environment variable configuration
+
+See link:https://github.com/lutaml/canon/blob/main/CHANGELOG.md[Full Changelog]

@@ -1,0 +1,314 @@
+---
+title: Algorithms
+parent: Understanding
+nav_order: 4
+has_children: true
+---
+= Algorithms
+:toc:
+:toclevels: 3
+
+== Purpose
+
+Canon provides two comparison algorithms, each with different strengths and use cases. This section explains how to choose between them and what to expect from each.
+
+This corresponds to **Layer 2 (Algorithm Selection)** in Canon's 4-layer architecture. See link:../comparison-pipeline.adoc[Comparison Pipeline] for the complete flow.
+
+== Overview
+
+Canon supports two algorithms for document comparison:
+
+* **DOM Algorithm** - Fast, stable, positional comparison (default)
+* **Semantic Algorithm** - Slower, intelligent, detects moves and restructuring (experimental)
+
+**Critical**: The algorithm choice affects how Layers 3 and 4 behave. See link:../../features/match-options/algorithm-specific-behavior.adoc[Algorithm-Specific Behavior] and link:../../features/diff-formatting/algorithm-specific-output.adoc[Algorithm-Specific Output].
+
+== Child Pages
+
+* link:dom-diff.adoc[DOM Algorithm] - Positional comparison details
+* link:semantic-tree-diff.adoc[Semantic Algorithm] - Tree-based comparison details
+
+== Algorithm Comparison
+
+[cols="2,3,3"]
+|===
+|Feature |DOM Algorithm |Semantic Algorithm
+
+|**Status**
+|Stable, production-ready
+|Experimental
+
+|**Performance**
+|Fast (linear with document size)
+|Slower (quadratic worst case)
+
+|**Memory**
+|Low (line-by-line processing)
+|Higher (tree structures in memory)
+
+|**Matching Strategy**
+|Position-based element matching
+|Signature-based similarity matching
+
+|**Move Detection**
+|No (shows as DELETE + INSERT)
+|Yes (shows as MOVE operation)
+
+|**Layer 3 Behavior**
+|Element-by-element comparison
+|Signature calculation
+
+|**Layer 4 Output**
+|Line-based differences
+|Operation-based (INSERT, DELETE, UPDATE, MOVE)
+
+|**Natural Diff Mode**
+|`by_line`
+|`by_object`
+
+|**Best For**
+|Similar documents, traditional diffs
+|Restructured documents, operation analysis
+
+|**Document Size**
+|Handles large documents (> 100KB)
+|Best for smaller documents (< 10KB)
+|===
+
+== When to Use Each Algorithm
+
+=== Use DOM Algorithm When
+
+* ✓ Documents have similar structure
+* ✓ Position matters in your comparison
+* ✓ Fast performance is critical
+* ✓ Traditional diff output is sufficient
+* ✓ Working with large documents
+* ✓ Stability is important (production use)
+* ✓ You need well-tested, predictable behavior
+
+**Example use cases**:
+* Comparing generated vs expected XML in tests
+* Reviewing code changes in HTML templates
+* Fast CI/CD validation
+* Large document comparison
+
+=== Use Semantic Algorithm When
+
+* ✓ Documents may be restructured
+* ✓ Need to detect element moves/reordering
+* ✓ Operation-level analysis is valuable
+* ✓ Content evolution tracking is needed
+* ✓ Willing to accept experimental status
+* ✓ Working with smaller documents
+
+**Example use cases**:
+* Detecting document reorganization
+* Analyzing content migration changes
+* Understanding structural transformations
+* Research and development work
+
+== Configuration
+
+=== Setting the Algorithm
+
+**Ruby API**:
+[source,ruby]
+----
+# DOM algorithm (default)
+Canon::Comparison.equivalent?(doc1, doc2,
+  diff_algorithm: :dom
+)
+
+# Semantic algorithm
+Canon::Comparison.equivalent?(doc1, doc2,
+  diff_algorithm: :semantic
+)
+----
+
+**CLI**:
+[source,bash]
+----
+# DOM algorithm (default)
+canon diff file1.xml file2.xml --diff-algorithm dom
+
+# Semantic algorithm
+canon diff file1.xml file2.xml --diff-algorithm semantic
+----
+
+**RSpec**:
+[source,ruby]
+----
+# Global configuration
+Canon::RSpecMatchers.configure do |config|
+  config.xml.diff_algorithm = :semantic
+end
+
+# Per-test
+expect(actual).to be_xml_equivalent_to(expected)
+  .with_options(diff_algorithm: :semantic)
+----
+
+== Algorithm Selection Decision Tree
+
+[mermaid]
+----
+graph TD
+    Start[Choose Algorithm] --> Size{Document<br/>size?}
+    Size -->|> 100KB| DOM[Use DOM]
+    Size -->|< 10KB| Struct{Documents<br/>restructured?}
+
+    Struct -->|Yes| Semantic[Use Semantic]
+    Struct -->|No| Speed{Need<br/>speed?}
+
+    Speed -->|Yes| DOM
+    Speed -->|No| Features{Need move<br/>detection?}
+
+    Features -->|Yes| Semantic
+    Features -->|No| Prod{Production<br/>use?}
+
+    Prod -->|Yes| DOM
+    Prod -->|No| Either[Either works,<br/>prefer DOM]
+
+    style DOM fill:#e1f5ff
+    style Semantic fill:#ffe1f5
+    style Either fill:#e1ffe1
+----
+
+== Performance Characteristics
+
+=== DOM Algorithm Performance
+
+**Time Complexity**: O(n) where n is document size
+* Linear scaling with document size
+* Predictable performance
+* Handles large documents well
+
+**Memory Usage**: Low
+* Line-by-line processing
+* No complex tree structures
+* Minimal memory overhead
+
+**Throughput**: High
+* ~1000 comparisons/second for typical documents
+* Suitable for batch processing
+
+=== Semantic Algorithm Performance
+
+**Time Complexity**: O(n²) worst case, O(n log n) typical
+* Quadratic worst case (highly restructured)
+* Logarithmic typical case (similar structure)
+* Slower on large documents
+
+**Memory Usage**: Higher
+* Builds tree structures in memory
+* Stores signatures for all nodes
+* More memory per comparison
+
+**Throughput**: Lower
+* ~100 comparisons/second for typical documents
+* Better for one-off comparisons
+
+=== Performance Comparison Example
+
+.Comparison time for different document sizes
+[cols="1,1,1,1"]
+|===
+|Document Size |DOM Time |Semantic Time |Ratio
+
+|1 KB
+|~1 ms
+|~10 ms
+|10x
+
+|10 KB
+|~10 ms
+|~150 ms
+|15x
+
+|100 KB
+|~100 ms
+|~3000 ms
+|30x
+
+|1 MB
+|~1 s
+|~60 s
+|60x
+|===
+
+NOTE: These are approximate times. Actual performance depends on document structure and complexity.
+
+== Migration Between Algorithms
+
+=== Switching from DOM to Semantic
+
+**Expected changes**:
+1. Reordered elements detected as MOVE instead of DELETE+INSERT
+2. `attribute_order` setting becomes irrelevant
+3. Performance slower but more intelligent
+4. Output format changes to operation-based
+
+See link:../../features/match-options/algorithm-specific-behavior.adoc[Algorithm-Specific Behavior] for migration details.
+
+=== Switching from Semantic to DOM
+
+**Expected changes**:
+1. MOVE operations become DELETE+INSERT pairs
+2. Reordered content shows as differences
+3. Performance faster
+4. Output format changes to line-based
+
+== Common Patterns
+
+=== Pattern 1: Fast Validation (DOM)
+
+[source,ruby]
+----
+# Fast CI/CD validation
+Canon::Comparison.equivalent?(expected, actual,
+  diff_algorithm: :dom,
+  match_profile: :spec_friendly
+)
+----
+
+=== Pattern 2: Detailed Analysis (Semantic)
+
+[source,ruby]
+----
+# Understand what changed
+result = Canon::Comparison.equivalent?(old, new,
+  diff_algorithm: :semantic,
+  verbose: true,
+  diff_mode: :by_object
+)
+
+puts "Moves: #{result.statistics.moves}"
+puts "Updates: #{result.statistics.updates}"
+----
+
+=== Pattern 3: Hybrid Approach
+
+[source,ruby]
+----
+# Try fast DOM first
+if Canon::Comparison.equivalent?(doc1, doc2, diff_algorithm: :dom)
+  puts "Documents identical"
+else
+  # Use semantic for detailed analysis
+  result = Canon::Comparison.equivalent?(doc1, doc2,
+    diff_algorithm: :semantic,
+    verbose: true
+  )
+  analyze_operations(result.operations)
+end
+----
+
+== See also
+
+* link:dom-diff.adoc[DOM Algorithm] - Detailed DOM algorithm documentation
+* link:semantic-tree-diff.adoc[Semantic Algorithm] - Detailed semantic algorithm documentation
+* link:../comparison-pipeline.adoc[Comparison Pipeline] - 4-layer architecture
+* link:../../features/match-options/algorithm-specific-behavior.adoc[Algorithm-Specific Behavior] - How algorithms interpret options
+* link:../../features/diff-formatting/algorithm-specific-output.adoc[Algorithm-Specific Output] - Output format differences
+* link:../../guides/choosing-configuration.adoc[Choosing Configuration] - Complete decision guide

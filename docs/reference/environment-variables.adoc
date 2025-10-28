@@ -1,0 +1,375 @@
+---
+layout: default
+title: Environment Variables
+parent: Reference
+nav_order: 4
+---
+
+:toc:
+:toclevels: 3
+
+== Purpose
+
+Canon provides environment variable support that works uniformly across all three interfaces: CLI, Ruby API, and RSpec. This allows you to configure Canon behavior through your environment without changing code or command-line arguments.
+
+Environment variables are particularly useful for:
+
+* Setting defaults across multiple test runs
+* Configuring CI/CD pipelines
+* Temporary overrides without code changes
+* System-wide configuration preferences
+
+== Environment Variable Naming
+
+Canon uses a hierarchical naming scheme for environment variables:
+
+=== Global Variables
+
+Global variables apply to all formats (XML, HTML, JSON, YAML):
+
+[source]
+----
+CANON_{ATTRIBUTE_NAME}
+----
+
+.Global environment variable example
+[example]
+====
+[source,bash]
+----
+export CANON_USE_COLOR=false
+export CANON_ALGORITHM=semantic
+export CANON_MAX_FILE_SIZE=10485760
+----
+====
+
+=== Format-Specific Variables
+
+Format-specific variables apply only to a particular format and override global variables:
+
+[source]
+----
+CANON_{FORMAT}_{CONFIG_TYPE}_{ATTRIBUTE_NAME}
+----
+
+Where:
+
+* `{FORMAT}` is one of: `XML`, `HTML`, `JSON`, `YAML`
+* `{CONFIG_TYPE}` is one of: `DIFF`, `MATCH`, `FORMAT`
+* `{ATTRIBUTE_NAME}` is the configuration attribute
+
+.Format-specific environment variable example
+[example]
+====
+[source,bash]
+----
+# XML-specific diff configuration
+export CANON_XML_DIFF_ALGORITHM=semantic
+export CANON_XML_DIFF_USE_COLOR=true
+
+# HTML-specific match configuration
+export CANON_HTML_MATCH_PROFILE=rendered
+
+# JSON-specific preprocessing
+export CANON_JSON_FORMAT_PREPROCESSING=normalize
+----
+====
+
+== Complete Environment Variables Reference
+
+=== Diff Configuration Variables
+
+[cols="3,1,2,4,2"]
+|===
+|Variable Name |Type |Default |Description |Applies To
+
+|`CANON_MODE`
+|symbol
+|`:by_line`
+|Diff output mode: `by_line` or `by_object`
+|All formats
+
+|`CANON_USE_COLOR`
+|boolean
+|`true`
+|Enable/disable ANSI color codes in output
+|All formats
+
+|`CANON_CONTEXT_LINES`
+|integer
+|`3`
+|Number of context lines around changes
+|All formats
+
+|`CANON_GROUPING_LINES`
+|integer
+|`10`
+|Maximum lines between changes to group them
+|All formats
+
+|`CANON_SHOW_DIFFS`
+|symbol
+|`:all`
+|Which diffs to show: `all`, `normative`, `informative`
+|All formats
+
+|`CANON_VERBOSE_DIFF`
+|boolean
+|`false`
+|Enable verbose diff output with detailed analysis
+|All formats
+
+|`CANON_ALGORITHM`
+|symbol
+|`:dom`
+|Diff algorithm: `dom` (positional) or `semantic` (tree-based)
+|All formats
+
+|`CANON_MAX_FILE_SIZE`
+|integer
+|`5242880`
+|Maximum file size in bytes (default 5MB)
+|All formats
+
+|`CANON_MAX_NODE_COUNT`
+|integer
+|`10000`
+|Maximum number of nodes in parsed tree
+|All formats
+
+|`CANON_MAX_DIFF_LINES`
+|integer
+|`10000`
+|Maximum number of diff output lines
+|All formats
+|===
+
+=== Match Configuration Variables
+
+[cols="3,1,2,4,2"]
+|===
+|Variable Name |Type |Default |Description |Applies To
+
+|`CANON_PROFILE`
+|symbol
+|`nil`
+|Match profile: `strict`, `rendered`, `spec_friendly`, `content_only`
+|All formats
+|===
+
+=== Format Configuration Variables
+
+[cols="3,1,2,4,2"]
+|===
+|Variable Name |Type |Default |Description |Applies To
+
+|`CANON_PREPROCESSING`
+|string
+|`none`
+|Preprocessing mode: `none`, `c14n`, `normalize`, `format`
+|XML, HTML, JSON, YAML
+|===
+
+== Examples: Same Configuration, Different Interfaces
+
+This section demonstrates how the same configuration is expressed across all three Canon interfaces.
+
+=== Example 1: Basic Configuration
+
+Enable semantic diff algorithm with color output.
+
+.Using environment variables
+[source,bash]
+----
+export CANON_ALGORITHM=semantic
+export CANON_USE_COLOR=true
+----
+
+.Using CLI
+[source,bash]
+----
+canon diff file1.xml file2.xml \
+  --diff-algorithm semantic \
+  --color
+----
+
+.Using Ruby API
+[source,ruby]
+----
+Canon.compare(file1, file2, format: :xml,
+  diff_algorithm: :semantic,
+  color: true
+)
+----
+
+.Using RSpec
+[source,ruby]
+----
+RSpec.configure do |config|
+  config.canon.xml.diff.algorithm = :semantic
+  config.canon.xml.diff.use_color = true
+end
+----
+
+=== Example 2: Format-Specific Configuration
+
+Configure XML and HTML differently.
+
+.Using environment variables
+[source,bash]
+----
+# XML uses semantic diff
+export CANON_XML_DIFF_ALGORITHM=semantic
+export CANON_XML_MATCH_PROFILE=strict
+
+# HTML uses DOM diff and rendered profile
+export CANON_HTML_DIFF_ALGORITHM=dom
+export CANON_HTML_MATCH_PROFILE=rendered
+----
+
+.Using CLI
+[source,bash]
+----
+# For XML files
+canon diff file1.xml file2.xml \
+  --diff-algorithm semantic \
+  --match-profile strict
+
+# For HTML files
+canon diff file1.html file2.html \
+  --diff-algorithm dom \
+  --match-profile rendered
+----
+
+.Using Ruby API
+[source,ruby]
+----
+# For XML
+Canon.compare(file1_xml, file2_xml, format: :xml,
+  diff_algorithm: :semantic,
+  match_profile: :strict
+)
+
+# For HTML
+Canon.compare(file1_html, file2_html, format: :html,
+  diff_algorithm: :dom,
+  match_profile: :rendered
+)
+----
+
+.Using RSpec
+[source,ruby]
+----
+RSpec.configure do |config|
+  # XML configuration
+  config.canon.xml.diff.algorithm = :semantic
+  config.canon.xml.match.profile = :strict
+
+  # HTML configuration
+  config.canon.html.diff.algorithm = :dom
+  config.canon.html.match.profile = :rendered
+end
+----
+
+=== Example 3: Size Limits
+
+Configure file size and node count limits.
+
+.Using environment variables
+[source,bash]
+----
+export CANON_MAX_FILE_SIZE=10485760    # 10MB
+export CANON_MAX_NODE_COUNT=50000      # 50k nodes
+export CANON_MAX_DIFF_LINES=20000      # 20k lines
+----
+
+.Using Ruby API
+[source,ruby]
+----
+Canon.configure do |config|
+  config.xml.diff.max_file_size = 10_485_760
+  config.xml.diff.max_node_count = 50_000
+  config.xml.diff.max_diff_lines = 20_000
+end
+----
+
+.Using RSpec
+[source,ruby]
+----
+RSpec.configure do |config|
+  config.canon.xml.diff.max_file_size = 10_485_760
+  config.canon.xml.diff.max_node_count = 50_000
+  config.canon.xml.diff.max_diff_lines = 20_000
+end
+----
+
+NOTE: Size limits are not available as CLI options - they must be configured through environment variables or programmatic configuration.
+
+== Priority Chain
+
+When multiple configuration sources are present, Canon uses the following priority order (highest to lowest):
+
+1. **Explicit arguments** - Passed directly to the comparison method or CLI command
+2. **Environment variables** - Set via `CANON_*` variables
+3. **Default values** - Built-in Canon defaults
+
+.Priority chain example
+[example]
+====
+[source,bash]
+----
+# Environment variable sets default
+export CANON_ALGORITHM=semantic
+
+# CLI argument overrides environment variable
+canon diff file1.xml file2.xml --diff-algorithm dom
+# Uses: dom (explicit CLI argument wins)
+
+# No CLI argument, environment variable applies
+canon diff file1.xml file2.xml
+# Uses: semantic (from environment variable)
+----
+====
+
+== Type Conversion
+
+Canon automatically converts environment variable string values to the appropriate types:
+
+[cols="1,3"]
+|===
+|Type |Conversion Rules
+
+|Boolean
+|`"true"`, `"1"`, `"yes"` → `true` +
+`"false"`, `"0"`, `"no"` → `false`
+
+|Integer
+|String parsed as decimal integer
+
+|Symbol
+|String converted to symbol (e.g., `"semantic"` → `:semantic`)
+|===
+
+== Debugging Environment Variables
+
+To verify which environment variables Canon is using:
+
+.Check active environment variables
+[source,bash]
+----
+env | grep CANON_
+----
+
+.Enable verbose output to see configuration
+[source,bash]
+----
+export CANON_VERBOSE_DIFF=true
+canon diff file1.xml file2.xml --verbose
+----
+
+== See Also
+
+* link:../features/environment-configuration/index.html[Environment Configuration]
+* link:../features/environment-configuration/override-system.html[Override System]
+* link:options-across-interfaces.html[Options Across Interfaces]
+* link:cli-options.html[CLI Options Reference]

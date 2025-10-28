@@ -1,0 +1,214 @@
+---
+layout: default
+title: Advanced Topics
+nav_order: 6
+has_children: true
+---
+= Advanced Topics
+
+Deep technical documentation for developers and advanced users.
+
+== Overview
+
+This section provides detailed technical information about Canon's internal algorithms, architectures, and extension points. Read this section if you:
+
+* Need to understand Canon's implementation details
+* Want to contribute to Canon development
+* Are debugging complex comparison issues
+* Plan to extend Canon with custom comparators
+
+== What You'll Learn
+
+link:dom-diff-internals[**DOM Diff Internals**]::
+Deep dive into Canon's default DOM diff algorithm: position-based matching, operation detection, and diff generation.
+
+link:semantic-tree-diff-internals[**Semantic Tree Diff Internals**]::
+How the experimental semantic tree diff works: signature calculation, similarity matching, and operation classification.
+
+link:verbose-mode-architecture[**Verbose Mode Architecture**]::
+The two-tier diff output system: normative vs informative diffs, and how verbose mode enriches output.
+
+link:diff-classification[**Diff Classification System**]::
+How Canon classifies differences as normative (structural) or informative (presentational).
+
+link:diff-pipeline[**Diff Pipeline Architecture**]::
+The six-layer technical pipeline from input to formatted output.
+
+link:extending-canon[**Extending Canon**]::
+How to create custom comparators, formatters, and match strategies.
+
+== Algorithm Deep Dives
+
+=== DOM Diff Algorithm
+
+The DOM diff algorithm is Canon's stable, well-tested comparison strategy.
+
+**Key Components**:
+
+* Position-based element matching
+* Line-by-line comparison
+* Context-aware grouping
+* Character-level visualization
+
+**When to use**:
+
+* Similar documents with minor differences
+* Traditional diff output needed
+* Performance is critical
+* Stable, predictable behavior required
+
+See link:dom-diff-internals[DOM Diff Internals] for implementation details.
+
+=== Semantic Tree Diff Algorithm
+
+The semantic tree diff is an experimental algorithm that understands document structure.
+
+**Key Components**:
+
+* Signature-based node matching
+* Similarity scoring
+* Operation detection (INSERT, DELETE, UPDATE, MOVE)
+* Structural propagation
+
+**When to use**:
+
+* Documents with significant restructuring
+* Move detection needed
+* Operation-based analysis desired
+* Willing to accept experimental status
+
+See link:semantic-tree-diff-internals[Semantic Tree Diff Internals] for implementation details.
+
+== Architecture Patterns
+
+=== The Orchestrator Pattern
+
+Canon uses orchestrators to coordinate specialized workers:
+
+[source,ruby]
+----
+class Comparison
+  def self.compare(doc1, doc2, options = {})
+    # Orchestrate: validation → parsing → matching → diffing
+    validator.validate!(doc1, doc2)
+    parsed1 = parser.parse(doc1)
+    parsed2 = parser.parse(doc2)
+    matcher.match(parsed1, parsed2, options)
+  end
+end
+----
+
+Benefits:
+
+* Clear separation of concerns
+* Easy to test individual components
+* Simple to add new formats or algorithms
+
+=== The Adapter Pattern
+
+Format-specific details are handled by adapters:
+
+[source,ruby]
+----
+module TreeDiff
+  module Adapters
+    class XmlAdapter
+      def create_tree_node(element)
+        # XML-specific tree node creation
+      end
+    end
+
+    class JsonAdapter
+      def create_tree_node(object)
+        # JSON-specific tree node creation
+      end
+    end
+  end
+end
+----
+
+See link:extending-canon#adapter-pattern[Extending Canon: Adapter Pattern] for details.
+
+== Extension Points
+
+Canon provides several extension points:
+
+**Custom Comparators**::
+Implement format-specific comparison logic.
+
+**Custom Formatters**::
+Create new output formats for diffs.
+
+**Custom Match Strategies**::
+Define custom matching algorithms.
+
+**Custom Preprocessors**::
+Add new preprocessing transformations.
+
+See link:extending-canon[Extending Canon] for implementation guides.
+
+== Performance Considerations
+
+=== Algorithm Performance
+
+**DOM Diff**:
+
+* Time complexity: O(n) for similar documents
+* Space complexity: O(n)
+* Best for: Documents with <10,000 nodes
+
+**Semantic Tree Diff**:
+
+* Time complexity: O(n²) in worst case
+* Space complexity: O(n)
+* Best for: Documents with <1,000 nodes
+
+=== Optimization Strategies
+
+* Use size limits to prevent hangs
+* Enable preprocessing for normalized comparison
+* Choose appropriate diff algorithm
+* Configure context lines wisely
+
+See link:../features/environment-configuration/size-limits[Size Limits] for configuration.
+
+== Debugging Canon
+
+=== Enable Verbose Logging
+
+[source,ruby]
+----
+ENV['CANON_DEBUG'] = 'true'
+result = Canon::Comparison.compare(doc1, doc2, verbose: true)
+----
+
+=== Inspect Internal Structures
+
+[source,ruby]
+----
+result = Canon::Comparison.compare(doc1, doc2)
+puts result.operations  # For semantic diff
+puts result.diff_report # Detailed report
+----
+
+=== Use Character Visualization
+
+[source,ruby]
+----
+result = Canon::Comparison.compare(doc1, doc2,
+  verbose: true,
+  visualize_whitespace: true
+)
+----
+
+== Next Steps
+
+* Read link:dom-diff-internals[DOM Diff Internals] to understand the default algorithm
+* Explore link:semantic-tree-diff-internals[Semantic Tree Diff] for advanced matching
+* Check link:extending-canon[Extending Canon] to add custom functionality
+
+== See Also
+
+* link:../understanding/algorithms/[Comparison Algorithms] - High-level algorithm overview
+* link:../features/[Features] - Configuring Canon's behavior
+* link:../reference/[Reference] - Complete API documentation

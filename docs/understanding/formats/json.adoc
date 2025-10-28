@@ -1,0 +1,390 @@
+---
+title: JSON Format
+parent: Format Support
+grand_parent: Understanding
+nav_order: 3
+---
+= JSON format
+:toc:
+:toclevels: 3
+
+== Purpose
+
+This page describes Canon's JSON format support, including canonicalization with sorted keys, type preservation, and JSON-specific features.
+
+== Canonicalization
+
+Canon provides JSON canonicalization with sorted keys at all nesting levels.
+
+**Key features:**
+
+* Alphabetically sorted object keys
+* Consistent indentation (configurable)
+* Proper escape sequences
+* No trailing commas
+* Unicode normalization
+
+.JSON canonicalization example
+[example]
+====
+[source,ruby]
+----
+json = '{"z":3,"a":1,"nested":{"y":2,"x":1}}'
+
+Canon.format(json, :json)
+# => {"a":1,"nested":{"x":1,"y":2},"z":3}
+# Keys sorted at all levels
+----
+====
+
+== Format defaults
+
+[cols="1,1"]
+|===
+|Dimension |Default Behavior
+
+|`text_content`
+|`:strict`
+
+|`structural_whitespace`
+|`:strict`
+
+|`key_order`
+|`:strict`
+|===
+
+Default diff mode: `:by_object` (tree-based semantic diff)
+
+== Match profiles for JSON
+
+Canon provides predefined profiles optimized for JSON documents. Each profile configures preprocessing, match options, diff algorithm, and formatting.
+
+=== strict profile
+
+**Purpose**: Character-perfect JSON matching
+
+**Configuration**:
+
+[source,ruby]
+----
+{
+  preprocessing: :none,
+  diff_algorithm: :dom,
+  diff_mode: :by_object,     # Tree-based diff output (JSON default)
+  match: {
+    text_content: :strict,
+    structural_whitespace: :strict,
+    key_order: :strict
+  }
+}
+----
+
+**Use when**: Testing exact JSON serializer output, verifying JSON formatting compliance.
+
+=== rendered profile
+
+**Purpose**: Normalized JSON comparison
+
+**Configuration**:
+
+[source,ruby]
+----
+{
+  preprocessing: :none,
+  diff_algorithm: :dom,
+  diff_mode: :by_object,
+  match: {
+    text_content: :normalize,
+    structural_whitespace: :normalize,
+    key_order: :ignore           # Allow unordered object keys
+  }
+}
+----
+
+**Use when**: Comparing JSON data where key order and whitespace don't matter.
+
+=== spec_friendly profile
+
+**Purpose**: Test-friendly comparison for RSpec
+
+**Configuration**:
+
+[source,ruby]
+----
+{
+  preprocessing: :normalize,
+  diff_algorithm: :dom,
+  diff_mode: :by_object,
+  match: {
+    text_content: :normalize,
+    structural_whitespace: :ignore,
+    key_order: :ignore
+  }
+}
+----
+
+**Use when**: Writing RSpec tests for JSON generation, testing semantic JSON correctness. Most common for JSON testing.
+
+=== content_only profile
+
+**Purpose**: Maximum tolerance - only values matter
+
+**Configuration**:
+
+[source,ruby]
+----
+{
+  preprocessing: :normalize,
+  diff_algorithm: :dom,
+  diff_mode: :by_object,
+  match: {
+    text_content: :normalize,
+    structural_whitespace: :ignore,
+    key_order: :ignore
+  }
+}
+----
+
+**Use when**: Only JSON structure and values need to match, maximum flexibility for formatting and key order.
+
+== JSON-specific features
+
+=== Key ordering
+
+Object keys are sorted alphabetically for consistent comparison.
+
+.Key ordering example
+[example]
+====
+[source,json]
+----
+// Unordered input
+{
+  "name": "Alice",
+  "age": 30,
+  "city": "NYC"
+}
+
+// Canonicalized output (keys sorted)
+{
+  "age": 30,
+  "city": "NYC",
+  "name": "Alice"
+}
+----
+
+This ensures that two JSON objects with the same data but different key order are compared correctly when `key_order: :ignore` is used.
+====
+
+=== Type preservation
+
+Distinguishes between numbers, strings, booleans, and null.
+
+.Type preservation example
+[example]
+====
+[source,json]
+----
+{
+  "string": "123",
+  "number": 123,
+  "boolean": true,
+  "null": null,
+  "float": 123.45
+}
+----
+
+These values are treated as different types and won't be considered equivalent:
+* `"123"` (string) ≠ `123` (number)
+* `true` (boolean) ≠ `"true"` (string)
+* `null` ≠ `"null"` (string)
+====
+
+=== Nested structures
+
+Handles deeply nested objects and arrays.
+
+.Nested structure example
+[example]
+====
+[source,json]
+----
+{
+  "users": [
+    {
+      "id": 1,
+      "profile": {
+        "name": "Alice",
+        "settings": {
+          "theme": "dark"
+        }
+      }
+    }
+  ]
+}
+----
+
+Canon correctly handles arbitrarily nested JSON structures.
+====
+
+=== No comments
+
+Standard JSON does not support comments.
+
+NOTE: While some JSON parsers allow comments, standard JSON (RFC 8259) does not support them. Canon follows the standard specification.
+
+== Usage examples
+
+=== Basic JSON comparison
+
+[source,ruby]
+----
+json1 = File.read("config1.json")
+json2 = File.read("config2.json")
+
+Canon::Comparison.equivalent?(json1, json2)
+----
+
+=== Ignoring key order
+
+[source,ruby]
+----
+Canon::Comparison.equivalent?(json1, json2,
+  match: { key_order: :ignore }
+)
+----
+
+=== Test-friendly JSON comparison
+
+[source,ruby]
+----
+expect(actual_json).to be_json_equivalent_to(expected_json)
+  .with_profile(:spec_friendly)
+----
+
+=== Using JSON comparator directly
+
+[source,ruby]
+----
+Canon::Comparison::JsonComparator.equivalent?(json1, json2,
+  match: { key_order: :ignore }
+)
+----
+
+=== CLI usage
+
+[source,bash]
+----
+# Basic comparison
+canon diff config1.json config2.json --verbose
+
+# Ignore key order
+canon diff file1.json file2.json \
+  --match-profile spec_friendly \
+  --verbose
+----
+
+== Common JSON comparison scenarios
+
+=== API response comparison
+
+[source,ruby]
+----
+# Compare API responses ignoring key order
+Canon::Comparison.equivalent?(response1, response2,
+  match: {
+    key_order: :ignore,
+    text_content: :normalize
+  },
+  verbose: true
+)
+----
+
+=== Configuration file comparison
+
+[source,ruby]
+----
+# Compare config files with flexible matching
+Canon::Comparison.equivalent?(config1, config2,
+  match_profile: :spec_friendly,
+  verbose: true
+)
+----
+
+=== Array order sensitivity
+
+.Array order example
+[example]
+====
+[source,json]
+----
+// File 1
+{"items": [1, 2, 3]}
+
+// File 2
+{"items": [3, 2, 1]}
+----
+
+These are **NOT** equivalent because array order matters in JSON. Arrays are ordered sequences, unlike objects.
+
+If you need unordered array comparison, you'll need to sort the arrays before comparison or use custom logic.
+====
+
+== JSON quirks and edge cases
+
+=== Number precision
+
+.Number precision
+[example]
+====
+[source,json]
+----
+{"value": 1.0}
+{"value": 1}
+----
+
+These may be treated as equivalent or different depending on the JSON parser. Canon preserves the distinction between integers and floats.
+====
+
+=== Empty vs missing
+
+.Empty vs missing values
+[example]
+====
+[source,json]
+----
+// Different: empty string vs missing key
+{"name": ""}
+{}
+
+// Different: null vs missing key
+{"name": null}
+{}
+----
+
+Canon distinguishes between empty values and missing keys.
+====
+
+=== Unicode handling
+
+.Unicode handling
+[example]
+====
+[source,json]
+----
+// These are equivalent
+{"text": "café"}
+{"text": "caf\u00e9"}
+----
+
+Canon normalizes Unicode escapes during canonicalization.
+====
+
+== See also
+
+* link:../comparison-pipeline.adoc[Comparison Pipeline] - Understanding the 4 layers
+* link:../../features/match-options/[Match Options] - All matching options
+* link:../../guides/choosing-configuration.adoc[Choosing Configuration] - Decision guide
+* link:index.adoc[Format Support] - Overview of all formats
+* link:yaml.adoc[YAML Format] - YAML-specific features (similar to JSON)
+* link:xml.adoc[XML Format] - XML-specific features

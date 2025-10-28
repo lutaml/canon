@@ -1,0 +1,181 @@
+---
+layout: default
+title: Guides
+nav_order: 8
+has_children: true
+---
+= Guides
+
+Task-oriented tutorials for common Canon use cases.
+
+== Overview
+
+This section provides step-by-step guides for accomplishing specific tasks with Canon. Each guide walks you through a complete workflow from start to finish.
+
+Unlike reference documentation that explains individual features, these guides show you how to combine features to solve real problems.
+
+== Available Guides
+
+link:testing-xml-generation[**Testing XML Generation**]::
+How to use Canon in RSpec tests to validate generated XML output.
++
+Covers: RSpec matchers, match profiles, handling whitespace, debugging failures.
+
+link:debugging-test-failures[**Debugging Test Failures**]::
+Strategies for diagnosing and fixing test failures when comparing documents.
++
+Covers: Verbose mode, character visualization, match dimension tuning, common pitfalls.
+
+link:migrating-from-xmldiff[**Migrating from XMLDiff**]::
+Guide for users switching from other XML comparison tools.
++
+Covers: Feature mapping, option translation, behavior differences, migration checklist.
+
+link:performance-optimization[**Performance Optimization**]::
+Techniques for improving comparison performance on large documents.
++
+Covers: Algorithm selection, size limits, preprocessing strategies, batch processing.
+
+link:custom-comparators[**Building Custom Comparators**]::
+How to extend Canon with custom comparison logic for specialized formats.
++
+Covers: Comparator interface, adapter pattern, integration, testing.
+
+== By Use Case
+
+=== Testing and QA
+
+**Writing reliable XML tests**::
+link:testing-xml-generation[Testing XML Generation] shows how to use Canon's RSpec matchers for robust testing.
+
+**Debugging test failures**::
+link:debugging-test-failures[Debugging Test Failures] provides systematic troubleshooting strategies.
+
+**Comparing configuration files**::
+Use link:../features/match-options/profiles[Match Profiles] with the `spec_friendly` profile.
+
+=== Migration and Integration
+
+**Switching from another tool**::
+link:migrating-from-xmldiff[Migrating from XMLDiff] helps you transition smoothly.
+
+**Integrating into CI/CD**::
+See link:../interfaces/cli/[CLI Reference] for command-line usage in pipelines.
+
+**Adding to existing test suite**::
+link:testing-xml-generation[Testing XML Generation] covers integration patterns.
+
+=== Performance and Scale
+
+**Handling large files**::
+link:performance-optimization[Performance Optimization] shows strategies for large documents.
+
+**Batch processing**::
+See link:performance-optimization#batch-processing[Batch Processing] section.
+
+**Optimizing comparison speed**::
+link:performance-optimization#algorithm-selection[Algorithm Selection] explains trade-offs.
+
+=== Customization and Extension
+
+**Custom comparison logic**::
+link:custom-comparators[Building Custom Comparators] walks through the process.
+
+**Format-specific handling**::
+See link:../advanced/extending-canon[Extending Canon] for adapter development.
+
+== Guide Structure
+
+Each guide follows this structure:
+
+**Overview**::
+What you'll learn and prerequisites.
+
+**Problem**::
+The real-world problem this guide solves.
+
+**Solution**::
+Step-by-step walkthrough with code examples.
+
+**Explanation**::
+Why the solution works and alternatives to consider.
+
+**Summary**::
+Key takeaways and next steps.
+
+== Prerequisites
+
+Most guides assume:
+
+* Ruby 2.7 or higher installed
+* Basic familiarity with Canon concepts
+* Understanding of the format you're working with
+
+If you're new to Canon, start with link:../getting-started/[Getting Started] first.
+
+== Common Patterns
+
+=== Test-Friendly Comparison
+
+[source,ruby]
+----
+# Ignore formatting differences in tests
+expect(actual_xml).to be_xml_equivalent_to(expected_xml,
+  match_profile: :spec_friendly
+)
+----
+
+See link:testing-xml-generation#test-friendly-matching[Test-Friendly Matching].
+
+=== Detailed Debugging
+
+[source,ruby]
+----
+# Get detailed diff output
+result = Canon::Comparison.compare(expected, actual,
+  verbose: true,
+  visualize_whitespace: true,
+  context_lines: 10
+)
+puts result.diff
+----
+
+See link:debugging-test-failures#verbose-output[Verbose Output].
+
+=== Performance Tuning
+
+[source,ruby]
+----
+# Optimize for large files
+Canon::Comparison.equivalent?(doc1, doc2,
+  preprocessing: :none,  # Skip preprocessing
+  diff_algorithm: :dom,  # Use faster algorithm
+  max_nodes: 50000       # Increase limit if needed
+)
+----
+
+See link:performance-optimization#tuning-options[Tuning Options].
+
+== Getting Help
+
+**Can't find what you need?**::
+Check link:../reference/[Reference] for complete option listings.
+
+**Need conceptual understanding?**::
+See link:../understanding/[Understanding Canon] for architectural details.
+
+**Want to contribute a guide?**::
+See link:../contributing[Contributing Guidelines].
+
+== Next Steps
+
+* Choose a guide that matches your current task
+* Follow along with the code examples
+* Experiment with variations
+* Share your learnings with the community
+
+== See Also
+
+* link:../getting-started/[Getting Started] - Basic Canon usage
+* link:../features/[Features] - Configuration options
+* link:../reference/[Reference] - Complete option listings

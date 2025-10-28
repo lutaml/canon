@@ -1,0 +1,478 @@
+---
+title: Verbose Mode Architecture
+parent: Advanced
+nav_order: 3
+---
+= Canon verbose mode guide
+:toc:
+:toclevels: 3
+
+== Purpose
+
+Canon provides a two-tier verbose output architecture for debugging comparison failures. This document explains the output structure, when to use each tier, and implementation details.
+
+== Overview
+
+Canon's verbose mode has two output tiers:
+
+* **Semantic Diff Report**: Always shown in verbose mode - provides actionable, dimension-specific details for each difference
+* **CANON VERBOSE tables**: Extra detailed option tables shown only when `CANON_VERBOSE=1` environment variable is set
+
+This progressive disclosure ensures developers get useful information by default, with additional debugging details available when needed.
+
+== Architecture
+
+The output architecture follows a clear three-tier structure:
+
+[source]
+----
+╔═════════════════════════════════════════════════════════════════════╗
+║              CANON VERBOSE MODE OUTPUT ARCHITECTURE                 ║
+╚═════════════════════════════════════════════════════════════════════╝
+
+When verbose: true is used:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│ TIER 1: CANON VERBOSE Tables (ONLY if CANON_VERBOSE=1)             │
+│                                                                      │
+│  ┌────────────────────────────────────────────────────────────────┐ │
+│  │ Match Options Table                                            │ │
+│  │  • Shows preprocessing behavior                                │ │
+│  │  • Shows dimension behaviors (strict/normalize/ignore)         │ │
+│  │  • Explains what each setting means                            │ │
+│  └────────────────────────────────────────────────────────────────┘ │
+│  ┌────────────────────────────────────────────────────────────────┐ │
+│  │ Formatter Options Table                                        │ │
+│  │  • Shows mode (by_line vs by_object)                           │ │
+│  │  • Shows context_lines, diff_grouping_lines                    │ │
+│  │  • Shows show_diffs filter setting                             │ │
+│  └────────────────────────────────────────────────────────────────┘ │
+│  ┌────────────────────────────────────────────────────────────────┐ │
+│  │ Comparison Result Summary                                      │ │
+│  │  • Equivalent? (YES/NO)                                        │ │
+│  │  • Normative/Informative/Total diff counts                     │ │
+│  └────────────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────────┘
+                               │
+                               ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│ TIER 2: Semantic Diff Report (ALWAYS if diffs exist)               │
+│                                                                      │
+│  For each difference:                                               │
+│   • XPath location (e.g., /html/body/div/table/pre/text)           │
+│   • Dimension classification (attribute_presence, text_content)     │
+│   • Specific changes (Added: +xmlns:v, +xmlns:o)                    │
+│   • Normative/Informative status                                    │
+│   • Dimension-specific formatting                                   │
+└─────────────────────────────────────────────────────────────────────┘
+                               │
+                               ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│ TIER 3: Detailed Diff (ALWAYS)                                     │
+│                                                                      │
+│  Either:                                                            │
+│   • Line-by-line diff (for HTML, or with --by-line flag)           │
+│   • Object tree diff (for XML/JSON/YAML by default)                │
+└─────────────────────────────────────────────────────────────────────┘
+----
+
+=== Output flow
+
+The `DiffFormatter.format_comparison_result()` method orchestrates the output:
+
+. Check if `CANON_VERBOSE=1` → Render option tables
+. Check if differences exist → Render Semantic Diff Report
+. Always render detailed diff (by-line or by-object)
+
+== Semantic diff report
+
+=== Purpose
+
+The Semantic Diff Report is the core verbose output, always shown when differences exist. It provides dimension-specific, actionable details for each difference.
+
+Unlike the detailed diff (which shows every changed line), the Semantic Diff Report shows a high-level summary of WHAT changed and WHY it matters.
+
+=== Output format
+
+[example]
+====
+[source]
+----
+======================================================================
+  SEMANTIC DIFF REPORT (1 difference)
+======================================================================
+
+🔍 DIFFERENCE #1/1 [NORMATIVE]
+──────────────────────────────────────────────────────────────────────
+Dimension:  attribute_presence
+Location:   /html
+
+⊖ Expected (File 1):
+   <html> with 2 attributes: lang, xmlns:epub
+
+⊕ Actual (File 2):
+   <html> with 6 attributes: lang, xmlns:epub, xmlns:m, xmlns:o,
+                              xmlns:v, xmlns:w
+
+✨ Changes:
+   Added: +xmlns:m, +xmlns:o, +xmlns:v, +xmlns:w
+
+======================================================================
+----
+====
+
+=== Format structure
+
+Each difference displays:
+
+* **Status indicator**: `[NORMATIVE]` (green) or `[INFORMATIVE]` (yellow)
+* **Dimension**: Which aspect differs (colorized in magenta)
+* **Location**: XPath for XML/HTML, path for JSON/YAML (colorized in blue)
+* **Expected section**: What was in File 1 (red heading, bold)
+* **Actual section**: What was in File 2 (green heading, bold)
+* **Changes summary**: Actionable description of the difference (yellow, bold)
+
+=== Dimension-specific formats
+
+==== Attribute presence differences
+
+For missing or extra attributes:
+
+[example]
+====
+[source]
+----
+Dimension:  attribute_presence
+Location:   /html/body/p
+
+⊖ Expected: <p> with 2 attributes: id, lang
+⊕ Actual:   <p> with 4 attributes: id, lang, data-value, aria-label
+
+✨ Changes: Added: +data-value, +aria-label
+----
+====
+
+Shows:
+
+* Element name (`<p>`)
+* How many attributes each has
+* Which attributes were added (green with `+` prefix) or removed (red with `-` prefix)
+
+==== Attribute value differences
+
+For differing attribute values:
+
+[example]
+====
+[source]
+----
+Dimension:  attribute_values
+Location:   /html/body/div
+
+⊖ Expected: <div> class="  container  fluid  "
+⊕ Actual:   <div> class="container fluid"
+
+✨ Changes: Whitespace normalization difference
+----
+====
+
+Shows:
+
+* Which specific attribute differs (highlighted in cyan)
+* Exact values on both sides
+* Analysis: "Whitespace difference only", "Whitespace normalization difference", or "Value changed"
+
+==== Text content differences
+
+For text that differs:
+
+[example]
+====
+[source]
+----
+Dimension:  text_content
+Location:   /html/body/div/table/tbody/tr/td/pre/text
+
+⊖ Expected: <text> "
+                     puts \"Hello, world.\"
+                     "
+⊕ Actual:   <text> "puts \"Hello, world.\" "
+
+✨ Changes: ⚠️  Whitespace preserved (inside <pre>, <code>, etc. -
+            whitespace is significant)
+----
+====
+
+Shows:
+
+* Text preview (truncated at 100 characters)
+* Special warning if inside `<pre>`, `<code>`, `<textarea>`, `<script>`, or `<style>` elements (where whitespace is significant)
+
+==== Structural whitespace differences
+
+For whitespace-only differences (usually informative):
+
+[example]
+====
+[source]
+----
+Dimension:  structural_whitespace
+Location:   /root/p
+
+⊖ Expected: <p> "hello␣␣world"
+⊕ Actual:   <p> "hello␣world"
+
+✨ Changes: Whitespace-only difference (informative)
+----
+====
+
+Shows:
+
+* Whitespace visualized: `␣` for space, `→` for tab, `↵` for newline
+* Marked as `[INFORMATIVE]` (yellow)
+
+==== JSON/YAML differences
+
+For JSON/YAML path-based differences:
+
+[example]
+====
+[source]
+----
+Dimension:  15
+Location:   user.email
+
+⊖ Expected: user.email = "alice@example.com"
+⊕ Actual:   user.email = "bob@example.com"
+
+✨ Changes: Value changed
+----
+====
+
+== CANON VERBOSE mode
+
+=== Purpose
+
+CANON VERBOSE mode adds detailed option tables BEFORE the Semantic Diff Report. These tables help understand:
+
+* What match options are in effect
+* How the diff formatter is configured
+* Statistics about the comparison result
+
+To enable, set the `CANON_VERBOSE` environment variable:
+
+[source,bash]
+----
+CANON_VERBOSE=1 bundle exec rspec spec/my_failing_spec.rb:123
+----
+
+=== Match options table
+
+Shows preprocessing and dimension behaviors:
+
+[example]
+====
+[source]
+----
+╭────────────────────────────────────────────────────────────────────╮
+│                       Match Options (HTML)                         │
+├────────────────────┬───────────┬────────────────────────────────────┤
+│ Dimension          │ Behavior  │ Meaning                            │
+├────────────────────┼───────────┼────────────────────────────────────┤
+│ preprocessing      │ rendered  │ As browser-rendered (compacted wh… │
+│ text_content       │ normalize │ Normalized then compared (normative)  │
+│ structural_whit…   │ ignore    │ Differences IGNORED (informative)     │
+│ attribute_presence │ strict    │ Must match exactly (normative)        │
+│ attribute_values   │ normalize │ Normalized then compared (normative)  │
+│ comments           │ ignore    │ Differences IGNORED (informative)     │
+╰────────────────────┴───────────┴────────────────────────────────────╯
+----
+====
+
+Preprocessing behaviors:
+
+* `:none` - No preprocessing (compare as-is)
+* `:c14n` - Canonicalize (XML C14N normalization)
+* `:normalize` - Normalize (collapse whitespace, trim lines)
+* `:format` - Pretty-format (consistent indentation)
+* `:rendered` - As browser-rendered (compacted whitespace, to_html)
+
+Dimension behaviors:
+
+* `:ignore` - Differences IGNORED (informative, won't fail test)
+* `:strict` - Must match exactly (normative, will fail test)
+* `:normalize` - Normalized then compared (normative if different after normalization)
+* `:strip` - Strip leading/trailing whitespace only
+* `:compact` - Collapse whitespace runs to single space
+
+=== Formatter options table
+
+Shows diff formatting settings:
+
+[example]
+====
+[source]
+----
+╭────────────────────────────────────────────────────────────────────╮
+│                         Formatter Options                          │
+├─────────────────────┬─────────┬────────────────────────────────────┤
+│ Option              │ Value   │ Impact                             │
+├─────────────────────┼─────────┼────────────────────────────────────┤
+│ mode                │ by_line │ Line-by-line diff                  │
+│ context_lines       │ 3       │ 3 lines of context around diffs    │
+│ show_diffs          │ all     │ Show all diffs (normative + informative) │
+╰─────────────────────┴─────────┴────────────────────────────────────╯
+----
+====
+
+=== Comparison result summary
+
+Shows diff statistics:
+
+[example]
+====
+[source]
+----
+╭─────────────────────────────────────────────────────────────────────╮
+│                      Comparison Result Summary                      │
+├────────────────┬─────────┬──────────────────────────────────────────┤
+│ Equivalent?    │ ✗ NO    │ Documents have semantic differences      │
+│ Normative Diffs   │ 1 diffs │ Semantic differences that matter         │
+│ Informative Diffs │ 0       │ Textual/formatting differences (ignored) │
+│ Total Diffs    │ 1       │ All differences found                    │
+╰────────────────┴─────────┴──────────────────────────────────────────╯
+----
+====
+
+== Usage
+
+=== Using in RSpec matchers
+
+Verbose mode is activated by using `verbose: true` in the comparison:
+
+[source,ruby]
+----
+result = Canon::Comparison::XmlComparator.equivalent?(
+  xml1,
+  xml2,
+  verbose: true
+)
+# Returns ComparisonResult object
+# Semantic Diff Report shown if differences exist
+----
+
+With RSpec matchers, verbose mode is automatic on test failure:
+
+[source,ruby]
+----
+# Semantic Diff Report automatically shown on failure
+expect(actual_html).to be_html4_equivalent_to(expected_html)
+----
+
+To enable CANON VERBOSE tables:
+
+[source,bash]
+----
+CANON_VERBOSE=1 bundle exec rspec spec/my_spec.rb:123
+----
+
+=== Using via CLI
+
+[source,bash]
+----
+# Verbose mode (shows Semantic Diff Report)
+canon diff file1.xml file2.xml --verbose
+
+# With CANON VERBOSE tables
+CANON_VERBOSE=1 canon diff file1.xml file2.xml --verbose
+----
+
+=== Configuration
+
+You can enable CANON VERBOSE mode permanently for a project:
+
+[source,ruby]
+----
+# In spec/spec_helper.rb
+ENV['CANON_VERBOSE'] = '1' if ENV['DEBUG']
+
+# Or in your test
+before(:each) do
+  ENV['CANON_VERBOSE'] = '1'
+end
+----
+
+== Implementation
+
+=== DiffDetailFormatter module
+
+Location: `lib/canon/diff_formatter/diff_detail_formatter.rb`
+
+Responsible for:
+
+* Formatting the Semantic Diff Report
+* Dispatching to dimension-specific formatters
+* Extracting XPath/JSON paths
+* Detecting whitespace-preserving elements (`<pre>`, `<code>`, etc.)
+* Colorizing output
+
+Key methods:
+
+* `format_report(differences)` - Main entry point
+* `format_attribute_presence_details()` - Format attribute presence diffs
+* `format_attribute_values_details()` - Format attribute value diffs
+* `format_text_content_details()` - Format text content diffs
+* `extract_xpath(node)` - Extract XPath with safety limits
+* `inside_preserve_element?(node)` - Detect whitespace preservation
+
+=== DebugOutput module
+
+Location: `lib/canon/diff_formatter/debug_output.rb`
+
+Responsible for:
+
+* Rendering CANON VERBOSE option tables
+* Checking if `CANON_VERBOSE=1` is set
+* Formatting match options with descriptions
+* Formatting formatter options with impact
+* Formatting comparison summary statistics
+
+Key methods:
+
+* `verbose_tables_only()` - Returns CANON VERBOSE tables or empty string
+* `format_match_options_table()` - Render match options as table
+* `format_formatter_options_table()` - Render formatter options as table
+* `format_comparison_summary()` - Render result summary as table
+
+=== DiffFormatter integration
+
+Location: `lib/canon/diff_formatter.rb`
+
+The `format_comparison_result()` method orchestrates output:
+
+[source,ruby]
+----
+def format_comparison_result(comparison_result, expected, actual)
+  output = []
+
+  # 1. CANON VERBOSE tables (ONLY if CANON_VERBOSE=1)
+  output << DebugOutput.verbose_tables_only(...)
+
+  # 2. Semantic Diff Report (ALWAYS if diffs exist)
+  output << DiffDetailFormatter.format_report(...)
+
+  # 3. Detailed diff (ALWAYS)
+  output << format(differences, ...)
+
+  output.compact.join("\n")
+end
+----
+
+This ensures the correct output order and separation of concerns.
+
+== See also
+
+* link:../features/diff-formatting/[Diff Formatting] - Diff output customization
+* link:../understanding/comparison-pipeline.adoc[Comparison Pipeline] - 4-layer architecture
+* link:../interfaces/rspec/[RSpec Matchers] - Using verbose mode in tests
+* link:../interfaces/cli/[CLI] - Command-line verbose mode

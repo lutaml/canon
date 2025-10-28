@@ -1,0 +1,317 @@
+---
+title: Comparison Pipeline
+parent: Understanding
+nav_order: 2
+---
+= Comparison Pipeline
+
+== Purpose
+
+Canon's comparison system uses a 4-layer architecture where each layer has a distinct responsibility. Understanding this pipeline is essential for configuring Canon effectively.
+
+== The 4-Layer Flow
+
+Canon processes document comparisons through four sequential layers:
+
+[mermaid]
+----
+graph TD
+    A[Input Documents] --> B[Layer 1: Preprocessing]
+    B --> C[Layer 2: Algorithm Selection]
+    C --> D[Layer 3: Match Options]
+    D --> E[Layer 4: Diff Formatting]
+    E --> F[Output]
+
+    style B fill:#e1f5ff
+    style C fill:#fff4e1
+    style D fill:#ffe1f5
+    style E fill:#e1ffe1
+----
+
+== Layer Overview
+
+=== Layer 1: Preprocessing
+
+**Purpose**: Normalize documents before comparison
+
+**Options**:
+* `none` - No preprocessing (default)
+* `c14n` - Canonicalize using format-specific rules
+* `normalize` - Normalize whitespace
+* `format` - Pretty-print with consistent formatting
+
+**When this runs**: Before any comparison takes place
+
+**Documentation**: See link:../features/preprocessing/[Preprocessing]
+
+=== Layer 2: Algorithm Selection
+
+**Purpose**: Choose the comparison strategy
+
+**Options**:
+* `dom` - DOM-based positional comparison (default, stable)
+* `semantic` - Tree-based semantic diff (experimental, intelligent)
+
+**Impact**: Determines how Layers 3 and 4 behave
+
+**Documentation**: See link:algorithms/[Algorithms]
+
+=== Layer 3: Match Options
+
+**Purpose**: Configure what to compare and how strictly
+
+**Key Concept**: This layer is **algorithm-specific** - each algorithm interprets match options differently.
+
+**Components**:
+* Match dimensions (granular control)
+* Match profiles (preset combinations)
+* Algorithm-specific behaviors
+
+**Documentation**: See link:../features/match-options/[Match Options] and link:../features/match-options/algorithm-specific-behavior.adoc[Algorithm-Specific Behavior]
+
+=== Layer 4: Diff Formatting
+
+**Purpose**: Control how differences are displayed
+
+**Key Concept**: This layer is **algorithm-specific** - each algorithm generates different output types.
+
+**Components**:
+* Diff mode (`by_line`, `by_object`)
+* Colors and symbols
+* Context and grouping
+* Character visualization
+
+**Documentation**: See link:../features/diff-formatting/[Diff Formatting] and link:../features/diff-formatting/algorithm-specific-output.adoc[Algorithm-Specific Output]
+
+== Complete Example
+
+Here's a full 4-layer configuration showing all layers working together:
+
+=== Ruby API
+
+[source,ruby]
+----
+result = Canon::Comparison.equivalent?(doc1, doc2,
+  # Layer 1: Preprocessing
+  preprocessing: :normalize,
+
+  # Layer 2: Algorithm
+  diff_algorithm: :semantic,
+
+  # Layer 3: Match Options
+  match_profile: :spec_friendly,
+
+  # Layer 4: Diff Formatting
+  verbose: true,
+  diff_mode: :by_object,
+  use_color: true,
+  context_lines: 3
+)
+----
+
+=== CLI
+
+[source,bash]
+----
+canon diff file1.xml file2.xml \
+  --preprocessing normalize \          # Layer 1
+  --diff-algorithm semantic \          # Layer 2
+  --match-profile spec_friendly \      # Layer 3
+  --diff-mode by_object \              # Layer 4
+  --verbose \                          # Enable Layer 4 output
+  --context-lines 5                    # Layer 4 option
+----
+
+== Layer-by-Layer Build-Up
+
+Let's see how each layer adds to the configuration:
+
+=== Just Layer 1
+
+[source,ruby]
+----
+Canon::Comparison.equivalent?(doc1, doc2,
+  preprocessing: :normalize
+)
+# Documents are normalized, then compared using default DOM algorithm
+# with strict matching and by-line diff output
+----
+
+=== Layers 1 + 2
+
+[source,ruby]
+----
+Canon::Comparison.equivalent?(doc1, doc2,
+  preprocessing: :normalize,
+  diff_algorithm: :semantic
+)
+# Documents are normalized, then compared using semantic algorithm
+# with strict matching and by-object diff output (semantic's natural mode)
+----
+
+=== Layers 1 + 2 + 3
+
+[source,ruby]
+----
+Canon::Comparison.equivalent?(doc1, doc2,
+  preprocessing: :normalize,
+  diff_algorithm: :semantic,
+  match_profile: :spec_friendly
+)
+# Documents are normalized, compared using semantic algorithm
+# with spec_friendly matching (ignores formatting differences)
+# Default diff output is by-object
+----
+
+=== All 4 Layers
+
+[source,ruby]
+----
+Canon::Comparison.equivalent?(doc1, doc2,
+  preprocessing: :normalize,
+  diff_algorithm: :semantic,
+  match_profile: :spec_friendly,
+  verbose: true,
+  diff_mode: :by_line,
+  use_color: true
+)
+# Complete configuration with all layers specified
+# Documents normalized, semantic comparison, spec-friendly matching,
+# traditional line-based diff output with colors
+----
+
+== Layer Interaction Matrix
+
+This table shows common configuration patterns:
+
+[cols="1,1,1,1,2"]
+|===
+|Layer 1 |Layer 2 |Layer 3 |Layer 4 |Result
+
+|none
+|dom
+|strict
+|by_line
+|Traditional exact comparison
+
+|normalize
+|dom
+|spec_friendly
+|by_line
+|Test-friendly comparison
+
+|c14n
+|dom
+|content_only
+|by_object
+|Canonical structure view
+
+|none
+|semantic
+|strict
+|by_object
+|Semantic operations view
+
+|normalize
+|semantic
+|rendered
+|by_line
+|Rendered diff with operations
+|===
+
+== Key Principles
+
+=== Layer Independence
+
+Each layer has a distinct purpose:
+* **Layer 1**: Document transformation
+* **Layer 2**: Comparison strategy
+* **Layer 3**: Match criteria
+* **Layer 4**: Output presentation
+
+=== Algorithm Specificity
+
+Layers 3 and 4 are interpreted differently by each algorithm:
+* The same match options may behave differently with DOM vs Semantic
+* Diff modes have different natural fits for each algorithm
+* Understanding this is crucial for effective configuration
+
+=== Default Behavior
+
+If you don't specify a layer:
+* **Layer 1**: `none` (no preprocessing)
+* **Layer 2**: `dom` (stable algorithm)
+* **Layer 3**: `strict` (exact matching)
+* **Layer 4**: `by_line` for DOM, `by_object` for Semantic
+
+== Common Patterns
+
+=== Testing XML Generation
+
+[source,ruby]
+----
+Canon::Comparison.equivalent?(expected, actual,
+  preprocessing: :normalize,       # Ignore formatting
+  match_profile: :spec_friendly,   # Focus on content
+  verbose: true                    # Show differences
+)
+----
+
+=== Debugging Test Failures
+
+[source,ruby]
+----
+Canon::Comparison.equivalent?(expected, actual,
+  diff_algorithm: :semantic,       # Detect moves/changes
+  verbose: true,
+  diff_mode: :by_object,           # See operations
+  use_color: true                  # Easier to read
+)
+----
+
+=== Content-Only Comparison
+
+[source,ruby]
+----
+Canon::Comparison.equivalent?(doc1, doc2,
+  preprocessing: :format,          # Normalize structure
+  match_profile: :content_only,    # Ignore all formatting
+  verbose: true
+)
+----
+
+== Anti-Patterns to Avoid
+
+=== Over-Configuration
+
+[source,ruby]
+----
+# DON'T: Too many conflicting options
+Canon::Comparison.equivalent?(doc1, doc2,
+  preprocessing: :c14n,
+  diff_algorithm: :dom,
+  match: {
+    text_content: :ignore,         # Conflicts with preprocessing
+    structural_whitespace: :strict  # Conflicts with preprocessing
+  }
+)
+----
+
+=== Wrong Algorithm/Mode Combination
+
+[source,ruby]
+----
+# SUBOPTIMAL: Semantic algorithm with by-line mode loses operation info
+Canon::Comparison.equivalent?(doc1, doc2,
+  diff_algorithm: :semantic,
+  diff_mode: :by_line  # Better to use by_object with semantic
+)
+----
+
+== See Also
+
+* link:architecture.adoc[Architecture] - Overall system design
+* link:algorithms/[Algorithms] - Detailed algorithm documentation
+* link:../features/match-options/algorithm-specific-behavior.adoc[Algorithm-Specific Behavior] - How algorithms interpret match options
+* link:../features/diff-formatting/algorithm-specific-output.adoc[Algorithm-Specific Output] - Different output formats
+* link:../guides/choosing-configuration.adoc[Choosing Configuration] - Decision guide for all layers

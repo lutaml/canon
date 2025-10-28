@@ -1,0 +1,261 @@
+---
+title: Format Support
+parent: Understanding
+nav_order: 3
+has_children: true
+---
+= Format support
+:toc:
+:toclevels: 3
+
+== Purpose
+
+This section describes Canon's support for XML, HTML, JSON, and YAML formats, including canonicalization rules, format detection, and format-specific features.
+
+For usage examples, see link:../../interfaces/ruby-api/[Ruby API], link:../../interfaces/cli/[CLI], or link:../../interfaces/rspec/[RSpec documentation].
+
+== Overview
+
+Canon provides unified canonicalization and comparison for four serialization formats. Each format has specific rules and defaults optimized for its typical usage.
+
+This page provides an overview of format support. See the child pages for format-specific details:
+
+* link:xml.adoc[XML Format] - W3C C14N, namespace handling
+* link:html.adoc[HTML Format] - HTML4/5 detection, rendering behavior
+* link:json.adoc[JSON Format] - Sorted keys, type preservation
+* link:yaml.adoc[YAML Format] - YAML specifics, anchors and aliases
+
+== Format detection
+
+Canon automatically detects format based on file extensions:
+
+[cols="1,1"]
+|===
+|Extension |Format
+
+|`.xml`
+|XML
+
+|`.html`, `.htm`
+|HTML
+
+|`.json`
+|JSON
+
+|`.yaml`, `.yml`
+|YAML
+|===
+
+You can override auto-detection by explicitly specifying the format:
+
+.Explicit format specification
+[example]
+====
+[source,ruby]
+----
+# Ruby API
+Canon.format(content, :xml)
+
+# CLI
+$ canon format file.txt --format xml
+
+# Comparison
+Canon::Comparison.equivalent?(doc1, doc2, format: :xml)
+----
+====
+
+== Format comparison matrix
+
+[cols="1,1,1,1,1"]
+|===
+|Feature |XML |HTML |JSON |YAML
+
+|Canonicalization standard
+|W3C C14N 1.1
+|Custom
+|Custom
+|YAML 1.2
+
+|Comment support
+|Yes
+|Yes
+|No
+|Yes
+
+|Attribute/key ordering
+|Ignored default
+|Ignored default
+|Strict default
+|Strict default
+
+|Default diff mode
+|by_object
+|by_line
+|by_object
+|by_object
+
+|Whitespace handling
+|Strict default
+|Normalized default
+|Strict default
+|Strict default
+
+|Namespace support
+|Yes
+|Limited (XHTML)
+|No
+|No
+|===
+
+== Format defaults summary
+
+Each format has sensible defaults based on typical usage:
+
+[cols="1,1,1,1,1"]
+|===
+|Dimension |XML |HTML |JSON |YAML
+
+|`text_content`
+|`:strict`
+|`:normalize`
+|`:strict`
+|`:strict`
+
+|`structural_whitespace`
+|`:strict`
+|`:normalize`
+|`:strict`
+|`:strict`
+
+|`attribute_whitespace`
+|`:strict`
+|`:normalize`
+|—
+|—
+
+|`attribute_order`
+|`:ignore`
+|`:ignore`
+|—
+|—
+
+|`attribute_values`
+|`:strict`
+|`:strict`
+|—
+|—
+
+|`key_order`
+|—
+|—
+|`:strict`
+|`:strict`
+
+|`comments`
+|`:strict`
+|`:ignore`
+|—
+|`:strict`
+|===
+
+Default diff mode:
+* XML: `:by_object` (tree-based semantic diff)
+* HTML: `:by_line` (line-based diff)
+* JSON: `:by_object` (tree-based semantic diff)
+* YAML: `:by_object` (tree-based semantic diff)
+
+== Match profiles by format
+
+Canon provides predefined profiles optimized for each format. The same profile name has format-appropriate settings.
+
+=== strict profile
+
+**Purpose**: Character-perfect matching
+
+**Use when**: Testing exact serializer output, verifying formatting compliance, character-perfect matching required.
+
+=== rendered profile
+
+**Purpose**: Browser-rendered equivalence (most relevant for HTML)
+
+**Use when**: Comparing how content would render, ignoring formatting that doesn't affect display.
+
+=== spec_friendly profile
+
+**Purpose**: Test-friendly comparison for RSpec
+
+**Use when**: Writing RSpec tests, testing semantic correctness, ignoring pretty-printing differences. Most common for testing.
+
+=== content_only profile
+
+**Purpose**: Maximum tolerance - only data matters
+
+**Use when**: Only structural equivalence needed, maximum flexibility for formatting differences.
+
+== Working with multiple formats
+
+Canon's unified API works consistently across all formats:
+
+.Unified API examples
+[example]
+====
+[source,ruby]
+----
+# Format any content
+Canon.format(xml_content, :xml)
+Canon.format(html_content, :html)
+Canon.format(json_content, :json)
+Canon.format(yaml_content, :yaml)
+
+# Compare any format
+Canon::Comparison.equivalent?(xml1, xml2)
+Canon::Comparison.equivalent?(html1, html2)
+Canon::Comparison.equivalent?(json1, json2)
+Canon::Comparison.equivalent?(yaml1, yaml2)
+
+# RSpec matchers
+expect(actual_xml).to be_xml_equivalent_to(expected_xml)
+expect(actual_html).to be_html_equivalent_to(expected_html)
+expect(actual_json).to be_json_equivalent_to(expected_json)
+expect(actual_yaml).to be_yaml_equivalent_to(expected_yaml)
+----
+====
+
+== Format-specific comparators
+
+You can use format-specific comparator classes directly:
+
+.Format-specific comparators
+[example]
+====
+[source,ruby]
+----
+# XML comparator
+Canon::Comparison::XmlComparator.equivalent?(xml1, xml2,
+  match: { attribute_order: :ignore }
+)
+
+# HTML comparator
+Canon::Comparison::HtmlComparator.equivalent?(html1, html2,
+  match_profile: :rendered
+)
+
+# JSON comparator
+Canon::Comparison::JsonComparator.equivalent?(json1, json2,
+  match: { key_order: :ignore }
+)
+
+# YAML comparator
+Canon::Comparison::YamlComparator.equivalent?(yaml1, yaml2,
+  match: { comments: :ignore }
+)
+----
+====
+
+== See also
+
+* link:../../interfaces/ruby-api/[Ruby API documentation]
+* link:../../interfaces/cli/[Command-line interface]
+* link:../../features/match-options/[Match options reference]
+* link:../comparison-pipeline.adoc[Comparison Pipeline]
+* link:../../features/preprocessing/[Preprocessing options]

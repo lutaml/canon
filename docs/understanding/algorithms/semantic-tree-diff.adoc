@@ -1,0 +1,533 @@
+---
+title: Semantic Algorithm
+parent: Algorithms
+grand_parent: Understanding
+nav_order: 2
+---
+= Semantic algorithm
+:toc:
+:toclevels: 3
+
+WARNING: The semantic tree diff algorithm is currently **experimental** and under active development. While functional and tested, the API and behavior may change in future releases. Use with caution in production environments.
+
+== Purpose
+
+The Semantic algorithm is Canon's **intelligent, experimental algorithm** for document comparison. It provides signature-based matching with operation detection (INSERT, DELETE, UPDATE, MOVE).
+
+This page explains when to use the Semantic algorithm, how it differs from DOM, and how to configure it effectively.
+
+== When to Use
+
+The Semantic algorithm is for **advanced use cases** where intelligence is worth the performance cost.
+
+=== Use Semantic Algorithm When
+
+* ✓ You need to **detect element moves and reordering**
+* ✓ Documents have **significant restructuring**
+* ✓ You need **operation-level analysis** (INSERT, DELETE, UPDATE, MOVE)
+* ✓ You want **statistical analysis** of changes
+* ✓ You're **analyzing document evolution**
+* ✓ You're willing to **accept experimental status**
+* ✓ Working with **smaller documents** (< 10KB)
+
+=== Characteristics
+
+[cols="2,3"]
+|===
+|Feature |Semantic Algorithm
+
+|**Status**
+|Experimental, under development
+
+|**Performance**
+|Slower - O(n²) worst case
+
+|**Memory Usage**
+|Higher - builds tree structures
+
+|**Matching Strategy**
+|Signature-based similarity matching
+
+|**Move Detection**
+|Yes - detects MOVE operations
+
+|**Output Format**
+|Operation-based (INSERT, DELETE, UPDATE, MOVE)
+
+|**Best For**
+|Restructured documents, operation analysis
+
+|**Document Size**
+|Best for smaller documents (< 10KB)
+|===
+
+== How It Works
+
+The Semantic algorithm uses a sophisticated three-phase matching process:
+
+=== Phase 1: Hash-Based Exact Matching
+
+Matches nodes with identical structure and content:
+
+* **Fast** - O(n) performance
+* **Eliminates** unchanged subtrees
+* **Reduces** problem size for later phases
+
+=== Phase 2: Similarity-Based Matching
+
+Matches similar but not identical nodes:
+
+* **Compares** node names, attributes, text, structure
+* **Scores** similarity using weighted metrics
+* **Threshold** - Default 0.95 (95% similar)
+
+=== Phase 3: Structural Propagation
+
+Improves match quality using context:
+
+* **Top-down** - Propagate from matched parents
+* **Bottom-up** - Propagate from matched children
+* **Resolves** ambiguous matches
+
+=== Signature-Based Matching
+
+Unlike DOM's position-based comparison, Semantic uses **signatures**:
+
+.Signature-based comparison example
+[example]
+====
+[source,xml]
+----
+<!-- Document 1 -->
+<book>
+  <title>Canon Guide</title>
+  <author>Alice</author>
+</book>
+
+<!-- Document 2 -->
+<book>
+  <author>Alice</author>
+  <title>Canon Guide</title>
+</book>
+----
+
+Semantic algorithm:
+1. Calculates signature for each element
+2. `<author>Alice</author>` has same signature in both documents
+3. Detects as **MOVE** operation (moved from position 2 to position 1)
+
+Result: 1 MOVE operation detected (author element moved)
+====
+
+== Operation Detection
+
+The Semantic algorithm detects eight operation types:
+
+=== Basic Operations (Level 1)
+
+**INSERT**:: New node added
+[source]
+----
++ <chapter id="3">New Chapter</chapter>
+----
+
+**DELETE**:: Node removed
+[source]
+----
+- <chapter id="old">Removed Chapter</chapter>
+----
+
+**UPDATE**:: Node content/attributes changed
+[source]
+----
+~ <title>Old → New</title>
+----
+
+=== Structural Operations (Level 2)
+
+**MOVE**:: Node relocated to different position
+[source]
+----
+→ <author>Alice</author> (moved from position 2 to 1)
+----
+
+=== Semantic Operations (Level 3)
+
+**MERGE**:: Multiple nodes combined into one
+[source]
+----
+⊕ <section> (merged from 2 separate sections)
+----
+
+**SPLIT**:: One node divided into multiple
+[source]
+----
+⊖ <section> (split into 2 separate sections)
+----
+
+**UPGRADE**:: Node promoted to higher level
+[source]
+----
+↑ <section> (promoted from depth 3 to depth 2)
+----
+
+**DOWNGRADE**:: Node demoted to lower level
+[source]
+----
+↓ <section> (demoted from depth 2 to depth 3)
+----
+
+== Configuration
+
+=== Basic Usage
+
+**Ruby API**:
+[source,ruby]
+----
+# Explicitly specify semantic algorithm
+Canon::Comparison.equivalent?(doc1, doc2,
+  diff_algorithm: :semantic
+)
+----
+
+**CLI**:
+[source,bash]
+----
+canon diff file1.xml file2.xml --diff-algorithm semantic
+----
+
+=== With Similarity Threshold
+
+Control how strict matching is:
+
+[source,ruby]
+----
+Canon::Comparison.equivalent?(doc1, doc2,
+  diff_algorithm: :semantic,
+  match: {
+    similarity_threshold: 0.90  # More lenient (default: 0.95)
+  }
+)
+----
+
+* **Higher** (0.99) - Very conservative, only nearly identical nodes match
+* **Lower** (0.80) - More aggressive, allows less similar nodes to match
+* **Default** (0.95) - Balanced for most use cases
+
+=== With Match Options
+
+Semantic algorithm interprets match options for signature calculation:
+
+[source,ruby]
+----
+Canon::Comparison.equivalent?(doc1, doc2,
+  diff_algorithm: :semantic,
+  match: {
+    text_content: :normalize,      # Affects text signatures
+    attribute_order: :ignore,       # Always ignored (unordered in signatures)
+    element_position: :ignore       # MOVEs become informative
+  }
+)
+----
+
+See link:../../features/match-options/algorithm-specific-behavior.adoc[Algorithm-Specific Behavior] for details.
+
+=== With Diff Formatting
+
+Semantic works best with by_object mode:
+
+[source,ruby]
+----
+# Operation-based output (natural fit for Semantic)
+Canon::Comparison.equivalent?(doc1, doc2,
+  diff_algorithm: :semantic,
+  diff_mode: :by_object,  # Shows operations
+  verbose: true
+)
+
+# Traditional output (also works)
+Canon::Comparison.equivalent?(doc1, doc2,
+  diff_algorithm: :semantic,
+  diff_mode: :by_line,  # Traditional format
+  verbose: true
+)
+----
+
+== Output Format
+
+=== Operation-Based Output (Default)
+
+The Semantic algorithm naturally produces operation-based output:
+
+.Operation-based diff example
+[example]
+====
+```
+UPDATE: book/title: "Old Title" → "New Title"
+MOVE:   book/author → book/author (position 2 → 1)
+
+Statistics:
+  INSERT: 0
+  DELETE: 0
+  UPDATE: 1
+  MOVE:   1
+```
+
+* Shows **what changed** (operation type)
+* Shows **where it changed** (element path)
+* Provides **statistics** (operation counts)
+====
+
+=== Accessing Operations
+
+[source,ruby]
+----
+result = Canon::Comparison.equivalent?(doc1, doc2,
+  diff_algorithm: :semantic,
+  verbose: true
+)
+
+# Access operations
+result.operations.each do |op|
+  puts "Type: #{op.type}"        # :insert, :delete, :update, :move
+  puts "Path: #{op.path}"        # Element path
+  puts "Details: #{op.details}"  # Operation-specific info
+end
+
+# Access statistics
+puts "Moves: #{result.statistics.moves}"
+puts "Updates: #{result.statistics.updates}"
+----
+
+== Advantages
+
+=== Intelligent Matching
+
+* **Detects moves** - Tracks content relocation
+* **Handles restructuring** - Works with heavily modified documents
+* **Signature-based** - Matches similar content anywhere
+
+.Move detection example
+[cols="2,2,2"]
+|===
+|DOM Algorithm |Semantic Algorithm |Advantage
+
+|Shows as DELETE + INSERT
+|Shows as MOVE
+|Clearer understanding
+
+|Many false positives
+|Accurate detection
+|Better analysis
+
+|Position-dependent
+|Position-independent
+|Handles reordering
+|===
+
+=== Rich Analysis
+
+* **Operation counts** - Statistical view of changes
+* **Operation paths** - Precise location information
+* **Confidence scores** - Match quality indicators
+
+== Limitations
+
+=== Performance
+
+The Semantic algorithm is significantly slower:
+
+.Performance comparison
+[cols="1,1,1,1"]
+|===
+|Document Size |DOM Time |Semantic Time |Ratio
+
+|1 KB
+|~1 ms
+|~10 ms
+|10x slower
+
+|10 KB
+|~10 ms
+|~150 ms
+|15x slower
+
+|100 KB
+|~100 ms
+|~3000 ms
+|30x slower
+|===
+
+**Workaround**: Use DOM algorithm for large documents, Semantic for smaller ones
+
+=== Experimental Status
+
+* **API may change** - Not stable yet
+* **Behavior may change** - Under active development
+* **Edge cases** - May have unexpected results
+
+**Workaround**: Test thoroughly before relying on Semantic in production
+
+=== Complex Matching
+
+* **False matches** - May match unrelated but similar content
+* **Ambiguity** - Multiple similar candidates can confuse matching
+* **Tuning needed** - May require similarity threshold adjustment
+
+**Workaround**: Adjust `similarity_threshold` or use DOM algorithm
+
+== Common Use Cases
+
+=== Use Case 1: Detecting Document Reorganization
+
+[source,ruby]
+----
+# Analyze how document was restructured
+result = Canon::Comparison.equivalent?(old_doc, new_doc,
+  diff_algorithm: :semantic,
+  verbose: true,
+  diff_mode: :by_object
+)
+
+# Analyze operations
+puts "Content moved: #{result.statistics.moves} times"
+puts "Sections merged: #{result.statistics.merges}"
+puts "Sections split: #{result.statistics.splits}"
+----
+
+=== Use Case 2: Content Evolution Tracking
+
+[source,ruby]
+----
+# Track how content evolved over time
+versions = [v1, v2, v3, v4]
+
+versions.each_cons(2) do |old, new|
+  result = Canon::Comparison.equivalent?(old, new,
+    diff_algorithm: :semantic,
+    verbose: true
+  )
+
+  log_operations(result.operations)
+end
+----
+
+=== Use Case 3: Intelligent Test Assertions
+
+[source,ruby]
+----
+# Allow reordering in tests
+RSpec.describe "Content generation" do
+  it "generates correct content regardless of order" do
+    actual = generate_content
+
+    expect(actual).to be_xml_equivalent_to(expected)
+      .with_options(
+        diff_algorithm: :semantic,
+        element_position: :ignore  # Ignores moves
+      )
+  end
+end
+----
+
+== Best Practices
+
+=== Start with DOM, Upgrade to Semantic When Needed
+
+Use DOM algorithm as default, switch to Semantic only when move detection is required.
+
+=== Adjust Similarity Threshold
+
+Start conservative (0.95+), lower gradually if under-matching:
+
+[source,ruby]
+----
+# Try different thresholds to find sweet spot
+[0.95, 0.90, 0.85].each do |threshold|
+  result = Canon::Comparison.equivalent?(doc1, doc2,
+    diff_algorithm: :semantic,
+    match: { similarity_threshold: threshold }
+  )
+  puts "Threshold #{threshold}: #{result.statistics.total} operations"
+end
+----
+
+=== Use Appropriate Match Options
+
+Configure dimensions to match your needs:
+
+[source,ruby]
+----
+# Ignore cosmetic differences
+Canon::Comparison.equivalent?(doc1, doc2,
+  diff_algorithm: :semantic,
+  match: {
+    structural_whitespace: :ignore,
+    element_position: :ignore
+  }
+)
+----
+
+== Troubleshooting
+
+=== Too Many Operations Detected
+
+**Problem**: Everything shows as changed
+
+**Solution**: Increase similarity threshold
+[source,ruby]
+----
+match: { similarity_threshold: 0.98 }  # Was 0.95
+----
+
+=== Too Few Matches
+
+**Problem**: Similar content shows as DELETE + INSERT
+
+**Solution**: Decrease similarity threshold
+[source,ruby]
+----
+match: { similarity_threshold: 0.85 }  # Was 0.95
+----
+
+=== Performance Issues
+
+**Problem**: Comparison is very slow
+
+**Solution**: Use DOM algorithm or limit document size
+[source,ruby]
+----
+# Conditionally use Semantic only for small docs
+algorithm = doc_size < 10_000 ? :semantic : :dom
+Canon::Comparison.equivalent?(doc1, doc2,
+  diff_algorithm: algorithm
+)
+----
+
+== Migration from DOM
+
+=== Expected Changes
+
+When switching from DOM to Semantic:
+
+1. **MOVEs detected** - Reordered content shows as MOVE instead of DELETE+INSERT
+2. **Different output** - Operations instead of line-based diff
+3. **Slower performance** - Accept longer comparison time
+4. **New capabilities** - Access to rich operation analysis
+
+=== Migration Steps
+
+1. **Test on small subset** - Verify behavior on sample documents
+2. **Compare outputs** - Review DOM vs Semantic results side-by-side
+3. **Adjust threshold** - Tune similarity_threshold for your needs
+4. **Update assertions** - Adapt tests to operation-based output
+5. **Monitor performance** - Ensure acceptable speed
+
+== See Also
+
+* link:index.adoc[Algorithms Overview] - Comparison of DOM vs Semantic
+* link:dom-diff.adoc[DOM Algorithm] - Standard algorithm
+* link:../../features/match-options/algorithm-specific-behavior.adoc[Algorithm-Specific Behavior] - How Semantic interprets options
+* link:../../features/diff-formatting/algorithm-specific-output.adoc[Algorithm-Specific Output] - Output format details
+* link:../../guides/choosing-configuration.adoc[Choosing Configuration] - Complete decision guide
+* link:../../advanced/semantic-tree-diff-internals.adoc[Semantic Tree Diff Internals] - Advanced details (if available)

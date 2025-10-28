@@ -1,0 +1,533 @@
+---
+title: Algorithm-Specific Output
+parent: Diff Formatting
+grand_parent: Features
+nav_order: 2
+---
+= Algorithm-Specific Output
+
+== Purpose
+
+Different comparison algorithms produce fundamentally different types of output. Understanding these differences is essential for choosing the right diff mode and interpreting results correctly.
+
+This page explains the output formats from DOM and Semantic algorithms and provides guidance on choosing the appropriate diff mode for each.
+
+== Key Concept
+
+**Each algorithm has a natural output format**:
+
+* **DOM algorithm** generates line-based differences (natural fit: `by_line`)
+* **Semantic algorithm** generates operation-based differences (natural fit: `by_object`)
+
+Both algorithms support both diff modes, but the natural fit provides the most useful output.
+
+== DOM Algorithm Output
+
+=== Natural Output Format
+
+The DOM algorithm produces **line-based differences** showing positional changes:
+
+**Characteristics**:
+* Each line is compared at its position
+* Shows additions, deletions, and modifications
+* Traditional diff format (similar to `git diff`)
+* No move detection
+
+**Output Structure**:
+[source]
+----
+- <line removed at position>
++ <line added at position>
+  <unchanged line>
+  <unchanged line>
+- <another removed line>
++ <another added line>
+----
+
+=== DOM with `by_line` Mode (Natural Fit)
+
+This is the recommended mode for DOM algorithm.
+
+[source,ruby]
+----
+result = Canon::Comparison.equivalent?(doc1, doc2,
+  diff_algorithm: :dom,
+  diff_mode: :by_line,
+  verbose: true
+)
+
+puts result.diff
+----
+
+**Example Output**:
+[source,diff]
+----
+  <book>
+-   <title>Old Title</title>
++   <title>New Title</title>
+    <author>John Doe</author>
+-   <year>2020</year>
++   <year>2024</year>
+  </book>
+----
+
+**Best For**:
+* Code review workflows
+* Understanding line-by-line changes
+* Traditional diff tools integration
+* Quick visual scanning
+
+=== DOM with `by_object` Mode
+
+DOM algorithm can also produce tree-based output, though it's less natural.
+
+[source,ruby]
+----
+result = Canon::Comparison.equivalent?(doc1, doc2,
+  diff_algorithm: :dom,
+  diff_mode: :by_object,
+  verbose: true
+)
+----
+
+**Example Output**:
+[source]
+----
+book
+  title
+    - Old Title
+    + New Title
+  author
+    = John Doe
+  year
+    - 2020
+    + 2024
+----
+
+**Characteristics**:
+* Shows tree structure
+* Still position-based (no moves)
+* Can be useful for structured view
+* No semantic operations
+
+**Use When**:
+* You want tree structure visualization
+* Working with deeply nested documents
+* Need hierarchical context
+
+== Semantic Algorithm Output
+
+=== Natural Output Format
+
+The Semantic algorithm produces **operation-based differences** showing semantic changes:
+
+**Characteristics**:
+* Detects INSERT, DELETE, UPDATE, MOVE operations
+* Understands structural changes
+* Shows element paths
+* Provides operation statistics
+
+**Output Structure**:
+[source]
+----
+INSERT: <path> <content>
+DELETE: <path> <content>
+UPDATE: <path> <old> -> <new>
+MOVE:   <from-path> -> <to-path>
+----
+
+=== Semantic with `by_object` Mode (Natural Fit)
+
+This is the recommended mode for Semantic algorithm.
+
+[source,ruby]
+----
+result = Canon::Comparison.equivalent?(doc1, doc2,
+  diff_algorithm: :semantic,
+  diff_mode: :by_object,
+  verbose: true
+)
+
+puts result.operations
+puts result.statistics
+----
+
+**Example Output**:
+[source]
+----
+UPDATE: book/title: "Old Title" -> "New Title"
+UPDATE: book/year: "2020" -> "2024"
+MOVE:   book/chapter[2] -> book/chapter[1]
+
+Statistics:
+  INSERT: 0
+  DELETE: 0
+  UPDATE: 2
+  MOVE:   1
+----
+
+**Best For**:
+* Understanding semantic changes
+* Tracking content evolution
+* Detecting restructuring
+* Operation-level analysis
+
+=== Semantic with `by_line` Mode
+
+Semantic algorithm can also produce line-based output for traditional workflows.
+
+[source,ruby]
+----
+result = Canon::Comparison.equivalent?(doc1, doc2,
+  diff_algorithm: :semantic,
+  diff_mode: :by_line,
+  verbose: true
+)
+----
+
+**Example Output**:
+[source,diff]
+----
+  <book>
+~   <title>New Title</title>  [UPDATE]
+    <author>John Doe</author>
+~   <year>2024</year>         [UPDATE]
+→   <chapter id="2">          [MOVE from position 2]
+    <chapter id="1">
+  </book>
+----
+
+**Characteristics**:
+* Traditional line-based format
+* Annotated with operation types
+* Shows move indicators
+* Combines both worlds
+
+**Use When**:
+* Need traditional diff format
+* Want operation annotations
+* Integrating with line-based tools
+* Users familiar with git diff
+
+== Output Comparison Table
+
+[cols="2,3,3"]
+|===
+|Feature |DOM Output |Semantic Output
+
+|**Primary Format**
+|Line-based positional differences
+|Operation-based semantic changes
+
+|**Move Detection**
+|No (shows as DELETE + INSERT)
+|Yes (shows as MOVE operation)
+
+|**Operation Types**
+|Add, Remove, Modify
+|INSERT, DELETE, UPDATE, MOVE
+
+|**Best Diff Mode**
+|`by_line`
+|`by_object`
+
+|**Statistics**
+|Line counts
+|Operation counts
+
+|**Path Information**
+|Line numbers
+|Element paths
+
+|**Performance**
+|Fast
+|Slower
+
+|**Best For**
+|Traditional workflows
+|Semantic analysis
+|===
+
+== Choosing the Right Combination
+
+=== Recommended Configurations
+
+[cols="2,2,2,3"]
+|===
+|Algorithm |Diff Mode |Use Case |Output Type
+
+|DOM
+|by_line
+|Code review, quick diffs
+|Traditional line-based diff
+
+|DOM
+|by_object
+|Structured document view
+|Tree view without operations
+
+|Semantic
+|by_object
+|Semantic analysis
+|Operation-based tree diff
+
+|Semantic
+|by_line
+|Traditional format with operations
+|Annotated line-based diff
+|===
+
+== Detailed Examples
+
+=== Example 1: Simple Text Change
+
+**Input Documents**:
+[source,xml]
+----
+<!-- doc1.xml -->
+<message>Hello World</message>
+
+<!-- doc2.xml -->
+<message>Hello Universe</message>
+----
+
+**DOM by_line Output**:
+[source,diff]
+----
+- <message>Hello World</message>
++ <message>Hello Universe</message>
+----
+
+**Semantic by_object Output**:
+[source]
+----
+UPDATE: message: "Hello World" -> "Hello Universe"
+----
+
+=== Example 2: Element Reordering
+
+**Input Documents**:
+[source,xml]
+----
+<!-- doc1.xml -->
+<book>
+  <title>Canon</title>
+  <author>John</author>
+</book>
+
+<!-- doc2.xml -->
+<book>
+  <author>John</author>
+  <title>Canon</title>
+</book>
+----
+
+**DOM by_line Output**:
+[source,diff]
+----
+  <book>
+-   <title>Canon</title>
+    <author>John</author>
++   <title>Canon</title>
+  </book>
+----
+
+**Semantic by_object Output**:
+[source]
+----
+MOVE: book/title -> book/title (from position 1 to position 2)
+
+Statistics:
+  INSERT: 0
+  DELETE: 0
+  UPDATE: 0
+  MOVE:   1
+----
+
+=== Example 3: Complex Restructuring
+
+**Input Documents**:
+[source,xml]
+----
+<!-- doc1.xml -->
+<doc>
+  <section id="1">
+    <para>Text A</para>
+    <para>Text B</para>
+  </section>
+  <section id="2">
+    <para>Text C</para>
+  </section>
+</doc>
+
+<!-- doc2.xml -->
+<doc>
+  <section id="2">
+    <para>Text C</para>
+    <para>Text B</para>
+  </section>
+  <section id="1">
+    <para>Text A</para>
+  </section>
+</doc>
+----
+
+**DOM by_line Output** (shows many line changes):
+[source,diff]
+----
+  <doc>
+-   <section id="1">
+-     <para>Text A</para>
+-     <para>Text B</para>
+-   </section>
+    <section id="2">
+      <para>Text C</para>
++     <para>Text B</para>
+    </section>
++   <section id="1">
++     <para>Text A</para>
++   </section>
+  </doc>
+----
+
+**Semantic by_object Output** (shows semantic operations):
+[source]
+----
+MOVE: doc/section[@id='1'] -> doc/section[@id='1'] (position 1 to 2)
+MOVE: doc/section[@id='1']/para[2] -> doc/section[@id='2']/para[2]
+
+Statistics:
+  INSERT: 0
+  DELETE: 0
+  UPDATE: 0
+  MOVE:   2
+----
+
+== Accessing Algorithm-Specific Output
+
+=== Ruby API
+
+[source,ruby]
+----
+result = Canon::Comparison.equivalent?(doc1, doc2,
+  diff_algorithm: :semantic,
+  diff_mode: :by_object,
+  verbose: true
+)
+
+# Check which algorithm was used
+case result.diff_algorithm
+when :dom
+  puts result.diff_lines    # Array of diff lines
+  puts result.line_count    # Statistics
+when :semantic
+  puts result.operations    # Array of operations
+  puts result.statistics    # Operation counts
+  puts result.tree_diff     # Tree representation
+end
+----
+
+=== Operation Objects (Semantic Only)
+
+[source,ruby]
+----
+result.operations.each do |op|
+  puts "Type: #{op.type}"           # :insert, :delete, :update, :move
+  puts "Path: #{op.path}"           # Element path
+  puts "Old: #{op.old_value}"       # For UPDATE
+  puts "New: #{op.new_value}"       # For UPDATE/INSERT
+  puts "From: #{op.from_path}"      # For MOVE
+  puts "To: #{op.to_path}"          # For MOVE
+end
+----
+
+== Performance Implications
+
+=== DOM Output Generation
+
+* **Speed**: Fast (linear with document size)
+* **Memory**: Low (line-by-line processing)
+* **Scaling**: Handles large documents well
+
+=== Semantic Output Generation
+
+* **Speed**: Slower (quadratic worst case)
+* **Memory**: Higher (tree structures in memory)
+* **Scaling**: Best for smaller documents (< 10KB)
+
+== Common Patterns
+
+=== Pattern 1: Quick Diff Review
+
+[source,ruby]
+----
+# Fast line-based diff
+Canon::Comparison.equivalent?(expected, actual,
+  diff_algorithm: :dom,
+  diff_mode: :by_line,
+  verbose: true,
+  use_color: true
+)
+----
+
+=== Pattern 2: Semantic Analysis
+
+[source,ruby]
+----
+# Detailed operation analysis
+result = Canon::Comparison.equivalent?(doc1, doc2,
+  diff_algorithm: :semantic,
+  diff_mode: :by_object,
+  verbose: true
+)
+
+# Analyze operations
+puts "Total changes: #{result.statistics.total}"
+puts "Moves detected: #{result.statistics.moves}"
+----
+
+=== Pattern 3: Hybrid View
+
+[source,ruby]
+----
+# Use semantic algorithm but traditional output
+Canon::Comparison.equivalent?(doc1, doc2,
+  diff_algorithm: :semantic,
+  diff_mode: :by_line,  # Traditional format
+  verbose: true,
+  use_color: true
+)
+# Get operation annotations in traditional diff
+----
+
+== Migration Guide
+
+=== Migrating Output Format
+
+When switching algorithms, update your output expectations:
+
+[source,ruby]
+----
+# Before: DOM algorithm
+result = Canon::Comparison.equivalent?(doc1, doc2,
+  diff_algorithm: :dom,
+  diff_mode: :by_line
+)
+# Expect: result.diff_lines
+
+# After: Semantic algorithm
+result = Canon::Comparison.equivalent?(doc1, doc2,
+  diff_algorithm: :semantic,
+  diff_mode: :by_object
+)
+# Expect: result.operations, result.statistics
+----
+
+== See Also
+
+* link:index.adoc[Diff Formatting Overview]
+* link:diff-modes.adoc[Diff Modes] - by_line vs by_object details
+* link:../match-options/algorithm-specific-behavior.adoc[Algorithm-Specific Behavior] - How algorithms work
+* link:../../understanding/algorithms/[Algorithms] - Detailed algorithm documentation
+* link:colors-and-symbols.adoc[Colors and Symbols] - Visual formatting options
+* link:../../guides/choosing-configuration.adoc[Choosing Configuration] - Decision guide

@@ -1,0 +1,521 @@
+---
+layout: default
+title: Input Validation
+parent: Features
+nav_order: 6
+has_children: false
+---
+
+:toc:
+:toclevels: 3
+
+== Purpose
+
+Canon validates all input before performing comparisons to ensure you're working with well-formed data. Input validation catches syntax errors early and provides clear, actionable error messages with line and column information.
+
+== When Validation Occurs
+
+Canon validates input at the beginning of any comparison operation, before preprocessing or diff generation:
+
+[source]
+----
+Input → Validation → Preprocessing → Comparison → Diff Output
+         ↑
+         Fails here if syntax errors detected
+----
+
+This ensures that:
+
+* Malformed input is caught early
+* Error messages are clear and specific
+* No time is wasted on invalid data
+* Line numbers in errors match original input
+
+== Supported Formats
+
+Canon provides validators for all structured formats:
+
+[cols="2,3"]
+|===
+|Format |Validator
+
+|XML
+|Nokogiri strict parser with detailed syntax error reporting
+
+|HTML
+|Nokogiri HTML parser (lenient for HTML quirks)
+
+|JSON
+|Ruby JSON parser with position tracking
+
+|YAML
+|Psych YAML parser with error context
+|===
+
+== Error Reporting
+
+=== Error Information
+
+When validation fails, Canon provides:
+
+* **Error message**: Clear description of the problem
+* **Line number**: Where the error occurred
+* **Column number**: Specific position in the line (when available)
+* **Context**: Surrounding content to help locate the issue
+* **Format**: Which format validator detected the error
+
+=== Error Example
+
+.XML validation error
+[example]
+====
+[source,ruby]
+----
+Canon.compare(invalid_xml, valid_xml, format: :xml)
+
+# Raises:
+# Canon::ValidationError: Opening and ending tag mismatch: item line 5 and root
+#   Format: xml
+#   Line: 5
+#   Column: 8
+#   Details: expected '</item>'
+----
+====
+
+== Format-Specific Validation
+
+=== XML Validation
+
+XML validation uses Nokogiri's strict parsing mode.
+
+**Detects**:
+* Unclosed tags
+* Mismatched opening/closing tags
+* Invalid entity references
+* Malformed attributes
+* Invalid character data
+* Namespace errors
+
+.XML validation examples
+[example]
+====
+**Unclosed tag**:
+[source,xml]
+----
+<root>
+  <item>Value
+</root>
+----
+
+Error: `Opening and ending tag mismatch: item line 2 and root`
+
+**Invalid character**:
+[source,xml]
+----
+<root>
+  <item>Value & Stuff</item>
+</root>
+----
+
+Error: `Entity 'Stuff' not defined`
+
+**Mismatched tags**:
+[source,xml]
+----
+<root>
+  <item>Value</Item>
+</root>
+----
+
+Error: `Opening and ending tag mismatch: item line 2 and Item`
+====
+
+=== HTML Validation
+
+HTML validation is more lenient than XML, as HTML has quirks and browser-compatible handling.
+
+**Detects**:
+* Severely malformed structure
+* Encoding issues
+* Invalid nesting (in strict mode)
+
+NOTE: HTML validation is intentionally lenient to handle real-world HTML that browsers accept.
+
+=== JSON Validation
+
+JSON validation uses Ruby's JSON parser.
+
+**Detects**:
+* Missing commas
+* Trailing commas
+* Unquoted keys
+* Invalid escape sequences
+* Unclosed strings, arrays, or objects
+* Invalid Unicode sequences
+
+.JSON validation examples
+[example]
+====
+**Missing comma**:
+[source,json]
+----
+{
+  "name": "John"
+  "age": 30
+}
+----
+
+Error: `unexpected token at '"age": 30'`
+
+**Trailing comma**:
+[source,json]
+----
+{
+  "name": "John",
+  "age": 30,
+}
+----
+
+Error: `unexpected token at '}'`
+
+**Unquoted key**:
+[source,json]
+----
+{
+  name: "John"
+}
+----
+
+Error: `unexpected token`
+====
+
+=== YAML Validation
+
+YAML validation uses the Psych parser.
+
+**Detects**:
+* Invalid indentation
+* Incorrect list syntax
+* Malformed block scalars
+* Invalid anchors/aliases
+* Encoding issues
+
+.YAML validation examples
+[example]
+====
+**Invalid indentation**:
+[source,yaml]
+----
+root:
+  item: value
+ bad_indent: value
+----
+
+Error: `mapping values are not allowed in this context`
+
+**Malformed list**:
+[source,yaml]
+----
+list:
+  - item1
+  -item2
+----
+
+Error: `could not find expected ':'`
+====
+
+== ValidationError Details
+
+The `Canon::ValidationError` exception provides structured error information:
+
+[source,ruby]
+----
+begin
+  Canon.compare(invalid, valid, format: :xml)
+rescue Canon::ValidationError => e
+  puts "Format: #{e.format}"      # :xml
+  puts "Message: #{e.message}"    # Error description
+  puts "Line: #{e.line}"          # Line number
+  puts "Column: #{e.column}"      # Column number
+  puts "Details: #{e.details}"    # Additional context
+end
+----
+
+== Error Context
+
+Canon provides context to help locate errors:
+
+=== Line and Column Numbers
+
+When available, Canon reports exact line and column positions:
+
+[source]
+----
+Line 15, Column 23
+     ↓
+<item id="abc" name=value">
+                     ↑
+                  Missing opening quote
+----
+
+=== Surrounding Content
+
+For some formats, Canon shows content around the error:
+
+[source]
+----
+Near: { "name": "John" "age": 30 }
+                      ↑
+                   Missing comma
+----
+
+== Handling Validation Errors
+
+=== In Tests
+
+When validation fails in tests, you get immediate feedback:
+
+[source,ruby]
+----
+RSpec.describe "XML comparison" do
+  it "compares documents" do
+    expected = "<root><item>Value</root>"  # Missing </item>
+    actual = "<root><item>Value</item></root>"
+
+    expect(actual).to match_xml(expected)
+    # Fails immediately with:
+    # Canon::ValidationError: Opening and ending tag mismatch
+  end
+end
+----
+
+=== In CLI
+
+The CLI shows validation errors with exit code 1:
+
+[source,bash]
+----
+$ canon diff invalid.xml valid.xml
+
+Error: Invalid XML
+  Format: xml
+  Line: 5
+  Column: 8
+  Opening and ending tag mismatch: item line 5 and root
+
+$ echo $?
+1
+----
+
+=== In Ruby API
+
+Catch and handle validation errors explicitly:
+
+[source,ruby]
+----
+begin
+  result = Canon.compare(input1, input2, format: :xml)
+rescue Canon::ValidationError => e
+  logger.error("Invalid XML input: #{e.message}")
+  logger.error("  Line #{e.line}, Column #{e.column}")
+  # Handle error appropriately
+end
+----
+
+== Validation Performance
+
+=== Validation Speed
+
+Validation is fast and adds minimal overhead:
+
+* **XML**: ~1-2ms for typical documents
+* **JSON**: <1ms for typical documents
+* **YAML**: ~1-2ms for typical documents
+
+=== Caching
+
+Canon does not cache validation results because:
+
+* Validation is fast
+* Input may change between calls
+* Memory overhead isn't worth the minimal time saved
+
+== Pre-validation
+
+To validate input before comparison without running the full comparison:
+
+=== Direct Validator Access
+
+[source,ruby]
+----
+require 'canon/validators/xml_validator'
+
+begin
+  Canon::Validators::XmlValidator.validate!(xml_string)
+  puts "Valid XML"
+rescue Canon::ValidationError => e
+  puts "Invalid: #{e.message}"
+end
+----
+
+=== Format Detection and Validation
+
+[source,ruby]
+----
+# Canon detects format and validates automatically
+Canon.compare(input1, input2)  # Auto-detects and validates
+----
+
+== Common Validation Issues
+
+=== XML Issues
+
+[cols="2,3,3"]
+|===
+|Issue |Example |Solution
+
+|Unescaped ampersands
+|`<item>A & B</item>`
+|Use `&amp;` or CDATA: `<![CDATA[A & B]]>`
+
+|Mismatched tags
+|`<item></Item>`
+|Match case exactly: `<item></item>`
+
+|Unclosed tags
+|`<item>Value`
+|Close all tags: `<item>Value</item>`
+
+|Invalid namespace
+|`<x:item>Value</x:item>`
+|Define namespace: `<root xmlns:x="...">`
+|===
+
+=== JSON Issues
+
+[cols="2,3,3"]
+|===
+|Issue |Example |Solution
+
+|Trailing commas
+|`{"a": 1,}`
+|Remove trailing comma: `{"a": 1}`
+
+|Unquoted keys
+|`{name: "John"}`
+|Quote keys: `{"name": "John"}`
+
+|Single quotes
+|`{'name': 'John'}`
+|Use double quotes: `{"name": "John"}`
+
+|Comments
+|`{"a": 1 /* comment */}`
+|Remove comments (not valid JSON)
+|===
+
+=== YAML Issues
+
+[cols="2,3,3"]
+|===
+|Issue |Example |Solution
+
+|Inconsistent indentation
+|Mix of spaces and tabs
+|Use spaces only, consistent depth
+
+|Missing colon
+|`key value`
+|Add colon: `key: value`
+
+|Invalid list
+|`- item1 -item2`
+|Newline: `- item1` + newline + `- item2`
+|===
+
+== Validation vs Comparison
+
+Important distinction:
+
+[cols="2,3"]
+|===
+|Validation |Comparison
+
+|Checks syntax
+|Checks semantic equivalence
+
+|Ensures well-formed input
+|Finds differences in content
+
+|Fails on syntax errors
+|Succeeds if semantically equivalent
+
+|Fast (parse only)
+|Slower (full comparison)
+
+|Line/column errors
+|Semantic difference reports
+|===
+
+== Configuration
+
+Validation is always enabled and cannot be disabled. This is intentional to:
+
+* Prevent confusing errors during comparison
+* Ensure data quality
+* Provide clear error messages
+* Catch problems early
+
+== Debugging Validation Failures
+
+=== Identify the Problem Line
+
+Use the line number from the error:
+
+[source,bash]
+----
+# Show specific line in file
+sed -n '15p' file.xml
+
+# Show context around line 15
+sed -n '12,18p' file.xml
+----
+
+=== Check for Hidden Characters
+
+Validation errors sometimes result from invisible characters:
+
+[source,bash]
+----
+# Show hidden characters
+cat -A file.xml
+
+# Check for BOM
+file file.xml
+
+# Check encoding
+file -i file.xml
+----
+
+=== Validate Externally
+
+Use format-specific validators to get different perspectives:
+
+[source,bash]
+----
+# XML
+xmllint --noout file.xml
+
+# JSON
+jq . file.json
+
+# YAML
+ruby -ryaml -e "YAML.load_file('file.yaml')"
+----
+
+== See Also
+
+* link:../environment-configuration/index.html[Environment Configuration] - Size limits for validation
+* link:../../interfaces/cli/index.html[CLI Interface] - Command-line error handling
+* link:../../interfaces/ruby-api/index.html[Ruby API] - Programmatic error handling
+* link:../../understanding/index.html[Understanding Canon] - How validation fits in the pipeline

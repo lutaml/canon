@@ -1,0 +1,204 @@
+---
+layout: default
+title: Reference
+nav_order: 7
+has_children: true
+---
+= Reference
+
+Complete reference documentation for quick lookups.
+
+== Overview
+
+This section provides comprehensive reference material for all Canon options, methods, and concepts. Use this section when you need to:
+
+* Look up specific CLI options
+* Find complete API method signatures
+* Understand all match dimensions
+* Check environment variable names
+* Reference technical terms
+
+== Reference Pages
+
+link:cli-options[**CLI Options Reference**]::
+Complete listing of all command-line options for `format` and `diff` commands.
++
+Organized by category with examples for each option.
+
+link:ruby-api-methods[**Ruby API Methods Reference**]::
+Complete API documentation for all public methods.
++
+Includes signatures, parameters, return values, and examples.
+
+link:match-dimensions[**Match Dimensions Reference**]::
+All available match dimensions with descriptions and valid values.
++
+Organized by format (XML/HTML, JSON/YAML) with examples.
+
+link:environment-variables[**Environment Variables Reference**]::
+All environment variables that configure Canon's behavior.
++
+Includes variable names, types, defaults, and examples.
+
+link:glossary[**Glossary**]::
+Definitions of technical terms used throughout Canon documentation.
++
+Alphabetically organized with cross-references.
+
+== Quick Lookup Tables
+
+=== Match Profiles
+
+[cols="1,3"]
+|===
+|Profile |Description
+
+|`strict`
+|Exact matching - all dimensions strict
+
+|`rendered`
+|Browser/CSS rendering simulation
+
+|`spec_friendly`
+|Test-friendly - ignores formatting
+
+|`content_only`
+|Ignores all structural differences
+|===
+
+See link:match-dimensions#profiles[Match Dimensions: Profiles] for detailed dimension settings.
+
+=== Diff Algorithms
+
+[cols="1,2,2"]
+|===
+|Algorithm |Strength |Best For
+
+|`dom`
+|Fast, stable
+|Similar documents
+
+|`semantic`
+|Intelligent, move detection
+|Restructured documents
+|===
+
+See link:../understanding/algorithms/[Comparison Algorithms] for details.
+
+=== Diff Modes
+
+[cols="1,3"]
+|===
+|Mode |Description
+
+|`by_line`
+|Traditional line-by-line diff output
+
+|`by_object`
+|Tree-based semantic diff output
+|===
+
+See link:../understanding/diff-modes/[Diff Modes] for details.
+
+=== Supported Formats
+
+[cols="1,2,2"]
+|===
+|Format |Canonicalization |Default Diff Mode
+
+|XML
+|W3C C14N 1.1
+|`by_object`
+
+|HTML
+|HTML4/5 specific
+|`by_line`
+
+|JSON
+|Sorted keys
+|`by_object`
+
+|YAML
+|Sorted keys
+|`by_object`
+|===
+
+See link:../understanding/formats/[Format Support] for details.
+
+== Common Lookups
+
+=== CLI Command Structure
+
+[source,bash]
+----
+# Format command
+canon format <file> [options]
+
+# Diff command
+canon diff <file1> <file2> [options]
+----
+
+See link:cli-options[CLI Options Reference] for all options.
+
+=== Ruby API Patterns
+
+[source,ruby]
+----
+# Formatting
+Canon.format(input, format, **options)
+
+# Comparison
+Canon::Comparison.equivalent?(doc1, doc2, **options)
+Canon::Comparison.compare(doc1, doc2, **options)
+
+# RSpec matchers
+expect(actual).to be_xml_equivalent_to(expected)
+expect(actual).to match_xml(expected, **options)
+----
+
+See link:ruby-api-methods[Ruby API Reference] for complete signatures.
+
+=== Environment Variables
+
+[source,bash]
+----
+# Size limits
+export CANON_MAX_FILE_SIZE=5242880  # 5MB
+export CANON_MAX_NODES=10000
+
+# Diff configuration
+export CANON_DIFF_CONTEXT_LINES=5
+export CANON_DIFF_GROUPING_LINES=3
+
+# Debug
+export CANON_DEBUG=true
+----
+
+See link:environment-variables[Environment Variables Reference] for all variables.
+
+== Using This Section
+
+**To find a specific option**::
+Use your browser's search (Ctrl+F / Cmd+F) or check the link:cli-options[CLI Options] or link:ruby-api-methods[Ruby API] references.
+
+**To understand a term**::
+Check the link:glossary[Glossary] for definitions and cross-references.
+
+**To see all match dimensions**::
+Review link:match-dimensions[Match Dimensions Reference] for complete listings.
+
+**To configure via environment**::
+See link:environment-variables[Environment Variables Reference] for all ENV options.
+
+== Next Steps
+
+* Browse specific reference pages for detailed information
+* Use the search function to find specific topics
+* Refer to link:../interfaces/[Interfaces] for usage examples
+* Check link:../guides/[Guides] for task-oriented tutorials
+
+== See Also
+
+* link:../interfaces/[Interfaces] - How to use these options
+* link:../features/[Features] - Detailed feature explanations
+* link:../guides/[Guides] - Task-oriented tutorials

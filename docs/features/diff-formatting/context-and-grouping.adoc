@@ -1,0 +1,490 @@
+---
+layout: default
+title: Context and Grouping
+parent: Diff Formatting
+grand_parent: Features
+nav_order: 6
+---
+
+:toc:
+:toclevels: 3
+
+== Purpose
+
+Context lines and diff grouping control how much unchanged content is shown around changes in line-by-line diffs. These features help you understand the location and scope of changes while keeping output readable.
+
+NOTE: Context and grouping apply only to **by-line diff mode**. By-object mode shows only changed elements without context lines.
+
+== Context Lines
+
+Context lines are unchanged lines displayed before and after each change to show where modifications occur in the file.
+
+=== Default Behavior
+
+By default, Canon shows **3 context lines** before and after each change:
+
+.Default context example
+[example]
+====
+[source]
+----
+   5|  5 | <section>              # Context line
+   6|  6 |   <title>Intro</title> # Context line
+   7|  7 |   <p>Welcome</p>       # Context line
+   8|   -|   <p>Old text</p>      # Deleted line (change)
+     |  8+|   <p>New text</p>      # Added line (change)
+   9|  9 |   <p>Goodbye</p>       # Context line
+  10| 10 |   <p>End</p>           # Context line
+  11| 11 | </section>             # Context line
+----
+
+Three unchanged lines are shown before and after the change.
+====
+
+=== Configuring Context Lines
+
+Control the number of context lines with the `context_lines` option:
+
+.CLI
+[example]
+====
+[source,bash]
+----
+# Show 5 context lines
+canon diff file1.xml file2.xml --context-lines 5
+
+# Show no context (changes only)
+canon diff file1.xml file2.xml --context-lines 0
+
+# Show 10 context lines
+canon diff file1.xml file2.xml --context-lines 10
+----
+====
+
+.Ruby API
+[example]
+====
+[source,ruby]
+----
+# Show 5 context lines
+Canon.compare(file1, file2,
+  format: :xml,
+  context_lines: 5
+)
+
+# Show no context
+Canon.compare(file1, file2,
+  format: :xml,
+  context_lines: 0
+)
+----
+====
+
+.RSpec
+[example]
+====
+[source,ruby]
+----
+RSpec.configure do |config|
+  # Show more context in local development
+  config.canon.xml.diff.context_lines = 5
+end
+----
+====
+
+.Environment Variable
+[example]
+====
+[source,bash]
+----
+# Set default context lines globally
+export CANON_CONTEXT_LINES=5
+----
+====
+
+=== Zero Context Lines
+
+Setting `context_lines: 0` shows only changed lines without any surrounding context:
+
+.No context example
+[example]
+====
+[source]
+----
+   8|   -|   <p>Old text</p>      # Only the deletion
+     |  8+|   <p>New text</p>      # Only the addition
+----
+
+This is useful when:
+
+* Changes are self-explanatory
+* You want minimal output
+* File structure is already known
+====
+
+=== Large Context Values
+
+Larger context values show more surrounding content:
+
+.Large context example (context_lines: 10)
+[example]
+====
+[source]
+----
+   1|  1 | <root>
+   2|  2 |   <header>
+   3|  3 |     <title>Document</title>
+   4|  4 |   </header>
+   5|  5 |   <body>
+   6|  6 |     <section>
+   7|  7 |       <h1>Title</h1>
+   8|  8 |       <p>Para 1</p>
+   9|  9 |       <p>Para 2</p>
+  10| 10 |       <p>Para 3</p>
+  11|   -|       <p>Old</p>        # The change
+     | 11+|       <p>New</p>
+  12| 12 |       <p>Para 4</p>
+  13| 13 |       <p>Para 5</p>
+  14| 14 |       <p>Para 6</p>
+  15| 15 |     </section>
+  16| 16 |   </body>
+  17| 17 | </root>
+----
+
+Ten lines of context before and after the change.
+====
+
+== Diff Grouping
+
+Diff grouping controls whether nearby changes are shown as separate blocks or merged into a single continuous block.
+
+=== Default Behavior
+
+By default, Canon uses **10 lines** as the grouping threshold. Changes within 10 lines of each other are shown in the same context block:
+
+.Grouped changes (within 10 lines)
+[example]
+====
+[source]
+----
+   5|  5 | <section>
+   6|  6 |   <p>Text 1</p>
+   7|   -|   <p>Old A</p>         # First change
+     |  7+|   <p>New A</p>
+   8|  8 |   <p>Text 2</p>
+   9|  9 |   <p>Text 3</p>
+  10| 10 |   <p>Text 4</p>
+  11| 11 |   <p>Text 5</p>
+  12|   -|   <p>Old B</p>         # Second change (within 10 lines)
+     | 12+|   <p>New B</p>
+  13| 13 |   <p>Text 6</p>
+  14| 14 | </section>
+----
+
+Both changes appear in one continuous block because they're only 4 lines apart.
+====
+
+=== Separate Blocks
+
+When changes are far apart (more than grouping threshold), they appear as separate blocks:
+
+.Separate blocks (beyond 10 lines apart)
+[example]
+====
+[source]
+----
+   5|  5 | <section>
+   6|  6 |   <p>Text 1</p>
+   7|   -|   <p>Old A</p>         # First change
+     |  7+|   <p>New A</p>
+   8|  8 |   <p>Text 2</p>
+   9|  9 |   <p>Text 3</p>
+  10| 10 | </section>
+
+  ...  (lines 11-25 omitted)     # Gap indicator
+
+  26| 26 | <section>
+  27| 27 |   <p>Text N</p>
+  28|   -|   <p>Old B</p>         # Second change (far from first)
+     | 28+|   <p>New B</p>
+  29| 29 |   <p>Text M</p>
+  30| 30 | </section>
+----
+
+The two changes appear as separate blocks with a gap indicator between them.
+====
+
+=== Configuring Grouping
+
+Control grouping behavior with the `diff_grouping_lines` option:
+
+.CLI
+[example]
+====
+[source,bash]
+----
+# Group changes within 5 lines
+canon diff file1.xml file2.xml --diff-grouping-lines 5
+
+# Group changes within 20 lines
+canon diff file1.xml file2.xml --diff-grouping-lines 20
+
+# Never group (each change in its own block)
+canon diff file1.xml file2.xml --diff-grouping-lines 0
+----
+====
+
+.Ruby API
+[example]
+====
+[source,ruby]
+----
+# Tight grouping (5 lines)
+Canon.compare(file1, file2,
+  format: :xml,
+  diff_grouping_lines: 5
+)
+
+# Loose grouping (20 lines)
+Canon.compare(file1, file2,
+  format: :xml,
+  diff_grouping_lines: 20
+)
+----
+====
+
+.RSpec
+[example]
+====
+[source,ruby]
+----
+RSpec.configure do |config|
+  # Tighter grouping for specs
+  config.canon.xml.diff.grouping_lines = 5
+end
+----
+====
+
+.Environment Variable
+[example]
+====
+[source,bash]
+----
+# Set default grouping globally
+export CANON_GROUPING_LINES=15
+----
+====
+
+== Interaction Between Context and Grouping
+
+Context lines and grouping work together to determine diff block boundaries:
+
+=== Example: Tight Context, Loose Grouping
+
+.context_lines: 1, diff_grouping_lines: 20
+[example]
+====
+[source]
+----
+   6|  6 |   <p>Text 1</p>       # 1 line context before
+   7|   -|   <p>Old A</p>
+     |  7+|   <p>New A</p>
+   8|  8 |   <p>Text 2</p>       # 1 line context after
+   9|  9 |   <p>Text 3</p>       # Continues because next change within 20 lines
+  10| 10 |   <p>Text 4</p>
+  11| 11 |   <p>Text 5</p>
+  12|   -|   <p>Old B</p>
+     | 12+|   <p>New B</p>
+  13| 13 |   <p>Text 6</p>       # 1 line context after
+----
+
+Minimal context but changes stay grouped.
+====
+
+=== Example: Wide Context, Tight Grouping
+
+.context_lines: 5, diff_grouping_lines: 3
+[example]
+====
+[source]
+----
+# First change block
+   2|  2 | <root>
+   3|  3 |   <section>
+   4|  4 |     <p>A</p>
+   5|  5 |     <p>B</p>
+   6|  6 |     <p>C</p>
+   7|   -|     <p>Old A</p>
+     |  7+|     <p>New A</p>
+   8|  8 |     <p>D</p>
+   9|  9 |     <p>E</p>
+  10| 10 |     <p>F</p>
+  11| 11 |     <p>G</p>
+  12| 12 |     <p>H</p>
+
+  ...  (lines 13-17 omitted)
+
+# Second change block (separated by > 3 lines)
+  13| 13 |     <p>I</p>
+  14| 14 |     <p>J</p>
+  15| 15 |     <p>K</p>
+  16| 16 |     <p>L</p>
+  17| 17 |     <p>M</p>
+  18|   -|     <p>Old B</p>
+     | 18+|     <p>New B</p>
+  19| 19 |     <p>N</p>
+  20| 20 |     <p>O</p>
+  21| 21 |     <p>P</p>
+  22| 22 |     <p>Q</p>
+  23| 23 |   </section>
+----
+
+Wide context but changes in separate blocks due to tight grouping.
+====
+
+== Use Cases
+
+=== Debugging: Wide Context
+
+When debugging unexpected test failures, use wide context to see surrounding structure:
+
+[source,bash]
+----
+canon diff expected.xml actual.xml \
+  --context-lines 10 \
+  --diff-grouping-lines 20
+----
+
+=== CI/CD: Minimal Output
+
+In CI environments, minimize output for faster log scanning:
+
+[source,bash]
+----
+export CANON_CONTEXT_LINES=1
+export CANON_GROUPING_LINES=5
+----
+
+=== Documentation: Complete Context
+
+When documenting changes, show complete sections:
+
+[source,ruby]
+----
+Canon.compare(old_doc, new_doc,
+  format: :xml,
+  context_lines: 15,
+  diff_grouping_lines: 30
+)
+----
+
+=== Code Review: Balanced View
+
+For code reviews, balance readability and completeness:
+
+[source,ruby]
+----
+RSpec.configure do |config|
+  config.canon.xml.diff.context_lines = 5
+  config.canon.xml.diff.grouping_lines = 10
+end
+----
+
+== Performance Considerations
+
+=== Large Files
+
+With large files and many changes:
+
+* **Smaller context**: Reduces output size, faster to scan
+* **Tighter grouping**: More separate blocks, easier to locate specific changes
+* **Larger context**: Better understanding, but more verbose
+
+.Recommended for large files
+[example]
+====
+[source,bash]
+----
+# Keep output manageable
+canon diff large1.xml large2.xml \
+  --context-lines 2 \
+  --diff-grouping-lines 5
+----
+====
+
+=== Many Small Changes
+
+When files have numerous small scattered changes:
+
+* **Smaller context**: Avoids repetitive output
+* **Tighter grouping**: Keeps unrelated changes separate
+* **Larger grouping**: May merge everything into one block
+
+.Recommended for scattered changes
+[example]
+====
+[source,bash]
+----
+# Separate unrelated changes
+canon diff file1.xml file2.xml \
+  --context-lines 1 \
+  --diff-grouping-lines 3
+----
+====
+
+== Gap Indicators
+
+When changes are far apart, Canon shows gap indicators:
+
+[source]
+----
+  10| 10 |   <p>End of first section</p>
+
+  ...  (lines 11-45 omitted)
+
+  46| 46 |   <p>Start of next section</p>
+----
+
+The gap indicator shows:
+* How many lines were skipped
+* That there are no changes in the skipped region
+
+== Troubleshooting
+
+=== Too Much Output
+
+**Problem**: Diff output is overwhelming.
+
+**Solutions**:
+* Reduce `context_lines` (try 1 or 2)
+* Reduce `diff_grouping_lines` (try 5 or less)
+* Use `show_diffs: :normative` to hide informative changes
+
+=== Not Enough Context
+
+**Problem**: Can't understand where changes occur.
+
+**Solutions**:
+* Increase `context_lines` (try 7-10)
+* Increase `diff_grouping_lines` (try 15-20)
+* Check file structure separately
+
+=== Changes Grouped Incorrectly
+
+**Problem**: Unrelated changes appear together.
+
+**Solution**:
+* Decrease `diff_grouping_lines` to separate them
+
+**Problem**: Related changes appear in separate blocks.
+
+**Solution**:
+* Increase `diff_grouping_lines` to group them together
+
+== See Also
+
+* link:colors-and-symbols.html[Colors and Symbols] - Color scheme and visual markers
+* link:character-visualization.html[Character Visualization] - Whitespace visualization
+* link:algorithm-specific-output.html[Algorithm-Specific Output] - Diff format variations
+* link:../../interfaces/cli/index.html[CLI Interface] - Command-line usage
+* link:../../reference/cli-options.html[CLI Options Reference] - Complete option list

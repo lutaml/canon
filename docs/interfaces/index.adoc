@@ -1,0 +1,101 @@
+---
+layout: default
+title: Interfaces
+nav_order: 3
+has_children: true
+---
+= Interfaces
+
+Learn how to use Canon through different interfaces.
+
+== Overview
+
+Canon provides three main interfaces for different use cases:
+
+link:ruby-api/[**Ruby API**]::
+Integrate Canon into Ruby applications for programmatic formatting and comparison.
+
+link:cli/[**Command-Line Interface**]::
+Use Canon from the terminal for one-off tasks and shell scripting.
+
+link:rspec/[**RSpec Matchers**]::
+Test XML, JSON, and YAML generation with semantic matchers.
+
+== Choosing an Interface
+
+**Use Ruby API when**::
+* Integrating into a Ruby application
+* Need programmatic control
+* Building custom tooling
+* Processing multiple files
+
+**Use CLI when**::
+* Running one-off comparisons
+* Shell scripting
+* CI/CD pipelines
+* Quick formatting tasks
+
+**Use RSpec when**::
+* Writing tests
+* Validating generated output
+* TDD/BDD workflows
+* Continuous integration
+
+== Common Patterns Across Interfaces
+
+All interfaces share the same core concepts:
+
+* **Formats**: XML, HTML, JSON, YAML
+* **Operations**: Format (canonicalize/pretty-print) and Compare
+* **Options**: Match dimensions, profiles, preprocessing
+* **Output**: Color-coded diffs, character visualization
+
+The interface you choose determines **how** you invoke these features, but the underlying behavior is consistent.
+
+== Quick Examples
+
+=== Format a File
+
+**Ruby**:
+[source,ruby]
+----
+Canon.format(xml_string, :xml, mode: :pretty)
+----
+
+**CLI**:
+[source,bash]
+----
+canon format file.xml --mode pretty
+----
+
+=== Compare Files
+
+**Ruby**:
+[source,ruby]
+----
+Canon::Comparison.equivalent?(doc1, doc2)
+----
+
+**CLI**:
+[source,bash]
+----
+canon diff file1.xml file2.xml
+----
+
+**RSpec**:
+[source,ruby]
+----
+expect(actual_xml).to be_xml_equivalent_to(expected_xml)
+----
+
+== Next Steps
+
+* Choose your primary interface and dive into its documentation
+* Review link:../features/match-options/[Match Options] to understand configuration
+* Check link:../guides/[Guides] for task-oriented tutorials
+
+== See Also
+
+* link:../getting-started/quick-start[Quick Start] - Basic usage examples
+* link:../features/match-options/[Match Options] - Customizing comparison behavior
+* link:../understanding/architecture[Architecture] - How Canon works internally

@@ -1,0 +1,361 @@
+---
+title: Algorithm-Specific Behavior
+parent: Match Options
+grand_parent: Features
+nav_order: 4
+---
+= Algorithm-Specific Behavior
+
+== Purpose
+
+Match options control what to compare and how strictly, but **different algorithms interpret these options differently**. Understanding these differences is crucial for choosing the right configuration.
+
+This page explains how the DOM and Semantic algorithms each handle match dimensions and provides guidance for migrating between algorithms.
+
+== Key Concept
+
+The same match option settings can produce different comparison behavior depending on which algorithm you choose:
+
+* **DOM algorithm** uses options for element-by-element positional comparison
+* **Semantic algorithm** uses options during signature calculation and similarity matching
+
+== Algorithm Comparison
+
+=== DOM Algorithm Match Behavior
+
+The DOM algorithm applies match options during **positional element comparison**:
+
+**Characteristics**:
+* Elements matched by position in document tree
+* Match options control comparison strictness at each position
+* No understanding of semantic relationships
+* Order matters significantly
+
+**How Options Are Used**:
+* `text_content` - Controls how text at each position is compared
+* `structural_whitespace` - Controls whitespace comparison in structure
+* `attribute_order` - Controls whether attribute order must match
+* `attribute_values` - Controls how attribute values are compared
+
+**Best For**:
+* Documents with similar structure
+* Traditional diff workflows
+* Fast comparisons
+* Stable, predictable results
+
+=== Semantic Algorithm Match Behavior
+
+The Semantic algorithm applies match options during **signature calculation and similarity matching**:
+
+**Characteristics**:
+* Elements matched by semantic signatures
+* Match options influence signature generation
+* Understands moves, merges, splits
+* Order less critical (uses similarity scoring)
+
+**How Options Are Used**:
+* `text_content` - Included in element signature
+* `structural_whitespace` - Affects structural signatures
+* `attribute_order` - Ignored (attributes are unordered in signatures)
+* `attribute_values` - Included in element signature
+
+**Best For**:
+* Restructured documents
+* Detecting semantic changes
+* Operation-level analysis
+* Content evolution tracking
+
+== Match Dimension Handling by Algorithm
+
+This table shows how each algorithm interprets each match dimension:
+
+[cols="2,3,3"]
+|===
+|Match Dimension |DOM Algorithm |Semantic Algorithm
+
+|**text_content**
+|Compares text at each position. `strict` requires exact match, `normalize` normalizes whitespace, `ignore` skips text comparison
+|Influences element signature. `strict` includes exact text, `normalize` includes normalized text, `ignore` excludes text from signature
+
+|**structural_whitespace**
+|Compares whitespace-only text nodes at each position
+|Affects structural signature calculation. Normalized whitespace creates different signatures
+
+|**attribute_whitespace**
+|Compares whitespace in attribute values at each position
+|Affects attribute value signatures. Normalized values create different signatures
+
+|**attribute_order**
+|`strict` requires same attribute order, `ignore` allows any order at each position
+|Always ignored - attributes are unordered in semantic signatures
+
+|**attribute_values**
+|Compares attribute values at each position
+|Attribute values included in element signature
+
+|**key_order** (JSON/YAML)
+|`strict` requires same key order, `ignore` allows any order
+|Always ignored - keys are unordered in semantic signatures
+
+|**comments**
+|Compares comments at each position. `strict` requires exact match, `normalize` normalizes, `ignore` skips
+|Comments can be included in signatures or ignored. Less impact than in DOM
+|===
+
+== Example: Same Options, Different Results
+
+Here's an example showing how the same match options produce different results with each algorithm:
+
+=== Document Pair
+
+[source,xml]
+----
+<!-- Document 1 -->
+<book>
+  <title>Canon Guide</title>
+  <author>John Doe</author>
+</book>
+
+<!-- Document 2 -->
+<book>
+  <author>John Doe</author>
+  <title>Canon Guide</title>
+</book>
+----
+
+=== DOM Algorithm Result
+
+[source,ruby]
+----
+Canon::Comparison.equivalent?(doc1, doc2,
+  diff_algorithm: :dom,
+  match: {
+    text_content: :normalize,
+    attribute_order: :ignore
+  },
+  verbose: true
+)
+# Result: NOT EQUIVALENT
+# Reason: Elements at positions don't match (title vs author)
+# Even though content is identical, position matters
+----
+
+=== Semantic Algorithm Result
+
+[source,ruby]
+----
+Canon::Comparison.equivalent?(doc1, doc2,
+  diff_algorithm: :semantic,
+  match: {
+    text_content: :normalize,
+    attribute_order: :ignore
+  },
+  verbose: true
+)
+# Result: EQUIVALENT (with MOVE operation)
+# Reason: Elements have same signatures, just reordered
+# Semantic algorithm detects this as a MOVE operation
+----
+
+== Match Profile Behavior Differences
+
+Match profiles also behave differently with each algorithm:
+
+=== `strict` Profile
+
+**DOM Algorithm**:
+* Exact positional matching
+* All elements must be in same positions
+* Whitespace must match exactly
+* Fast comparison
+
+**Semantic Algorithm**:
+* Exact signature matching
+* Elements can be reordered
+* Signatures must match exactly
+* Slower but detects moves
+
+=== `spec_friendly` Profile
+
+**DOM Algorithm**:
+* Ignores formatting at each position
+* Position still matters
+* Good for test assertions with similar structure
+
+**Semantic Algorithm**:
+* Ignores formatting in signatures
+* Position doesn't matter
+* Good for test assertions with any structure
+
+=== `content_only` Profile
+
+**DOM Algorithm**:
+* Compares only text content at positions
+* Still position-dependent
+* Ignores all structural differences at each position
+
+**Semantic Algorithm**:
+* Generates signatures from content only
+* Position-independent
+* True content-only comparison
+
+== Migration Guide
+
+=== Switching from DOM to Semantic
+
+When migrating from DOM to Semantic algorithm:
+
+**Expected Changes**:
+1. **Reordered elements** will be detected as MOVEs instead of DELETE+INSERT
+2. **attribute_order** setting becomes irrelevant (always ignored)
+3. **Performance** will be slower but more intelligent
+4. **Output format** changes to operation-based
+
+**Configuration Adjustments**:
+
+[source,ruby]
+----
+# Before (DOM)
+Canon::Comparison.equivalent?(doc1, doc2,
+  diff_algorithm: :dom,
+  match: {
+    attribute_order: :strict  # This mattered
+  },
+  diff_mode: :by_line
+)
+
+# After (Semantic)
+Canon::Comparison.equivalent?(doc1, doc2,
+  diff_algorithm: :semantic,
+  match: {
+    attribute_order: :ignore  # Changed (but actually doesn't matter)
+  },
+  diff_mode: :by_object  # Better for semantic output
+)
+----
+
+**What to Watch For**:
+* Tests expecting positional differences may now pass (moves detected)
+* Diff output format changes significantly
+* Performance may be slower on large documents
+
+=== Switching from Semantic to DOM
+
+When migrating from Semantic to DOM algorithm:
+
+**Expected Changes**:
+1. **MOVE operations** will become DELETE+INSERT pairs
+2. **Reordered content** will show as differences
+3. **Performance** will be faster
+4. **Output format** changes to line-based
+
+**Configuration Adjustments**:
+
+[source,ruby]
+----
+# Before (Semantic)
+Canon::Comparison.equivalent?(doc1, doc2,
+  diff_algorithm: :semantic,
+  diff_mode: :by_object
+)
+
+# After (DOM)
+Canon::Comparison.equivalent?(doc1, doc2,
+  diff_algorithm: :dom,
+  match: {
+    attribute_order: :ignore  # May want to add this
+  },
+  diff_mode: :by_line  # Better for DOM output
+)
+----
+
+**What to Watch For**:
+* Tests may now fail on reordered content
+* Need to add `attribute_order: :ignore` if attribute order shouldn't matter
+* Diff output is less semantic, more positional
+
+== Choosing the Right Algorithm
+
+=== Use DOM Algorithm When
+
+* Documents have similar structure
+* Position matters
+* Fast performance is critical
+* Traditional diff output is sufficient
+* Stability is important (production use)
+
+=== Use Semantic Algorithm When
+
+* Documents may be restructured
+* Need to detect moves/reorders
+* Operation-level analysis is valuable
+* Content evolution tracking is needed
+* Willing to accept experimental status
+
+== Common Patterns
+
+=== Pattern 1: Test-Friendly DOM Comparison
+
+[source,ruby]
+----
+Canon::Comparison.equivalent?(expected, actual,
+  diff_algorithm: :dom,
+  match_profile: :spec_friendly,
+  verbose: true
+)
+# Ignores formatting but requires same structure
+----
+
+=== Pattern 2: Content-Only Semantic Comparison
+
+[source,ruby]
+----
+Canon::Comparison.equivalent?(doc1, doc2,
+  diff_algorithm: :semantic,
+  match_profile: :content_only,
+  verbose: true,
+  diff_mode: :by_object
+)
+# True content comparison, structure-independent
+----
+
+=== Pattern 3: Hybrid Approach
+
+[source,ruby]
+----
+# Try DOM first (fast)
+if Canon::Comparison.equivalent?(doc1, doc2, diff_algorithm: :dom)
+  puts "Documents identical"
+else
+  # Use semantic for detailed analysis
+  result = Canon::Comparison.equivalent?(doc1, doc2,
+    diff_algorithm: :semantic,
+    verbose: true,
+    diff_mode: :by_object
+  )
+  puts result.operations
+end
+----
+
+== Performance Implications
+
+=== DOM Algorithm Performance
+
+* **Speed**: Fast (linear with document size)
+* **Memory**: Low (processes line-by-line)
+* **Best for**: Documents < 100KB
+
+=== Semantic Algorithm Performance
+
+* **Speed**: Slower (quadratic worst case)
+* **Memory**: Higher (builds tree structures)
+* **Best for**: Documents < 10KB or where intelligence is worth the cost
+
+== See Also
+
+* link:index.adoc[Match Options Overview]
+* link:../../understanding/algorithms/[Algorithms] - Detailed algorithm documentation
+* link:dimensions.adoc[Match Dimensions] - All available dimensions
+* link:profiles.adoc[Match Profiles] - Preset configurations
+* link:../diff-formatting/algorithm-specific-output.adoc[Algorithm-Specific Output] - How output differs
+* link:../../guides/choosing-configuration.adoc[Choosing Configuration] - Decision guide

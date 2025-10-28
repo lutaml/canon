@@ -1,0 +1,498 @@
+---
+layout: default
+title: CLI Reference
+parent: Interfaces
+nav_order: 2
+has_children: true
+---
+= Canon command-line interface
+:toc:
+:toclevels: 3
+
+== Scope
+
+This document describes Canon's command-line interface (CLI). The `canon`
+command provides file formatting and comparison capabilities.
+
+For Ruby API usage, see link:../ruby-api/[Ruby API documentation].
+
+For RSpec testing, see link:../rspec/[RSpec documentation].
+
+== General
+
+After installing the Canon gem, the `canon` command becomes available in your
+shell. It provides two main commands:
+
+* `canon format` - Format files in XML, HTML, JSON, or YAML
+* `canon diff` - Compare files semantically
+
+== Installation
+
+[source,bash]
+----
+$ gem install canon
+$ canon --help
+----
+
+== Format command
+
+The `format` command formats files in canonical or pretty-print mode.
+
+=== Syntax
+
+[source,bash]
+----
+canon format FILE [OPTIONS]
+----
+
+=== Output modes
+
+`pretty` (default):: Human-readable output with indentation (2 spaces)
+`c14n`:: Canonical form without indentation (compact)
+
+=== Options
+
+`-f, --format FORMAT`:: Specify format: `xml`, `html`, `json`, or `yaml`
+(auto-detected from extension if not specified)
+
+`-m, --mode MODE`:: Output mode: `pretty` (default) or `c14n`
+
+`-i, --indent N`:: Indentation spaces for pretty mode (default: 2)
+
+`--indent-type TYPE`:: Indentation type: `space` (default) or `tab`
+
+`-o, --output FILE`:: Write output to file instead of stdout
+
+`-c, --with-comments`:: Include comments in canonical XML output
+
+=== Format detection
+
+When `--format` is not specified, Canon detects the format from file extension:
+
+[cols="1,1"]
+|===
+|File Extension |Detected Format
+
+|`.xml`
+|XML
+
+|`.html`, `.htm`
+|HTML
+
+|`.json`
+|JSON
+
+|`.yaml`, `.yml`
+|YAML
+|===
+
+=== Examples
+
+.Pretty-print with default settings
+[example]
+====
+[source,bash]
+----
+$ canon format input.xml
+<?xml version="1.0" encoding="UTF-8"?>
+<root>
+  <a>1</a>
+  <b>2</b>
+</root>
+----
+====
+
+.Canonical mode (compact)
+[example]
+====
+[source,bash]
+----
+$ canon format input.xml --mode c14n
+<root><a>1</a><b>2</b></root>
+----
+====
+
+.Custom indentation
+[example]
+====
+[source,bash]
+----
+# 4-space indentation
+$ canon format input.xml --mode pretty --indent 4
+
+# Tab indentation
+$ canon format input.xml --indent-type tab
+
+# JSON with 4 spaces
+$ canon format data.json --indent 4
+----
+====
+
+.Specify format explicitly
+[example]
+====
+[source,bash]
+----
+# Format a .txt file as XML
+$ canon format data.txt --format xml
+----
+====
+
+.Save to file
+[example]
+====
+[source,bash]
+----
+$ canon format input.xml --output formatted.xml
+
+# Or use shell redirection
+$ canon format input.xml > formatted.xml
+----
+====
+
+.Include XML comments in canonical output
+[example]
+====
+[source,bash]
+----
+$ canon format doc.xml --mode c14n --with-comments
+----
+====
+
+.Format different file types
+[example]
+====
+[source,bash]
+----
+# HTML files
+$ canon format page.html
+$ canon format page.html --mode c14n
+
+# JSON files
+$ canon format config.json
+$ canon format config.json --indent 4
+
+# YAML files
+$ canon format data.yaml
+----
+====
+
+== Diff command
+
+The `diff` command performs semantic comparison of files.
+
+=== Syntax
+
+[source,bash]
+----
+canon diff FILE1 FILE2 [OPTIONS]
+----
+
+=== Diff modes
+
+Canon supports two diff modes optimized for different use cases:
+
+`by-object`:: (default for JSON/YAML) Semantic tree-based diff showing
+structural changes
+
+`by-line`:: (default for HTML, optional for XML) Line-by-line diff after
+canonicalization
+
+See link:../../understanding/diff-modes/[Diff modes] for details.
+
+=== Format options
+
+`-f, --format FORMAT`:: Format for both files: `xml`, `html`, `json`, or
+`yaml` (auto-detected from extension if not specified)
+
+`--format1 FORMAT`:: Format of first file (when comparing different formats)
+
+`--format2 FORMAT`:: Format of second file (when comparing different formats)
+
+=== Comparison options
+
+`-v, --verbose`:: Show detailed differences (default: just show if files
+differ)
+
+`--diff-algorithm ALGORITHM`:: Diff algorithm to use: `dom` (default) or
+`semantic`. DOM uses positional matching, semantic uses tree-based matching
+with operation detection.
+
+`--by-line`:: Use line-by-line diff for XML (default: by-object mode)
+
+`--text-content BEHAVIOR`:: How to compare text content: `strict`,
+`normalize`, or `ignore`
+
+`--structural-whitespace BEHAVIOR`:: How to handle whitespace between
+elements: `strict`, `normalize`, or `ignore`
+
+`--attribute-whitespace BEHAVIOR`:: How to handle whitespace in attribute
+values: `strict`, `normalize`, or `ignore` (XML/HTML only)
+
+`--attribute-order BEHAVIOR`:: Whether attribute order matters: `strict` or
+`ignore` (XML/HTML only)
+
+`--attribute-values BEHAVIOR`:: How to compare attribute values: `strict`,
+`normalize`, or `ignore` (XML/HTML only)
+
+`--key-order BEHAVIOR`:: Whether key order matters: `strict` or `ignore`
+(JSON/YAML only)
+
+`--comments BEHAVIOR`:: How to handle comments: `strict`, `normalize`, or
+`ignore`
+
+`--match-profile PROFILE`:: Use predefined match profile: `strict`,
+`rendered`, `spec_friendly`, or `content_only`
+
+See link:../../features/match-options/[Match options] for detailed dimension reference.
+
+=== Output options
+
+`--color` / `--no-color`:: Enable/disable colored output (default: enabled)
+
+`--context-lines N`:: Number of context lines around changes (default: 3)
+
+`--diff-grouping-lines N`:: Group changes within N lines into blocks
+
+See link:../../features/diff-formatting/[Diff formatting] for details.
+
+=== Exit codes
+
+* `0` - Files are semantically equivalent
+* `1` - Files are semantically different
+* Other - Error occurred
+
+=== Examples
+
+.Basic comparison
+[example]
+====
+[source,bash]
+----
+# Compare two JSON files
+$ canon diff config1.json config2.json
+Files are semantically different
+
+# Compare two XML files
+$ canon diff file1.xml file2.xml
+✅ Files are semantically equivalent
+----
+====
+
+.Verbose mode with detailed diff
+[example]
+====
+[source,bash]
+----
+$ canon diff config1.json config2.json --verbose
+Visual Diff:
+├── settings.debug:
+│   ├── - true
+│   └── + false
+└── version:
+    ├── - "1.0.0"
+    └── + "2.0.0"
+----
+====
+
+.XML comparison with by-line mode
+[example]
+====
+[source,bash]
+----
+$ canon diff document1.xml document2.xml --by-line --verbose
+Line-by-line diff:
+   4 - |     <foreword id="fwd">
+   4 + |     <foreword displayorder="2" id="fwd">
+   5   |       <p>First paragraph</p>
+  10 + |       <p>New content</p>
+  11   |     </clause>
+----
+====
+
+.HTML comparison
+[example]
+====
+[source,bash]
+----
+$ canon diff page1.html page2.html --verbose
+Line-by-line diff:
+   4 - |     <title>My Page</title>
+   4 + |     <title>My Updated Page</title>
+   7 - |     <div class="header">
+   7 + |     <nav class="header">
+----
+====
+
+.Using match profiles
+[example]
+====
+[source,bash]
+----
+# Use spec_friendly profile
+$ canon diff file1.xml file2.xml \
+  --match-profile spec_friendly \
+  --verbose
+
+# Use rendered profile for HTML
+$ canon diff page1.html page2.html \
+  --match-profile rendered \
+  --verbose
+
+# Use strict profile (exact matching)
+$ canon diff file1.xml file2.xml \
+  --match-profile strict \
+  --verbose
+----
+====
+
+.Customize match dimensions
+[example]
+====
+[source,bash]
+----
+# Normalize text content, ignore whitespace
+$ canon diff file1.xml file2.xml \
+  --text-content normalize \
+  --structural-whitespace ignore \
+  --verbose
+
+# Ignore comments and attribute order
+$ canon diff file1.xml file2.xml \
+  --comments ignore \
+  --attribute-order ignore \
+  --verbose
+
+# Multiple dimension overrides
+$ canon diff file1.xml file2.xml \
+  --text-content normalize \
+  --structural-whitespace ignore \
+  --attribute-whitespace normalize \
+  --comments ignore \
+  --verbose
+----
+====
+
+.Combine profile with dimension overrides
+[example]
+====
+[source,bash]
+----
+# Use spec_friendly but require strict comments
+$ canon diff file1.xml file2.xml \
+  --match-profile spec_friendly \
+  --comments strict \
+  --verbose
+----
+====
+
+.Customize diff output
+[example]
+====
+[source,bash]
+----
+# Show more context lines
+$ canon diff file1.xml file2.xml \
+  --verbose \
+  --context-lines 5
+
+# Group nearby changes
+$ canon diff file1.xml file2.xml \
+  --verbose \
+  --diff-grouping-lines 10
+
+# Disable colors for piping to files
+$ canon diff file1.xml file2.xml \
+  --verbose \
+  --no-color > diff.txt
+
+# Combine diff options
+$ canon diff file1.xml file2.xml \
+  --verbose \
+  --context-lines 5 \
+  --diff-grouping-lines 2 \
+  --no-color
+----
+====
+
+.Compare different formats
+[example]
+====
+[source,bash]
+----
+# Compare JSON with YAML (must have same structure)
+$ canon diff config.json config.yaml \
+  --format1 json \
+  --format2 yaml \
+  --verbose
+----
+====
+
+.JSON/YAML comparison examples
+[example]
+====
+[source,bash]
+----
+# JSON comparison (uses by-object mode by default)
+$ canon diff config1.json config2.json --verbose
+
+# YAML comparison with key order ignored
+$ canon diff data1.yaml data2.yaml \
+  --key-order ignore \
+  --verbose
+
+# Show 10 context lines for large config files
+$ canon diff large-config1.json large-config2.json \
+  --verbose \
+  --context-lines 10
+----
+====
+
+.Shell integration
+[example]
+====
+[source,bash]
+----
+# Use in scripts
+if canon diff expected.xml actual.xml; then
+  echo "Files match!"
+else
+  echo "Files differ"
+  canon diff expected.xml actual.xml --verbose
+fi
+
+# Generate diff report
+canon diff file1.xml file2.xml --verbose --no-color > diff-report.txt
+
+# Compare with process substitution
+canon diff <(curl https://example.com/api/v1) \
+           <(curl https://example.com/api/v2) \
+  --format json \
+  --verbose
+----
+====
+
+== Help command
+
+Get help on available commands and options:
+
+[source,bash]
+----
+# General help
+$ canon help
+
+# Command-specific help
+$ canon help format
+$ canon help diff
+
+# Show version
+$ canon --version
+----
+
+== See also
+
+* link:../ruby-api/[Ruby API documentation]
+* link:../rspec/[RSpec matchers]
+* link:../../features/match-options/[Match options reference]
+* link:../../understanding/diff-modes/[Diff modes]
+* link:../../features/diff-formatting/[Diff formatting options]

@@ -1,0 +1,327 @@
+---
+title: Environment Configuration
+parent: Features
+nav_order: 5
+has_children: true
+---
+= Environment configuration
+:toc:
+:toclevels: 3
+
+== Purpose
+
+Canon supports configuration through environment variables, allowing you to override default settings without modifying code. This is essential for CI/CD pipelines, containerized environments, and different deployment scenarios.
+
+**Critical**: Environment variables work uniformly across **all interfaces** - CLI, Ruby API, and RSpec.
+
+== Priority chain
+
+Configuration values are resolved using the following priority (highest to lowest):
+
+. **Environment Variables** (highest priority)
+. **Programmatic Configuration** (via `Canon::Config`)
+. **Default Values** (lowest priority)
+
+Environment variables always override programmatic settings, which in turn override defaults.
+
+== Naming convention
+
+Environment variables follow a consistent naming pattern:
+
+[source]
+----
+CANON_{FORMAT}_{CONFIG_TYPE}_{ATTRIBUTE}
+----
+
+Where:
+
+* `FORMAT`: `XML`, `HTML`, `JSON`, `YAML`, or `STRING`
+* `CONFIG_TYPE`: `DIFF` or `MATCH`
+* `ATTRIBUTE`: The configuration attribute name (e.g., `ALGORITHM`, `MODE`, `PROFILE`)
+
+=== Global variables
+
+You can also use global environment variables that apply to all formats by omitting the format prefix:
+
+[source]
+----
+CANON_{ATTRIBUTE}
+----
+
+Global variables are overridden by format-specific variables.
+
+== Core environment variables
+
+=== Diff algorithm
+
+Canon supports two diff algorithms:
+
+* **`dom`**: DOM-based tree diff (default, stable)
+* **`semantic`**: Semantic tree diff (experimental, more sophisticated)
+
+[source,bash]
+----
+# Set algorithm for XML diff
+export CANON_XML_DIFF_ALGORITHM=semantic
+
+# Set algorithm for HTML diff
+export CANON_HTML_DIFF_ALGORITHM=dom
+
+# Set globally for all formats
+export CANON_ALGORITHM=semantic
+----
+
+Valid values: `dom`, `semantic`
+
+=== Diff mode
+
+[source,bash]
+----
+# Set diff mode for JSON
+export CANON_JSON_DIFF_MODE=by_object
+
+# Set diff mode for YAML
+export CANON_YAML_DIFF_MODE=by_line
+----
+
+Valid values: `by_line`, `by_object`
+
+=== Color output
+
+[source,bash]
+----
+# Disable color output for XML
+export CANON_XML_DIFF_USE_COLOR=false
+
+# Enable color output for HTML
+export CANON_HTML_DIFF_USE_COLOR=true
+----
+
+Valid values: `true`, `false`, `1`, `0`, `yes`, `no`
+
+=== Context and grouping
+
+[source,bash]
+----
+# Set context lines for XML diff
+export CANON_XML_DIFF_CONTEXT_LINES=5
+
+# Set grouping lines for XML diff
+export CANON_XML_DIFF_GROUPING_LINES=20
+----
+
+Valid values: Any positive integer
+
+=== Show diffs filter
+
+[source,bash]
+----
+# Show only informative diffs
+export CANON_XML_DIFF_SHOW_DIFFS=informative
+
+# Show all diffs
+export CANON_XML_DIFF_SHOW_DIFFS=all
+----
+
+Valid values: `all`, `informative`, `normative`
+
+=== Verbose output
+
+[source,bash]
+----
+# Enable verbose diff output
+export CANON_XML_DIFF_VERBOSE_DIFF=true
+----
+
+Valid values: `true`, `false`, `1`, `0`, `yes`, `no`
+
+== Size limits
+
+Canon provides configurable size limits to prevent hangs or excessive resource usage when processing very large files.
+
+See link:size-limits.adoc[Size Limits] for detailed configuration.
+
+Key variables:
+
+* `CANON_MAX_FILE_SIZE` - Maximum file size in bytes (default: 5,242,880 = 5MB)
+* `CANON_MAX_NODE_COUNT` - Maximum tree node count (default: 10,000)
+* `CANON_MAX_DIFF_LINES` - Maximum diff output lines (default: 10,000)
+
+== Override system
+
+See link:override-system.adoc[Override System] for how environment variables interact with programmatic configuration.
+
+== Usage across interfaces
+
+=== CLI
+
+Environment variables automatically affect CLI commands:
+
+[source,bash]
+----
+# Set algorithm via ENV
+export CANON_ALGORITHM=semantic
+
+# CLI uses the ENV setting
+canon diff file1.xml file2.xml --verbose
+----
+
+=== Ruby API
+
+Environment variables are applied when creating `Canon::Config`:
+
+[source,ruby]
+----
+# Environment variable is set
+ENV['CANON_XML_DIFF_ALGORITHM'] = 'semantic'
+
+# Config respects ENV variable
+config = Canon::Config.new
+puts config.xml.diff.algorithm  # => :semantic
+
+# Programmatic setting is ignored when ENV is set
+config.xml.diff.algorithm = :dom
+puts config.xml.diff.algorithm  # => :semantic (ENV wins)
+----
+
+=== RSpec
+
+Environment variables work with RSpec matchers:
+
+[source,ruby]
+----
+# In spec_helper.rb, set defaults
+Canon::RSpecMatchers.configure do |config|
+  config.xml.diff.algorithm = :dom
+end
+
+# In shell, override for specific test run
+# CANON_ALGORITHM=semantic bundle exec rspec
+----
+
+== Type conversion
+
+Environment variable values are automatically converted to the appropriate Ruby types:
+
+=== Boolean values
+
+Accepted values for boolean attributes:
+
+* **True**: `true`, `1`, `yes`
+* **False**: `false`, `0`, `no`
+
+Case-insensitive.
+
+=== Integer values
+
+Any valid integer string is converted to an integer:
+
+[source,bash]
+----
+export CANON_CONTEXT_LINES=15  # Converted to Integer 15
+----
+
+=== Symbol values
+
+String values are converted to symbols:
+
+[source,bash]
+----
+export CANON_ALGORITHM=semantic  # Converted to Symbol :semantic
+----
+
+== Common scenarios
+
+=== CI/CD environment
+
+[source,bash]
+----
+# .github/workflows/test.yml or similar
+export CANON_USE_COLOR=false
+export CANON_ALGORITHM=semantic
+export CANON_SHOW_COMPARE=true
+
+bundle exec rspec
+----
+
+=== Docker container
+
+[source,dockerfile]
+----
+# Dockerfile
+ENV CANON_XML_DIFF_ALGORITHM=semantic
+ENV CANON_USE_COLOR=false
+ENV CANON_CONTEXT_LINES=5
+----
+
+=== Different environments
+
+[source,bash]
+----
+# Development
+export CANON_VERBOSE_DIFF=true
+export CANON_USE_COLOR=true
+
+# Production
+export CANON_VERBOSE_DIFF=false
+export CANON_USE_COLOR=false
+export CANON_XML_MATCH_PROFILE=strict
+----
+
+=== Format-specific configuration
+
+[source,bash]
+----
+# XML uses semantic diff
+export CANON_XML_DIFF_ALGORITHM=semantic
+
+# HTML uses DOM diff
+export CANON_HTML_DIFF_ALGORITHM=dom
+
+# All formats disable color
+export CANON_USE_COLOR=false
+----
+
+== Complete variable reference
+
+See link:../../reference/environment-variables.adoc[Environment Variables Reference] for a complete table of all environment variables.
+
+== Troubleshooting
+
+=== ENV variable not taking effect
+
+Check the priority chain. If a programmatic value seems to override ENV, verify:
+
+. The ENV variable is set before creating the Config instance
+. The variable name follows the correct naming convention
+. The value is valid for the attribute type
+
+=== Type conversion errors
+
+If you encounter type conversion errors:
+
+. Check that boolean values use accepted strings (`true`, `false`, `1`, `0`, `yes`, `no`)
+. Ensure integer values are valid integers
+. Verify symbol values don't contain special characters
+
+=== Debugging
+
+You can inspect the resolver to see which values are from ENV:
+
+[source,ruby]
+----
+config = Canon::Config.new
+resolver = config.xml.diff.instance_variable_get(:@resolver)
+
+puts "ENV values: #{resolver.env.inspect}"
+puts "Programmatic values: #{resolver.programmatic.inspect}"
+puts "Defaults: #{resolver.defaults.inspect}"
+puts "Source of algorithm: #{resolver.source_for(:algorithm)}"
+----
+
+== See also
+
+* link:size-limits.adoc[Size Limits] - File size and node count limits
+* link:override-system.adoc[Override System] - How ENV vars override defaults
+* link:../../reference/environment-variables.adoc[Environment Variables Reference] - Complete variable listing
+* link:../../reference/options-across-interfaces.adoc[Options Across Interfaces] - How options map across CLI, Ruby, and RSpec

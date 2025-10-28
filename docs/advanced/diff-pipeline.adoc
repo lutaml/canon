@@ -1,0 +1,358 @@
+---
+layout: default
+title: Diff Pipeline Architecture
+parent: Advanced
+nav_order: 3
+---
+
+:toc:
+:toclevels: 3
+
+== Purpose
+
+Canon's diff system follows a strict separation of concerns with each layer having a single, well-defined responsibility. This architecture ensures clean code, maintainability, and testability.
+
+== Pipeline Layers
+
+Canon processes comparisons through six distinct layers:
+
+[source]
+----
+Input Documents
+      ↓
+[1] Comparison → Creates semantic differences (DiffNodes)
+      ↓
+[2] Classification → Marks as normative/informative
+      ↓
+[3] Mapping → Maps semantic diffs to text lines
+      ↓
+[4] Blocking → Groups contiguous changed lines
+      ↓
+[5] Contexting → Adds surrounding unchanged lines
+      ↓
+[6] Formatting → Renders to colored output
+      ↓
+Display Output
+----
+
+== Layer 1: Comparison
+
+**Responsibility**: Create semantic differences
+
+**Input**: Two documents (doc1, doc2) + match options
+
+**Process**: Compare DOM/JSON trees semantically
+
+**Output**: Array of DiffNode objects
+
+[source,ruby]
+----
+# DiffNode structure
+{
+  node1: Element from doc1,
+  node2: Element from doc2,
+  dimension: :text_content | :attribute_order | etc.,
+  reason: "Description of difference",
+  normative: nil  # Set by classifier
+}
+----
+
+**Key Point**: Comparators only detect **semantic** differences based on match options. They don't know about text lines or formatting.
+
+== Layer 2: Classification
+
+**Responsibility**: Mark differences as normative or informative
+
+**Input**: DiffNode array + match options
+
+**Process**: Check each dimension's behavior (`:strict`, `:normalize`, `:ignore`)
+
+**Output**: Same DiffNodes with `normative` flag set
+
+[source,ruby]
+----
+classifier = DiffClassifier.new(match_options)
+diff_nodes.each do |node|
+  behavior = match_options.behavior_for(node.dimension)
+  node.normative = (behavior != :ignore)
+end
+----
+
+**Classification Rules**:
+* `:ignore` → informative (cyan, doesn't affect equivalence)
+* `:strict` or `:normalize` → normative (red/green, affects equivalence)
+
+== Layer 3: Mapping
+
+**Responsibility**: Map semantic diffs to text line positions
+
+**Input**: DiffNode array + original text documents
+
+**Process**:
+1. Run text diff (Diff::LCS) on original strings
+2. For each changed line, find corresponding DiffNode
+3. Create DiffLine linking line ↔ DiffNode
+4. Inherit normative/informative from DiffNode
+
+**Output**: Array of DiffLine objects
+
+[source,ruby]
+----
+# DiffLine structure
+{
+  line_number: 5,
+  content: "<p>Changed text</p>",
+  type: :changed,  # :added, :removed, :unchanged
+  diff_node: DiffNode reference,
+  normative: true  # from diff_node
+}
+----
+
+**Key Point**: This layer bridges semantic differences to their textual representation.
+
+== Layer 4: Blocking
+
+**Responsibility**: Group contiguous changed lines into blocks
+
+**Input**: DiffLine array + `show_diffs` option
+
+**Process**:
+1. Identify runs of consecutive changed lines
+2. Create DiffBlock for each run
+3. Set `block.normative` based on contained lines
+4. Filter blocks by `show_diffs` setting
+
+**Output**: Array of DiffBlock objects
+
+[source,ruby]
+----
+# DiffBlock structure
+{
+  start_idx: 10,
+  end_idx: 15,
+  types: ['-', '+'],
+  diff_lines: [DiffLine, ...],
+  diff_node: DiffNode (if all from same node),
+  normative: true  # true if ANY line is normative
+}
+----
+
+**Filtering**:
+* `show_diffs: :normative` → keep only normative blocks
+* `show_diffs: :informative` → keep only informative blocks
+* `show_diffs: :all` → keep all blocks
+
+== Layer 5: Contexting
+
+**Responsibility**: Add surrounding context lines
+
+**Input**: DiffBlock array + context/grouping options
+
+**Process**:
+1. Group nearby blocks (within `diff_grouping_lines`)
+2. Expand each group with `context_lines` before/after
+3. Create DiffContext for each group
+
+**Output**: Array of DiffContext objects
+
+[source,ruby]
+----
+# DiffContext structure
+{
+  start_idx: 7,   # includes context before
+  end_idx: 18,    # includes context after
+  blocks: [DiffBlock, ...]
+}
+----
+
+**Key Point**: This layer controls how much unchanged content is shown around changes.
+
+== Layer 6: Formatting
+
+**Responsibility**: Render to colored string output
+
+**Input**: Array of DiffContext objects
+
+**Process**:
+* Apply line numbers
+* Add color codes (red/green/cyan)
+* Visualize whitespace characters
+* Format for terminal display
+
+**Output**: Formatted string ready for display
+
+**Key Point**: Formatters are pure display - no business logic, no filtering, no decisions.
+
+== Data Flow Example
+
+=== Scenario: Attribute order normalized away
+
+[source]
+----
+Input:
+  doc1: <div class="TOC" id="_">
+  doc2: <div id="_" class="TOC">
+
+  match_options: { attribute_order: :ignore }
+
+Layer 1 - Comparison:
+  XmlComparator sees attribute order differs
+  BUT match option is :ignore
+  → NO DiffNode created (semantically equivalent)
+
+Layer 2 - Classification:
+  No DiffNodes to classify
+  → Skip
+
+Layer 3 - Mapping:
+  No DiffNodes to map
+  → No DiffLines created
+
+Layer 4 - Blocking:
+  No DiffLines to block
+  → No DiffBlocks created
+
+Layer 5 - Contexting:
+  No DiffBlocks to contextualize
+  → No DiffContexts created
+
+Layer 6 - Formatting:
+  No contexts to format
+  → Returns empty string (no diff shown)
+
+Result: Files are equivalent, no output
+----
+
+=== Scenario: Real text difference
+
+[source]
+----
+Input:
+  doc1: <p>Test 1</p>
+  doc2: <p>Test 2</p>
+
+  match_options: { text_content: :strict }
+
+Layer 1 - Comparison:
+  XmlComparator finds text differs
+  Creates: DiffNode(dimension: :text_content)
+
+Layer 2 - Classification:
+  text_content: :strict → normative
+  Sets: diff_node.normative = true
+
+Layer 3 - Mapping:
+  Maps to line 1 (changed)
+  Creates: DiffLine(type: :changed, normative: true)
+
+Layer 4 - Blocking:
+  Groups line into block
+  Creates: DiffBlock([DiffLine], normative: true)
+  Filter: show_diffs: :normative → keeps block
+
+Layer 5 - Contexting:
+  Adds context lines (0 before, 0 after if short file)
+  Creates: DiffContext([DiffBlock])
+
+Layer 6 - Formatting:
+  Renders with colors:
+    1|  - | <p>Test 1</p>
+     | 1+ | <p>Test 2</p>
+
+Result: Files differ, diff shown in red/green
+----
+
+== Class Responsibilities
+
+=== Comparison Layer
+
+[`XmlComparator`](../../lib/canon/comparison/xml_comparator.rb):: Compares DOM nodes semantically, creates DiffNodes
+
+[`DiffClassifier`](../../lib/canon/diff/diff_classifier.rb):: Classifies DiffNodes as normative/informative
+
+=== Processing Layers
+
+[`DiffNodeMapper`](../../lib/canon/diff/diff_node_mapper.rb):: Maps semantic diffs to text line positions
+
+[`DiffBlockBuilder`](../../lib/canon/diff/diff_block_builder.rb):: Groups contiguous lines into blocks, filters by show_diffs
+
+[`DiffContextBuilder`](../../lib/canon/diff/diff_context_builder.rb):: Adds context lines, groups nearby blocks
+
+[`DiffReportBuilder`](../../lib/canon/diff/diff_report_builder.rb):: Orchestrates the full pipeline
+
+=== Formatting Layer
+
+[`ByLine::XmlFormatter`](../../lib/canon/diff_formatter/by_line/xml_formatter.rb):: Renders line-by-line XML diffs
+
+[`ByLine::HtmlFormatter`](../../lib/canon/diff_formatter/by_line/html_formatter.rb):: Renders line-by-line HTML diffs
+
+[`ByObject::XmlFormatter`](../../lib/canon/diff_formatter/by_object/xml_formatter.rb):: Renders tree-based XML diffs
+
+== Key Principles
+
+=== Single Responsibility
+
+Each class does ONE thing:
+
+* **Comparator**: Compares → DiffNodes
+* **Classifier**: Classifies → normative flags
+* **Mapper**: Maps nodes → lines
+* **BlockBuilder**: Groups lines → blocks
+* **ContextBuilder**: Adds context → contexts
+* **Formatter**: Renders → string
+
+=== Separation of Concerns
+
+**Business Logic** (Layers 1-5):
+* Lives in `lib/canon/diff/` and `lib/canon/comparison/`
+* No knowledge of rendering or colors
+* Pure data transformations
+
+**Presentation** (Layer 6):
+* Lives in `lib/canon/diff_formatter/`
+* No business logic
+* Just renders what it's given
+
+=== Information Expert
+
+Each object knows about its own data:
+
+* `DiffNode.normative?` - knows if semantically different
+* `DiffLine.normative?` - knows via its DiffNode
+* `DiffBlock.normative?` - knows via its DiffLines
+* `DiffContext` - knows about its blocks
+
+=== Tell, Don't Ask
+
+Don't ask objects for data to make decisions elsewhere:
+
+[source,ruby]
+----
+# BAD (Ask)
+if diff_node.dimension == :attribute_order &&
+   match_options[:attribute_order] == :ignore
+  # make decision here
+end
+
+# GOOD (Tell)
+if diff_node.normative?
+  # decision already made
+end
+----
+
+== Benefits
+
+**Testability**: Each layer tested independently
+
+**Maintainability**: Clear responsibilities, easy to understand
+
+**Extensibility**: Easy to add new filtering, grouping, or rendering strategies
+
+**Correctness**: When DiffNodes are empty (all normalized), entire pipeline produces no output
+
+== See Also
+
+* link:diff-classification.html[Diff Classification] - Normative vs informative
+* link:semantic-diff-report.html[Semantic Diff Report] - High-level diff summary
+* link:../understanding/comparison-pipeline.html[Comparison Pipeline] - User-facing overview
+* link:../understanding/architecture.html[Architecture] - System design

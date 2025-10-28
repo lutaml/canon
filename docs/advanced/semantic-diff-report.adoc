@@ -1,0 +1,390 @@
+---
+layout: default
+title: Semantic Diff Report
+parent: Advanced
+nav_order: 2
+---
+
+:toc:
+:toclevels: 3
+
+== Purpose
+
+The Semantic Diff Report provides dimension-specific, actionable details for each difference found during comparison. It focuses on **what changed** and **why it matters**, rather than just showing every changed line.
+
+The report is automatically shown in verbose mode when differences exist, appearing before the detailed diff output.
+
+== Key Features
+
+* XPath locations for XML/HTML elements
+* JSON path locations for JSON/YAML data
+* Dimension-specific formatting optimized for each type of difference
+* Colorized output for easy visual scanning
+* Whitespace preservation detection for `<pre>`, `<code>`, etc.
+* Actionable change summaries (e.g., "Added: +xmlns:v, +xmlns:o")
+
+== Report Format
+
+Each difference is displayed as a vertical section:
+
+[source]
+----
+🔍 DIFFERENCE #1/3 [NORMATIVE]
+──────────────────────────────────────────────────────────────────────
+Dimension:  attribute_presence
+Location:   /iso-standard/preface/foreword
+
+⊖ Expected (File 1):
+   <foreword> with 3 attributes: displayorder, id, semx-id
+
+⊕ Actual (File 2):
+   <foreword> with 2 attributes: displayorder, id
+
+✨ Changes:
+   Removed: -semx-id
+----
+
+Where:
+
+`STATUS`:: Either `[NORMATIVE]` (green) or `[INFORMATIVE]` (yellow)
+`Dimension`:: The match dimension that detected this difference (magenta)
+`Location`:: XPath for XML/HTML, JSON path for JSON/YAML (blue)
+`Expected`:: What was in File 1 (red heading)
+`Actual`:: What was in File 2 (green heading)
+`Changes`:: Actionable summary (yellow)
+
+== Color Scheme
+
+* **Dimension name**: Magenta
+* **XPath/JSON path**: Blue
+* **Expected heading**: Red (bold)
+* **Actual heading**: Green (bold)
+* **Changes heading**: Yellow (bold)
+* **Status [NORMATIVE]**: Green (bold)
+* **Status [INFORMATIVE]**: Yellow (bold)
+* **Added items**: Green (with `+` prefix)
+* **Removed items**: Red (with `-` prefix)
+* **Element names**: Magenta
+* **Attribute names**: Cyan
+
+== XML/HTML Dimensions
+
+=== Attribute Presence
+
+Shows when attributes are missing or extra.
+
+.Example: Missing attribute
+[example]
+====
+[source]
+----
+🔍 DIFFERENCE #1/1 [NORMATIVE]
+──────────────────────────────────────────────────────────────────────
+Dimension:  attribute_presence
+Location:   /html/body/div/div
+
+⊖ Expected (File 1):
+   <div> with 2 attributes: class, id
+
+⊕ Actual (File 2):
+   <div> with 1 attribute: id
+
+✨ Changes:
+   Removed: -class
+----
+====
+
+=== Attribute Values
+
+Shows when an attribute value differs.
+
+.Example: Whitespace difference
+[example]
+====
+[source]
+----
+🔍 DIFFERENCE #1/1 [NORMATIVE]
+──────────────────────────────────────────────────────────────────────
+Dimension:  attribute_values
+Location:   /html/body/div[@id="main"]
+
+⊖ Expected (File 1):
+   <div> class="  container  fluid  "
+
+⊕ Actual (File 2):
+   <div> class="container fluid"
+
+✨ Changes:
+   Whitespace normalization difference
+----
+====
+
+=== Text Content
+
+Shows when element text differs.
+
+.Example: Text content change
+[example]
+====
+[source]
+----
+🔍 DIFFERENCE #1/1 [NORMATIVE]
+──────────────────────────────────────────────────────────────────────
+Dimension:  text_content
+Location:   /html/body/div/table/tbody/tr/td/pre/text
+
+⊖ Expected (File 1):
+   <text> "
+                      puts \"Hello, world.\"
+                      "
+
+⊕ Actual (File 2):
+   <text> "puts \"Hello, world.\" "
+
+✨ Changes:
+   ⚠️  Whitespace preserved (inside <pre>, <code>, etc. - whitespace is significant)
+----
+====
+
+The warning appears for text inside whitespace-preserving elements where Canon automatically switches to strict mode.
+
+=== Structural Whitespace
+
+Shows whitespace-only differences (usually informative).
+
+.Example: Whitespace-only difference
+[example]
+====
+[source]
+----
+🔍 DIFFERENCE #1/1 [INFORMATIVE]
+──────────────────────────────────────────────────────────────────────
+Dimension:  structural_whitespace
+Location:   /root/section/p
+
+⊖ Expected (File 1):
+   <p> "hello␣␣world"
+
+⊕ Actual (File 2):
+   <p> "hello␣world"
+
+✨ Changes:
+   Whitespace-only difference (informative)
+----
+====
+
+=== Comments
+
+Shows when comment content differs.
+
+.Example: Comment difference
+[example]
+====
+[source]
+----
+🔍 DIFFERENCE #1/1 [INFORMATIVE]
+──────────────────────────────────────────────────────────────────────
+Dimension:  comments
+Location:   /html/head
+
+⊖ Expected (File 1):
+   <!-- Original comment text -->
+
+⊕ Actual (File 2):
+   <!-- Modified comment text -->
+
+✨ Changes:
+   Comment content differs
+----
+====
+
+== JSON/YAML Dimensions
+
+JSON and YAML use path-based reporting:
+
+=== Hash Key Differences
+
+.Example: Missing key
+[example]
+====
+[source]
+----
+🔍 DIFFERENCE #1/1 [NORMATIVE]
+──────────────────────────────────────────────────────────────────────
+Dimension:  hash_key
+Location:   user.email
+
+⊖ Expected (File 1):
+   user.email = "alice@example.com"
+
+⊕ Actual (File 2):
+   user.email = nil
+
+✨ Changes:
+   Key missing
+----
+====
+
+=== Primitive Value Differences
+
+.Example: Value changed
+[example]
+====
+[source]
+----
+🔍 DIFFERENCE #1/1 [NORMATIVE]
+──────────────────────────────────────────────────────────────────────
+Dimension:  primitive_value
+Location:   users[0].age
+
+⊖ Expected (File 1):
+   users[0].age = 25
+
+⊕ Actual (File 2):
+   users[0].age = 30
+
+✨ Changes:
+   Value changed
+----
+====
+
+=== Array Differences
+
+.Example: Array length differs
+[example]
+====
+[source]
+----
+🔍 DIFFERENCE #1/1 [NORMATIVE]
+──────────────────────────────────────────────────────────────────────
+Dimension:  array_length
+Location:   items
+
+⊖ Expected (File 1):
+   items = [...] (5 items)
+
+⊕ Actual (File 2):
+   items = [...] (3 items)
+
+✨ Changes:
+   Array length differs
+----
+====
+
+== Special Features
+
+=== XPath Location Extraction
+
+For XML/HTML differences, the report extracts XPath with:
+
+* Full path from root: `/html/body/div/section/p`
+* Position predicates when multiple siblings: `/p[2]`, `/div[3]`
+* Safe traversal with depth limits to prevent infinite loops
+* Graceful error handling for circular references
+
+=== Whitespace Preservation Detection
+
+The report detects when text is inside whitespace-preserving HTML elements and shows a special warning:
+
+[source]
+----
+✨ Changes: ⚠️  Whitespace preserved (inside <pre>, <code>, etc. - whitespace is significant)
+----
+
+Elements detected:
+
+* `<pre>` - Preformatted text
+* `<code>` - Code blocks
+* `<textarea>` - Text input areas
+* `<script>` - JavaScript code
+* `<style>` - CSS style sheets
+
+This helps developers understand why whitespace differences cause test failures.
+
+=== Comprehensive Error Handling
+
+The formatter includes multiple layers of error handling:
+
+* Top-level rescue in formatting functions
+* Safe XPath extraction with depth limits
+* Safe parent traversal with document node checks
+* Graceful fallbacks when node types are unexpected
+
+This ensures the report never crashes, even with unusual DOM structures.
+
+== Integration
+
+The Semantic Diff Report is integrated at the `format_comparison_result()` level:
+
+[source,ruby]
+----
+def format_comparison_result(comparison_result, expected, actual)
+  output = []
+
+  # 1. Algorithm name
+  output << "Algorithm: SEMANTIC TREE DIFF"
+
+  # 2. CANON VERBOSE tables (optional)
+  output << verbose_tables if ENV['CANON_VERBOSE'] == '1'
+
+  # 3. Semantic Diff Report (always if diffs exist)
+  if comparison_result.differences.any?
+    output << DiffDetailFormatter.format_report(differences)
+  end
+
+  # 4. Main diff output (always)
+  output << format(...)
+
+  output.compact.join("\n")
+end
+----
+
+This ensures the Semantic Diff Report is part of the main output, not debug information.
+
+== When It Appears
+
+The Semantic Diff Report appears automatically when:
+
+1. Comparison finds differences
+2. Verbose mode is enabled (`verbose: true` or `--verbose`)
+3. Files are not equivalent
+
+It does **not** appear when:
+
+* Files are equivalent
+* Verbose mode is disabled
+* No differences exist
+
+== Practical Uses
+
+=== Debugging Test Failures
+
+When a test fails, the report immediately shows:
+
+* Exactly which element changed
+* What dimension detected the change
+* Whether it's normative or informative
+* Actionable summary of what to fix
+
+=== Understanding Match Behavior
+
+The report helps verify match options are working:
+
+* Informative diffs show what's being ignored
+* Normative diffs show what causes failures
+* Dimension names clarify which rules apply
+
+=== Code Review
+
+During code review, the report provides:
+
+* High-level summary of changes
+* Location-based organization
+* Clear separation of semantic vs formatting changes
+
+== See Also
+
+* link:diff-classification.html[Diff Classification] - Normative vs informative
+* link:../features/diff-formatting/colors-and-symbols.html[Colors and Symbols] - Visual indicators
+* link:verbose-mode-architecture.html[Verbose Mode] - Debug output details
+* link:../understanding/comparison-pipeline.html[Comparison Pipeline] - How comparison works

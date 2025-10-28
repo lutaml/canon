@@ -1,0 +1,297 @@
+---
+title: XML Format
+parent: Format Support
+grand_parent: Understanding
+nav_order: 1
+---
+= XML format
+:toc:
+:toclevels: 3
+
+== Purpose
+
+This page describes Canon's XML format support, including W3C Canonical XML implementation, namespace handling, and XML-specific features.
+
+== Canonicalization
+
+Canon implements the https://www.w3.org/TR/xml-c14n11/[W3C Canonical XML Version 1.1] specification.
+
+**Key features:**
+
+* Namespace declaration ordering (lexicographic by prefix)
+* Attribute ordering (lexicographic by namespace URI, then local name)
+* Character encoding normalization to UTF-8
+* Special character encoding in text and attributes
+* Removal of superfluous namespace declarations
+* Support for xml:base, xml:lang, xml:space, and xml:id attributes
+* Processing instruction and comment handling
+* Document subset support with attribute inheritance
+
+.XML canonicalization example
+[example]
+====
+[source,ruby]
+----
+xml = <<~XML
+  <root xmlns:b="http://b.com" xmlns:a="http://a.com">
+    <item b:attr="2" a:attr="1">
+      Text   content
+    </item>
+  </root>
+XML
+
+Canon.format(xml, :xml)
+# => Namespace prefixes sorted, attributes sorted, whitespace normalized
+----
+====
+
+== Format defaults
+
+[cols="1,1"]
+|===
+|Dimension |Default Behavior
+
+|`text_content`
+|`:strict`
+
+|`structural_whitespace`
+|`:strict`
+
+|`attribute_whitespace`
+|`:strict`
+
+|`attribute_order`
+|`:ignore`
+
+|`attribute_values`
+|`:strict`
+
+|`comments`
+|`:strict`
+|===
+
+Default diff mode: `:by_object` (tree-based semantic diff)
+
+NOTE: XML `attribute_order` defaults to `:ignore` because the XML specification states that attribute order is not significant. Use the `strict` profile if you need to enforce specific attribute ordering.
+
+== Match profiles for XML
+
+Canon provides predefined profiles optimized for XML documents. Each profile configures preprocessing, match options, diff algorithm, and formatting.
+
+=== strict profile
+
+**Purpose**: Character-perfect XML matching
+
+**Configuration**:
+
+[source,ruby]
+----
+{
+  preprocessing: :none,
+  diff_algorithm: :dom,      # DOM-based positional diff
+  diff_mode: :by_object,     # Tree-based diff output
+  match: {
+    text_content: :strict,
+    structural_whitespace: :strict,
+    attribute_whitespace: :strict,
+    attribute_order: :strict,
+    attribute_values: :strict,
+    comments: :strict
+  }
+}
+----
+
+**Use when**: Testing exact serializer output, verifying XML formatting compliance, character-perfect matching required.
+
+=== rendered profile
+
+**Purpose**: Browser-rendered equivalence
+
+**Configuration**:
+
+[source,ruby]
+----
+{
+  preprocessing: :none,
+  diff_algorithm: :dom,
+  diff_mode: :by_line,       # Line-based diff output
+  match: {
+    text_content: :normalize,
+    structural_whitespace: :normalize,
+    attribute_whitespace: :normalize,
+    attribute_order: :ignore,
+    attribute_values: :strict,
+    comments: :ignore
+  }
+}
+----
+
+**Use when**: Comparing how content would render (XHTML), ignoring formatting that doesn't affect display.
+
+=== spec_friendly profile
+
+**Purpose**: Test-friendly comparison for RSpec
+
+**Configuration**:
+
+[source,ruby]
+----
+{
+  preprocessing: :normalize,  # Applies whitespace normalization
+  diff_algorithm: :dom,
+  diff_mode: :by_object,
+  match: {
+    text_content: :normalize,
+    structural_whitespace: :ignore,
+    attribute_whitespace: :normalize,
+    attribute_order: :ignore,
+    attribute_values: :strict,
+    comments: :ignore
+  }
+}
+----
+
+**Use when**: Writing RSpec tests, testing semantic correctness, ignoring pretty-printing differences. Most common for testing.
+
+=== content_only profile
+
+**Purpose**: Maximum tolerance - only data matters
+
+**Configuration**:
+
+[source,ruby]
+----
+{
+  preprocessing: :normalize,
+  diff_algorithm: :dom,
+  diff_mode: :by_object,
+  match: {
+    text_content: :normalize,
+    structural_whitespace: :ignore,
+    attribute_whitespace: :ignore,
+    attribute_order: :ignore,
+    attribute_values: :ignore,
+    comments: :ignore
+  }
+}
+----
+
+**Use when**: Only structural equivalence needed, maximum flexibility for formatting differences.
+
+== XML-specific features
+
+=== Comment handling
+
+XML comments are preserved in canonical form unless `--with-comments` is explicitly set.
+
+.Comment handling example
+[example]
+====
+[source,ruby]
+----
+xml_with_comments = <<~XML
+  <root>
+    <!-- Important note -->
+    <item>Value</item>
+  </root>
+XML
+
+# Comments preserved by default
+Canon.format(xml_with_comments, :xml)
+
+# Ignore comments in comparison
+Canon::Comparison.equivalent?(xml1, xml2,
+  match: { comments: :ignore }
+)
+----
+====
+
+=== Namespace normalization
+
+Namespace declarations are sorted and duplicate declarations are removed.
+
+.Namespace normalization example
+[example]
+====
+[source,xml]
+----
+<!-- Before -->
+<root xmlns:z="http://z.com" xmlns:a="http://a.com">
+  <item xmlns:z="http://z.com">Content</item>
+</root>
+
+<!-- After canonicalization -->
+<root xmlns:a="http://a.com" xmlns:z="http://z.com">
+  <item>Content</item>
+</root>
+----
+
+Namespaces are sorted alphabetically by prefix, and redundant declarations are removed.
+====
+
+=== xml: attributes
+
+Special attributes like `xml:lang`, `xml:space`, `xml:id`, and `xml:base` are properly handled per specification.
+
+.xml:space example
+[example]
+====
+[source,xml]
+----
+<root xml:space="preserve">
+  <pre>  Whitespace    preserved  </pre>
+</root>
+----
+
+When `xml:space="preserve"` is set, whitespace is preserved in descendants.
+====
+
+== Usage examples
+
+=== Basic XML comparison
+
+[source,ruby]
+----
+xml1 = File.read("file1.xml")
+xml2 = File.read("file2.xml")
+
+Canon::Comparison.equivalent?(xml1, xml2)
+----
+
+=== Test-friendly XML comparison
+
+[source,ruby]
+----
+expect(actual_xml).to be_xml_equivalent_to(expected_xml)
+  .with_profile(:spec_friendly)
+----
+
+=== Using XML comparator directly
+
+[source,ruby]
+----
+Canon::Comparison::XmlComparator.equivalent?(xml1, xml2,
+  match: { attribute_order: :ignore }
+)
+----
+
+=== CLI usage
+
+[source,bash]
+----
+# Basic comparison
+canon diff file1.xml file2.xml --verbose
+
+# With spec-friendly profile
+canon diff expected.xml actual.xml \
+  --match-profile spec_friendly \
+  --verbose
+----
+
+== See also
+
+* link:../comparison-pipeline.adoc[Comparison Pipeline] - Understanding the 4 layers
+* link:../../features/match-options/[Match Options] - All matching options
+* link:../../guides/choosing-configuration.adoc[Choosing Configuration] - Decision guide
+* link:index.adoc[Format Support] - Overview of all formats
+* link:html.adoc[HTML Format] - HTML-specific features
