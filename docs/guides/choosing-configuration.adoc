@@ -1,0 +1,689 @@
+---
+title: Choosing Configuration
+parent: Guides
+nav_order: 1
+---
+= Choosing Configuration
+
+== Purpose
+
+Canon's 4-layer architecture provides powerful flexibility, but this can be overwhelming. This guide helps you choose the right configuration for your use case through decision trees, use case scenarios, and practical recommendations.
+
+== Quick Decision Tree
+
+[mermaid]
+----
+graph TD
+    Start[What are you comparing?] --> Similar{Similar<br/>structure?}
+    Similar -->|Yes| Fast{Need<br/>speed?}
+    Similar -->|No| Semantic[Use Semantic Algorithm]
+
+    Fast -->|Yes| DOM[Use DOM Algorithm]
+    Fast -->|No| Semantic
+
+    DOM --> Format{Care about<br/>formatting?}
+    Semantic --> Format
+
+    Format -->|Yes| Strict[strict profile]
+    Format -->|No| SpecFriendly[spec_friendly profile]
+
+    Strict --> Output1[by_line mode]
+    SpecFriendly --> Output2{Want<br/>operations?}
+
+    Output2 -->|Yes| ByObject[by_object mode]
+    Output2 -->|No| ByLine[by_line mode]
+
+    style DOM fill:#fff4e1
+    style Semantic fill:#e1f5ff
+    style Strict fill:#ffe1f5
+    style SpecFriendly fill:#ffe1f5
+    style ByObject fill:#e1ffe1
+    style ByLine fill:#e1ffe1
+----
+
+== Layer-by-Layer Decision Guide
+
+=== Layer 1: Preprocessing
+
+**Question**: How should documents be normalized before comparison?
+
+[cols="2,3,3"]
+|===
+|Choose |When |Example
+
+|**none**
+|Documents already in comparable form, no normalization needed
+|Comparing canonicalized XML files
+
+|**c14n**
+|Testing XML canonicalization implementations
+|Validating C14N output
+
+|**normalize**
+|Whitespace differences are irrelevant
+|Comparing generated vs handwritten XML
+
+|**format**
+|Want to compare structure, ignore all formatting
+|Comparing minified vs formatted JSON
+|===
+
+**Default**: `none` (no preprocessing)
+
+**Ruby API**:
+[source,ruby]
+----
+Canon::Comparison.equivalent?(doc1, doc2,
+  preprocessing: :normalize  # or :c14n, :format
+)
+----
+
+**CLI**:
+[source,bash]
+----
+canon diff file1.xml file2.xml --preprocessing normalize
+----
+
+=== Layer 2: Algorithm Selection
+
+**Question**: What comparison strategy fits your documents?
+
+[cols="2,3,3"]
+|===
+|Choose |When |Characteristics
+
+|**dom**
+|• Similar document structure +
+• Traditional diff workflow +
+• Speed is important +
+• Production use (stable)
+|• Fast +
+• Position-based +
+• No move detection +
+• Well-tested
+
+|**semantic**
+|• Restructured documents +
+• Need move detection +
+• Operation analysis needed +
+• Experimental OK
+|• Slower +
+• Signature-based +
+• Detects moves +
+• Experimental
+|===
+
+**Default**: `dom` (stable algorithm)
+
+**Decision Matrix**:
+[cols="2,1,1"]
+|===
+|Scenario |DOM |Semantic
+
+|Documents have same structure
+|✓
+|✓
+
+|Documents are reordered
+|✗
+|✓
+
+|Need fast comparison
+|✓
+|✗
+
+|Need move detection
+|✗
+|✓
+
+|Production use
+|✓
+|⚠
+
+|Large documents (> 100KB)
+|✓
+|✗
+|===
+
+**Ruby API**:
+[source,ruby]
+----
+Canon::Comparison.equivalent?(doc1, doc2,
+  diff_algorithm: :dom  # or :semantic
+)
+----
+
+**CLI**:
+[source,bash]
+----
+canon diff file1.xml file2.xml --diff-algorithm semantic
+----
+
+=== Layer 3: Match Options
+
+**Question**: How strict should comparison be?
+
+==== Using Match Profiles (Recommended)
+
+[cols="2,4"]
+|===
+|Profile |Use When
+
+|**strict**
+|Exact matching required. Everything must match exactly including whitespace, attribute order, comments.
+
+|**rendered**
+|Comparing rendered output. Simulates browser/CSS rendering - ignores formatting but keeps content strict.
+
+|**spec_friendly**
+|Writing tests. Ignores formatting differences, focuses on content and structure.
+
+|**content_only**
+|Content comparison only. Ignores all structural and formatting differences.
+|===
+
+**Default**: `strict` (exact matching)
+
+**Ruby API**:
+[source,ruby]
+----
+Canon::Comparison.equivalent?(doc1, doc2,
+  match_profile: :spec_friendly  # or :strict, :rendered, :content_only
+)
+----
+
+**CLI**:
+[source,bash]
+----
+canon diff file1.xml file2.xml --match-profile spec_friendly
+----
+
+==== Custom Match Dimensions
+
+For fine-grained control, configure individual dimensions:
+
+[source,ruby]
+----
+Canon::Comparison.equivalent?(doc1, doc2,
+  match: {
+    text_content: :normalize,           # normalize, strict, ignore
+    structural_whitespace: :ignore,     # ignore, normalize, strict
+    attribute_order: :ignore,           # ignore, strict (XML/HTML)
+    attribute_values: :normalize,       # normalize, strict, ignore
+    comments: :ignore                   # ignore, normalize, strict
+  }
+)
+----
+
+**Remember**: Match options behave differently with each algorithm! See link:../features/match-options/algorithm-specific-behavior.adoc[Algorithm-Specific Behavior].
+
+=== Layer 4: Diff Formatting
+
+**Question**: How should differences be displayed?
+
+==== Choosing Diff Mode
+
+[cols="2,3,3"]
+|===
+|Mode |Best For |Output Type
+
+|**by_line**
+|• Traditional diffs +
+• Code review +
+• Quick scanning +
+• DOM algorithm
+|Line-based diff similar to `git diff`
+
+|**by_object**
+|• Tree structure view +
+• Operation analysis +
+• Semantic algorithm
+|Tree-based with operations (INSERT, DELETE, UPDATE, MOVE)
+|===
+
+**Default**: `by_line` for DOM, `by_object` for Semantic
+
+**Natural Fits**:
+* DOM + by_line = Traditional positional diff
+* Semantic + by_object = Operation-based tree diff
+
+**Ruby API**:
+[source,ruby]
+----
+Canon::Comparison.equivalent?(doc1, doc2,
+  diff_mode: :by_object,  # or :by_line
+  verbose: true           # Enable diff output
+)
+----
+
+**CLI**:
+[source,bash]
+----
+canon diff file1.xml file2.xml --diff-mode by-object --verbose
+----
+
+==== Visual Formatting Options
+
+[source,ruby]
+----
+Canon::Comparison.equivalent?(doc1, doc2,
+  verbose: true,
+  use_color: true,              # Enable colors
+  context_lines: 3,             # Lines of context
+  diff_grouping_lines: 5,       # Group nearby changes
+  show_legend: true             # Display symbol legend
+)
+----
+
+== Use Case Scenarios
+
+=== Scenario 1: Unit Testing XML Generation
+
+**Requirement**: Test that code generates correct XML, ignoring formatting
+
+**Configuration**:
+[source,ruby]
+----
+expect(actual_xml).to be_equivalent_to(expected_xml).with_options(
+  preprocessing: :normalize,        # Ignore formatting differences
+  diff_algorithm: :dom,             # Fast, stable
+  match_profile: :spec_friendly,    # Test-friendly
+  verbose: true                     # Show diffs on failure
+)
+----
+
+**Why**:
+* `normalize` handles inconsistent whitespace
+* `dom` is fast and stable for tests
+* `spec_friendly` focuses on content, not formatting
+* `verbose` helps debug failures
+
+=== Scenario 2: Comparing API Responses
+
+**Requirement**: Compare JSON responses, key order doesn't matter
+
+**Configuration**:
+[source,ruby]
+----
+Canon::Comparison.equivalent?(response1, response2,
+  diff_algorithm: :dom,
+  match: {
+    key_order: :ignore,             # JSON key order irrelevant
+    text_content: :normalize        # Normalize string values
+  },
+  verbose: true,
+  diff_mode: :by_object             # Tree view of differences
+)
+----
+
+**Why**:
+* `key_order: :ignore` handles JSON object key reordering
+* `by_object` shows structured diff
+* `dom` is sufficient for API responses
+
+=== Scenario 3: Detecting Document Restructuring
+
+**Requirement**: Find what changed when document is reorganized
+
+**Configuration**:
+[source,ruby]
+----
+result = Canon::Comparison.equivalent?(old_doc, new_doc,
+  diff_algorithm: :semantic,        # Detect moves
+  match_profile: :spec_friendly,    # Ignore formatting
+  verbose: true,
+  diff_mode: :by_object             # See operations
+)
+
+# Analyze operations
+puts "Moves: #{result.statistics.moves}"
+puts "Updates: #{result.statistics.updates}"
+----
+
+**Why**:
+* `semantic` algorithm detects moves and restructuring
+* `by_object` shows operation-level changes
+* Statistics provide quantitative analysis
+
+=== Scenario 4: Code Review Diff
+
+**Requirement**: Traditional diff for reviewing changes
+
+**Configuration**:
+[source,bash]
+----
+canon diff old.xml new.xml \
+  --diff-algorithm dom \
+  --match-profile spec_friendly \
+  --diff-mode by_line \
+  --verbose \
+  --use-color \
+  --context-lines 3
+----
+
+**Why**:
+* `dom + by_line` gives traditional diff
+* `context_lines` provides context
+* Colors improve readability
+
+=== Scenario 5: Canonicalization Testing
+
+**Requirement**: Test C14N implementation
+
+**Configuration**:
+[source,ruby]
+----
+Canon::Comparison.equivalent?(doc, canonical_doc,
+  preprocessing: :c14n,             # Apply canonicalization
+  diff_algorithm: :dom,
+  match_profile: :strict,           # Exact match required
+  verbose: true
+)
+----
+
+**Why**:
+* `c14n` preprocessing applies canonicalization
+* `strict` profile ensures exact match
+* Tests that canonicalization produces correct output
+
+=== Scenario 6: Content-Only Comparison
+
+**Requirement**: Compare only text content, ignore all structure
+
+**Configuration**:
+[source,ruby]
+----
+Canon::Comparison.equivalent?(doc1, doc2,
+  preprocessing: :format,           # Normalize structure first
+  diff_algorithm: :semantic,        # Better for structure-independent
+  match_profile: :content_only,     # Ignore all structure
+  verbose: true,
+  diff_mode: :by_object
+)
+----
+
+**Why**:
+* `content_only` profile ignores structure
+* `semantic` algorithm better at structure-independent comparison
+* `format` preprocessing normalizes before comparison
+
+== Layer Interaction Matrix
+
+This table shows recommended configurations for common scenarios:
+
+[cols="3,1,1,1,1,2"]
+|===
+|Use Case |Layer 1 |Layer 2 |Layer 3 |Layer 4 |Notes
+
+|Unit tests (similar structure)
+|normalize
+|dom
+|spec_friendly
+|by_line
+|Fast, test-friendly
+
+|Unit tests (any structure)
+|normalize
+|semantic
+|spec_friendly
+|by_object
+|Handles restructuring
+
+|API response comparison
+|none
+|dom
+|custom
+|by_object
+|Configure key_order
+
+|Document evolution tracking
+|none
+|semantic
+|rendered
+|by_object
+|Detect operations
+
+|Code review
+|none
+|dom
+|strict
+|by_line
+|Traditional diff
+
+|C14N testing
+|c14n
+|dom
+|strict
+|by_line
+|Exact match
+
+|Content extraction testing
+|format
+|semantic
+|content_only
+|by_object
+|Structure-independent
+
+|Regression testing
+|normalize
+|dom
+|spec_friendly
+|by_line
+|Stable, fast
+|===
+
+== Common Configuration Patterns
+
+=== Pattern 1: Fast Test Assertion
+
+[source,ruby]
+----
+# Minimal configuration for speed
+Canon::Comparison.equivalent?(expected, actual,
+  match_profile: :spec_friendly
+)
+# Uses defaults: no preprocessing, dom algorithm, by_line output
+----
+
+=== Pattern 2: Comprehensive Analysis
+
+[source,ruby]
+----
+# Full analysis with all features
+result = Canon::Comparison.equivalent?(doc1, doc2,
+  preprocessing: :normalize,
+  diff_algorithm: :semantic,
+  match_profile: :spec_friendly,
+  verbose: true,
+  diff_mode: :by_object,
+  use_color: true,
+  context_lines: 5,
+  show_legend: true
+)
+
+# Access rich data
+puts result.operations
+puts result.statistics
+----
+
+=== Pattern 3: Strict Validation
+
+[source,ruby]
+----
+# Exact match required
+Canon::Comparison.equivalent?(doc1, doc2,
+  preprocessing: :c14n,       # Canonicalize first
+  match_profile: :strict,     # Exact matching
+  verbose: true               # Show any differences
+)
+----
+
+=== Pattern 4: Flexible Content Comparison
+
+[source,ruby]
+----
+# Focus on content, ignore structure
+Canon::Comparison.equivalent?(doc1, doc2,
+  preprocessing: :normalize,
+  diff_algorithm: :semantic,
+  match_profile: :content_only,
+  verbose: true
+)
+----
+
+== Anti-Patterns to Avoid
+
+=== Anti-Pattern 1: Over-Configuration
+
+[source,ruby]
+----
+# DON'T: Conflicting settings
+Canon::Comparison.equivalent?(doc1, doc2,
+  preprocessing: :c14n,              # Canonicalizes
+  match: {
+    structural_whitespace: :strict   # Conflicts with c14n
+  }
+)
+
+# DO: Choose one approach
+Canon::Comparison.equivalent?(doc1, doc2,
+  preprocessing: :c14n               # Handles normalization
+)
+----
+
+=== Anti-Pattern 2: Wrong Algorithm/Mode Combination
+
+[source,ruby]
+----
+# SUBOPTIMAL: Loses semantic information
+Canon::Comparison.equivalent?(doc1, doc2,
+  diff_algorithm: :semantic,
+  diff_mode: :by_line              # Doesn't show operations well
+)
+
+# BETTER: Use natural fit
+Canon::Comparison.equivalent?(doc1, doc2,
+  diff_algorithm: :semantic,
+  diff_mode: :by_object            # Shows operations clearly
+)
+----
+
+=== Anti-Pattern 3: Unnecessary Semantic Algorithm
+
+[source,ruby]
+----
+# SLOW: Semantic not needed for similar documents
+Canon::Comparison.equivalent?(doc1, doc2,
+  diff_algorithm: :semantic         # Overkill if no restructuring
+)
+
+# FASTER: Use DOM for similar structures
+Canon::Comparison.equivalent?(doc1, doc2,
+  diff_algorithm: :dom              # Fast for similar docs
+)
+----
+
+=== Anti-Pattern 4: Missing Verbose Flag
+
+[source,ruby]
+----
+# DON'T: Can't see what's different
+result = Canon::Comparison.equivalent?(doc1, doc2)
+# result is just true/false
+
+# DO: Enable verbose for debugging
+result = Canon::Comparison.equivalent?(doc1, doc2,
+  verbose: true
+)
+# result.diff shows actual differences
+----
+
+== Performance Considerations
+
+=== Performance Impact by Layer
+
+[cols="2,2,2,3"]
+|===
+|Layer |Low Impact |Medium Impact |High Impact
+
+|**Layer 1**
+|none
+|normalize, format
+|c14n (complex documents)
+
+|**Layer 2**
+|dom
+|—
+|semantic
+
+|**Layer 3**
+|Any profile
+|—
+|Complex custom dimensions
+
+|**Layer 4**
+|by_line
+|by_object (small docs)
+|by_object (large docs)
+|===
+
+=== Optimization Guidelines
+
+**For Speed**:
+[source,ruby]
+----
+Canon::Comparison.equivalent?(doc1, doc2,
+  preprocessing: :none,       # Skip preprocessing
+  diff_algorithm: :dom,       # Fast algorithm
+  match_profile: :strict,     # Simple matching
+  diff_mode: :by_line        # Fast output
+)
+----
+
+**For Intelligence** (accepting slower performance):
+[source,ruby]
+----
+Canon::Comparison.equivalent?(doc1, doc2,
+  preprocessing: :normalize,  # Normalize first
+  diff_algorithm: :semantic,  # Intelligent algorithm
+  diff_mode: :by_object      # Rich output
+)
+----
+
+== Migration Checklist
+
+When changing configuration:
+
+=== Changing Algorithm (DOM → Semantic)
+
+- [ ] Update `diff_algorithm` option
+- [ ] Consider changing `diff_mode` to `by_object`
+- [ ] Remove or update `attribute_order` expectations
+- [ ] Update test assertions for operation-based output
+- [ ] Accept slower performance
+- [ ] Review move detection impact
+
+=== Changing Algorithm (Semantic → DOM)
+
+- [ ] Update `diff_algorithm` option
+- [ ] Consider changing `diff_mode` to `by_line`
+- [ ] Add `attribute_order: :ignore` if needed
+- [ ] Update test assertions for line-based output
+- [ ] Expect faster performance
+- [ ] Accept no move detection
+
+=== Changing Match Profile
+
+- [ ] Review impact on existing tests
+- [ ] Understand what each dimension does
+- [ ] Test with sample documents
+- [ ] Update documentation
+
+== See Also
+
+* link:../understanding/comparison-pipeline.adoc[Comparison Pipeline] - Understanding the 4 layers
+* link:../understanding/algorithms/[Algorithms] - Detailed algorithm documentation
+* link:../features/match-options/algorithm-specific-behavior.adoc[Algorithm-Specific Behavior] - How algorithms differ
+* link:../features/diff-formatting/algorithm-specific-output.adoc[Algorithm-Specific Output] - Output format differences
+* link:../features/match-options/[Match Options] - All matching options
+* link:../features/diff-formatting/[Diff Formatting] - Formatting options

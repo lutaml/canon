@@ -1,0 +1,415 @@
+---
+title: CLI Options Reference
+parent: Reference
+nav_order: 1
+---
+= CLI options reference
+:toc:
+:toclevels: 3
+
+== Purpose
+
+This page provides a complete reference for all Canon command-line interface options organized by command and function.
+
+For conceptual understanding, see link:../understanding/comparison-pipeline.adoc[Comparison Pipeline].
+
+For choosing the right configuration, see link:../guides/choosing-configuration.adoc[Choosing Configuration].
+
+== Command syntax
+
+[source,bash]
+----
+canon <command> [arguments] [options]
+----
+
+== Commands
+
+=== `format` command
+
+Format a document using canonicalization rules.
+
+[source,bash]
+----
+canon format FILE [OPTIONS]
+----
+
+**Options**:
+[cols="2,3"]
+|===
+|Option |Description
+
+|`--format FORMAT`
+|Specify format: xml, html, json, yaml
+
+|`--output FILE`
+|Write output to file (default: stdout)
+
+|`--preprocessing MODE`
+|Apply preprocessing: none, c14n, normalize, format
+|===
+
+=== `diff` command
+
+Compare two documents and show differences.
+
+[source,bash]
+----
+canon diff FILE1 FILE2 [OPTIONS]
+----
+
+This command supports all 4 layers of Canon's architecture. See sections below for layer-specific options.
+
+== Layer 1: Preprocessing options
+
+Controls document normalization before comparison.
+
+[cols="2,3"]
+|===
+|Option |Description
+
+|`--preprocessing MODE`
+|Preprocessing mode: `none` (default), `c14n`, `normalize`, `format`
+|===
+
+**Modes**:
+* `none` - No preprocessing (compare as-is)
+* `c14n` - Canonicalize (XML C14N, JSON/YAML sorted keys)
+* `normalize` - Normalize whitespace throughout
+* `format` - Pretty-print with standard formatting
+
+See link:../features/preprocessing/[Preprocessing] for details.
+
+== Layer 2: Algorithm options
+
+Controls which comparison algorithm to use.
+
+[cols="2,3"]
+|===
+|Option |Description
+
+|`--diff-algorithm ALGORITHM`
+|Algorithm: `dom` (default), `semantic`
+|===
+
+**Algorithms**:
+* `dom` - Fast, stable, positional comparison
+* `semantic` - Slower, intelligent, detects moves
+
+See link:../understanding/algorithms/[Algorithms] for details.
+
+== Layer 3: Match options
+
+Controls what to compare and how strictly.
+
+=== Match profiles
+
+[cols="2,3"]
+|===
+|Option |Description
+
+|`--match-profile PROFILE`
+|Profile: `strict`, `rendered`, `spec_friendly`, `content_only`
+|===
+
+**Profiles**:
+* `strict` - Exact matching (all dimensions strict)
+* `rendered` - Browser rendering (ignores formatting)
+* `spec_friendly` - Test-friendly (most common)
+* `content_only` - Maximum tolerance
+
+=== Match dimensions
+
+Individual dimension control (overrides profile settings):
+
+[cols="2,3"]
+|===
+|Option |Description
+
+|`--text-content BEHAVIOR`
+|Text content: `strict`, `normalize`, `ignore`
+
+|`--structural-whitespace BEHAVIOR`
+|Structural whitespace: `strict`, `normalize`, `ignore`
+
+|`--attribute-whitespace BEHAVIOR`
+|Attribute whitespace (XML/HTML): `strict`, `normalize`, `ignore`
+
+|`--attribute-order BEHAVIOR`
+|Attribute order (XML/HTML): `strict`, `ignore`
+
+|`--attribute-values BEHAVIOR`
+|Attribute values (XML/HTML): `strict`, `normalize`, `ignore`
+
+|`--key-order BEHAVIOR`
+|Key order (JSON/YAML): `strict`, `ignore`
+
+|`--comments BEHAVIOR`
+|Comments: `strict`, `normalize`, `ignore`
+|===
+
+See link:../features/match-options/[Match Options] for details.
+
+== Layer 4: Diff formatting options
+
+Controls how differences are displayed.
+
+=== Diff mode
+
+[cols="2,3"]
+|===
+|Option |Description
+
+|`--diff-mode MODE`
+|Mode: `by_line` (default for HTML), `by_object` (default for XML/JSON/YAML)
+|===
+
+**Modes**:
+* `by_line` - Traditional line-by-line diff
+* `by_object` - Tree-based semantic diff
+
+=== Display options
+
+[cols="2,3"]
+|===
+|Option |Description
+
+|`--verbose`, `-v`
+|Show detailed diff output (default: false)
+
+|`--color`, `--no-color`
+|Enable/disable colored output (default: enabled)
+
+|`--context-lines N`
+|Lines of context around changes (default: 3)
+
+|`--diff-grouping-lines N`
+|Group changes within N lines (default: nil)
+
+|`--show-legend`
+|Display legend for symbols (default: true with verbose)
+|===
+
+See link:../features/diff-formatting/[Diff Formatting] for details.
+
+== Format specification options
+
+[cols="2,3"]
+|===
+|Option |Description
+
+|`--format FORMAT`
+|Format for both files: `xml`, `html`, `json`, `yaml`
+
+|`--format1 FORMAT`
+|Format of first file (overrides --format)
+
+|`--format2 FORMAT`
+|Format of second file (overrides --format)
+|===
+
+== General options
+
+[cols="2,3"]
+|===
+|Option |Description
+
+|`--help`, `-h`
+|Show help message
+
+|`--version`, `-V`
+|Show version
+
+|`--debug`
+|Enable debug output
+|===
+
+== Environment variables
+
+[cols="2,3"]
+|===
+|Variable |Description
+
+|`CANON_VERBOSE`
+|Set to `1` to enable detailed option tables in verbose mode
+
+|`NO_COLOR`
+|Set to disable colored output (overrides --color)
+|===
+
+== Complete examples
+
+=== Example 1: Basic comparison
+
+[source,bash]
+----
+canon diff file1.xml file2.xml --verbose
+----
+
+Uses all defaults:
+* Layer 1: No preprocessing
+* Layer 2: DOM algorithm
+* Layer 3: Format defaults (XML strict matching)
+* Layer 4: by_object mode with colors
+
+=== Example 2: Test-friendly comparison
+
+[source,bash]
+----
+canon diff expected.xml actual.xml \
+  --match-profile spec_friendly \
+  --verbose
+----
+
+Uses:
+* Layer 1: Normalize preprocessing (from profile)
+* Layer 2: DOM algorithm (default)
+* Layer 3: spec_friendly profile
+* Layer 4: by_object mode with colors
+
+=== Example 3: Semantic analysis
+
+[source,bash]
+----
+canon diff old.xml new.xml \
+  --diff-algorithm semantic \
+  --match-profile spec_friendly \
+  --diff-mode by_object \
+  --verbose
+----
+
+Uses:
+* Layer 1: Normalize preprocessing
+* Layer 2: Semantic algorithm (detects moves)
+* Layer 3: spec_friendly matching
+* Layer 4: by_object mode (shows operations)
+
+=== Example 4: Exact matching with context
+
+[source,bash]
+----
+canon diff file1.json file2.json \
+  --match-profile strict \
+  --diff-mode by_line \
+  --context-lines 5 \
+  --verbose
+----
+
+Uses:
+* Layer 1: No preprocessing
+* Layer 2: DOM algorithm
+* Layer 3: strict profile (exact matching)
+* Layer 4: by_line mode with 5 context lines
+
+=== Example 5: Custom dimension control
+
+[source,bash]
+----
+canon diff page1.html page2.html \
+  --preprocessing normalize \
+  --text-content normalize \
+  --structural-whitespace ignore \
+  --attribute-order ignore \
+  --comments ignore \
+  --diff-mode by_line \
+  --verbose
+----
+
+Uses:
+* Layer 1: Normalize preprocessing
+* Layer 2: DOM algorithm
+* Layer 3: Custom dimensions
+* Layer 4: by_line mode
+
+=== Example 6: With CANON_VERBOSE tables
+
+[source,bash]
+----
+CANON_VERBOSE=1 canon diff file1.xml file2.xml \
+  --match-profile spec_friendly \
+  --verbose
+----
+
+Shows:
+* CANON VERBOSE option tables (Tier 1)
+* Semantic Diff Report (Tier 2)
+* Detailed diff (Tier 3)
+
+== Configuration patterns
+
+=== Fast comparison (default)
+
+[source,bash]
+----
+canon diff file1.xml file2.xml
+----
+
+* Minimal processing
+* Fast DOM algorithm
+* Format defaults
+* No verbose output
+
+=== Test scenario
+
+[source,bash]
+----
+canon diff expected.xml actual.xml \
+  --match-profile spec_friendly \
+  --verbose
+----
+
+* Ignores formatting
+* Shows actionable diffs
+* Most common for testing
+
+=== Debugging differences
+
+[source,bash]
+----
+CANON_VERBOSE=1 canon diff file1.xml file2.xml \
+  --diff-algorithm semantic \
+  --diff-mode by_object \
+  --verbose
+----
+
+* Full option tables
+* Semantic analysis
+* Operation-based output
+* Maximum information
+
+=== Browser-equivalent HTML
+
+[source,bash]
+----
+canon diff page1.html page2.html \
+  --match-profile rendered \
+  --verbose
+----
+
+* HTML rendering simulation
+* Ignores formatting
+* Attribute order ignored
+
+== Exit codes
+
+[cols="1,3"]
+|===
+|Code |Meaning
+
+|`0`
+|Documents are equivalent
+
+|`1`
+|Documents differ
+
+|`2`
+|Error occurred (invalid arguments, file not found, etc.)
+|===
+
+== See also
+
+* link:../understanding/comparison-pipeline.adoc[Comparison Pipeline] - 4-layer architecture
+* link:../guides/choosing-configuration.adoc[Choosing Configuration] - Decision guide
+* link:../features/match-options/[Match Options] - Dimension reference
+* link:../features/diff-formatting/[Diff Formatting] - Output customization
+* link:../interfaces/cli/[CLI Interface] - Command-line usage guide
+* link:../interfaces/ruby-api/[Ruby API] - Programmatic usage

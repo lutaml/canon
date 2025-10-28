@@ -1,0 +1,389 @@
+---
+title: DOM Algorithm
+parent: Algorithms
+grand_parent: Understanding
+nav_order: 1
+---
+= DOM algorithm
+:toc:
+:toclevels: 3
+
+== Purpose
+
+The DOM (Document Object Model) algorithm is Canon's **default, stable algorithm** for document comparison. It provides fast, position-based comparison with traditional diff output.
+
+This page explains when to use the DOM algorithm, how it works at a high level, and how to configure it effectively.
+
+== When to Use
+
+The DOM algorithm is Canon's **recommended algorithm for production use**.
+
+=== Use DOM Algorithm When
+
+* ✓ You need **stable, well-tested comparison** for production environments
+* ✓ You want **traditional line-by-line diff output**
+* ✓ Documents are **similar in structure** with minimal rearrangement
+* ✓ You need **maximum performance** for large documents (> 10KB)
+* ✓ You want **consistent, predictable behavior**
+* ✓ You're comparing **any document format** (XML, HTML, JSON, YAML)
+
+=== Characteristics
+
+[cols="2,3"]
+|===
+|Feature |DOM Algorithm
+
+|**Status**
+|Stable, production-ready
+
+|**Performance**
+|Fast - O(n) linear time
+
+|**Memory Usage**
+|Low - line-by-line processing
+
+|**Matching Strategy**
+|Position-based element comparison
+
+|**Move Detection**
+|No (moves shown as DELETE + INSERT)
+
+|**Output Format**
+|Line-based differences
+
+|**Best For**
+|Similar documents, traditional diffs
+
+|**Document Size**
+|Handles large documents well (> 100KB)
+|===
+
+== How It Works
+
+The DOM algorithm compares documents in a straightforward manner:
+
+=== High-Level Process
+
+1. **Parse Documents** - Convert both documents to DOM trees
+2. **Compare Positions** - Compare elements at each position in the tree
+3. **Apply Match Options** - Use configured dimensions for comparison
+4. **Generate Differences** - Create line-based diff output
+
+=== Position-Based Matching
+
+The DOM algorithm compares elements **by their position** in the document:
+
+.Position-based comparison example
+[example]
+====
+[source,xml]
+----
+<!-- Document 1 -->
+<book>
+  <title>Canon Guide</title>
+  <author>Alice</author>
+</book>
+
+<!-- Document 2 -->
+<book>
+  <title>Canon Guide</title>
+  <author>Bob</author>
+</book>
+----
+
+The algorithm compares:
+* Position 1: `<book>` vs `<book>` ✓ Match
+* Position 2: `<title>Canon Guide</title>` vs `<title>Canon Guide</title>` ✓ Match
+* Position 3: `<author>Alice</author>` vs `<author>Bob</author>` ✗ Different
+
+Result: One difference detected (author name changed)
+====
+
+=== No Move Detection
+
+If elements are reordered, the DOM algorithm shows this as deletions and additions:
+
+.Reordered elements shown as changes
+[example]
+====
+[source,xml]
+----
+<!-- Document 1 -->
+<book>
+  <title>Canon</title>
+  <author>Alice</author>
+</book>
+
+<!-- Document 2 -->
+<book>
+  <author>Alice</author>
+  <title>Canon</title>
+</book>
+----
+
+DOM algorithm output:
+```
+- <title>Canon</title>
++ <author>Alice</author>
+  <author>Alice</author>
++ <title>Canon</title>
+```
+
+The same content appears as both deleted and added because positions changed.
+====
+
+== Configuration
+
+=== Basic Usage
+
+**Ruby API**:
+[source,ruby]
+----
+# DOM algorithm is the default
+Canon::Comparison.equivalent?(doc1, doc2)
+
+# Or explicitly specify
+Canon::Comparison.equivalent?(doc1, doc2,
+  diff_algorithm: :dom
+)
+----
+
+**CLI**:
+[source,bash]
+----
+# DOM algorithm is the default
+canon diff file1.xml file2.xml
+
+# Or explicitly specify
+canon diff file1.xml file2.xml --diff-algorithm dom
+----
+
+=== With Match Options
+
+DOM algorithm respects all match dimensions:
+
+[source,ruby]
+----
+Canon::Comparison.equivalent?(doc1, doc2,
+  diff_algorithm: :dom,
+  match: {
+    text_content: :normalize,
+    structural_whitespace: :ignore,
+    attribute_order: :ignore
+  }
+)
+----
+
+See link:../../features/match-options/algorithm-specific-behavior.adoc[Algorithm-Specific Behavior] for how DOM interprets match options.
+
+=== With Diff Formatting
+
+The DOM algorithm works with both diff modes:
+
+[source,ruby]
+----
+# Line-based output (natural fit for DOM)
+Canon::Comparison.equivalent?(doc1, doc2,
+  diff_algorithm: :dom,
+  diff_mode: :by_line,
+  verbose: true
+)
+
+# Tree-based output (also works)
+Canon::Comparison.equivalent?(doc1, doc2,
+  diff_algorithm: :dom,
+  diff_mode: :by_object,
+  verbose: true
+)
+----
+
+== Output Format
+
+=== Line-Based Output (Default)
+
+The DOM algorithm naturally produces line-based differences:
+
+.Line-based diff example
+[example]
+====
+```
+1 | <book>
+2-|   <title>Old Title</title>
+ +|   <title>New Title</title>
+3 |   <author>Alice</author>
+4 | </book>
+```
+
+* Lines with `-` were removed
+* Lines with `+` were added
+* Unchanged lines provide context
+====
+
+=== Tree-Based Output
+
+The DOM algorithm can also produce tree-based output:
+
+.Tree-based diff example
+[example]
+====
+```
+book
+  title
+    - Old Title
+    + New Title
+  author
+    = Alice
+```
+
+* Shows hierarchical structure
+* Still position-based (no move operations)
+====
+
+== Advantages
+
+=== Fast Performance
+
+* **Linear time complexity** - O(n) where n is document size
+* **Low memory usage** - Processes line-by-line
+* **Scales well** - Handles documents > 100KB easily
+
+.Performance comparison
+[cols="1,1,1"]
+|===
+|Document Size |DOM Time |Notes
+
+|1 KB
+|~1 ms
+|Very fast
+
+|10 KB
+|~10 ms
+|Still fast
+
+|100 KB
+|~100 ms
+|Acceptable
+
+|1 MB
+|~1 s
+|Good scaling
+|===
+
+=== Stable and Predictable
+
+* **Production-ready** - Well-tested, no surprises
+* **Consistent behavior** - Same results every time
+* **Widely used** - Default for all Canon comparisons
+
+=== Works Everywhere
+
+* **All formats** - XML, HTML, JSON, YAML
+* **All diff modes** - by_line and by_object
+* **All match profiles** - Compatible with all configurations
+
+== Limitations
+
+=== No Move Detection
+
+The DOM algorithm cannot detect when content moves to a different position:
+
+**Limitation**: Reordered content shows as DELETE + INSERT pairs
+
+**Workaround**: Use link:semantic-tree-diff.adoc[Semantic Algorithm] for move detection
+
+=== Position-Dependent
+
+The algorithm assumes similar structure between documents:
+
+**Limitation**: Heavily restructured documents produce noisy diffs
+
+**Workaround**: Use link:semantic-tree-diff.adoc[Semantic Algorithm] for restructured documents
+
+== Common Use Cases
+
+=== Use Case 1: Testing XML Generation
+
+[source,ruby]
+----
+# Fast, reliable test assertion
+RSpec.describe "XML generation" do
+  it "generates correct XML" do
+    actual = MyGenerator.generate
+    expected = File.read("expected.xml")
+
+    expect(actual).to be_xml_equivalent_to(expected)
+      .with_profile(:spec_friendly)
+    # Uses DOM algorithm by default
+  end
+end
+----
+
+=== Use Case 2: Code Review Diff
+
+[source,bash]
+----
+# Traditional diff for reviewing changes
+canon diff old.xml new.xml \
+  --diff-algorithm dom \
+  --diff-mode by_line \
+  --verbose \
+  --use-color
+----
+
+=== Use Case 3: CI/CD Validation
+
+[source,ruby]
+----
+# Fast validation in CI pipeline
+result = Canon::Comparison.equivalent?(expected, actual,
+  diff_algorithm: :dom,  # Fast
+  match_profile: :spec_friendly
+)
+
+unless result
+  puts "Validation failed!"
+  exit 1
+end
+----
+
+== Best Practices
+
+=== Use for Most Comparisons
+
+The DOM algorithm is the **right choice for 90% of use cases**. Only switch to Semantic when you specifically need move detection.
+
+=== Combine with Match Profiles
+
+Use appropriate match profiles for your use case:
+
+[source,ruby]
+----
+# For tests
+Canon::Comparison.equivalent?(doc1, doc2,
+  match_profile: :spec_friendly
+)
+
+# For exact validation
+Canon::Comparison.equivalent?(doc1, doc2,
+  match_profile: :strict
+)
+
+# For rendered HTML
+Canon::Comparison.equivalent?(html1, html2,
+  match_profile: :rendered
+)
+----
+
+=== Use Appropriate Diff Mode
+
+* **by_line** - Best for code review, traditional diffs
+* **by_object** - Best for structured view, test output
+
+== See Also
+
+* link:index.adoc[Algorithms Overview] - Comparison of DOM vs Semantic
+* link:semantic-tree-diff.adoc[Semantic Algorithm] - Alternative algorithm
+* link:../../features/match-options/algorithm-specific-behavior.adoc[Algorithm-Specific Behavior] - How DOM interprets options
+* link:../../features/diff-formatting/algorithm-specific-output.adoc[Algorithm-Specific Output] - Output format details
+* link:../../guides/choosing-configuration.adoc[Choosing Configuration] - Complete decision guide
+* link:../../advanced/dom-diff-internals.adoc[DOM Diff Internals] - Advanced implementation details (if available)

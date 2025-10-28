@@ -1,0 +1,441 @@
+---
+layout: default
+title: Colors and Symbols
+parent: Diff Formatting
+grand_parent: Features
+nav_order: 5
+---
+
+:toc:
+:toclevels: 3
+
+== Purpose
+
+Canon uses a consistent color scheme and symbol system to make diff output easy to read and understand at a glance. Colors and symbols distinguish between different types of changes and provide immediate visual feedback about the nature of differences.
+
+== Color Scheme
+
+Canon uses ANSI terminal colors to highlight different aspects of diffs:
+
+=== Primary Diff Colors
+
+[cols="2,2,3"]
+|===
+|Color |Usage |Meaning
+
+|Red
+|Deletions, removed content
+|Lines or elements that exist in the expected/first file but are missing in the actual/second file
+
+|Green
+|Additions, added content
+|Lines or elements that exist in the actual/second file but are missing in the expected/first file
+
+|Yellow
+|Modified content, changes
+|Content that exists in both files but with different values
+
+|Cyan
+|Headers, structural information
+|Section headers, file names, metadata
+|===
+
+=== Normative vs Informative Colors
+
+Canon classifies diffs as either **normative** (affect equivalence) or **informative** (don't affect equivalence based on match options):
+
+[cols="2,2,3"]
+|===
+|Classification |Color |Meaning
+
+|Normative
+|Red/Green
+|Differences that cause files to be non-equivalent based on current match options
+
+|Informative
+|Cyan (with different markers)
+|Differences that are ignored by current match options but shown for informational purposes
+|===
+
+.Example: Informative diff with strict whitespace matching off
+[example]
+====
+[source]
+----
+# With text_content: :normalize (default)
+# Whitespace differences are informative
+
+  5| ~~ | <p>Hello world</p>       # Original
+    | ~~ | <p>Hello  world</p>      # Extra space (cyan, informative)
+----
+
+The cyan color indicates this difference is informative - it won't cause equivalence to fail because `text_content: :normalize` ignores extra whitespace.
+====
+
+== Symbol System
+
+=== Line-by-Line Diff Symbols
+
+In by-line diff mode, symbols at the start of each line indicate the type of change:
+
+[cols="1,2,3"]
+|===
+|Symbol |Color |Meaning
+
+|`-`
+|Red
+|Deleted line (exists in expected, not in actual)
+
+|`+`
+|Green
+|Added line (exists in actual, not in expected)
+
+|`~`
+|Yellow
+|Modified line (exists in both but content differs)
+
+|`~~`
+|Cyan
+|Informative change (doesn't affect equivalence)
+
+|(no symbol)
+|Default
+|Context line (unchanged)
+|===
+
+.Example: Line symbols in action
+[example]
+====
+[source]
+----
+   3|    | <root>                   # Context (unchanged)
+   4|   -| <item>Old</item>         # Deleted (red)
+     |  5+| <item>New</item>         # Added (green)
+   5|  6 | </root>                  # Context (unchanged)
+----
+====
+
+=== Tree Diff Symbols
+
+In by-object diff mode, box-drawing characters create a visual tree structure:
+
+[cols="1,3"]
+|===
+|Symbol |Meaning
+
+|`├──`
+|Tree branch (child element)
+
+|`└──`
+|Last tree branch (last child)
+
+|`│`
+|Tree continuation (vertical line)
+
+|`-`
+|Deletion marker (red)
+
+|`+`
+|Addition marker (green)
+
+|`~`
+|Change marker (yellow)
+|===
+
+.Example: Tree structure with symbols
+[example]
+====
+[source]
+----
+root
+├── - item: "Old value"              # Deleted (red -)
+├── + item: "New value"               # Added (green +)
+└── ~ title                           # Modified (yellow ~)
+    ├── - "Old Title"                 # Old value
+    └── + "New Title"                 # New value
+----
+====
+
+== Character Visualization Symbols
+
+When `use_color: true`, Canon visualizes invisible characters using Unicode symbols. See link:character-visualization.html[Character Visualization] for the complete mapping.
+
+Common examples:
+
+[cols="2,1,2"]
+|===
+|Character |Symbol |Unicode
+
+|Regular space
+|`░`
+|U+2591 (Light Shade)
+
+|Tab
+|`⇥`
+|U+21E5 (Rightwards Arrow to Bar)
+
+|Non-breaking space
+|`␣`
+|U+2423 (Open Box)
+
+|Line feed
+|`↵`
+|U+21B5 (Downwards Arrow with Corner Leftwards)
+
+|Zero-width space
+|`→`
+|U+2192 (Rightwards Arrow)
+|===
+
+== Header and Metadata Colors
+
+[cols="2,2,3"]
+|===
+|Element |Color |Purpose
+
+|Section headers
+|Cyan + Bold
+|"Visual Diff:", "Line-by-line diff:", etc.
+
+|Algorithm name
+|Cyan + Bold
+|"Algorithm: SEMANTIC TREE DIFF", "Algorithm: DOM DIFF"
+
+|Success messages
+|Green + Bold
+|"✅ Files are semantically equivalent"
+
+|Separators
+|Cyan + Bold
+|"━━━━" (Unicode box drawing)
+
+|Legend headers
+|Cyan + Bold
+|"Character Visualization Legend:"
+
+|Category names
+|Yellow + Bold
+|"Common Whitespace:", "Unicode Spaces:", etc.
+|===
+
+== Normative vs Informative Classification
+
+The color distinction between normative and informative diffs is crucial:
+
+=== Normative Diffs (Red/Green)
+
+**Definition**: Differences that cause files to be non-equivalent based on the current match configuration.
+
+**When shown**:
+* Match dimension is set to `:strict` or `:normalize`
+* The difference persists even after applying normalization
+
+.Example: Normative attribute difference
+[example]
+====
+[source]
+----
+# With attribute_order: :strict
+   5|   -| <item id="a" name="foo"/>    # Red (normative)
+     |  6+| <item name="foo" id="a"/>    # Green (normative)
+----
+
+The attribute order difference is normative because `attribute_order: :strict` treats it as significant.
+====
+
+=== Informative Diffs (Cyan)
+
+**Definition**: Differences that don't affect file equivalence based on the current match configuration.
+
+**When shown**:
+* Match dimension is set to `:ignore` or `:normalize` handled the difference
+* The difference exists but is ignored for equivalence purposes
+* Shown with `show_diffs: :all` or `show_diffs: :informative`
+
+.Example: Informative whitespace difference
+[example]
+====
+[source]
+----
+# With structural_whitespace: :ignore
+   5| ~~ | <item>                       # Cyan (informative)
+     | ~~ |   <name>Widget</name>        # Extra indentation ignored
+----
+
+The whitespace difference is informative because `structural_whitespace: :ignore` means it doesn't affect equivalence.
+====
+
+== Color Control
+
+=== Enabling/Disabling Colors
+
+Colors are controlled by the `use_color` option:
+
+.CLI
+[example]
+====
+[source,bash]
+----
+# Enable colors (default)
+canon diff file1.xml file2.xml --color
+
+# Disable colors
+canon diff file1.xml file2.xml --no-color
+----
+====
+
+.Ruby API
+[example]
+====
+[source,ruby]
+----
+# Enable colors
+Canon.compare(file1, file2, format: :xml, color: true)
+
+# Disable colors
+Canon.compare(file1, file2, format: :xml, color: false)
+----
+====
+
+.RSpec
+[example]
+====
+[source,ruby]
+----
+RSpec.configure do |config|
+  # Enable for local, disable for CI
+  config.canon.xml.diff.use_color = !ENV['CI']
+end
+----
+====
+
+=== Environment Variable
+
+[source,bash]
+----
+# Disable colors globally
+export CANON_USE_COLOR=false
+
+# Enable colors globally
+export CANON_USE_COLOR=true
+----
+
+== Terminal Compatibility
+
+=== ANSI Support
+
+Canon's color output requires terminal ANSI escape sequence support:
+
+**Compatible terminals**:
+* macOS Terminal
+* iTerm2
+* GNOME Terminal
+* Konsole
+* Windows Terminal
+* VS Code integrated terminal
+
+**Limited support**:
+* Windows CMD (requires Windows 10 or later)
+* Basic terminal emulators
+
+=== Unicode Support
+
+The symbol system requires Unicode (UTF-8) support:
+
+**Requirements**:
+* Terminal encoding set to UTF-8
+* Font with Unicode glyph support
+* Terminal that renders box-drawing characters
+
+**Recommended fonts**:
+* Menlo, Monaco (macOS)
+* Consolas (Windows)
+* DejaVu Sans Mono (Linux)
+* Any "Nerd Font" variant
+
+== Diff Type Display Options
+
+Control which types of diffs to show using the `show_diffs` option:
+
+[cols="2,3"]
+|===
+|Option |What's Shown
+
+|`:all` (default)
+|Both normative and informative diffs
+
+|`:normative`
+|Only normative diffs (red/green)
+
+|`:informative`
+|Only informative diffs (cyan)
+|===
+
+.Example: Show only normative diffs
+[example]
+====
+[source,bash]
+----
+# CLI - only show differences that affect equivalence
+canon diff file1.xml file2.xml --show-diffs normative
+----
+
+[source,ruby]
+----
+# Ruby API
+Canon.compare(file1, file2,
+  format: :xml,
+  show_diffs: :normative
+)
+----
+====
+
+== Visual Examples
+
+=== Complete Diff with All Colors
+
+.Full-color diff example
+[example]
+====
+[source]
+----
+Algorithm: SEMANTIC TREE DIFF        # Cyan + Bold
+
+Visual Diff:                         # Cyan + Bold
+root
+├── ~ attributes                     # Yellow (normative)
+│   ├── - id: "old"                 # Red (normative deletion)
+│   └── + id: "new"                 # Green (normative addition)
+├── ~~ whitespace                    # Cyan (informative)
+│   └── ~~ extra spaces             # Cyan (informative)
+└── + element                        # Green (normative addition)
+    └── value: "new"
+
+Line-by-line diff (XML mode):       # Cyan + Bold
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━    # Cyan
+
+   1|  1 | <root>                    # Default (context)
+   2|   -| <item░id="old"/>          # Red (normative deletion)
+     |  2+| <item░id="new"/>          # Green (normative addition)
+   3| ~~ | <p>Text</p>               # Cyan (informative)
+     | ~~ | <p>░░Text</p>             # Cyan (extra spaces, informative)
+----
+====
+
+== Colorblind-Friendly Features
+
+While Canon uses colors, it also provides symbols that work without color:
+
+* **Symbols** (`-`, `+`, `~`) distinguish change types
+* **Line numbers** show correspondence
+* **Tree structure** shows hierarchy
+* **Text labels** describe differences
+
+The combination ensures diffs are readable even without color perception.
+
+== See Also
+
+* link:character-visualization.html[Character Visualization] - Detailed whitespace visualization
+* link:algorithm-specific-output.html[Algorithm-Specific Output] - Diff format variations
+* link:context-and-grouping.html[Context and Grouping] - Controlling diff context
+* link:../index.html[Diff Formatting] - Overview of formatting features

@@ -1,0 +1,173 @@
+---
+layout: default
+title: Features
+nav_order: 5
+has_children: true
+---
+= Features
+
+Configure and customize Canon's behavior for your specific needs.
+
+== Overview
+
+Canon provides extensive configuration options to control how documents are processed, compared, and displayed. This section covers all configurable features organized by the 4-layer architecture.
+
+== Configuration Layers
+
+Canon's comparison system has 4 distinct configuration layers:
+
+**Layer 1: link:preprocessing/[Preprocessing]**::
+Transform documents before comparison to normalize formatting.
++
+Options: `none`, `c14n`, `normalize`, `format`
+
+**Layer 2: Algorithm Selection** (see link:../understanding/algorithms/[Algorithms])::
+Choose the comparison strategy.
++
+Options: `dom` (stable), `semantic` (experimental)
+
+**Layer 3: link:match-options/[Match Options]**::
+Configure what to compare and how strictly.
++
+* Match dimensions (granular control)
+* Match profiles (preset combinations)
+
+**Layer 4: link:diff-formatting/[Diff Formatting]**::
+Control how differences are displayed.
++
+* Diff modes (`by_line`, `by_object`)
+* Colors and symbols
+* Context and grouping
+* Character visualization
+
+== Feature Categories
+
+=== Canonicalization
+
+link:canonicalization/[**Canonicalization**]::
+Format-specific rules for converting documents to canonical form.
++
+* link:canonicalization/xml-c14n[XML Canonical Form (C14N)]
+* link:canonicalization/json-yaml-canonical[JSON/YAML Canonical Form]
+* link:canonicalization/html-canonical[HTML Canonical Form]
+
+=== Match Configuration
+
+link:match-options/[**Match Options**]::
+Fine-grained control over comparison behavior.
++
+* link:match-options/dimensions[Match Dimensions] - Individual comparison aspects
+* link:match-options/profiles[Match Profiles] - Preset combinations
+* link:match-options/custom-matching[Custom Matching] - Advanced strategies
+
+=== Processing
+
+link:preprocessing/[**Preprocessing**]::
+Transform documents before comparison.
++
+* link:preprocessing/normalization[Normalization] - Whitespace and formatting
+* link:preprocessing/formatting[Formatting] - Pretty-print before comparison
+
+=== Output Customization
+
+link:diff-formatting/[**Diff Formatting**]::
+Customize how differences are displayed.
++
+* link:diff-formatting/colors-and-symbols[Colors and Symbols] - Visual indicators
+* link:diff-formatting/context-and-grouping[Context and Grouping] - Surrounding lines
+* link:diff-formatting/character-visualization[Character Visualization] - Whitespace visibility
+
+=== System Configuration
+
+link:environment-configuration/[**Environment Configuration**]::
+System-level settings and limits.
++
+* link:environment-configuration/size-limits[Size Limits] - Prevent hangs on large files
+* link:environment-configuration/override-system[Override System] - ENV variable configuration
+
+link:input-validation/[**Input Validation**]::
+Error handling and validation.
++
+* Syntax validation
+* Format detection
+* Error messages
+
+== Quick Configuration Examples
+
+=== Test-Friendly Comparison
+
+Ignore formatting differences for testing:
+
+[source,ruby]
+----
+Canon::Comparison.equivalent?(expected, actual,
+  match_profile: :spec_friendly
+)
+----
+
+=== Canonical Comparison
+
+Compare after canonicalization:
+
+[source,ruby]
+----
+Canon::Comparison.equivalent?(doc1, doc2,
+  preprocessing: :c14n,
+  match_profile: :strict
+)
+----
+
+=== Custom Match Dimensions
+
+Fine-grained control:
+
+[source,ruby]
+----
+Canon::Comparison.equivalent?(doc1, doc2,
+  match: {
+    text_content: :normalize,
+    structural_whitespace: :ignore,
+    attribute_order: :ignore
+  }
+)
+----
+
+=== Verbose Diff with Color
+
+Detailed output:
+
+[source,ruby]
+----
+result = Canon::Comparison.compare(doc1, doc2,
+  verbose: true,
+  use_color: true,
+  context_lines: 5
+)
+puts result.diff
+----
+
+== Common Use Cases
+
+**Testing generated output**::
+Use `match_profile: :spec_friendly` to ignore formatting differences.
+
+**Validating canonicalization**::
+Use `preprocessing: :c14n` with `match_profile: :strict` for exact comparison.
+
+**Debugging whitespace issues**::
+Enable link:diff-formatting/character-visualization[character visualization] to see invisible characters.
+
+**Comparing large files**::
+Configure link:environment-configuration/size-limits[size limits] to prevent hangs.
+
+== Next Steps
+
+* Review link:match-options/profiles[Match Profiles] for common scenarios
+* Explore link:preprocessing/[Preprocessing] for normalization options
+* Customize link:diff-formatting/[Diff Formatting] for better output
+
+== See Also
+
+* link:../understanding/[Understanding Canon] - How features work internally
+* link:../interfaces/[Interfaces] - How to use these features
+* link:../reference/[Reference] - Complete option listings

@@ -1,0 +1,394 @@
+---
+title: Match Options
+parent: Features
+nav_order: 3
+has_children: true
+---
+= Match options
+:toc:
+:toclevels: 3
+
+== Purpose
+
+This section provides a complete reference for Canon's match options, including match dimensions, behaviors, and predefined profiles.
+
+Match options control **Layer 3 (Match Options)** of Canon's 4-layer comparison architecture. See link:../../understanding/comparison-pipeline.adoc[Comparison Pipeline] for the complete flow.
+
+== Overview
+
+Match options control which aspects of documents are compared and how strictly they are compared. Canon provides:
+
+* **Match dimensions**: Independent aspects of documents (text, whitespace, attributes, etc.)
+* **Dimension behaviors**: How each dimension is compared (`:strict`, `:normalize`, `:ignore`)
+* **Match profiles**: Predefined combinations for common scenarios
+
+**Important**: Match options behave differently with each algorithm. See link:algorithm-specific-behavior.adoc[Algorithm-Specific Behavior] for details.
+
+== Child Pages
+
+* link:dimensions.adoc[Match Dimensions] - Detailed reference for all dimensions
+* link:profiles.adoc[Match Profiles] - Predefined configurations
+* link:algorithm-specific-behavior.adoc[Algorithm-Specific Behavior] - How DOM and Semantic algorithms interpret options differently
+
+== Match dimensions overview
+
+Match dimensions are orthogonal aspects that can be configured independently.
+
+=== text_content
+
+**Applies to**: All formats
+
+**Purpose**: Controls how text content within elements/values is compared.
+
+**Behaviors**:
+
+`:strict`:: Text must match exactly, character-for-character including all whitespace
+
+`:normalize`:: Whitespace is normalized (collapsed/trimmed) before comparison
+
+`:ignore`:: Text content is completely ignored in comparison
+
+=== structural_whitespace
+
+**Applies to**: All formats
+
+**Purpose**: Controls how whitespace between elements (indentation, newlines) is handled.
+
+**Behaviors**:
+
+`:strict`:: All structural whitespace must match exactly
+
+`:normalize`:: Structural whitespace is normalized
+
+`:ignore`:: Structural whitespace is completely ignored
+
+=== attribute_whitespace
+
+**Applies to**: XML, HTML only
+
+**Purpose**: Controls how whitespace in attribute values is handled.
+
+**Behaviors**:
+
+`:strict`:: Attribute value whitespace must match exactly
+
+`:normalize`:: Whitespace in attribute values is normalized
+
+`:ignore`:: Whitespace in attribute values is ignored
+
+=== attribute_order
+
+**Applies to**: XML, HTML only
+
+**Purpose**: Controls whether attribute order matters.
+
+**Behaviors**:
+
+`:strict`:: Attributes must appear in the same order
+
+`:ignore`:: Attribute order doesn't matter (set-based comparison)
+
+=== attribute_values
+
+**Applies to**: XML, HTML only
+
+**Purpose**: Controls how attribute values are compared.
+
+**Behaviors**:
+
+`:strict`:: Attribute values must match exactly
+
+`:normalize`:: Whitespace in values is normalized
+
+`:ignore`:: Only attribute presence is checked, values ignored
+
+=== key_order
+
+**Applies to**: JSON, YAML only
+
+**Purpose**: Controls whether object key order matters.
+
+**Behaviors**:
+
+`:strict`:: Keys must appear in the same order
+
+`:ignore`:: Key order doesn't matter (unordered comparison)
+
+=== comments
+
+**Applies to**: XML, HTML, YAML (JSON doesn't support comments in standard spec)
+
+**Purpose**: Controls how comments are compared.
+
+**Behaviors**:
+
+`:strict`:: Comments must match exactly (including whitespace)
+
+`:normalize`:: Whitespace in comments is normalized
+
+`:ignore`:: Comments are completely ignored
+
+== Match profiles overview
+
+Profiles are predefined combinations of dimension settings for common scenarios.
+
+=== strict
+
+**Purpose**: Exact matching - all dimensions use `:strict` behavior.
+
+**When to use**:
+
+* Character-perfect matching required
+* Testing exact serializer output
+* Verifying formatting compliance
+* Maximum strictness needed
+
+=== rendered
+
+**Purpose**: Mimics how browsers/CSS engines render content.
+
+**When to use**:
+
+* Comparing HTML rendered output
+* Formatting doesn't affect display
+* Testing web page generation
+* Browser-equivalent comparison
+
+=== spec_friendly
+
+**Purpose**: Test-friendly comparison that ignores most formatting differences.
+
+**When to use**:
+
+* Writing RSpec tests
+* Testing semantic correctness
+* Ignoring pretty-printing differences
+* Most common test scenario
+
+=== content_only
+
+**Purpose**: Only semantic content matters - maximum tolerance for formatting.
+
+**When to use**:
+
+* Only care about data, not presentation
+* Maximum flexibility needed
+* Comparing across different formats
+* Structural equivalence only
+
+== Format defaults
+
+Each format has sensible defaults based on typical usage:
+
+[cols="1,1,1,1,1"]
+|===
+|Dimension |XML |HTML |JSON |YAML
+
+|`text_content`
+|`:strict`
+|`:normalize`
+|`:strict`
+|`:strict`
+
+|`structural_whitespace`
+|`:strict`
+|`:normalize`
+|`:strict`
+|`:strict`
+
+|`attribute_whitespace`
+|`:strict`
+|`:normalize`
+|—
+|—
+
+|`attribute_order`
+|`:ignore`
+|`:ignore`
+|—
+|—
+
+|`attribute_values`
+|`:strict`
+|`:strict`
+|—
+|—
+
+|`key_order`
+|—
+|—
+|`:strict`
+|`:strict`
+
+|`comments`
+|`:strict`
+|`:ignore`
+|—
+|`:strict`
+|===
+
+== Configuration precedence
+
+When options are specified in multiple places, Canon resolves them using this hierarchy (highest to lowest priority):
+
+[source]
+----
+1. Per-comparison explicit options (highest)
+   ↓
+2. Per-comparison profile
+   ↓
+3. Global configuration explicit options
+   ↓
+4. Global configuration profile
+   ↓
+5. Format defaults (lowest)
+----
+
+.Precedence example
+[example]
+====
+**Global configuration**:
+
+[source,ruby]
+----
+Canon::RSpecMatchers.configure do |config|
+  config.xml.match.profile = :spec_friendly
+  config.xml.match.options = { comments: :strict }
+end
+----
+
+The `:spec_friendly` profile sets:
+
+* `text_content: :normalize`
+* `structural_whitespace: :ignore`
+* `comments: :ignore`
+
+But the explicit `comments: :strict` overrides the profile setting.
+
+**Per-test usage**:
+
+[source,ruby]
+----
+expect(actual).to be_xml_equivalent_to(expected)
+  .with_profile(:rendered)
+  .with_options(structural_whitespace: :ignore)
+----
+
+**Final resolved options**:
+
+* `text_content: :normalize` (from `:rendered` per-test profile)
+* `structural_whitespace: :ignore` (from per-test explicit option)
+* `comments: :strict` (from global explicit option)
+* Other dimensions use `:rendered` profile or format defaults
+====
+
+== Usage examples
+
+=== Ruby API
+
+[source,ruby]
+----
+# Use specific dimensions
+Canon::Comparison.equivalent?(doc1, doc2,
+  match: {
+    text_content: :normalize,
+    structural_whitespace: :ignore,
+    comments: :ignore
+  }
+)
+
+# Use a profile
+Canon::Comparison.equivalent?(doc1, doc2,
+  match_profile: :spec_friendly
+)
+
+# Profile with dimension overrides
+Canon::Comparison.equivalent?(doc1, doc2,
+  match_profile: :spec_friendly,
+  match: {
+    comments: :strict  # Override profile
+  }
+)
+
+# Use semantic dimensions
+Canon::Comparison.equivalent?(doc1, doc2,
+  diff_algorithm: :semantic,
+  match: {
+    element_position: :ignore,
+    element_hierarchy: :ignore
+  }
+)
+----
+
+=== CLI
+
+[source,bash]
+----
+# Use profile
+$ canon diff file1.xml file2.xml \
+  --match-profile spec_friendly \
+  --verbose
+
+# Override specific dimensions
+$ canon diff file1.xml file2.xml \
+  --text-content normalize \
+  --structural-whitespace ignore \
+  --verbose
+
+# Combine profile with overrides
+$ canon diff file1.xml file2.xml \
+  --match-profile spec_friendly \
+  --comments strict \
+  --verbose
+
+# Use semantic algorithm with flexible positioning
+$ canon diff file1.xml file2.xml \
+  --diff-algorithm semantic \
+  --element-position ignore \
+  --verbose
+----
+
+=== RSpec
+
+[source,ruby]
+----
+# Global configuration
+Canon::RSpecMatchers.configure do |config|
+  config.xml.match.profile = :spec_friendly
+  config.xml.match.options = {
+    text_content: :normalize,
+    comments: :ignore
+  }
+end
+
+# Per-test override
+expect(actual).to be_xml_equivalent_to(expected)
+  .with_profile(:strict)
+
+# Per-test dimension override
+expect(actual).to be_xml_equivalent_to(expected)
+  .with_options(
+    structural_whitespace: :strict,
+    text_content: :strict
+  )
+
+# Semantic algorithm with flexible hierarchy
+expect(actual).to be_xml_equivalent_to(expected,
+  diff_algorithm: :semantic
+)
+  .with_options(
+    element_position: :ignore,
+    element_hierarchy: :ignore
+  )
+----
+
+== See also
+
+* link:dimensions.adoc[Match Dimensions] - Detailed dimension reference
+* link:profiles.adoc[Match Profiles] - Complete profile details
+* link:algorithm-specific-behavior.adoc[Algorithm-Specific Behavior] - How algorithms interpret options
+* link:../../understanding/comparison-pipeline.adoc[Comparison Pipeline] - Understanding the 4 layers
+* link:../../understanding/formats/[Format Support] - Format-specific defaults
+* link:../../interfaces/ruby-api/[Ruby API documentation]
+* link:../../interfaces/cli/[Command-line interface]
+* link:../../interfaces/rspec/[RSpec matchers]

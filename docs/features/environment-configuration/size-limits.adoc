@@ -1,0 +1,273 @@
+---
+title: Size Limits
+parent: Environment Configuration
+grand_parent: Features
+nav_order: 1
+---
+= Size limits
+:toc:
+:toclevels: 3
+
+== Purpose
+
+Canon provides configurable size limits to prevent hangs or excessive resource usage when processing very large files. These limits apply uniformly across all interfaces (CLI, Ruby API, RSpec).
+
+== Available limits
+
+=== File size limit
+
+Maximum file size in bytes before comparison is rejected.
+
+**Environment variable**: `CANON_MAX_FILE_SIZE` or `CANON_{FORMAT}_DIFF_MAX_FILE_SIZE`
+
+**Default**: 5,242,880 bytes (5 MB)
+
+**When triggered**: Before parsing, if either input file exceeds this size
+
+[source,bash]
+----
+# Set max file size to 10MB for XML
+export CANON_XML_DIFF_MAX_FILE_SIZE=10485760
+
+# Set globally (5MB default)
+export CANON_MAX_FILE_SIZE=5242880
+----
+
+=== Node count limit
+
+Maximum number of nodes in a tree structure before comparison is rejected.
+
+**Environment variable**: `CANON_MAX_NODE_COUNT` or `CANON_{FORMAT}_DIFF_MAX_NODE_COUNT`
+
+**Default**: 10,000 nodes
+
+**When triggered**: After parsing, if the document tree exceeds this node count
+
+[source,bash]
+----
+# Set max node count for XML diff
+export CANON_XML_DIFF_MAX_NODE_COUNT=20000
+
+# Set globally (10,000 default)
+export CANON_MAX_NODE_COUNT=10000
+----
+
+=== Diff output lines limit
+
+Maximum number of lines in diff output before truncation.
+
+**Environment variable**: `CANON_MAX_DIFF_LINES` or `CANON_{FORMAT}_DIFF_MAX_DIFF_LINES`
+
+**Default**: 10,000 lines
+
+**When triggered**: During diff generation, output is truncated at this line count
+
+[source,bash]
+----
+# Set max diff lines for XML
+export CANON_XML_DIFF_MAX_DIFF_LINES=15000
+
+# Set globally (10,000 default)
+export CANON_MAX_DIFF_LINES=10000
+----
+
+== Common scenarios
+
+=== Large SVG files
+
+When working with large SVG files (e.g., 3.5MB) that may cause hangs:
+
+[source,bash]
+----
+# Increase limits for large SVG processing
+export CANON_MAX_FILE_SIZE=10485760      # 10MB
+export CANON_MAX_NODE_COUNT=50000        # 50,000 nodes
+export CANON_MAX_DIFF_LINES=20000        # 20,000 lines
+
+bundle exec rspec spec/test_031_spec.rb
+----
+
+=== CI/CD with large documents
+
+In CI environments where you know documents are large but safe:
+
+[source,bash]
+----
+# In .github/workflows/test.yml
+env:
+  CANON_MAX_FILE_SIZE: 20971520    # 20MB
+  CANON_MAX_NODE_COUNT: 100000     # 100k nodes
+  CANON_MAX_DIFF_LINES: 50000      # 50k lines
+----
+
+=== Format-specific limits
+
+Different formats may need different limits:
+
+[source,bash]
+----
+# XML can have more nodes
+export CANON_XML_DIFF_MAX_NODE_COUNT=50000
+
+# JSON typically has fewer nodes
+export CANON_JSON_DIFF_MAX_NODE_COUNT=10000
+
+# HTML might need larger file size
+export CANON_HTML_DIFF_MAX_FILE_SIZE=10485760
+----
+
+== Disabling limits
+
+To disable a limit, set it to 0 or a negative value:
+
+[source,bash]
+----
+# Disable file size limit (not recommended)
+export CANON_MAX_FILE_SIZE=0
+
+# Disable node count limit (use with caution)
+export CANON_MAX_NODE_COUNT=-1
+----
+
+WARNING: Disabling limits may cause Canon to hang or consume excessive memory on pathologically large inputs.
+
+== Error messages
+
+When a limit is exceeded, Canon raises a clear error:
+
+=== File size exceeded
+
+[source]
+----
+Canon::ValidationError: File size exceeds maximum limit
+  Maximum: 5242880 bytes (5.0 MB)
+  Actual: 10485760 bytes (10.0 MB)
+
+  To increase this limit, set:
+    CANON_MAX_FILE_SIZE=10485760
+----
+
+=== Node count exceeded
+
+[source]
+----
+Canon::ValidationError: Node count exceeds maximum limit
+  Maximum: 10000 nodes
+  Actual: 25000 nodes
+
+  To increase this limit, set:
+    CANON_MAX_NODE_COUNT=25000
+----
+
+=== Diff lines exceeded
+
+[source]
+----
+Canon::DiffTruncationWarning: Diff output truncated
+  Maximum: 10000 lines
+  Actual: 15000 lines (truncated to 10000)
+
+  To increase this limit, set:
+    CANON_MAX_DIFF_LINES=15000
+----
+
+== Programmatic configuration
+
+While environment variables are recommended, you can also configure limits programmatically:
+
+[source,ruby]
+----
+# NOT RECOMMENDED - use ENV vars instead
+Canon::Config.instance.xml.diff.max_file_size = 10_485_760
+Canon::Config.instance.xml.diff.max_node_count = 50_000
+Canon::Config.instance.xml.diff.max_diff_lines = 20_000
+----
+
+However, **environment variables will override programmatic settings** per the priority chain.
+
+== Performance considerations
+
+=== Why limits exist
+
+Limits prevent:
+
+* **Hangs**: Very large documents can cause O(n²) algorithms to hang
+* **Memory exhaustion**: Huge trees consume excessive RAM
+* **Unreadable output**: 100k+ line diffs are not useful
+
+=== Choosing appropriate limits
+
+**File size**:
+
+* **Small projects**: 5MB default is fine
+* **Large documents**: 10-20MB for SVG, generated HTML
+* **Very large**: 50MB+ only if you know what you're doing
+
+**Node count**:
+
+* **Simple documents**: 10k default is fine
+* **Complex documents**: 50k for large XML, nested JSON
+* **Very complex**: 100k+ only for known-safe inputs
+
+**Diff lines**:
+
+* **Readable output**: 10k default is fine
+* **Detailed diffs**: 20-50k for comprehensive output
+* **Debug mode**: 100k+ for full comparison
+
+== Troubleshooting
+
+=== Tests failing with size limit errors
+
+If your tests start failing due to size limits:
+
+1. **Verify the limit is appropriate**: Check if documents really are that large
+2. **Set ENV in test helper**:
++
+[source,ruby]
+----
+# spec/spec_helper.rb
+ENV['CANON_MAX_FILE_SIZE'] = '10485760'  # 10MB
+ENV['CANON_MAX_NODE_COUNT'] = '50000'
+----
+
+3. **Or set per-test**:
++
+[source,ruby]
+----
+around do |example|
+  ClimateControl.modify(
+    CANON_MAX_FILE_SIZE: '10485760'
+  ) do
+    example.run
+  end
+end
+----
+
+=== Performance degradation
+
+If comparisons become slow after increasing limits:
+
+1. **Use DOM algorithm**: Faster than semantic for large documents
++
+[source,bash]
+----
+export CANON_ALGORITHM=dom
+----
+
+2. **Disable expensive features**:
++
+[source,bash]
+----
+export CANON_SHOW_COMPARE=false
+export CANON_VERBOSE_DIFF=false
+----
+
+3. **Consider if you really need to compare such large files**
+
+== See also
+
+* link:index.adoc[Environment Configuration] - Complete ENV configuration
+* link:override-system.adoc[Override System] - How ENV vars work
+* link:../../reference/environment-variables.adoc[Environment Variables Reference] - All variables
+* link:../../understanding/algorithms/dom-diff.adoc[DOM Algorithm] - Faster for large files

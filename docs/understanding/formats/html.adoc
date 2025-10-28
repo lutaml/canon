@@ -1,0 +1,380 @@
+---
+title: HTML Format
+parent: Format Support
+grand_parent: Understanding
+nav_order: 2
+---
+= HTML format
+:toc:
+:toclevels: 3
+
+== Purpose
+
+This page describes Canon's HTML format support, including automatic HTML4/HTML5/XHTML detection, browser rendering simulation, and HTML-specific features.
+
+== Canonicalization
+
+Canon supports HTML 4, HTML5, and XHTML with automatic format detection.
+
+**Key features:**
+
+* Automatic HTML vs XHTML detection
+* HTML5 parser for modern HTML
+* XML parser for XHTML
+* Consistent attribute ordering
+* Whitespace normalization
+* Comment handling in `<style>` and `<script>` tags
+
+.HTML canonicalization example
+[example]
+====
+[source,ruby]
+----
+html = <<~HTML
+  <!DOCTYPE html>
+  <html>
+    <body>
+      <div   class="foo"   id="bar">
+        Content
+      </div>
+    </body>
+  </html>
+HTML
+
+Canon.format(html, :html)
+# => Normalized structure with consistent formatting
+----
+====
+
+== Format defaults
+
+[cols="1,1"]
+|===
+|Dimension |Default Behavior
+
+|`text_content`
+|`:normalize`
+
+|`structural_whitespace`
+|`:normalize`
+
+|`attribute_whitespace`
+|`:normalize`
+
+|`attribute_order`
+|`:ignore`
+
+|`attribute_values`
+|`:strict`
+
+|`comments`
+|`:ignore`
+|===
+
+Default diff mode: `:by_line` (line-based diff)
+
+== Match profiles for HTML
+
+Canon provides predefined profiles optimized for HTML documents. Each profile configures preprocessing, match options, diff algorithm, and formatting.
+
+=== strict profile
+
+**Purpose**: Character-perfect HTML matching
+
+**Configuration**:
+
+[source,ruby]
+----
+{
+  preprocessing: :none,
+  diff_algorithm: :dom,
+  diff_mode: :by_line,       # Line-based diff output (HTML default)
+  match: {
+    text_content: :strict,
+    structural_whitespace: :strict,
+    attribute_whitespace: :strict,
+    attribute_order: :strict,
+    attribute_values: :strict,
+    comments: :strict
+  }
+}
+----
+
+**Use when**: Testing exact HTML formatter output, verifying HTML formatting compliance.
+
+=== rendered profile
+
+**Purpose**: Browser-rendered equivalence (most common for HTML)
+
+**Configuration**:
+
+[source,ruby]
+----
+{
+  preprocessing: :none,
+  diff_algorithm: :dom,
+  diff_mode: :by_line,
+  match: {
+    text_content: :normalize,
+    structural_whitespace: :normalize,
+    attribute_whitespace: :normalize,
+    attribute_order: :ignore,        # HTML attributes are unordered
+    attribute_values: :strict,
+    comments: :ignore
+  }
+}
+----
+
+**Use when**: Comparing HTML as browsers render it, testing web page output, ignoring formatting that doesn't affect display. This is the recommended profile for most HTML comparisons.
+
+=== spec_friendly profile
+
+**Purpose**: Test-friendly comparison for RSpec
+
+**Configuration**:
+
+[source,ruby]
+----
+{
+  preprocessing: :normalize,
+  diff_algorithm: :dom,
+  diff_mode: :by_object,     # Tree-based for better test output
+  match: {
+    text_content: :normalize,
+    structural_whitespace: :ignore,
+    attribute_whitespace: :normalize,
+    attribute_order: :ignore,
+    attribute_values: :strict,
+    comments: :ignore
+  }
+}
+----
+
+**Use when**: Writing RSpec tests for HTML generation, testing semantic HTML correctness.
+
+=== content_only profile
+
+**Purpose**: Maximum tolerance - only structure matters
+
+**Configuration**:
+
+[source,ruby]
+----
+{
+  preprocessing: :normalize,
+  diff_algorithm: :dom,
+  diff_mode: :by_object,
+  match: {
+    text_content: :normalize,
+    structural_whitespace: :ignore,
+    attribute_whitespace: :ignore,
+    attribute_order: :ignore,
+    attribute_values: :ignore,
+    comments: :ignore
+  }
+}
+----
+
+**Use when**: Only HTML structure needs to match, maximum flexibility for all formatting and attribute differences.
+
+== HTML-specific features
+
+=== Format detection
+
+Automatically detects HTML5, HTML4, or XHTML based on DOCTYPE and structure.
+
+.Format detection examples
+[example]
+====
+[source,html]
+----
+<!-- HTML5 detected -->
+<!DOCTYPE html>
+<html>...</html>
+
+<!-- HTML4 detected -->
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN">
+<html>...</html>
+
+<!-- XHTML detected -->
+<?xml version="1.0"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN">
+<html xmlns="http://www.w3.org/1999/xhtml">...</html>
+----
+====
+
+=== Whitespace handling
+
+HTML whitespace is collapsed per CSS rendering rules. Empty text nodes between elements are removed.
+
+.Whitespace handling example
+[example]
+====
+[source,html]
+----
+<!-- Before -->
+<div>
+  <p>Hello     world</p>
+  <p>Second   paragraph</p>
+</div>
+
+<!-- After normalization (with normalize) -->
+<div>
+  <p>Hello world</p>
+  <p>Second paragraph</p>
+</div>
+----
+
+Multiple spaces within text content are collapsed to single spaces when `text_content: :normalize` is used.
+====
+
+=== Attribute order
+
+HTML attributes are inherently unordered per the HTML specification, so default is `:ignore`.
+
+.Attribute order example
+[example]
+====
+[source,html]
+----
+<!-- These are always equivalent for HTML -->
+<input type="text" id="name" class="form-control">
+<input class="form-control" id="name" type="text">
+----
+
+The HTML specification states that attribute order has no meaning, so Canon ignores attribute order by default for HTML.
+====
+
+=== Special tags
+
+Comments in `<style>` and `<script>` tags are normalized specially to handle CSS/JavaScript syntax.
+
+.Special tag handling
+[example]
+====
+[source,html]
+----
+<style>
+  /* CSS comments preserved */
+  body { margin: 0; }
+</style>
+
+<script>
+  // JavaScript comments preserved
+  console.log("test");
+</script>
+----
+
+Canon recognizes that `<style>` and `<script>` tags contain non-HTML content and handles them appropriately.
+====
+
+=== Class attribute normalization
+
+The HTML `class` attribute contains space-separated class names, making normalization particularly useful.
+
+.Class attribute example
+[example]
+====
+[source,html]
+----
+<!-- These are equivalent with attribute_whitespace: :normalize -->
+<div class="btn  primary   active">Click</div>
+<div class="btn primary active">Click</div>
+----
+
+Multiple spaces between class names are normalized to single spaces.
+====
+
+== Usage examples
+
+=== Basic HTML comparison
+
+[source,ruby]
+----
+html1 = File.read("page1.html")
+html2 = File.read("page2.html")
+
+Canon::Comparison.equivalent?(html1, html2,
+  match_profile: :rendered
+)
+----
+
+=== Test-friendly HTML comparison
+
+[source,ruby]
+----
+expect(actual_html).to be_html_equivalent_to(expected_html)
+  .with_profile(:rendered)
+----
+
+=== Using HTML comparator directly
+
+[source,ruby]
+----
+Canon::Comparison::HtmlComparator.equivalent?(html1, html2,
+  match_profile: :rendered
+)
+----
+
+=== CLI usage
+
+[source,bash]
+----
+# Basic comparison with rendered profile
+canon diff page1.html page2.html \
+  --match-profile rendered \
+  --verbose
+
+# Strict HTML comparison
+canon diff file1.html file2.html \
+  --match-profile strict \
+  --verbose
+----
+
+== HTML vs XHTML
+
+Canon handles HTML and XHTML differently:
+
+=== HTML (HTML4/HTML5)
+
+* Uses HTML parser (more lenient)
+* Attribute order ignored by default
+* Whitespace normalized by default
+* Comments ignored by default
+
+=== XHTML
+
+* Uses XML parser (stricter)
+* Follows XML rules
+* Can use XML-specific features
+* Namespace-aware
+
+.XHTML example
+[example]
+====
+[source,xhtml]
+----
+<?xml version="1.0"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <title>XHTML Document</title>
+  </head>
+  <body>
+    <p>Content</p>
+  </body>
+</html>
+----
+
+XHTML is treated as XML and follows stricter rules.
+====
+
+== See also
+
+* link:../comparison-pipeline.adoc[Comparison Pipeline] - Understanding the 4 layers
+* link:../../features/match-options/[Match Options] - All matching options
+* link:../../guides/choosing-configuration.adoc[Choosing Configuration] - Decision guide
+* link:index.adoc[Format Support] - Overview of all formats
+* link:xml.adoc[XML Format] - XML-specific features
+* link:json.adoc[JSON Format] - JSON-specific features
