@@ -149,7 +149,13 @@ module Canon
         map1.each do |identity, elem1|
           if map2.key?(identity)
             elem2 = map2[identity]
-            elem_path = path + [elem1.name]
+
+            # Build path with namespace information for clarity
+            elem_path_with_ns = if elem1.namespace_uri && !elem1.namespace_uri.empty?
+                                  path + ["{#{elem1.namespace_uri}}#{elem1.name}"]
+                                else
+                                  path + [elem1.name]
+                                end
 
             # Track positions
             pos1 = elems1.index(elem1)
@@ -159,15 +165,16 @@ module Canon
               status: :matched,
               elem1: elem1,
               elem2: elem2,
-              path: elem_path,
+              path: elem_path_with_ns,
               pos1: pos1,
               pos2: pos2,
             )
+
             matched1.add(elem1)
             matched2.add(elem2)
 
             # Recursively match children
-            match_children(elem1.children, elem2.children, elem_path)
+            match_children(elem1.children, elem2.children, elem_path_with_ns)
           end
         end
 
@@ -181,14 +188,18 @@ module Canon
         unmatched1.each do |elem1|
           next if matched1.include?(elem1)
 
-          elem_path = path + [elem1.name]
+          elem_path_with_ns = if elem1.namespace_uri && !elem1.namespace_uri.empty?
+                                path + ["{#{elem1.namespace_uri}}#{elem1.name}"]
+                              else
+                                path + [elem1.name]
+                              end
           pos1 = elems1.index(elem1)
 
           @matches << MatchResult.new(
             status: :deleted,
             elem1: elem1,
             elem2: nil,
-            path: elem_path,
+            path: elem_path_with_ns,
             pos1: pos1,
             pos2: nil,
           )
@@ -197,14 +208,18 @@ module Canon
         unmatched2.each do |elem2|
           next if matched2.include?(elem2)
 
-          elem_path = path + [elem2.name]
+          elem_path_with_ns = if elem2.namespace_uri && !elem2.namespace_uri.empty?
+                                path + ["{#{elem2.namespace_uri}}#{elem2.name}"]
+                              else
+                                path + [elem2.name]
+                              end
           pos2 = elems2.index(elem2)
 
           @matches << MatchResult.new(
             status: :inserted,
             elem1: nil,
             elem2: elem2,
-            path: elem_path,
+            path: elem_path_with_ns,
             pos1: nil,
             pos2: pos2,
           )
@@ -213,24 +228,31 @@ module Canon
 
       # Match remaining elements by name and position
       def match_by_position(elems1, elems2, path, matched1, matched2)
-        # Group by element name
-        by_name1 = elems1.group_by(&:name)
-        by_name2 = elems2.group_by(&:name)
+        # Group by element name AND namespace_uri
+        by_identity1 = elems1.group_by { |e| [e.name, e.namespace_uri] }
+        by_identity2 = elems2.group_by { |e| [e.name, e.namespace_uri] }
 
-        # For each name, match by position
-        by_name1.each do |name, list1|
-          next unless by_name2.key?(name)
-
-          list2 = by_name2[name]
+        # For each name+namespace combination, match by position
+        by_identity1.each do |identity, list1|
+          next unless by_identity2.key?(identity)
 
           # Match pairs by position
+          list2 = by_identity2[identity]
+          name = identity[0] # Extract name from [name, namespace_uri] tuple
+          namespace_uri = identity[1] # Extract namespace_uri
+
           [list1.length, list2.length].min.times do |i|
             elem1 = list1[i]
             elem2 = list2[i]
 
             next if matched1.include?(elem1) || matched2.include?(elem2)
 
-            elem_path = path + [name]
+            # Build path with namespace information for clarity
+            elem_path_with_ns = if namespace_uri && !namespace_uri.empty?
+                                  path + ["{#{namespace_uri}}#{name}"]
+                                else
+                                  path + [name]
+                                end
 
             # Track positions in original element lists
             pos1 = elems1.index(elem1)
@@ -240,7 +262,7 @@ module Canon
               status: :matched,
               elem1: elem1,
               elem2: elem2,
-              path: elem_path,
+              path: elem_path_with_ns,
               pos1: pos1,
               pos2: pos2,
             )
@@ -248,7 +270,7 @@ module Canon
             matched2.add(elem2)
 
             # Recursively match children
-            match_children(elem1.children, elem2.children, elem_path)
+            match_children(elem1.children, elem2.children, elem_path_with_ns)
           end
         end
       end

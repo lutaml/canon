@@ -221,6 +221,8 @@ module Canon
             format_attribute_values_details(diff, use_color)
           when :attribute_order
             format_attribute_order_details(diff, use_color)
+          when :namespace_uri
+            format_namespace_uri_details(diff, use_color)
           when :text_content
             format_text_content_details(diff, use_color)
           when :structural_whitespace
@@ -230,6 +232,28 @@ module Canon
           else
             format_fallback_details(diff, use_color)
           end
+        end
+
+        # Format namespace_uri dimension details
+        def format_namespace_uri_details(diff, use_color)
+          node1 = diff.node1
+          node2 = diff.node2
+
+          # Extract namespace URIs
+          ns1 = node1.respond_to?(:namespace_uri) ? node1.namespace_uri : nil
+          ns2 = node2.respond_to?(:namespace_uri) ? node2.namespace_uri : nil
+
+          ns1_display = ns1.nil? || ns1.empty? ? "(no namespace)" : ns1
+          ns2_display = ns2.nil? || ns2.empty? ? "(no namespace)" : ns2
+
+          element_name = node1.respond_to?(:name) ? node1.name : node2.respond_to?(:name) ? node2.name : "element"
+
+          detail1 = "<#{element_name}> with namespace: #{colorize(ns1_display, :cyan, use_color)}"
+          detail2 = "<#{element_name}> with namespace: #{colorize(ns2_display, :cyan, use_color)}"
+
+          changes = "Namespace differs: #{colorize(ns1_display, :red, use_color)} → #{colorize(ns2_display, :green, use_color)}"
+
+          [detail1, detail2, changes]
         end
 
         # Format element_structure dimension details (INSERT/DELETE operations)
@@ -403,14 +427,42 @@ module Canon
           detail1 = "<#{element_name}> \"#{escape_quotes(preview1)}\""
           detail2 = "<#{element_name}> \"#{escape_quotes(preview2)}\""
 
+          # Extract namespace information and include it in the details
+          element_name1 = node1.respond_to?(:name) ? node1.name : "(text)"
+          element_name2 = node2.respond_to?(:name) ? node2.name : "(text)"
+
+          # Get namespace URIs
+          ns1 = node1.respond_to?(:namespace_uri) ? node1.namespace_uri : nil
+          ns2 = node2.respond_to?(:namespace_uri) ? node2.namespace_uri : nil
+
+          # Build namespace display strings
+          ns1_info = if ns1 && !ns1.empty?
+                       " [namespace: #{colorize(ns1, :cyan, use_color)}]"
+                     else
+                       ""
+                     end
+
+          ns2_info = if ns2 && !ns2.empty?
+                       " [namespace: #{colorize(ns2, :cyan, use_color)}]"
+                     else
+                       ""
+                     end
+
+          detail1 = "<#{element_name1}>#{ns1_info} \"#{escape_quotes(preview1)}\""
+          detail2 = "<#{element_name2}>#{ns2_info} \"#{escape_quotes(preview2)}\""
+
+          # Check if diff contains namespace information in reason
+          # If so, display it prominently
+          if diff.respond_to?(:reason) && diff.reason && diff.reason.include?("namespace")
+            changes = diff.reason
           # Check if inside whitespace-preserving element
-          changes = if inside_preserve_element?(node1) || inside_preserve_element?(node2)
-                      colorize("⚠️  Whitespace preserved", :yellow, use_color,
+          elsif inside_preserve_element?(node1) || inside_preserve_element?(node2)
+            changes = colorize("⚠️  Whitespace preserved", :yellow, use_color,
                                bold: true) +
-                        " (inside <pre>, <code>, etc. - whitespace is significant)"
-                    else
-                      "Text content changed"
-                    end
+                      " (inside <pre>, <code>, etc. - whitespace is significant)"
+          else
+            changes = "Text content changed"
+          end
 
           [detail1, detail2, changes]
         end

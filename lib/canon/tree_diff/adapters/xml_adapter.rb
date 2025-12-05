@@ -92,6 +92,16 @@ module Canon
           # Get element name (with namespace prefix if present)
           label = element.name
 
+          # Create label that includes namespace URI to ensure elements
+          # with different namespaces are treated as different nodes
+          # Format: {namespace_uri}name or just name if no namespace
+          namespace_uri = element.namespace&.href
+          label = if namespace_uri && !namespace_uri.empty?
+                    "{#{namespace_uri}}#{element.name}"
+                  else
+                    element.name
+                  end
+
           # Collect attributes and sort them alphabetically
           # This ensures attribute order doesn't affect hash matching
           # (matches behavior of attribute_order: :ignore in match options)
@@ -194,9 +204,19 @@ module Canon
         # @param element_node [Canon::Xml::Nodes::ElementNode] Element node
         # @return [Core::TreeNode] Tree node
         def to_tree_from_canon_element(element_node)
+          # Create label that includes namespace URI to ensure elements
+          # with different namespaces are treated as different nodes
+          # Format: {namespace_uri}name or just name if no namespace
+          namespace_uri = element_node.namespace_uri
+          label = if namespace_uri && !namespace_uri.empty?
+                    "{#{namespace_uri}}#{element_node.name}"
+                  else
+                    element_node.name
+                  end
+
           # Create TreeNode from Canon::Xml::Nodes::ElementNode
           tree_node = Core::TreeNode.new(
-            label: element_node.name,
+            label: label,
             value: nil, # Elements don't have values
             attributes: extract_canon_attributes(element_node),
             children: [],
