@@ -302,6 +302,36 @@ module Canon
             return Comparison::UNEQUAL_ELEMENTS
           end
 
+          # Compare namespace URIs - elements with different namespaces are different elements
+          ns1 = n1.respond_to?(:namespace_uri) ? n1.namespace_uri : nil
+          ns2 = n2.respond_to?(:namespace_uri) ? n2.namespace_uri : nil
+
+          unless ns1 == ns2
+            add_difference(n1, n2, Comparison::UNEQUAL_ELEMENTS,
+                           Comparison::UNEQUAL_ELEMENTS, :namespace_uri, opts,
+                           differences)
+            return Comparison::UNEQUAL_ELEMENTS
+          end
+
+          # Compare namespace URIs - elements with different namespaces are different elements
+          ns1 = n1.respond_to?(:namespace_uri) ? n1.namespace_uri : nil
+          ns2 = n2.respond_to?(:namespace_uri) ? n2.namespace_uri : nil
+
+          unless ns1 == ns2
+            # Create descriptive reason showing the actual namespace URIs
+            ns1_display = ns1.nil? || ns1.empty? ? "(no namespace)" : ns1
+            ns2_display = ns2.nil? || ns2.empty? ? "(no namespace)" : ns2
+
+            diff_node = Canon::Diff::DiffNode.new(
+              node1: n1,
+              node2: n2,
+              dimension: :namespace_uri,
+              reason: "namespace '#{ns1_display}' vs '#{ns2_display}' on element '#{n1.name}'",
+            )
+            differences << diff_node if opts[:verbose]
+            return Comparison::UNEQUAL_ELEMENTS
+          end
+
           # Compare attributes
           attr_result = compare_attribute_sets(n1, n2, opts, differences)
           return attr_result unless attr_result == Comparison::EQUIVALENT
@@ -877,13 +907,41 @@ module Canon
                   "dimension required for DiffNode"
           end
 
+          # Build informative reason message
+          reason = build_difference_reason(node1, node2, diff1, diff2, dimension)
+
           diff_node = Canon::Diff::DiffNode.new(
             node1: node1,
             node2: node2,
             dimension: dimension,
-            reason: "#{diff1} vs #{diff2}",
+            reason: reason,
           )
           differences << diff_node
+        end
+
+        # Build a human-readable reason for a difference
+        # @param node1 [Object] First node
+        # @param node2 [Object] Second node
+        # @param diff1 [String] Difference description for node1
+        # @param diff2 [String] Difference description for node2
+        # @param dimension [Symbol] The dimension of the difference
+        # @return [String] Human-readable reason
+        def build_difference_reason(node1, node2, diff1, diff2, dimension)
+          # For deleted/inserted nodes, include namespace information if available
+          if dimension == :text_content && (node1.nil? || node2.nil?)
+            node = node1 || node2
+            if node.respond_to?(:name) && node.respond_to?(:namespace_uri)
+              ns = node.namespace_uri
+              ns_info = if ns.nil? || ns.empty?
+                          ""
+                        else
+                          " (namespace: #{ns})"
+                        end
+              return "element '#{node.name}'#{ns_info}: #{diff1} vs #{diff2}"
+            end
+          end
+
+          "#{diff1} vs #{diff2}"
         end
       end
     end

@@ -213,4 +213,143 @@ RSpec.describe Canon::TreeDiff::Adapters::XMLAdapter do
       expect(result_publisher.content).to eq(original_publisher.content)
     end
   end
+
+  describe "namespace handling" do
+    context "with namespaced elements" do
+      it "includes namespace URI in TreeNode label" do
+        xml = Nokogiri::XML('<root xmlns="http://example.org/ns1">content</root>')
+        tree = adapter.to_tree(xml)
+
+        expect(tree.label).to eq("{http://example.org/ns1}root")
+      end
+
+      it "distinguishes elements with same name but different namespaces" do
+        xml1 = Nokogiri::XML('<root xmlns="http://example.org/ns1">content</root>')
+        xml2 = Nokogiri::XML('<root xmlns="http://example.org/ns2">content</root>')
+
+        tree1 = adapter.to_tree(xml1)
+        tree2 = adapter.to_tree(xml2)
+
+        expect(tree1.label).to eq("{http://example.org/ns1}root")
+        expect(tree2.label).to eq("{http://example.org/ns2}root")
+        expect(tree1.label).not_to eq(tree2.label)
+      end
+
+      it "handles elements with no namespace" do
+        xml = Nokogiri::XML('<root>content</root>')
+        tree = adapter.to_tree(xml)
+
+        expect(tree.label).to eq("root")
+      end
+
+      it "correctly handles nested namespace inheritance" do
+        xml = Nokogiri::XML(<<~XML)
+          <root xmlns="http://example.org/ns1">
+            <child>nested</child>
+          </root>
+        XML
+
+        tree = adapter.to_tree(xml)
+
+        expect(tree.label).to eq("{http://example.org/ns1}root")
+        child = tree.children[0]
+        expect(child.label).to eq("{http://example.org/ns1}child")
+      end
+
+      it "correctly handles explicit namespace declaration on child" do
+        xml = Nokogiri::XML(<<~XML)
+          <root xmlns="http://example.org/ns1">
+            <child xmlns="http://example.org/ns2">nested</child>
+          </root>
+        XML
+
+        tree = adapter.to_tree(xml)
+
+        expect(tree.label).to eq("{http://example.org/ns1}root")
+        child = tree.children[0]
+        expect(child.label).to eq("{http://example.org/ns2}child")
+      end
+
+      it "handles mixed namespace and no-namespace elements" do
+        xml = Nokogiri::XML(<<~XML)
+          <root>
+            <item xmlns="http://example.org/ns1">namespaced</item>
+            <item>no namespace</item>
+          </root>
+        XML
+
+        tree = adapter.to_tree(xml)
+
+        expect(tree.label).to eq("root")
+        expect(tree.children[0].label).to eq("{http://example.org/ns1}item")
+        expect(tree.children[1].label).to eq("item")
+      end
+    end
+
+    context "with Canon::Xml::Node types" do
+      it "includes namespace URI in TreeNode label for Canon::Xml::Nodes::ElementNode" do
+        xml_string = '<root xmlns="http://example.org/ns1">content</root>'
+        canon_node = Canon::Xml::DataModel.from_xml(xml_string)
+
+        tree = adapter.to_tree(canon_node)
+
+        root_child = tree  # The RootNode's first child is the actual root element
+        expect(root_child.label).to eq("{http://example.org/ns1}root")
+      end
+
+      it "distinguishes Canon elements with same name but different namespaces" do
+        xml1 = '<root xmlns="http://example.org/ns1">content</root>'
+        xml2 = '<root xmlns="http://example.org/ns2">content</root>'
+
+        canon_node1 = Canon::Xml::DataModel.from_xml(xml1)
+        canon_node2 = Canon::Xml::DataModel.from_xml(xml2)
+
+        tree1 = adapter.to_tree(canon_node1)
+        tree2 = adapter.to_tree(canon_node2)
+
+        expect(tree1.label).to eq("{http://example.org/ns1}root")
+        expect(tree2.label).to eq("{http://example.org/ns2}root")
+        expect(tree1.label).not_to eq(tree2.label)
+      end
+
+      it "handles Canon elements with no namespace" do
+        xml_string = '<root>content</root>'
+        canon_node = Canon::Xml::DataModel.from_xml(xml_string)
+
+        tree = adapter.to_tree(canon_node)
+
+        expect(tree.label).to eq("root")
+      end
+
+      it "correctly handles nested Canon namespace inheritance" do
+        xml_string = <<~XML
+          <root xmlns="http://example.org/ns1">
+            <child>nested</child>
+          </root>
+        XML
+
+        canon_node = Canon::Xml::DataModel.from_xml(xml_string)
+        tree = adapter.to_tree(canon_node)
+
+        expect(tree.label).to eq("{http://example.org/ns1}root")
+        child = tree.children[0]
+        expect(child.label).to eq("{http://example.org/ns1}child")
+      end
+
+      it "correctly handles explicit Canon namespace declaration on child" do
+        xml_string = <<~XML
+          <root xmlns="http://example.org/ns1">
+            <child xmlns="http://example.org/ns2">nested</child>
+          </root>
+        XML
+
+        canon_node = Canon::Xml::DataModel.from_xml(xml_string)
+        tree = adapter.to_tree(canon_node)
+
+        expect(tree.label).to eq("{http://example.org/ns1}root")
+        child = tree.children[0]
+        expect(child.label).to eq("{http://example.org/ns2}child")
+      end
+    end
+  end
 end
