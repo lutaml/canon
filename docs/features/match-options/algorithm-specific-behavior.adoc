@@ -100,6 +100,10 @@ This table shows how each algorithm interprets each match dimension:
 |**comments**
 |Compares comments at each position. `strict` requires exact match, `normalize` normalizes, `ignore` skips
 |Comments can be included in signatures or ignored. Less impact than in DOM
+
+|**namespace_uri** (XML)
+|Always compared strictly - elements must have same namespace URI to match at each position
+|Always included in element signature - elements must have same namespace URI for signatures to match
 |===
 
 == Example: Same Options, Different Results

@@ -128,6 +128,33 @@ Match dimensions are orthogonal aspects that can be configured independently.
 
 `:ignore`:: Comments are completely ignored
 
+=== namespace_uri
+
+**Applies to**: XML only
+
+**Purpose**: Controls how XML element namespaces are compared. Elements are identified by the pair `{namespace_uri, local_name}` according to XML semantics.
+
+**Behaviors**:
+
+`:strict`:: Namespace URIs must match (default and only supported behavior)
+
+**Note**: This dimension is always `:strict` for XML. Namespace prefixes are not significant - only the namespace URI matters. Elements with different prefixes but the same namespace URI are considered equivalent.
+
+.Namespace URI comparison
+[example]
+====
+[source,ruby]
+----
+# These are equivalent (same namespace URI, different prefixes)
+xml1 = '<root xmlns:a="http://example.com"><a:item>value</a:item></root>'
+xml2 = '<root xmlns:b="http://example.com"><b:item>value</b:item></root>'
+
+# These are NOT equivalent (different namespace URIs)
+xml3 = '<root xmlns:a="http://example.com"><a:item>value</a:item></root>'
+xml4 = '<root xmlns:a="http://other.com"><a:item>value</a:item></root>'
+----
+====
+
 == Match profiles overview
 
 Profiles are predefined combinations of dimension settings for common scenarios.
@@ -225,6 +252,12 @@ Each format has sensible defaults based on typical usage:
 |`:ignore`
 |—
 |`:strict`
+
+|`namespace_uri`
+|`:strict`
+|—
+|—
+|—
 |===
 
 == Configuration precedence
