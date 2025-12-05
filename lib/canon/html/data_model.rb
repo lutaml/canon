@@ -1,84 +1,73 @@
 # frozen_string_literal: true
 
 require "nokogiri"
-require "set"
 require_relative "../data_model"
-require_relative "nodes/root_node"
-require_relative "nodes/element_node"
-require_relative "nodes/namespace_node"
-require_relative "nodes/attribute_node"
-require_relative "nodes/text_node"
-require_relative "nodes/comment_node"
-require_relative "nodes/processing_instruction_node"
+require_relative "../xml/nodes/root_node"
+require_relative "../xml/nodes/element_node"
+require_relative "../xml/nodes/namespace_node"
+require_relative "../xml/nodes/attribute_node"
+require_relative "../xml/nodes/text_node"
+require_relative "../xml/nodes/comment_node"
+require_relative "../xml/nodes/processing_instruction_node"
 
 module Canon
-  module Xml
-    # Builds XPath data model from XML
+  module Html
+    # Builds XPath data model from HTML
+    # HTML-specific parsing with lowercase element/attribute names,
+    # whitespace-sensitive element handling, and fragment parsing
     class DataModel < Canon::DataModel
-      # Build XPath data model from XML string
+      # Build XPath data model from HTML string
       #
-      # @param xml_string [String] XML content to parse
-      # @return [Nodes::RootNode] Root of the data model tree
-      def self.from_xml(xml_string)
-        # Parse with Nokogiri
-        doc = Nokogiri::XML(xml_string) do |config|
-          config.nonet     # Disable network access
-          config.strict    # Strict parsing
-        end
+      # @param html_string [String] HTML content to parse
+      # @param version [Symbol] HTML version (:html4 or :html5)
+      # @return [Canon::Xml::Nodes::RootNode] Root of the data model tree
+      def self.from_html(html_string, version: :html4)
+        # Detect if this is a full document (has <html> tag) or fragment
+        # Full documents should use document parser to preserve structure
+        # Fragments should use fragment parser to avoid adding implicit wrappers
+        is_full_document = html_string.match?(/<html[\s>]/i)
 
-        # Check for relative namespace URIs (prohibited by C14N 1.1)
-        check_for_relative_namespace_uris(doc)
+        # Parse with Nokogiri using appropriate parser
+        doc = if is_full_document
+                # Full document - use document parser to preserve structure
+                if version == :html5
+                  Nokogiri::HTML5(html_string)
+                else
+                  Nokogiri::HTML4::Document.parse(html_string, &:nonet)
+                end
+              elsif version == :html5
+                # Fragment - use fragment parser to avoid implicit wrappers
+                Nokogiri::HTML5.fragment(html_string)
+              else
+                Nokogiri::HTML4.fragment(html_string)
+              end
 
-        # Convert to XPath data model
+        # HTML doesn't have strict namespace requirements like XML,
+        # so skip the relative namespace URI check
+
+        # Convert to XPath data model (reuse XML infrastructure)
         build_from_nokogiri(doc)
       end
 
-      # Alias for compatibility with base class interface
-      def self.parse(xml_string)
-        from_xml(xml_string)
+      # Alias for compatibility
+      def self.parse(html_string, version: :html4)
+        from_html(html_string, version: version)
       end
 
-      # Serialize XML node to string
-      #
-      # @param node [Nodes::RootNode, Nodes::ElementNode] Node to serialize
-      # @return [String] Serialized XML string
+      # Serialize HTML node to string
       def self.serialize(node)
-        # Implementation will delegate to existing XML serialization
-        # This is a placeholder for the base class interface
-        node.to_s
-      end
-
-      # Check for relative namespace URIs (prohibited by C14N 1.1)
-      # rubocop:disable Metrics/MethodLength
-      def self.check_for_relative_namespace_uris(doc)
-        doc.traverse do |node|
-          next unless node.is_a?(Nokogiri::XML::Element)
-
-          node.namespace_definitions.each do |ns|
-            next if ns.href.nil? || ns.href.empty?
-
-            # Check if URI is relative
-            if relative_uri?(ns.href)
-              raise Canon::Error,
-                    "Relative namespace URI not allowed: #{ns.href}"
-            end
-          end
-        end
-      end
-
-      # Check if a URI is relative
-      def self.relative_uri?(uri)
-        # A URI is relative if it doesn't have a scheme
-        uri !~ %r{^[a-zA-Z][a-zA-Z0-9+.-]*:}
+        # HTML nodes use the same serialization as XML
+        # Delegate to XML serialization implementation
+        require_relative "../xml/data_model"
+        Canon::Xml::DataModel.serialize(node)
       end
 
       # Build XPath data model from Nokogiri document or fragment
-      # rubocop:disable Metrics/MethodLength
       def self.build_from_nokogiri(nokogiri_doc)
-        root = Nodes::RootNode.new
+        root = Canon::Xml::Nodes::RootNode.new
 
         if nokogiri_doc.respond_to?(:root) && nokogiri_doc.root
-          # For Documents (XML, HTML4, HTML5, Moxml): process the root element
+          # For Documents (HTML4, HTML5): process the root element
           root.add_child(build_element_node(nokogiri_doc.root))
 
           # Process PIs and comments outside doc element
@@ -118,9 +107,8 @@ module Canon
       end
 
       # Build element node from Nokogiri element
-      # rubocop:disable Metrics/MethodLength
       def self.build_element_node(nokogiri_element)
-        element = Nodes::ElementNode.new(
+        element = Canon::Xml::Nodes::ElementNode.new(
           name: nokogiri_element.name,
           namespace_uri: nokogiri_element.namespace&.href,
           prefix: nokogiri_element.namespace&.prefix,
@@ -147,7 +135,7 @@ module Canon
         namespaces = collect_in_scope_namespaces(nokogiri_element)
 
         namespaces.each do |prefix, uri|
-          ns_node = Nodes::NamespaceNode.new(
+          ns_node = Canon::Xml::Nodes::NamespaceNode.new(
             prefix: prefix,
             uri: uri,
           )
@@ -156,7 +144,6 @@ module Canon
       end
 
       # Collect all in-scope namespaces for an element
-      # rubocop:disable Metrics/MethodLength
       def self.collect_in_scope_namespaces(nokogiri_element)
         namespaces = {}
 
@@ -186,7 +173,7 @@ module Canon
         nokogiri_element.attributes.each do |name, attr|
           next if name.start_with?("xmlns")
 
-          attr_node = Nodes::AttributeNode.new(
+          attr_node = Canon::Xml::Nodes::AttributeNode.new(
             name: attr.name,
             value: attr.value,
             namespace_uri: attr.namespace&.href,
@@ -197,29 +184,44 @@ module Canon
       end
 
       # Build text node from Nokogiri text node
+      # HTML-specific: handles whitespace-sensitive elements (pre, code, textarea, script, style)
       def self.build_text_node(nokogiri_text)
-        # XML text nodes: preserve all content including whitespace
-        # Unlike HTML, XML treats all whitespace as significant
+        # Skip text nodes that are only whitespace between elements
+        # EXCEPT in whitespace-sensitive elements (pre, code, textarea, script, style)
+        # where whitespace is semantically significant
         content = nokogiri_text.content
 
-        # Skip empty text nodes between elements (common formatting whitespace)
-        return nil if content.strip.empty? && nokogiri_text.parent.is_a?(Nokogiri::XML::Element)
+        if content.strip.empty? && nokogiri_text.parent.is_a?(Nokogiri::XML::Element)
+          # Check if parent is whitespace-sensitive
+          parent_name = nokogiri_text.parent.name.downcase
+          whitespace_sensitive_tags = %w[pre code textarea script style]
+
+          # Skip whitespace-only text UNLESS in whitespace-sensitive element
+          return nil unless whitespace_sensitive_tags.include?(parent_name)
+        end
 
         # Nokogiri already handles CDATA conversion and entity resolution
-        Nodes::TextNode.new(value: content)
+        Canon::Xml::Nodes::TextNode.new(value: content)
       end
 
       # Build comment node from Nokogiri comment
       def self.build_comment_node(nokogiri_comment)
-        Nodes::CommentNode.new(value: nokogiri_comment.content)
+        Canon::Xml::Nodes::CommentNode.new(value: nokogiri_comment.content)
       end
 
       # Build PI node from Nokogiri PI
       def self.build_pi_node(nokogiri_pi)
-        Nodes::ProcessingInstructionNode.new(
+        Canon::Xml::Nodes::ProcessingInstructionNode.new(
           target: nokogiri_pi.name,
           data: nokogiri_pi.content,
         )
+      end
+
+      class << self
+        private :build_from_nokogiri, :build_node_from_nokogiri,
+                :build_element_node, :build_namespace_nodes,
+                :collect_in_scope_namespaces, :build_attribute_nodes,
+                :build_text_node, :build_comment_node, :build_pi_node
       end
     end
   end

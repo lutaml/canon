@@ -240,14 +240,14 @@ module Canon
           # Determine operation type
           if node1.nil? && !node2.nil?
             # INSERT operation - show content preview
-            element_name = node2.respond_to?(:name) ? node2.name : "element"
+            node2.respond_to?(:name) ? node2.name : "element"
             content_preview = extract_content_preview(node2, 50)
             detail1 = colorize("(not present)", :red, use_color)
             detail2 = content_preview
             changes = "Element inserted"
           elsif !node1.nil? && node2.nil?
             # DELETE operation - show content preview
-            element_name = node1.respond_to?(:name) ? node1.name : "element"
+            node1.respond_to?(:name) ? node1.name : "element"
             content_preview = extract_content_preview(node1, 50)
             detail1 = content_preview
             detail2 = colorize("(not present)", :green, use_color)
@@ -725,6 +725,7 @@ module Canon
 
             key_attr_strs = key_attrs.map do |key|
               next unless attrs_hash.key?(key)
+
               val = attrs_hash[key]
               next if val.nil? || val.empty?
 
@@ -741,7 +742,7 @@ module Canon
           if text && !text.empty?
             text_preview = text.strip
             # Only show text if meaningful (not just whitespace)
-            if text_preview.length > 0
+            if text_preview.length.positive?
               text_preview = text_preview.length > 40 ? "#{text_preview[0..37]}..." : text_preview
               parts << "\"#{text_preview}\""
             end

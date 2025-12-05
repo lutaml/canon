@@ -29,15 +29,34 @@ module Canon
           @match_options = match_options
         end
 
-        # Convert Nokogiri XML document/element to TreeNode
+        # Convert Nokogiri XML document/element or Canon::Xml::Node to TreeNode
         #
-        # @param node [Nokogiri::XML::Document, Nokogiri::XML::Element] XML node
+        # @param node [Nokogiri::XML::Document, Nokogiri::XML::Element, Canon::Xml::Node] XML node
         # @return [Core::TreeNode] Root tree node
         def to_tree(node)
+          # Handle nil nodes
+          return nil if node.nil?
+
+          # Handle Canon::Xml::Node types first
+          case node
+          when Canon::Xml::Nodes::RootNode
+            return to_tree_from_canon_root(node)
+          when Canon::Xml::Nodes::ElementNode
+            return to_tree_from_canon_element(node)
+          when Canon::Xml::Nodes::TextNode
+            return to_tree_from_canon_text(node)
+          when Canon::Xml::Nodes::CommentNode
+            return to_tree_from_canon_comment(node)
+          end
+
+          # Fallback to Nokogiri (legacy support)
           case node
           when Nokogiri::XML::Document
             # Start from root element
-            to_tree(node.root)
+            root = node.root
+            raise ArgumentError, "Document has no root element" if root.nil?
+
+            to_tree(root)
           when Nokogiri::XML::Element
             convert_element(node)
           else
@@ -128,8 +147,8 @@ module Canon
 
           # CRITICAL FIX: Return original text without stripping
           # Normalization will be applied during comparison based on match_options
-          # Only return nil for truly empty text
-          text.empty? ? nil : text
+          # Only return nil for truly empty text or whitespace-only text
+          text.strip.empty? ? nil : text
         end
 
         # Build Nokogiri element from TreeNode
@@ -157,6 +176,88 @@ module Canon
           end
 
           element
+        end
+
+        # Convert Canon::Xml::Nodes::RootNode to TreeNode
+        #
+        # @param root_node [Canon::Xml::Nodes::RootNode] Root node
+        # @return [Core::TreeNode, nil] Tree node for first child (document element)
+        def to_tree_from_canon_root(root_node)
+          # Root node: process first child (document element)
+          return nil if root_node.children.empty?
+
+          to_tree(root_node.children.first)
+        end
+
+        # Convert Canon::Xml::Nodes::ElementNode to TreeNode
+        #
+        # @param element_node [Canon::Xml::Nodes::ElementNode] Element node
+        # @return [Core::TreeNode] Tree node
+        def to_tree_from_canon_element(element_node)
+          # Create TreeNode from Canon::Xml::Nodes::ElementNode
+          tree_node = Core::TreeNode.new(
+            label: element_node.name,
+            value: nil, # Elements don't have values
+            attributes: extract_canon_attributes(element_node),
+            children: [],
+            source_node: element_node, # Preserve reference to Canon node
+          )
+
+          # Process children recursively
+          element_node.children.each do |child|
+            child_tree = to_tree(child)
+            tree_node.add_child(child_tree) if child_tree
+          end
+
+          tree_node
+        end
+
+        # Convert Canon::Xml::Nodes::TextNode to TreeNode
+        #
+        # @param text_node [Canon::Xml::Nodes::TextNode] Text node
+        # @return [Core::TreeNode, nil] Tree node or nil for whitespace-only text
+        def to_tree_from_canon_text(text_node)
+          # Extract text value
+          text_value = text_node.value.to_s
+
+          # Return nil for whitespace-only text
+          return nil if text_value.strip.empty?
+
+          Core::TreeNode.new(
+            label: "text",
+            value: text_value,
+            attributes: {},
+            children: [],
+            source_node: text_node,
+          )
+        end
+
+        # Convert Canon::Xml::Nodes::CommentNode to TreeNode
+        #
+        # @param comment_node [Canon::Xml::Nodes::CommentNode] Comment node
+        # @return [Core::TreeNode] Tree node
+        def to_tree_from_canon_comment(comment_node)
+          Core::TreeNode.new(
+            label: "comment",
+            value: comment_node.value,
+            attributes: {},
+            children: [],
+            source_node: comment_node,
+          )
+        end
+
+        # Extract attributes from Canon::Xml::Nodes::ElementNode
+        #
+        # @param element_node [Canon::Xml::Nodes::ElementNode] Element node
+        # @return [Hash] Attributes hash sorted by key
+        def extract_canon_attributes(element_node)
+          # Canon::Xml::Nodes::ElementNode has attribute_nodes array
+          attrs = {}
+          element_node.attribute_nodes.each do |attr|
+            attrs[attr.name] = attr.value
+          end
+          # Sort attributes by key to normalize order
+          attrs.sort.to_h
         end
       end
     end

@@ -181,6 +181,9 @@ module Canon
           if current.element? && WHITESPACE_SENSITIVE_ELEMENTS.include?(current.name.downcase)
             return true
           end
+          # Stop at document root - documents don't have parents
+          break if current.is_a?(Nokogiri::XML::Document) || current.is_a?(Nokogiri::HTML5::Document)
+
           current = current.parent
         end
         false

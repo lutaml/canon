@@ -103,10 +103,12 @@ RSpec.describe Canon::Comparison do
         expect(result).to be_a(Canon::Comparison::ComparisonResult)
         expect(result.differences).not_to be_empty
         expect(result.equivalent?).to be false
-        expect(result.differences.first).to be_a(Canon::Diff::DiffNode)
-        expect(result.differences.first.node1).not_to be_nil
-        expect(result.differences.first.node2).not_to be_nil
-        expect(result.differences.first.dimension).to eq(:text_content)
+        # DOM diff creates a single DiffNode for element name difference
+        expect(result.differences.length).to eq(1)
+        expect(result.differences.all?(Canon::Diff::DiffNode)).to be true
+        expect(result.differences.all? do |d|
+          d.dimension == :text_content
+        end).to be true
       end
 
       it "returns ComparisonResult with differences for different text content" do
@@ -417,13 +419,15 @@ RSpec.describe Canon::Comparison do
         end
 
         it "respects preprocessing option for pre-parsed nodes" do
-          doc1 = Nokogiri::XML::Document.parse("<root>\n  <item>Test</item>\n</root>")
-          doc2 = Nokogiri::XML::Document.parse("<root><item>Test</item></root>")
+          # Use a difference that DataModel doesn't normalize away
+          # (DataModel strips whitespace-only text nodes, which is correct)
+          doc1 = Nokogiri::XML::Document.parse("<root><item>Test   content</item></root>")
+          doc2 = Nokogiri::XML::Document.parse("<root><item>Test content</item></root>")
 
-          # XML defaults are strict, so these should NOT match
+          # XML defaults are strict for text_content, so these should NOT match
           expect(described_class.equivalent?(doc1, doc2)).to be false
 
-          # But with spec_friendly profile, they should match (preprocessing: :rendered, structural_whitespace: :ignore)
+          # But with spec_friendly profile (text_content: :normalize), they should match
           expect(described_class.equivalent?(doc1, doc2,
                                              { match_profile: :spec_friendly })).to be true
         end

@@ -7,6 +7,7 @@ require_relative "comparison_result"
 require_relative "../diff/diff_node"
 require_relative "../diff/diff_classifier"
 require_relative "strategies/match_strategy_factory"
+require_relative "../html/data_model"
 
 module Canon
   module Comparison
@@ -97,9 +98,15 @@ module Canon
               node1.is_a?(Nokogiri::XML::DocumentFragment)) &&
               (node2.is_a?(Nokogiri::HTML4::DocumentFragment) ||
               node2.is_a?(Nokogiri::XML::DocumentFragment))
-            # Compare children of fragments
-            children1 = node1.children.to_a
-            children2 = node2.children.to_a
+            # Compare children of fragments - filter them first
+            all_children1 = node1.children.to_a
+            all_children2 = node2.children.to_a
+
+            # Filter children based on match options (e.g., ignore comments)
+            children1 = XmlComparator.send(:filter_children, all_children1,
+                                           opts)
+            children2 = XmlComparator.send(:filter_children, all_children2,
+                                           opts)
 
             if children1.length != children2.length
               result = Comparison::UNEQUAL_ELEMENTS
@@ -155,21 +162,20 @@ module Canon
         # @param match_opts_hash [Hash] Resolved match options
         # @return [Boolean, ComparisonResult] Result of tree diff comparison
         def perform_semantic_tree_diff(html1, html2, opts, match_opts_hash)
-          # Parse nodes using fragment parsers to preserve actual content
-          # without auto-generated elements (html, head, meta, etc.)
-          node1 = parse_node_as_fragment(html1, match_opts_hash[:preprocessing],
-                                         match_opts_hash)
-          node2 = parse_node_as_fragment(html2, match_opts_hash[:preprocessing],
-                                         match_opts_hash)
+          # Parse to Canon::Xml::Node (preserves preprocessing)
+          # For HTML, we parse as XML to get Canon::Xml::Node structure
+          node1 = parse_node_for_semantic(html1,
+                                          match_opts_hash[:preprocessing])
+          node2 = parse_node_for_semantic(html2,
+                                          match_opts_hash[:preprocessing])
 
           # Create strategy using factory
           strategy = Strategies::MatchStrategyFactory.create(
-            :semantic_tree,
-            :html,
-            match_opts_hash,
+            format: :html,
+            match_options: match_opts_hash,
           )
 
-          # Perform matching - returns DiffNodes
+          # Pass Canon::Xml::Node directly - adapter now handles it
           differences = strategy.match(node1, node2)
 
           # Return based on verbose mode
@@ -177,8 +183,8 @@ module Canon
             # Get preprocessed strings for display
             preprocessed = strategy.preprocess_for_display(node1, node2)
 
-            # Detect HTML version for result
-            html_version = detect_html_version_from_node(node1)
+            # Detect HTML version (default to HTML5 for Canon nodes)
+            html_version = :html5
 
             # Return ComparisonResult with strategy metadata
             ComparisonResult.new(
@@ -234,72 +240,100 @@ module Canon
           frag
         end
 
+        # Parse HTML for semantic tree diff using Canon::Html::DataModel
+        # Returns Canon::Xml::Node for preprocessing preservation
+        #
+        # @param html [String, Object] HTML to parse
+        # @param preprocessing [Symbol] Preprocessing mode
+        # @return [Canon::Xml::Node] Parsed Canon node
+        def parse_node_for_semantic(html, preprocessing = :none)
+          # If already a Canon::Xml::Node, return as-is
+          return html if html.is_a?(Canon::Xml::Node)
+
+          # Convert to string if needed
+          html_string = if html.is_a?(String)
+                          html
+                        elsif html.respond_to?(:to_html)
+                          html.to_html
+                        elsif html.respond_to?(:to_s)
+                          html.to_s
+                        else
+                          raise Canon::Error,
+                                "Unable to convert HTML to string: #{html.class}"
+                        end
+
+          # Strip DOCTYPE for consistent parsing
+          html_string = html_string.gsub(/<!DOCTYPE[^>]*>/i, "").strip
+
+          # Apply preprocessing to HTML string before parsing
+          processed_html = case preprocessing
+                           when :normalize
+                             # Normalize whitespace
+                             html_string.lines.map(&:strip).reject(&:empty?).join("\n")
+                           when :c14n
+                             # Canonicalize
+                             Canon::Xml::C14n.canonicalize(html_string,
+                                                           with_comments: false)
+                           when :format
+                             # Pretty format
+                             Canon.format(html_string, :html)
+                           else
+                             # :none or unrecognized
+                             html_string
+                           end
+
+          # Parse using Canon::Html::DataModel to get Canon::Xml::Node
+          # HTML parsing with proper HTML-specific handling
+          Canon::Html::DataModel.from_html(processed_html)
+        end
+
         # Parse a node from string or return as-is
         # Applies preprocessing transformation before parsing if specified
+        # For DOM comparison, returns Nokogiri nodes (not Canon::Xml::Node)
         def parse_node(node, preprocessing = :none, match_opts = {})
           # If already a Nokogiri node, check for incompatible XML documents
-          # Only raise error for non-string incompatible formats
           unless node.is_a?(String)
             # Detect if this is an XML document (not HTML)
-            # Strings are allowed since they can be wrapped/parsed as needed
             if is_xml_document?(node)
               raise Canon::CompareFormatMismatchError.new(:xml, :html)
             end
 
-            # For :rendered preprocessing, apply normalization even to pre-parsed nodes
-            if preprocessing == :rendered
-              # If already a DocumentFragment with :rendered, just normalize it
-              if node.is_a?(Nokogiri::HTML4::DocumentFragment) ||
-                  node.is_a?(Nokogiri::HTML5::DocumentFragment) ||
-                  node.is_a?(Nokogiri::XML::DocumentFragment)
-                # Normalize whitespace directly without re-parsing
-                normalize_html_style_script_comments(node)
-                normalize_rendered_whitespace(node, match_opts)
-                return node
+            # Normalize HTML documents to fragments to avoid DTD differences
+            # This ensures comparing string with document works correctly
+            if node.is_a?(Nokogiri::HTML::Document) ||
+                node.is_a?(Nokogiri::HTML4::Document) ||
+                node.is_a?(Nokogiri::HTML5::Document)
+              # Get root element and create fragment from its outer HTML
+              # This avoids DOCTYPE and other document-level nodes
+              root = node.at_css("html") || node.root
+              if root
+                node = Nokogiri::XML.fragment(root.to_html)
               end
-
-              # Normalize whitespace directly without re-parsing
-              normalize_html_style_script_comments(node)
-              normalize_rendered_whitespace(node, match_opts)
-              return node
             end
 
-            # For other preprocessing, just return the node (including DocumentFragments)
-            return node
-          end
-
-          # Check if string contains XML declaration but is actually HTML
-          # Nokogiri::HTML4.to_s adds <?xml...?> but the content is still HTML
-          # Check if this is actually HTML content after the declaration
-          # Look for <html tag which indicates HTML
-          if node.strip.start_with?("<?xml") && !node.match?(/<html[\s>]/i)
-            # No <html> tag, this is likely pure XML
-            raise Canon::CompareFormatMismatchError.new(:xml, :html)
-          end
-
-          # Has <?xml but also <html> tag, so it's HTML with XML declaration
-          # (common output from Nokogiri::HTML4#to_s)
-
-          # For :rendered preprocessing, handle separately to avoid double-parsing
-          if preprocessing == :rendered
-            # Check if this is a full HTML document or a fragment
-            # Use full document parsing if it has <html> tag
-            if node.match?(/<html[\s>]/i)
-              doc = Nokogiri::HTML(node, &:noblanks)
-              normalize_html_style_script_comments(doc)
-              normalize_rendered_whitespace(doc, match_opts)
-              remove_whitespace_only_text_nodes(doc)
-              return doc
-            else
-              # Use XML fragment parser to avoid auto-inserted meta tags
-              # (consistent with semantic tree diff)
-              frag = Nokogiri::XML.fragment(node)
+            # For :rendered preprocessing with Nokogiri nodes
+            if preprocessing == :rendered
+              # Normalize and return
+              frag = node.is_a?(Nokogiri::XML::DocumentFragment) ? node : Nokogiri::XML.fragment(node.to_html)
               normalize_html_style_script_comments(frag)
               normalize_rendered_whitespace(frag, match_opts)
               remove_whitespace_only_text_nodes(frag)
               return frag
             end
+
+            # Return Nokogiri node (now normalized if it was a document)
+            return node
           end
+
+          # Check if string contains XML declaration but is actually HTML
+          if node.strip.start_with?("<?xml") && !node.match?(/<html[\s>]/i)
+            # No <html> tag, this is likely pure XML
+            raise Canon::CompareFormatMismatchError.new(:xml, :html)
+          end
+
+          # Strip DOCTYPE declarations from HTML strings
+          # This normalizes parsed HTML (which includes DOCTYPE) with raw HTML strings
+          node = node.gsub(/<!DOCTYPE[^>]*>/i, "").strip
 
           # Apply preprocessing to HTML string before parsing
           html_string = case preprocessing
@@ -314,15 +348,52 @@ module Canon
                           # Pretty format the HTML
                           Canon.format(node, :html)
                         else
-                          # :none or unrecognized - use as-is
+                          # :none, :rendered or unrecognized - use as-is
                           node
                         end
 
-          # Use Nokogiri for HTML and normalize style/script comments
-          # Use noblanks to prevent Nokogiri from adding structural whitespace
-          doc = Nokogiri::HTML(html_string, &:noblanks)
-          normalize_html_style_script_comments(doc)
-          doc
+          # Parse as Nokogiri fragment for DOM comparison
+          # Use XML fragment parser to avoid auto-inserted meta tags
+          frag = Nokogiri::XML.fragment(html_string)
+
+          # Apply :rendered preprocessing if needed
+          if preprocessing == :rendered
+            normalize_html_style_script_comments(frag)
+            normalize_rendered_whitespace(frag, match_opts)
+            remove_whitespace_only_text_nodes(frag)
+          end
+
+          frag
+        end
+
+        # Normalize HTML comments within style and script tags for DataModel nodes
+        def normalize_html_style_script_comments_datamodel(root)
+          # Walk the tree to find style/script elements
+          find_and_normalize_style_script(root)
+        end
+
+        def find_and_normalize_style_script(node)
+          return unless node.respond_to?(:children)
+
+          node.children.each do |child|
+            next unless child.is_a?(Canon::Xml::Nodes::ElementNode)
+
+            # If this is a style or script element, normalize its text content
+            if %w[style script].include?(child.name.downcase)
+              # Get text children and remove HTML comments from them
+              child.children.each do |text_child|
+                next unless text_child.is_a?(Canon::Xml::Nodes::TextNode)
+
+                # Remove HTML comments from text content
+                normalized = text_child.value.gsub(/<!--.*?-->/m, "").strip
+                # Update the text value
+                text_child.instance_variable_set(:@value, normalized)
+              end
+            end
+
+            # Recursively process children
+            find_and_normalize_style_script(child)
+          end
         end
 
         # Detect HTML version from content
@@ -342,12 +413,12 @@ module Canon
           end
         end
 
-        # Detect HTML version from Nokogiri node
+        # Detect HTML version from node
         #
-        # @param node [Nokogiri::XML::Node] Nokogiri HTML node
+        # @param node [Canon::Xml::Node, Nokogiri::XML::Node] HTML node
         # @return [Symbol] :html5 or :html4
         def detect_html_version_from_node(node)
-          # Check node type
+          # Check node type for Nokogiri
           if node.is_a?(Nokogiri::HTML5::Document) ||
               node.is_a?(Nokogiri::HTML5::DocumentFragment)
             :html5
@@ -355,20 +426,27 @@ module Canon
               node.is_a?(Nokogiri::HTML4::DocumentFragment)
             :html4
           else
-            # Default to HTML4 for compatibility
-            :html4
+            # Default to HTML5 for Canon::Xml::Node and unknown types
+            :html5
           end
         end
 
         # Serialize node to string for diff display
         # This ensures the displayed diff matches what was compared
         #
-        # @param node [Nokogiri::HTML::Document] Parsed HTML node
+        # @param node [Canon::Xml::Node, Nokogiri::HTML::Document] Parsed node
         # @return [String] Serialized HTML string
         def serialize_for_display(node)
-          # Get string representation with formatting for line-by-line diffs
-          # Use to_html which preserves line structure for diff display
-          node.to_html
+          # Use XmlComparator's serializer for Canon::Xml::Node
+          if node.is_a?(Canon::Xml::Node)
+            XmlComparator.send(:serialize_node_to_xml, node)
+          elsif node.respond_to?(:to_html)
+            node.to_html
+          elsif node.respond_to?(:to_xml)
+            node.to_xml
+          else
+            node.to_s
+          end
         end
 
         # Normalize HTML comments within style and script tags

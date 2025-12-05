@@ -29,11 +29,24 @@ module Canon
           @match_options = match_options
         end
 
-        # Convert Nokogiri HTML document/element to TreeNode
+        # Convert Nokogiri HTML document/element or Canon::Xml::Node to TreeNode
         #
-        # @param node [Nokogiri::HTML::Document, Nokogiri::XML::Element, Nokogiri::HTML::DocumentFragment] HTML node
+        # @param node [Nokogiri::HTML::Document, Nokogiri::XML::Element, Nokogiri::HTML::DocumentFragment, Canon::Xml::Node] HTML node
         # @return [Core::TreeNode] Root tree node
         def to_tree(node)
+          # Handle Canon::Xml::Node types first (same as XML adapter)
+          case node
+          when Canon::Xml::Nodes::RootNode
+            return to_tree_from_canon_root(node)
+          when Canon::Xml::Nodes::ElementNode
+            return to_tree_from_canon_element(node)
+          when Canon::Xml::Nodes::TextNode
+            return to_tree_from_canon_text(node)
+          when Canon::Xml::Nodes::CommentNode
+            return to_tree_from_canon_comment(node)
+          end
+
+          # Fallback to Nokogiri (legacy support)
           case node
           when Nokogiri::HTML::Document, Nokogiri::HTML4::Document, Nokogiri::HTML5::Document
             # Start from html element or root element
@@ -160,11 +173,11 @@ module Canon
           # Example: "Text<br/>More" should become "Text More" not "TextMore"
           # EXCEPT for whitespace-sensitive elements (<pre>, <code>, etc.)
           # where we must preserve exact whitespace
-          if element.element_children.any? && !whitespace_sensitive?(element)
-            separator = " "
-          else
-            separator = ""
-          end
+          separator = if element.element_children.any? && !whitespace_sensitive?(element)
+                        " "
+                      else
+                        ""
+                      end
           text = text_nodes.map(&:text).join(separator)
 
           # CRITICAL FIX: Return original text without stripping
@@ -212,6 +225,90 @@ module Canon
           end
 
           element
+        end
+
+        # Convert Canon::Xml::Nodes::RootNode to TreeNode
+        #
+        # @param root_node [Canon::Xml::Nodes::RootNode] Root node
+        # @return [Core::TreeNode, nil] Tree node for first child (document element)
+        def to_tree_from_canon_root(root_node)
+          # Root node: process first child (document element)
+          return nil if root_node.children.empty?
+
+          to_tree(root_node.children.first)
+        end
+
+        # Convert Canon::Xml::Nodes::ElementNode to TreeNode
+        #
+        # @param element_node [Canon::Xml::Nodes::ElementNode] Element node
+        # @return [Core::TreeNode] Tree node
+        def to_tree_from_canon_element(element_node)
+          # Create TreeNode from Canon::Xml::Nodes::ElementNode
+          tree_node = Core::TreeNode.new(
+            label: element_node.name.downcase, # Lowercase for HTML
+            value: nil, # Elements don't have values
+            attributes: extract_canon_attributes(element_node),
+            children: [],
+            source_node: element_node, # Preserve reference to Canon node
+          )
+
+          # Process children recursively
+          element_node.children.each do |child|
+            child_tree = to_tree(child)
+            tree_node.add_child(child_tree) if child_tree
+          end
+
+          tree_node
+        end
+
+        # Convert Canon::Xml::Nodes::TextNode to TreeNode
+        #
+        # @param text_node [Canon::Xml::Nodes::TextNode] Text node
+        # @return [Core::TreeNode, nil] Tree node or nil for empty text
+        def to_tree_from_canon_text(text_node)
+          # Extract text value
+          text_value = text_node.value.to_s
+
+          # Return nil for empty text (don't strip for HTML)
+          return nil if text_value.empty?
+
+          Core::TreeNode.new(
+            label: "text",
+            value: text_value,
+            attributes: {},
+            children: [],
+            source_node: text_node,
+          )
+        end
+
+        # Convert Canon::Xml::Nodes::CommentNode to TreeNode
+        #
+        # @param comment_node [Canon::Xml::Nodes::CommentNode] Comment node
+        # @return [Core::TreeNode] Tree node
+        def to_tree_from_canon_comment(comment_node)
+          Core::TreeNode.new(
+            label: "comment",
+            value: comment_node.value,
+            attributes: {},
+            children: [],
+            source_node: comment_node,
+          )
+        end
+
+        # Extract attributes from Canon::Xml::Nodes::ElementNode
+        #
+        # @param element_node [Canon::Xml::Nodes::ElementNode] Element node
+        # @return [Hash] Attributes hash (preserves order, filters xmlns)
+        def extract_canon_attributes(element_node)
+          # Canon::Xml::Nodes::ElementNode has attribute_nodes array
+          attrs = {}
+          element_node.attribute_nodes.each do |attr|
+            # Skip xmlns attributes for HTML (like Nokogiri path)
+            next if attr.name.start_with?("xmlns")
+
+            attrs[attr.name] = attr.value
+          end
+          attrs
         end
       end
     end
