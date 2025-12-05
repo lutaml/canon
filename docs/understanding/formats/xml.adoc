@@ -72,11 +72,14 @@ Canon.format(xml, :xml)
 
 Default diff mode: `:by_object` (tree-based semantic diff)
 
-NOTE: XML `attribute_order` defaults to `:ignore` because the XML specification states that attribute order is not significant. Use the `strict` profile if you need to enforce specific attribute ordering.
+NOTE: XML `attribute_order` defaults to `:ignore` because the XML specification
+states that attribute order is not significant. Use the `strict` profile if you
+need to enforce specific attribute ordering.
 
 == Match profiles for XML
 
-Canon provides predefined profiles optimized for XML documents. Each profile configures preprocessing, match options, diff algorithm, and formatting.
+Canon provides predefined profiles optimized for XML documents. Each profile
+configures preprocessing, match options, diff algorithm, and formatting.
 
 === strict profile
 
@@ -227,7 +230,73 @@ Namespace declarations are sorted and duplicate declarations are removed.
 ----
 
 Namespaces are sorted alphabetically by prefix, and redundant declarations are removed.
+
+=== Namespace comparison semantics
+
+Canon compares XML elements using their namespace URI and local name, following
+the XML specification. This means elements are identified by the pair
+`{namespace_uri, local_name}` rather than by their qualified name
+(prefix:local_name).
+
+**Key principles:**
+
+* Elements with different prefixes but the same namespace URI are considered equivalent
+* Namespace prefixes themselves have no semantic meaning
+* Inherited namespaces are treated the same as explicitly declared namespaces
+* The diff output shows namespace information when namespaces differ
+
+.Namespace URI comparison
+[example]
 ====
+[source,ruby]
+----
+# These are semantically equivalent
+xml1 = '<root xmlns:a="http://example.com"><a:item>value</a:item></root>'
+xml2 = '<root xmlns:b="http://example.com"><b:item>value</b:item></root>'
+
+Canon::Comparison.equivalent?(xml1, xml2)
+# => true
+
+# Same local name, different namespace URIs - NOT equivalent
+xml3 = '<root xmlns:a="http://example.com"><a:item>value</a:item></root>'
+xml4 = '<root xmlns:a="http://other.com"><a:item>value</a:item></root>'
+
+Canon::Comparison.equivalent?(xml3, xml4)
+# => false
+----
+====
+
+.Inherited vs explicit namespaces
+[example]
+====
+[source,xml]
+----
+<!-- Inherited namespace -->
+<root xmlns="http://example.com">
+  <item>value</item>  <!-- item is in http://example.com namespace -->
+</root>
+
+<!-- Explicit namespace -->
+<root>
+  <item xmlns="http://example.com">value</item>
+</root>
+
+<!-- Both items have namespace_uri = "http://example.com" -->
+<!-- Canon considers them equivalent in namespace comparison -->
+----
+====
+
+**Diff output with namespaces:**
+
+When elements differ in namespace, the diff output includes namespace annotations:
+
+[source]
+----
+- <item> [namespace: http://example.com] "value"
++ <item> [namespace: http://other.com] "value"
+----
+
+This makes it clear when namespace differences are causing comparison failures.
 
 === xml: attributes
 
@@ -235,7 +304,7 @@ Special attributes like `xml:lang`, `xml:space`, `xml:id`, and `xml:base` are pr
 
 .xml:space example
 [example]
-====
+----
 [source,xml]
 ----
 <root xml:space="preserve">
@@ -244,7 +313,7 @@ Special attributes like `xml:lang`, `xml:space`, `xml:id`, and `xml:base` are pr
 ----
 
 When `xml:space="preserve"` is set, whitespace is preserved in descendants.
-====
+----
 
 == Usage examples
 
