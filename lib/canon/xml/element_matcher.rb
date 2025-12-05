@@ -55,18 +55,62 @@ module Canon
       # Default attributes used to identify elements
       DEFAULT_IDENTITY_ATTRS = %w[id ref name key].freeze
 
-      # Match result for an element
-      MatchResult = Struct.new(:status, :elem1, :elem2, :path) do
+      # Represents the result of matching an element across two DOM trees
+      #
+      # A MatchResult indicates whether an element was found in both trees
+      # (matched), only in the first tree (deleted), or only in the second
+      # tree (inserted).
+      #
+      # == Attributes
+      #
+      # - status: Symbol indicating match type (:matched, :deleted, :inserted)
+      # - elem1: Element from first tree (nil if inserted)
+      # - elem2: Element from second tree (nil if deleted)
+      # - path: Array of element names showing location in tree
+      # - pos1: Integer index of elem1 in its parent's children (nil if inserted)
+      # - pos2: Integer index of elem2 in its parent's children (nil if deleted)
+      #
+      # == Position Change Detection
+      #
+      # When status is :matched and pos1 ≠ pos2, the element has moved positions.
+      # This is tracked as a semantic difference via the :element_position dimension.
+      #
+      class MatchResult
+        attr_reader :status, :elem1, :elem2, :path, :pos1, :pos2
+
+        # @param status [Symbol] Match status (:matched, :deleted, :inserted)
+        # @param elem1 [Object, nil] Element from first tree
+        # @param elem2 [Object, nil] Element from second tree
+        # @param path [Array<String>] Element path in tree
+        # @param pos1 [Integer, nil] Position index in first tree
+        # @param pos2 [Integer, nil] Position index in second tree
+        def initialize(status:, elem1:, elem2:, path:, pos1: nil, pos2: nil)
+          @status = status
+          @elem1 = elem1
+          @elem2 = elem2
+          @path = path
+          @pos1 = pos1
+          @pos2 = pos2
+        end
+
+        # @return [Boolean] true if element found in both trees
         def matched?
           status == :matched
         end
 
+        # @return [Boolean] true if element only in second tree
         def inserted?
           status == :inserted
         end
 
+        # @return [Boolean] true if element only in first tree
         def deleted?
           status == :deleted
+        end
+
+        # @return [Boolean] true if element moved to different position
+        def position_changed?
+          matched? && pos1 && pos2 && pos1 != pos2
         end
       end
 
@@ -106,7 +150,19 @@ module Canon
           if map2.key?(identity)
             elem2 = map2[identity]
             elem_path = path + [elem1.name]
-            @matches << MatchResult.new(:matched, elem1, elem2, elem_path)
+
+            # Track positions
+            pos1 = elems1.index(elem1)
+            pos2 = elems2.index(elem2)
+
+            @matches << MatchResult.new(
+              status: :matched,
+              elem1: elem1,
+              elem2: elem2,
+              path: elem_path,
+              pos1: pos1,
+              pos2: pos2,
+            )
             matched1.add(elem1)
             matched2.add(elem2)
 
@@ -126,14 +182,32 @@ module Canon
           next if matched1.include?(elem1)
 
           elem_path = path + [elem1.name]
-          @matches << MatchResult.new(:deleted, elem1, nil, elem_path)
+          pos1 = elems1.index(elem1)
+
+          @matches << MatchResult.new(
+            status: :deleted,
+            elem1: elem1,
+            elem2: nil,
+            path: elem_path,
+            pos1: pos1,
+            pos2: nil,
+          )
         end
 
         unmatched2.each do |elem2|
           next if matched2.include?(elem2)
 
           elem_path = path + [elem2.name]
-          @matches << MatchResult.new(:inserted, nil, elem2, elem_path)
+          pos2 = elems2.index(elem2)
+
+          @matches << MatchResult.new(
+            status: :inserted,
+            elem1: nil,
+            elem2: elem2,
+            path: elem_path,
+            pos1: nil,
+            pos2: pos2,
+          )
         end
       end
 
@@ -157,7 +231,19 @@ module Canon
             next if matched1.include?(elem1) || matched2.include?(elem2)
 
             elem_path = path + [name]
-            @matches << MatchResult.new(:matched, elem1, elem2, elem_path)
+
+            # Track positions in original element lists
+            pos1 = elems1.index(elem1)
+            pos2 = elems2.index(elem2)
+
+            @matches << MatchResult.new(
+              status: :matched,
+              elem1: elem1,
+              elem2: elem2,
+              path: elem_path,
+              pos1: pos1,
+              pos2: pos2,
+            )
             matched1.add(elem1)
             matched2.add(elem2)
 

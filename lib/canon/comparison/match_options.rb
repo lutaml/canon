@@ -124,6 +124,7 @@ module Canon
           attribute_presence
           attribute_order
           attribute_values
+          element_position
           comments
           element_structure
           element_position
@@ -139,6 +140,7 @@ module Canon
             attribute_presence: :strict,
             attribute_order: :ignore,
             attribute_values: :strict,
+            element_position: :ignore,
             comments: :ignore,
           },
           xml: {
@@ -148,6 +150,7 @@ module Canon
             attribute_presence: :strict,
             attribute_order: :ignore,
             attribute_values: :strict,
+            element_position: :strict,
             comments: :strict,
           },
         }.freeze
@@ -162,6 +165,7 @@ module Canon
             attribute_presence: :strict,
             attribute_order: :strict,
             attribute_values: :strict,
+            element_position: :strict,
             comments: :strict,
           },
 
@@ -174,6 +178,7 @@ module Canon
             attribute_presence: :strict,
             attribute_order: :strict,
             attribute_values: :strict,
+            element_position: :strict,
             comments: :ignore,
           },
 
@@ -186,6 +191,7 @@ module Canon
             attribute_presence: :strict,
             attribute_order: :strict,
             attribute_values: :normalize,
+            element_position: :ignore,
             comments: :ignore,
           },
 
@@ -197,6 +203,7 @@ module Canon
             attribute_presence: :strict,
             attribute_order: :strict,
             attribute_values: :strict,
+            element_position: :ignore,
             comments: :ignore,
           },
 
@@ -209,6 +216,7 @@ module Canon
             attribute_presence: :strict,
             attribute_order: :ignore,
             attribute_values: :normalize,
+            element_position: :ignore,
             comments: :ignore,
           },
 
@@ -220,6 +228,7 @@ module Canon
             attribute_presence: :strict,
             attribute_order: :ignore,
             attribute_values: :normalize,
+            element_position: :ignore,
             comments: :ignore,
           },
         }.freeze

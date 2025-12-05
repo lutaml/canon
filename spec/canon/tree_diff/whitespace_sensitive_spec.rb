@@ -44,7 +44,8 @@ RSpec.describe "Whitespace-sensitive elements" do
         be preserved</pre>
       HTML
 
-      expect(html1).to be_html_equivalent_to(html2, diff_algorithm: :semantic_tree)
+      expect(html1).to be_html_equivalent_to(html2,
+                                             diff_algorithm: :semantic_tree)
     end
 
     it "treats different whitespace in <pre> as non-equivalent" do
@@ -56,7 +57,8 @@ RSpec.describe "Whitespace-sensitive elements" do
 
       html2 = "<pre>Multiple spaces and newlines should be preserved</pre>"
 
-      expect(html1).not_to be_html_equivalent_to(html2, diff_algorithm: :semantic_tree)
+      expect(html1).not_to be_html_equivalent_to(html2,
+                                                 diff_algorithm: :semantic_tree)
     end
   end
 
@@ -112,8 +114,7 @@ RSpec.describe "Whitespace-sensitive elements" do
 
       # With normalize (default), these should be equivalent
       expect(html1).to be_html_equivalent_to(html2,
-        match: { text_content: :normalize }
-      )
+                                             match: { text_content: :normalize })
     end
   end
 end

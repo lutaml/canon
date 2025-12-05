@@ -223,7 +223,7 @@ module Canon
         file_size = File.size(filename)
         max_size = get_max_file_size(format)
 
-        return unless max_size && max_size.positive?
+        return unless max_size&.positive?
         return if file_size <= max_size
 
         raise Canon::SizeLimitExceededError.new(:file_size, file_size, max_size)

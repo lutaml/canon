@@ -189,9 +189,9 @@ module Canon
 
             # CRITICAL: For whitespace-sensitive elements, check text values match
             # Don't auto-match <pre>, <code>, etc. with different whitespace
-            if whitespace_sensitive?(child1) || whitespace_sensitive?(child2)
+            if (whitespace_sensitive?(child1) || whitespace_sensitive?(child2)) && child1.value != child2.value
               # For whitespace-sensitive elements, text must match exactly
-              next unless child1.value == child2.value
+              next
             end
 
             # Check propagation depth

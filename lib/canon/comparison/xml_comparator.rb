@@ -96,14 +96,11 @@ module Canon
           end
 
           if opts[:verbose]
-            # Return ComparisonResult for proper equivalence checking
-            # Format XMLfor line-by-line display by adding line breaks between elements
-            xml1 = node1.respond_to?(:to_xml) ? node1.to_xml : node1.to_s
-            xml2 = node2.respond_to?(:to_xml) ? node2.to_xml : node2.to_s
-
+            # Serialize parsed nodes for consistent formatting
+            # This ensures both sides formatted identically, showing only real differences
             preprocessed = [
-              xml1.gsub(/></, ">\n<"),
-              xml2.gsub(/></, ">\n<"),
+              serialize_node_to_xml(node1).gsub(/></, ">\n<"),
+              serialize_node_to_xml(node2).gsub(/></, ">\n<"),
             ]
 
             ComparisonResult.new(
@@ -128,13 +125,9 @@ module Canon
         # @param match_opts_hash [Hash] Resolved match options
         # @return [Boolean, ComparisonResult] Result of tree diff comparison
         def perform_semantic_tree_diff(n1, n2, opts, match_opts_hash)
-          # Parse nodes if strings, applying preprocessing
+          # Parse to Canon::Xml::Node (preserves preprocessing)
           node1 = parse_node(n1, match_opts_hash[:preprocessing])
           node2 = parse_node(n2, match_opts_hash[:preprocessing])
-
-          # Convert to Nokogiri for strategy
-          nokogiri1 = convert_to_nokogiri(node1)
-          nokogiri2 = convert_to_nokogiri(node2)
 
           # Create strategy using factory
           strategy = Strategies::MatchStrategyFactory.create(
@@ -142,13 +135,13 @@ module Canon
             match_options: match_opts_hash,
           )
 
-          # Perform matching - returns DiffNodes
-          differences = strategy.match(nokogiri1, nokogiri2)
+          # Pass Canon::Xml::Node directly - XML adapter now handles it
+          differences = strategy.match(node1, node2)
 
           # Return based on verbose mode
           if opts[:verbose]
             # Get preprocessed strings for display
-            preprocessed = strategy.preprocess_for_display(nokogiri1, nokogiri2)
+            preprocessed = strategy.preprocess_for_display(node1, node2)
 
             # Return ComparisonResult with strategy metadata
             ComparisonResult.new(
@@ -164,32 +157,25 @@ module Canon
           end
         end
 
-        # Convert Moxml node to Nokogiri for tree diff
-        def convert_to_nokogiri(node)
-          # Check if it's a Nokogiri node already
-          if node.is_a?(Nokogiri::XML::Node) ||
-              node.is_a?(Nokogiri::XML::Document)
-            return node
-          end
-
-          # Convert Moxml or string to Nokogiri
-          if node.is_a?(String)
-            Nokogiri::XML(node)
-          else
-            # Moxml nodes - convert via to_xml
-            xml_string = if node.respond_to?(:to_xml)
-                           node.to_xml
-                         else
-                           node.to_s
-                         end
-            Nokogiri::XML(xml_string)
-          end
-        end
-
         # Parse a node from string or return as-is
         # Applies preprocessing transformation before parsing if specified
         def parse_node(node, preprocessing = :none)
-          return node unless node.is_a?(String)
+          # If already a Canon::Xml::Node, return as-is
+          return node if node.is_a?(Canon::Xml::Node)
+
+          # If it's a Nokogiri or Moxml node, convert to DataModel
+          unless node.is_a?(String)
+            # Convert to XML string then parse through DataModel
+            xml_str = if node.respond_to?(:to_xml)
+                        node.to_xml
+                      elsif node.respond_to?(:to_s)
+                        node.to_s
+                      else
+                        raise Canon::Error,
+                              "Unable to convert node to string: #{node.class}"
+                      end
+            return Canon::Xml::DataModel.from_xml(xml_str)
+          end
 
           # Apply preprocessing to XML string before parsing
           xml_string = case preprocessing
@@ -208,8 +194,8 @@ module Canon
                          node
                        end
 
-          # Use Moxml for XML parsing
-          Moxml.new.parse(xml_string)
+          # Use Canon::Xml::DataModel for parsing to get Canon::Xml::Node instances
+          Canon::Xml::DataModel.from_xml(xml_string)
         end
 
         # Main comparison dispatcher
@@ -261,7 +247,30 @@ module Canon
           end
 
           # Dispatch based on node type
-          if n1.respond_to?(:element?) && n1.element?
+          # Canon::Xml::Node types use .node_type method that returns symbols
+          # Nokogiri also has .node_type but returns integers, so check for Symbol
+          if n1.respond_to?(:node_type) && n2.respond_to?(:node_type) &&
+              n1.node_type.is_a?(Symbol) && n2.node_type.is_a?(Symbol)
+            case n1.node_type
+            when :root
+              compare_children(n1, n2, opts, child_opts, diff_children,
+                               differences)
+            when :element
+              compare_element_nodes(n1, n2, opts, child_opts, diff_children,
+                                    differences)
+            when :text
+              compare_text_nodes(n1, n2, opts, differences)
+            when :comment
+              compare_comment_nodes(n1, n2, opts, differences)
+            when :cdata
+              compare_text_nodes(n1, n2, opts, differences)
+            when :processing_instruction
+              compare_processing_instruction_nodes(n1, n2, opts, differences)
+            else
+              Comparison::EQUIVALENT
+            end
+          # Moxml/Nokogiri types use .element?, .text?, etc. methods
+          elsif n1.respond_to?(:element?) && n1.element?
             compare_element_nodes(n1, n2, opts, child_opts, diff_children,
                                   differences)
           elsif n1.respond_to?(:text?) && n1.text?
@@ -274,7 +283,7 @@ module Canon
               n1.processing_instruction?
             compare_processing_instruction_nodes(n1, n2, opts, differences)
           elsif n1.respond_to?(:root)
-            # Document node
+            # Document node (Moxml/Nokogiri - legacy path)
             compare_document_nodes(n1, n2, opts, child_opts, diff_children,
                                    differences)
           else
@@ -305,8 +314,12 @@ module Canon
 
         # Compare attribute sets
         def compare_attribute_sets(n1, n2, opts, differences)
-          attrs1 = filter_attributes(n1.attributes, opts)
-          attrs2 = filter_attributes(n2.attributes, opts)
+          # Get attributes using the appropriate method for each node type
+          raw_attrs1 = n1.respond_to?(:attribute_nodes) ? n1.attribute_nodes : n1.attributes
+          raw_attrs2 = n2.respond_to?(:attribute_nodes) ? n2.attribute_nodes : n2.attributes
+
+          attrs1 = filter_attributes(raw_attrs1, opts)
+          attrs2 = filter_attributes(raw_attrs2, opts)
 
           match_opts = opts[:match_opts]
           attribute_order_behavior = match_opts[:attribute_order] || :strict
@@ -367,32 +380,51 @@ module Canon
           filtered = {}
           match_opts = opts[:match_opts]
 
-          attributes.each do |key, val|
-            # Handle both Nokogiri and Moxml attribute formats:
+          # Handle Canon::Xml::Node attribute format (array of AttributeNode)
+          if attributes.is_a?(Array)
+            attributes.each do |attr|
+              name = attr.name
+              value = attr.value
+
+              # Skip if attribute name should be ignored
+              next if should_ignore_attr_by_name?(name, opts)
+
+              # Skip if attribute content should be ignored
+              next if should_ignore_attr_content?(value, opts)
+
+              # Apply match options for attribute values
+              behavior = match_opts[:attribute_values] || :strict
+              value = MatchOptions.process_attribute_value(value, behavior)
+
+              filtered[name] = value
+            end
+          else
+            # Handle Nokogiri and Moxml attribute formats (Hash-like):
             # - Nokogiri: key is String name, val is Nokogiri::XML::Attr object
             # - Moxml: key is Moxml::Attribute object, val is nil
+            attributes.each do |key, val|
+              if key.is_a?(String)
+                # Nokogiri format: key=name (String), val=attr object
+                name = key
+                value = val.respond_to?(:value) ? val.value : val.to_s
+              else
+                # Moxml format: key=attr object, val=nil
+                name = key.respond_to?(:name) ? key.name : key.to_s
+                value = key.respond_to?(:value) ? key.value : key.to_s
+              end
 
-            if key.is_a?(String)
-              # Nokogiri format: key=name (String), val=attr object
-              name = key
-              value = val.respond_to?(:value) ? val.value : val.to_s
-            else
-              # Moxml format: key=attr object, val=nil
-              name = key.respond_to?(:name) ? key.name : key.to_s
-              value = key.respond_to?(:value) ? key.value : key.to_s
+              # Skip if attribute name should be ignored
+              next if should_ignore_attr_by_name?(name, opts)
+
+              # Skip if attribute content should be ignored
+              next if should_ignore_attr_content?(value, opts)
+
+              # Apply match options for attribute values
+              behavior = match_opts[:attribute_values] || :strict
+              value = MatchOptions.process_attribute_value(value, behavior)
+
+              filtered[name] = value
             end
-
-            # Skip if attribute name should be ignored
-            next if should_ignore_attr_by_name?(name, opts)
-
-            # Skip if attribute content should be ignored
-            next if should_ignore_attr_content?(value, opts)
-
-            # Apply match options for attribute values
-            behavior = match_opts[:attribute_values] || :strict
-            value = MatchOptions.process_attribute_value(value, behavior)
-
-            filtered[name] = value
           end
 
           filtered
@@ -504,8 +536,9 @@ module Canon
           # If comments are ignored, consider them equivalent
           return Comparison::EQUIVALENT if behavior == :ignore
 
-          content1 = n1.content.to_s
-          content2 = n2.content.to_s
+          # Canon::Xml::Node CommentNode uses .value, Nokogiri uses .content
+          content1 = node_text(n1)
+          content2 = node_text(n2)
 
           if MatchOptions.match_text?(content1, content2, behavior)
             Comparison::EQUIVALENT
@@ -556,25 +589,132 @@ module Canon
                         differences)
         end
 
-        # Compare children of two nodes
+        # Compare children of two nodes using semantic matching
+        #
+        # Uses ElementMatcher to pair children semantically (by identity attributes
+        # or position), then compares matched pairs and detects position changes.
         def compare_children(n1, n2, opts, child_opts, diff_children,
                              differences)
           children1 = filter_children(n1.children, opts)
           children2 = filter_children(n2.children, opts)
 
-          unless children1.length == children2.length
-            add_difference(n1, n2, Comparison::MISSING_NODE,
-                           Comparison::MISSING_NODE, :text_content, opts, differences)
-            return Comparison::MISSING_NODE
+          # Quick check: if both have no children, they're equivalent
+          return Comparison::EQUIVALENT if children1.empty? && children2.empty?
+
+          # Check if we can use ElementMatcher (requires Canon::Xml::DataModel nodes)
+          # ElementMatcher expects nodes with .node_type method that returns symbols
+          # and only works with element nodes (filters out text, comment, etc.)
+          can_use_matcher = children1.all? do |c|
+            c.is_a?(Canon::Xml::Node) && c.node_type == :element
+          end &&
+            children2.all? { |c| c.is_a?(Canon::Xml::Node) && c.node_type == :element }
+
+          if can_use_matcher && !children1.empty? && !children2.empty?
+            # Use ElementMatcher for semantic matching with position tracking
+            use_element_matcher_comparison(children1, children2, n1, opts,
+                                           child_opts, diff_children, differences)
+          else
+            # Fall back to simple positional comparison for Moxml/Nokogiri nodes
+            # Length check
+            unless children1.length == children2.length
+              add_difference(n1, n2, Comparison::MISSING_NODE,
+                             Comparison::MISSING_NODE, :text_content, opts,
+                             differences)
+              return Comparison::MISSING_NODE
+            end
+
+            # Compare children pairwise by position
+            children1.zip(children2).each do |child1, child2|
+              result = compare_nodes(child1, child2, child_opts, child_opts,
+                                     diff_children, differences)
+              return result unless result == Comparison::EQUIVALENT
+            end
+
+            Comparison::EQUIVALENT
+          end
+        end
+
+        # Use ElementMatcher for semantic comparison (Canon::Xml::DataModel nodes)
+        def use_element_matcher_comparison(children1, children2, parent_node,
+                                          opts, child_opts, diff_children,
+                                          differences)
+          require_relative "../xml/element_matcher"
+
+          # Create temporary RootNode wrappers to use ElementMatcher
+          # Don't modify parent pointers - just set @children directly
+          require_relative "../xml/nodes/root_node"
+
+          temp_root1 = Canon::Xml::Nodes::RootNode.new
+          temp_root1.instance_variable_set(:@children, children1.dup)
+
+          temp_root2 = Canon::Xml::Nodes::RootNode.new
+          temp_root2.instance_variable_set(:@children, children2.dup)
+
+          matcher = Canon::Xml::ElementMatcher.new
+          matches = matcher.match_trees(temp_root1, temp_root2)
+
+          # Filter matches to only include direct children
+          # match_trees returns ALL descendants, but we only want direct children
+          matches = matches.select do |m|
+            (m.elem1.nil? || children1.include?(m.elem1)) &&
+              (m.elem2.nil? || children2.include?(m.elem2))
           end
 
-          children1.zip(children2).each do |child1, child2|
-            result = compare_nodes(child1, child2, child_opts, child_opts,
-                                   diff_children, differences)
-            return result unless result == Comparison::EQUIVALENT
+          # If no matches and children exist, they're all different
+          if matches.empty? && (!children1.empty? || !children2.empty?)
+            add_difference(parent_node, parent_node, Comparison::MISSING_NODE,
+                           Comparison::MISSING_NODE, :text_content, opts,
+                           differences)
+            return Comparison::UNEQUAL_ELEMENTS
           end
 
-          Comparison::EQUIVALENT
+          all_equivalent = true
+
+          matches.each do |match|
+            case match.status
+            when :matched
+              # Check if element position changed
+              if match.position_changed?
+                match_opts = opts[:match_opts]
+                position_behavior = match_opts[:element_position] || :strict
+
+                # Only create DiffNode if element_position is not :ignore
+                if position_behavior != :ignore
+                  add_difference(
+                    match.elem1,
+                    match.elem2,
+                    "position #{match.pos1}",
+                    "position #{match.pos2}",
+                    :element_position,
+                    opts,
+                    differences,
+                  )
+                  all_equivalent = false if position_behavior == :strict
+                end
+              end
+
+              # Compare the matched elements for content/attribute differences
+              result = compare_nodes(match.elem1, match.elem2, child_opts,
+                                     child_opts, diff_children, differences)
+              all_equivalent = false unless result == Comparison::EQUIVALENT
+
+            when :deleted
+              # Element present in first tree but not second
+              add_difference(match.elem1, nil, Comparison::MISSING_NODE,
+                             Comparison::MISSING_NODE, :text_content, opts,
+                             differences)
+              all_equivalent = false
+
+            when :inserted
+              # Element present in second tree but not first
+              add_difference(nil, match.elem2, Comparison::MISSING_NODE,
+                             Comparison::MISSING_NODE, :text_content, opts,
+                             differences)
+              all_equivalent = false
+            end
+          end
+
+          all_equivalent ? Comparison::EQUIVALENT : Comparison::UNEQUAL_ELEMENTS
         end
 
         # Filter children based on options
@@ -588,20 +728,31 @@ module Canon
         def node_excluded?(node, opts)
           match_opts = opts[:match_opts]
 
+          # Determine node type
+          # Canon::Xml::Node uses node_type that returns Symbol
+          # Nokogiri uses node_type that returns Integer, so check for Symbol first
+          is_comment = if node.respond_to?(:node_type) && node.node_type.is_a?(Symbol)
+                         node.node_type == :comment
+                       else
+                         node.respond_to?(:comment?) && node.comment?
+                       end
+
+          is_text = if node.respond_to?(:node_type) && node.node_type.is_a?(Symbol)
+                      node.node_type == :text
+                    else
+                      node.respond_to?(:text?) && node.text?
+                    end
+
           # Ignore comments based on match options
-          if node.respond_to?(:comment?) && node.comment? && (match_opts[:comments] == :ignore)
-            return true
-          end
+          return true if is_comment && match_opts[:comments] == :ignore
 
           # Ignore text nodes if specified
-          return true if opts[:ignore_text_nodes] &&
-            node.respond_to?(:text?) && node.text?
+          return true if opts[:ignore_text_nodes] && is_text
 
           # Ignore whitespace-only text nodes based on structural_whitespace
           # Both :ignore and :normalize should filter out whitespace-only nodes
           if %i[ignore
-                normalize].include?(match_opts[:structural_whitespace]) &&
-              node.respond_to?(:text?) && node.text?
+                normalize].include?(match_opts[:structural_whitespace]) && is_text
             text = node_text(node)
             return true if MatchOptions.normalize_text(text).empty?
           end
@@ -611,6 +762,12 @@ module Canon
 
         # Check if two nodes are the same type
         def same_node_type?(n1, n2)
+          # Canon::Xml::Node types - check node_type method
+          if n1.respond_to?(:node_type) && n2.respond_to?(:node_type)
+            return n1.node_type == n2.node_type
+          end
+
+          # Moxml/Nokogiri types - check individual type methods
           return true if n1.respond_to?(:element?) && n1.element? &&
             n2.respond_to?(:element?) && n2.element?
           return true if n1.respond_to?(:text?) && n1.text? &&
@@ -630,12 +787,75 @@ module Canon
 
         # Get text content from a node
         def node_text(node)
-          if node.respond_to?(:content)
+          # Canon::Xml::Node TextNode uses .value
+          if node.respond_to?(:value)
+            node.value.to_s
+          elsif node.respond_to?(:content)
             node.content.to_s
           elsif node.respond_to?(:text)
             node.text.to_s
           else
             ""
+          end
+        end
+
+        # Extract element path for context (best effort)
+        # @param node [Object] Node to extract path from
+        # @return [Array<String>] Path components
+        def extract_element_path(node)
+          path = []
+          current = node
+          max_depth = 20
+          depth = 0
+
+          while current && depth < max_depth
+            if current.respond_to?(:name) && current.name
+              path.unshift(current.name)
+            end
+
+            break unless current.respond_to?(:parent)
+
+            current = current.parent
+            depth += 1
+
+            # Stop at document root
+            break if current.respond_to?(:root)
+          end
+
+          path
+        end
+
+        # Serialize a node to XML string
+        # @param node [Canon::Xml::Node, Object] Node to serialize
+        # @return [String] XML string representation
+        def serialize_node_to_xml(node)
+          if node.is_a?(Canon::Xml::Nodes::RootNode)
+            # Serialize all children of root
+            node.children.map { |child| serialize_node_to_xml(child) }.join
+          elsif node.is_a?(Canon::Xml::Nodes::ElementNode)
+            # Serialize element with attributes and children
+            attrs = node.attribute_nodes.map do |a|
+              " #{a.name}=\"#{a.value}\""
+            end.join
+            children_xml = node.children.map do |c|
+              serialize_node_to_xml(c)
+            end.join
+
+            if children_xml.empty?
+              "<#{node.name}#{attrs}/>"
+            else
+              "<#{node.name}#{attrs}>#{children_xml}</#{node.name}>"
+            end
+          elsif node.is_a?(Canon::Xml::Nodes::TextNode)
+            node.value
+          elsif node.is_a?(Canon::Xml::Nodes::CommentNode)
+            "<!--#{node.value}-->"
+          elsif node.is_a?(Canon::Xml::Nodes::ProcessingInstructionNode)
+            "<?#{node.target} #{node.data}?>"
+          elsif node.respond_to?(:to_xml)
+            node.to_xml
+          else
+            node.to_s
           end
         end
 

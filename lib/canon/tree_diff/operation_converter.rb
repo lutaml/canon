@@ -161,7 +161,10 @@ module Canon
       def convert_update(operation)
         node1 = extract_source_node(operation[:node1])
         node2 = extract_source_node(operation[:node2])
-        changes = operation[:changes] || {}
+        changes = operation[:changes]
+
+        # Handle case where changes is a boolean or non-hash value
+        changes = {} unless changes.is_a?(Hash)
 
         # Check if nodes are metadata elements
         is_metadata = metadata_element?(node1) || metadata_element?(node2)
@@ -172,10 +175,15 @@ module Canon
         # This ensures each dimension can be classified independently
 
         if changes.key?(:attributes)
-          # Attribute value differences - be specific about what changed
-          old_attrs = changes[:attributes][:old]
-          new_attrs = changes[:attributes][:new]
-          diff_details = build_attribute_diff_details(old_attrs, new_attrs)
+          # Attribute value differences
+          # Changes can be either true (flag) or { old: ..., new: ... } (detailed)
+          if changes[:attributes].is_a?(Hash) && changes[:attributes].key?(:old)
+            old_attrs = changes[:attributes][:old]
+            new_attrs = changes[:attributes][:new]
+            diff_details = build_attribute_diff_details(old_attrs, new_attrs)
+          else
+            diff_details = "attribute values differ"
+          end
 
           diff_node = Canon::Diff::DiffNode.new(
             node1: node1,
@@ -189,31 +197,41 @@ module Canon
 
         if changes.key?(:attribute_order)
           # Attribute order differences
-          old_order = changes[:attribute_order][:old]
-          new_order = changes[:attribute_order][:new]
+          if changes[:attribute_order].is_a?(Hash) && changes[:attribute_order].key?(:old)
+            old_order = changes[:attribute_order][:old]
+            new_order = changes[:attribute_order][:new]
+            reason = "Attribute order changed: [#{old_order.join(', ')}] → [#{new_order.join(', ')}]"
+          else
+            reason = "attribute order differs"
+          end
 
           diff_node = Canon::Diff::DiffNode.new(
             node1: node1,
             node2: node2,
             dimension: :attribute_order,
-            reason: "Attribute order changed: [#{old_order.join(', ')}] → [#{new_order.join(', ')}]",
+            reason: reason,
           )
           diff_node.normative = is_metadata ? false : determine_normative(:attribute_order)
           diff_nodes << diff_node
         end
 
         if changes.key?(:value)
-          # Text content differences - show preview
-          old_val = changes[:value][:old] || ""
-          new_val = changes[:value][:new] || ""
-          preview_old = truncate_for_reason(old_val.to_s, 40)
-          preview_new = truncate_for_reason(new_val.to_s, 40)
+          # Text content differences
+          if changes[:value].is_a?(Hash) && changes[:value].key?(:old)
+            old_val = changes[:value][:old] || ""
+            new_val = changes[:value][:new] || ""
+            preview_old = truncate_for_reason(old_val.to_s, 40)
+            preview_new = truncate_for_reason(new_val.to_s, 40)
+            reason = "Text content changed: \"#{preview_old}\" → \"#{preview_new}\""
+          else
+            reason = "text content differs"
+          end
 
           diff_node = Canon::Diff::DiffNode.new(
             node1: node1,
             node2: node2,
             dimension: :text_content,
-            reason: "Text content changed: \"#{preview_old}\" → \"#{preview_new}\"",
+            reason: reason,
           )
           diff_node.normative = is_metadata ? false : determine_normative(:text_content)
           diff_nodes << diff_node
@@ -221,14 +239,19 @@ module Canon
 
         if changes.key?(:label)
           # Element name differences
-          old_label = changes[:label][:old]
-          new_label = changes[:label][:new]
+          if changes[:label].is_a?(Hash) && changes[:label].key?(:old)
+            old_label = changes[:label][:old]
+            new_label = changes[:label][:new]
+            reason = "Element name changed: <#{old_label}> → <#{new_label}>"
+          else
+            reason = "element name differs"
+          end
 
           diff_node = Canon::Diff::DiffNode.new(
             node1: node1,
             node2: node2,
             dimension: :element_structure,
-            reason: "Element name changed: <#{old_label}> → <#{new_label}>",
+            reason: reason,
           )
           diff_node.normative = is_metadata ? false : determine_normative(:element_structure)
           diff_nodes << diff_node
@@ -404,9 +427,9 @@ module Canon
 
         if node.respond_to?(:label)
           # Include content preview for clarity
-          "Missing element: #{content || "<#{node.label}>"}"
+          "Element inserted: #{content || "<#{node.label}>"}"
         else
-          "Missing element"
+          "Element inserted"
         end
       end
 
@@ -420,9 +443,9 @@ module Canon
 
         if node.respond_to?(:label)
           # Include content preview for clarity
-          "Extra element: #{content || "<#{node.label}>"}"
+          "Element deleted: #{content || "<#{node.label}>"}"
         else
-          "Extra element"
+          "Element deleted"
         end
       end
 
@@ -550,9 +573,9 @@ module Canon
 
         # Get element name from node
         element_name = if node.respond_to?(:label)
-                        node.label  # TreeNode
+                         node.label # TreeNode
                        elsif node.respond_to?(:name)
-                         node.name   # Nokogiri node
+                         node.name # Nokogiri node
                        else
                          return false
                        end
@@ -572,12 +595,20 @@ module Canon
 
         missing = old_keys - new_keys
         extra = new_keys - old_keys
-        changed = (old_keys & new_keys).select { |k| old_attrs[k] != new_attrs[k] }
+        changed = (old_keys & new_keys).reject do |k|
+          old_attrs[k] == new_attrs[k]
+        end
 
         parts = []
         parts << "Missing: #{missing.to_a.join(', ')}" if missing.any?
         parts << "Extra: #{extra.to_a.join(', ')}" if extra.any?
-        parts << "Changed: #{changed.map { |k| "#{k}=\"#{truncate_for_reason(old_attrs[k], 20)}\" → \"#{truncate_for_reason(new_attrs[k], 20)}\"" }.join(', ')}" if changed.any?
+        if changed.any?
+          parts << "Changed: #{changed.map do |k|
+            "#{k}=\"#{truncate_for_reason(old_attrs[k],
+                                          20)}\" → \"#{truncate_for_reason(new_attrs[k],
+                                                                           20)}\""
+          end.join(', ')}"
+        end
 
         parts.any? ? "Attributes differ (#{parts.join('; ')})" : "Attribute values differ"
       end
@@ -589,6 +620,7 @@ module Canon
       # @return [String] Truncated text
       def truncate_for_reason(text, max_length)
         return "" if text.nil?
+
         text = text.to_s
         return text if text.length <= max_length
 

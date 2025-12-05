@@ -49,11 +49,17 @@ require 'canon'
 
 # Canonical form (compact)
 Canon.format('<root><b>2</b><a>1</a></root>', :xml)
-# => "<root><a>1</a><b>2</b></root>"
+# => Pretty-printed XML (default behavior)
 
-# Pretty-print (human-readable)
+# Compact canonical form
+require 'canon/xml/c14n'
+Canon::Xml::C14n.canonicalize('<root><b>2</b><a>1</a></root>', with_comments: false)
+# => "<root><b>2</b><a>1</a></root>"
+
+# Pretty-print (human-readable with custom indent)
 require 'canon/pretty_printer/xml'
-Canon::Xml::PrettyPrinter.new(indent: 2).format(xml_input)
+xml_input = '<root><b>2</b><a>1</a></root>'
+Canon::PrettyPrinter::Xml.new(indent: 2).format(xml_input)
 ----
 
 === Compare documents
@@ -310,7 +316,7 @@ See link:docs/CLI[CLI documentation].
 [source,ruby]
 ----
 # Configure globally
-Canon::RSpecMatchers.configure do |config|
+Canon::Config.configure do |config|
   config.xml.match.profile = :spec_friendly
   config.xml.diff.use_color = true
 end

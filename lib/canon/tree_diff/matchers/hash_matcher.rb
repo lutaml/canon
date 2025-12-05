@@ -213,7 +213,8 @@ module Canon
         # @return [String] Normalized text
         def normalize_text(text)
           return "" if text.nil? || text.empty?
-          text.gsub(/\s+/, ' ').strip
+
+          text.gsub(/\s+/, " ").strip
         end
 
         # Propagate match to ancestors if possible

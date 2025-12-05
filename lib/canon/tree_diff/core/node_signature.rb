@@ -102,9 +102,10 @@ module Canon
         def path_component(node)
           # For element nodes: use label with sorted attributes
           # For text nodes: use "#text"
-          # CRITICAL: Don't use node.text? which is true for ANY leaf with value
-          # Check the label instead - actual text nodes have no label or special markers
-          if node.label.nil? || node.label.to_s.empty? || node.label == "#text"
+          # CRITICAL: Text nodes should use "#text" not "text"
+          # Check the label - actual text nodes have no label or label == "text"
+          label_str = node.label.to_s.downcase
+          if node.label.nil? || label_str.empty? || label_str == "#text" || label_str == "text"
             "#text"
           else
             component = node.label.to_s

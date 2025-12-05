@@ -109,9 +109,9 @@ module Canon
 
               # CRITICAL: For whitespace-sensitive elements, require exact text match
               # Don't fuzzy-match <pre>, <code>, etc. with different whitespace
-              if whitespace_sensitive?(node1) || whitespace_sensitive?(node2)
+              if (whitespace_sensitive?(node1) || whitespace_sensitive?(node2)) && node1.value != node2.value
                 # For whitespace-sensitive elements, text must match exactly
-                next unless node1.value == node2.value
+                next
               end
 
               similarity = node1.similarity_to(node2)

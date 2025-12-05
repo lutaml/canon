@@ -46,9 +46,13 @@ module Canon
           # Add truncation notice if needed
           if @truncated
             rendered += "\n\n"
-            rendered += colorize("... Output truncated at #{@max_lines} lines ...", :yellow, :bold)
+            rendered += colorize(
+              "... Output truncated at #{@max_lines} lines ...", :yellow, :bold
+            )
             rendered += "\n"
-            rendered += colorize("Increase limit via CANON_MAX_DIFF_LINES or config.diff.max_diff_lines", :yellow)
+            rendered += colorize(
+              "Increase limit via CANON_MAX_DIFF_LINES or config.diff.max_diff_lines", :yellow
+            )
           end
 
           output << rendered
@@ -184,7 +188,7 @@ module Canon
 
           sorted_keys.each_with_index do |key, index|
             # Check line limit
-            if @max_lines && @max_lines.positive? && @line_count >= @max_lines
+            if @max_lines&.positive? && @line_count >= @max_lines
               @truncated = true
               break
             end

@@ -105,7 +105,7 @@ module Canon
       def equivalent?(obj1, obj2, opts = {})
         # Check if semantic tree diff is requested
         # Support both :semantic and :semantic_tree for backward compatibility
-        if opts[:diff_algorithm] == :semantic || opts[:diff_algorithm] == :semantic_tree
+        if %i[semantic semantic_tree].include?(opts[:diff_algorithm])
           return semantic_diff(obj1, obj2, opts)
         end
 
@@ -248,21 +248,16 @@ module Canon
 
         case format
         when :xml
-          # Delegate to XmlComparator's parse_node
+          # Delegate to XmlComparator's parse_node - returns Canon::Xml::Node
+          # Adapter now handles Canon::Xml::Node directly
           doc1 = XmlComparator.send(:parse_node, obj1, preprocessing)
           doc2 = XmlComparator.send(:parse_node, obj2, preprocessing)
-          # Convert Moxml to Nokogiri for TreeDiff
-          [
-            XmlComparator.send(:convert_to_nokogiri, doc1),
-            XmlComparator.send(:convert_to_nokogiri, doc2),
-          ]
+          [doc1, doc2]
         when :html, :html4, :html5
-          # Delegate to HtmlComparator's parse_node
+          # Delegate to HtmlComparator's parse_node_for_semantic for Canon::Xml::Node
           [
-            HtmlComparator.send(:parse_node, obj1, preprocessing,
-                                match_opts_hash),
-            HtmlComparator.send(:parse_node, obj2, preprocessing,
-                                match_opts_hash),
+            HtmlComparator.send(:parse_node_for_semantic, obj1, preprocessing),
+            HtmlComparator.send(:parse_node_for_semantic, obj2, preprocessing),
           ]
         when :json
           # Delegate to JsonComparator's parse_json

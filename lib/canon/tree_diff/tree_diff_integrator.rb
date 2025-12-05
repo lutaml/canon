@@ -67,7 +67,8 @@ module Canon
         matching = @matcher.match(tree1, tree2)
 
         # Detect operations with match_options for proper normalization
-        detector = Operations::OperationDetector.new(tree1, tree2, matching, @match_options)
+        detector = Operations::OperationDetector.new(tree1, tree2, matching,
+                                                     @match_options)
         operations = detector.detect
 
         # Return comprehensive results
@@ -120,7 +121,7 @@ module Canon
         node_count = tree.size
         max_count = get_max_node_count
 
-        return unless max_count && max_count.positive?
+        return unless max_count&.positive?
         return if node_count <= max_count
 
         raise Canon::SizeLimitExceededError.new(:node_count, node_count,

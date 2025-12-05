@@ -278,10 +278,14 @@ module Canon
             end
 
             # Check if we've exceeded the line limit
-            if max_lines && max_lines.positive? && output.size >= max_lines
+            if max_lines&.positive? && output.size >= max_lines
               output << ""
-              output << colorize("... Output truncated at #{max_lines} lines ...", :yellow, :bold)
-              output << colorize("Increase limit via CANON_MAX_DIFF_LINES or config.diff.max_diff_lines", :yellow)
+              output << colorize(
+                "... Output truncated at #{max_lines} lines ...", :yellow, :bold
+              )
+              output << colorize(
+                "Increase limit via CANON_MAX_DIFF_LINES or config.diff.max_diff_lines", :yellow
+              )
               break
             end
           end

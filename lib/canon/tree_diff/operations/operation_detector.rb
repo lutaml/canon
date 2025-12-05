@@ -220,8 +220,8 @@ module Canon
           # AND when attribute_order mode is :strict
           attribute_order_mode = @match_options[:attribute_order] || :ignore
           if attribute_order_mode == :strict &&
-             attrs1.keys.sort == attrs2.keys.sort &&
-             attrs1.keys != attrs2.keys
+              attrs1.keys.sort == attrs2.keys.sort &&
+              attrs1.keys != attrs2.keys
             # Same attributes but in different order
             changes[:attribute_order] = {
               old: attrs1.keys,
@@ -288,7 +288,7 @@ module Canon
 
           # Collapse multiple whitespace (including newlines) into single space
           # Then strip leading/trailing whitespace
-          text.gsub(/\s+/, ' ').strip
+          text.gsub(/\s+/, " ").strip
         end
 
         # Collect all nodes in a tree (depth-first)
