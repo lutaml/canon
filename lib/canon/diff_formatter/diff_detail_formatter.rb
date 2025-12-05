@@ -246,12 +246,21 @@ module Canon
           ns1_display = ns1.nil? || ns1.empty? ? "(no namespace)" : ns1
           ns2_display = ns2.nil? || ns2.empty? ? "(no namespace)" : ns2
 
-          element_name = node1.respond_to?(:name) ? node1.name : node2.respond_to?(:name) ? node2.name : "element"
+          element_name = if node1.respond_to?(:name)
+                           node1.name
+                         else
+                           node2.respond_to?(:name) ? node2.name : "element"
+                         end
 
-          detail1 = "<#{element_name}> with namespace: #{colorize(ns1_display, :cyan, use_color)}"
-          detail2 = "<#{element_name}> with namespace: #{colorize(ns2_display, :cyan, use_color)}"
+          detail1 = "<#{element_name}> with namespace: #{colorize(ns1_display,
+                                                                  :cyan, use_color)}"
+          detail2 = "<#{element_name}> with namespace: #{colorize(ns2_display,
+                                                                  :cyan, use_color)}"
 
-          changes = "Namespace differs: #{colorize(ns1_display, :red, use_color)} → #{colorize(ns2_display, :green, use_color)}"
+          changes = "Namespace differs: #{colorize(ns1_display, :red,
+                                                   use_color)} → #{colorize(
+                                                     ns2_display, :green, use_color
+                                                   )}"
 
           [detail1, detail2, changes]
         end
@@ -424,8 +433,8 @@ module Canon
 
           element_name = node1.respond_to?(:name) ? node1.name : "(text)"
 
-          detail1 = "<#{element_name}> \"#{escape_quotes(preview1)}\""
-          detail2 = "<#{element_name}> \"#{escape_quotes(preview2)}\""
+          "<#{element_name}> \"#{escape_quotes(preview1)}\""
+          "<#{element_name}> \"#{escape_quotes(preview2)}\""
 
           # Extract namespace information and include it in the details
           element_name1 = node1.respond_to?(:name) ? node1.name : "(text)"
@@ -453,16 +462,16 @@ module Canon
 
           # Check if diff contains namespace information in reason
           # If so, display it prominently
-          if diff.respond_to?(:reason) && diff.reason && diff.reason.include?("namespace")
-            changes = diff.reason
-          # Check if inside whitespace-preserving element
-          elsif inside_preserve_element?(node1) || inside_preserve_element?(node2)
-            changes = colorize("⚠️  Whitespace preserved", :yellow, use_color,
+          changes = if diff.respond_to?(:reason) && diff.reason&.include?("namespace")
+                      diff.reason
+                    # Check if inside whitespace-preserving element
+                    elsif inside_preserve_element?(node1) || inside_preserve_element?(node2)
+                      colorize("⚠️  Whitespace preserved", :yellow, use_color,
                                bold: true) +
-                      " (inside <pre>, <code>, etc. - whitespace is significant)"
-          else
-            changes = "Text content changed"
-          end
+                        " (inside <pre>, <code>, etc. - whitespace is significant)"
+                    else
+                      "Text content changed"
+                    end
 
           [detail1, detail2, changes]
         end

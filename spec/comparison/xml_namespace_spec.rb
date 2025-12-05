@@ -22,7 +22,8 @@ RSpec.describe "XML namespace comparison" do
       XML
 
       # These should NOT be equivalent - UnitSymbol has different namespace URIs
-      result = Canon::Comparison::XmlComparator.equivalent?(xml1, xml2, verbose: true)
+      result = Canon::Comparison::XmlComparator.equivalent?(xml1, xml2,
+                                                            verbose: true)
 
       expect(result.differences).not_to be_empty
       expect(result.differences.any?(&:normative?)).to be true
@@ -45,7 +46,8 @@ RSpec.describe "XML namespace comparison" do
         </root>
       XML
 
-      result = Canon::Comparison::XmlComparator.equivalent?(xml1, xml2, verbose: true)
+      result = Canon::Comparison::XmlComparator.equivalent?(xml1, xml2,
+                                                            verbose: true)
 
       expect(result.differences).not_to be_empty
       expect(result.differences.any?(&:normative?)).to be true

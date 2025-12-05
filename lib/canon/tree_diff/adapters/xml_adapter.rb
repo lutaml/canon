@@ -90,7 +90,7 @@ module Canon
         # @return [Core::TreeNode] Tree node
         def convert_element(element)
           # Get element name (with namespace prefix if present)
-          label = element.name
+          element.name
 
           # Create label that includes namespace URI to ensure elements
           # with different namespaces are treated as different nodes
