@@ -56,7 +56,9 @@ RSpec.describe Canon::Xml::ElementMatcher do
 
         # Should have deleted root from tree1 and inserted root from tree2
         deleted_root = matches.find { |m| m.deleted? && m.elem1.name == "root" }
-        inserted_root = matches.find { |m| m.inserted? && m.elem2.name == "root" }
+        inserted_root = matches.find do |m|
+          m.inserted? && m.elem2.name == "root"
+        end
 
         expect(deleted_root).not_to be_nil
         expect(inserted_root).not_to be_nil
@@ -83,11 +85,17 @@ RSpec.describe Canon::Xml::ElementMatcher do
         matches = matcher.match_trees(root1, root2)
 
         # child elements have different namespaces - should be deleted/inserted
-        child_matched = matches.find { |m| m.matched? && m.elem1&.name == "child" }
+        child_matched = matches.find do |m|
+          m.matched? && m.elem1&.name == "child"
+        end
         expect(child_matched).to be_nil
 
-        deleted_child = matches.find { |m| m.deleted? && m.elem1&.name == "child" }
-        inserted_child = matches.find { |m| m.inserted? && m.elem2&.name == "child" }
+        deleted_child = matches.find do |m|
+          m.deleted? && m.elem1&.name == "child"
+        end
+        inserted_child = matches.find do |m|
+          m.inserted? && m.elem2&.name == "child"
+        end
 
         expect(deleted_child).not_to be_nil
         expect(inserted_child).not_to be_nil
@@ -112,7 +120,9 @@ RSpec.describe Canon::Xml::ElementMatcher do
         matches = matcher.match_trees(root1, root2)
 
         # Paths should include namespace information
-        child_match = matches.find { |m| m.elem1&.name == "child" && m.matched? }
+        child_match = matches.find do |m|
+          m.elem1&.name == "child" && m.matched?
+        end
         expect(child_match).not_to be_nil
         expect(child_match.path.join("/")).to include("http://example.org/ns1")
       end
@@ -139,25 +149,29 @@ RSpec.describe Canon::Xml::ElementMatcher do
 
         # Both items should be matched despite having the same element name
         # because they're grouped by [name, namespace_uri] tuples
-        item_matches = matches.select { |m| m.matched? && m.elem1&.name == "item" }
+        item_matches = matches.select do |m|
+          m.matched? && m.elem1&.name == "item"
+        end
         expect(item_matches.length).to eq(2)
       end
 
       it "correctly handles elements with no namespace" do
-        xml1 = '<root><child>content</child></root>'
-        xml2 = '<root><child>content</child></root>'
+        xml1 = "<root><child>content</child></root>"
+        xml2 = "<root><child>content</child></root>"
 
         root1 = Canon::Xml::DataModel.from_xml(xml1)
         root2 = Canon::Xml::DataModel.from_xml(xml2)
 
         matches = matcher.match_trees(root1, root2)
 
-        child_match = matches.find { |m| m.elem1&.name == "child" && m.matched? }
+        child_match = matches.find do |m|
+          m.elem1&.name == "child" && m.matched?
+        end
         expect(child_match).not_to be_nil
       end
 
       it "detects mixed namespace and no-namespace elements as different" do
-        xml1 = '<root><child>content</child></root>'
+        xml1 = "<root><child>content</child></root>"
         xml2 = '<root xmlns="http://example.org/ns1"><child>content</child></root>'
 
         root1 = Canon::Xml::DataModel.from_xml(xml1)
@@ -192,7 +206,9 @@ RSpec.describe Canon::Xml::ElementMatcher do
 
         item_match = matches.find { |m| m.elem1&.name == "item" && m.matched? }
         expect(item_match).not_to be_nil
-        expect(item_match.elem1.attribute_nodes.find { |a| a.name == "id" }.value).to eq("unique-1")
+        expect(item_match.elem1.attribute_nodes.find do |a|
+          a.name == "id"
+        end.value).to eq("unique-1")
       end
     end
   end

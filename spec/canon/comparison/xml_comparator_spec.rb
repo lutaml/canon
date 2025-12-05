@@ -173,11 +173,11 @@ RSpec.describe Canon::Comparison::XmlComparator do
 
         # Elements with different namespaces are treated as deleted/inserted
         # This is correct behavior - they ARE different elements
-        expect(result.differences.length).to eq(2)  # One deleted, one inserted
+        expect(result.differences.length).to eq(2) # One deleted, one inserted
       end
 
       it "handles elements with no namespace vs elements with namespace" do
-        xml1 = '<root><child>content</child></root>'
+        xml1 = "<root><child>content</child></root>"
         xml2 = '<root xmlns="http://example.org/ns1"><child>content</child></root>'
 
         expect(described_class.equivalent?(xml1, xml2)).to be false

@@ -908,7 +908,8 @@ module Canon
           end
 
           # Build informative reason message
-          reason = build_difference_reason(node1, node2, diff1, diff2, dimension)
+          reason = build_difference_reason(node1, node2, diff1, diff2,
+                                           dimension)
 
           diff_node = Canon::Diff::DiffNode.new(
             node1: node1,

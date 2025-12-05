@@ -236,7 +236,7 @@ RSpec.describe Canon::TreeDiff::Adapters::XMLAdapter do
       end
 
       it "handles elements with no namespace" do
-        xml = Nokogiri::XML('<root>content</root>')
+        xml = Nokogiri::XML("<root>content</root>")
         tree = adapter.to_tree(xml)
 
         expect(tree.label).to eq("root")
@@ -293,7 +293,7 @@ RSpec.describe Canon::TreeDiff::Adapters::XMLAdapter do
 
         tree = adapter.to_tree(canon_node)
 
-        root_child = tree  # The RootNode's first child is the actual root element
+        root_child = tree # The RootNode's first child is the actual root element
         expect(root_child.label).to eq("{http://example.org/ns1}root")
       end
 
@@ -313,7 +313,7 @@ RSpec.describe Canon::TreeDiff::Adapters::XMLAdapter do
       end
 
       it "handles Canon elements with no namespace" do
-        xml_string = '<root>content</root>'
+        xml_string = "<root>content</root>"
         canon_node = Canon::Xml::DataModel.from_xml(xml_string)
 
         tree = adapter.to_tree(canon_node)
