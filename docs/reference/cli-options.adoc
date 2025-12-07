@@ -187,6 +187,9 @@ Controls how differences are displayed.
 
 |`--show-legend`
 |Display legend for symbols (default: true with verbose)
+
+|`--show-diffs MODE`
+|Filter displayed differences: `all` (default), `normative`, `informative`
 |===
 
 See link:../features/diff-formatting/[Diff Formatting] for details.

@@ -68,6 +68,35 @@ module Canon
 
         protected
 
+        # Filter differences for display based on show_diffs setting
+        #
+        # @param differences [Array<Canon::Diff::DiffNode>] Array of differences
+        # @return [Array<Canon::Diff::DiffNode>] Filtered differences
+        def filter_differences_for_display(differences)
+          return differences if @show_diffs.nil? || @show_diffs == :all
+
+          differences.select do |diff|
+            # Handle both DiffNode objects and legacy Hash format
+            is_normative = if diff.respond_to?(:normative?)
+                            diff.normative?
+                          elsif diff.is_a?(Hash) && diff.key?(:normative)
+                            diff[:normative]
+                          else
+                            # Default to normative if unknown
+                            true
+                          end
+
+            case @show_diffs
+            when :normative
+              is_normative
+            when :informative
+              !is_normative
+            else
+              true # Unknown value, show all
+            end
+          end
+        end
+
         # Build hunks from diff with context lines
         #
         # @param diffs [Array] LCS diff array

@@ -84,19 +84,15 @@ In by-line diff mode, symbols at the start of each line indicate the type of cha
 
 |`-`
 |Red
-|Deleted line (exists in expected, not in actual)
+|Deleted line (normative difference - exists in expected, not in actual)
 
 |`+`
 |Green
-|Added line (exists in actual, not in expected)
+|Added line (normative difference - exists in actual, not in expected)
 
 |`~`
-|Yellow
-|Modified line (exists in both but content differs)
-
-|`~~`
 |Cyan
-|Informative change (doesn't affect equivalence)
+|Informative difference (doesn't affect equivalence)
 
 |(no symbol)
 |Default
@@ -109,9 +105,10 @@ In by-line diff mode, symbols at the start of each line indicate the type of cha
 [source]
 ----
    3|    | <root>                   # Context (unchanged)
-   4|   -| <item>Old</item>         # Deleted (red)
-     |  5+| <item>New</item>         # Added (green)
-   5|  6 | </root>                  # Context (unchanged)
+   4|   -| <item>Old</item>         # Deleted (red, normative)
+     |  5+| <item>New</item>         # Added (green, normative)
+   5|  6~| <!-- Comment -->          # Informative (cyan)
+   6|  7 | </root>                  # Context (unchanged)
 ----
 ====
 
@@ -186,6 +183,87 @@ Common examples:
 |`→`
 |U+2192 (Rightwards Arrow)
 |===
+
+== Namespace Rendering
+
+=== Namespace Display Format
+
+Canon makes namespace information explicit in diff output, particularly when comparing XML elements and attributes:
+
+[cols="2,3"]
+|===
+|Namespace State |Display Format
+
+|Empty namespace
+|`ns:[{blank}]`
+
+|Populated namespace
+|`ns:[http://example.com]`
+|===
+
+.Example: Namespace display in diff output
+[example]
+====
+[source]
+----
+# Element with no namespace
+- <element ns:[{blank}]>content</element>
+
+# Element with namespace
++ <element ns:[http://example.com]>content</element>
+----
+====
+
+=== Namespace Mismatch Classification
+
+When elements or attributes differ, Canon classifies the mismatch type:
+
+[cols="2,3"]
+|===
+|Mismatch Type |Message Format
+
+|Same namespace, different name
+|`mismatched element name: 'oldname' vs 'newname' (ns:[http://example.com])`
+
+|Different namespace, same name
+|`mismatched element namespace: 'element' (ns:[{blank}] vs ns:[http://example.com])`
+
+|Both name and namespace differ
+|`mismatched element name and namespace: 'old' (ns:[uri1]) vs 'new' (ns:[uri2])`
+|===
+
+.Example: Namespace mismatch messages
+[example]
+====
+[source]
+----
+# Name differs, same namespace
+mismatched element name: 'item' vs 'product' (ns:[http://shop.com])
+
+# Namespace differs, same name
+mismatched element namespace: 'element' (ns:[{blank}] vs ns:[http://example.com])
+----
+====
+
+=== Attribute Namespace Rendering
+
+The same namespace rendering applies to attributes:
+
+.Example: Attribute namespace in diffs
+[example]
+====
+[source]
+----
+# Attribute with no namespace
+- <element attr="value" ns:[{blank}]/>
+
+# Attribute with namespace
++ <element ns:attr="value" ns:[http://ns.com]/>
+
+# Mismatch message
+mismatched attribute namespace: 'id' (ns:[{blank}] vs ns:[http://example.com])
+----
+====
 
 == Header and Metadata Colors
 

@@ -6,7 +6,7 @@ module Canon
     # Provides methods to query equivalence based on normative diffs
     class ComparisonResult
       attr_reader :differences, :preprocessed_strings, :format, :html_version,
-                  :match_options, :algorithm
+                  :match_options, :algorithm, :original_strings
 
       # @param differences [Array<DiffNode>] Array of difference nodes
       # @param preprocessed_strings [Array<String, String>] Pre-processed content for display
@@ -14,10 +14,12 @@ module Canon
       # @param html_version [Symbol, nil] HTML version (:html4 or :html5) for HTML format only
       # @param match_options [Hash, nil] Resolved match options used for comparison
       # @param algorithm [Symbol] Diff algorithm used (:dom or :semantic)
+      # @param original_strings [Array<String, String>, nil] Original unprocessed content for line diff
       def initialize(differences:, preprocessed_strings:, format:,
-html_version: nil, match_options: nil, algorithm: :dom)
+html_version: nil, match_options: nil, algorithm: :dom, original_strings: nil)
         @differences = differences
         @preprocessed_strings = preprocessed_strings
+        @original_strings = original_strings || preprocessed_strings
         @format = format
         @html_version = html_version
         @match_options = match_options

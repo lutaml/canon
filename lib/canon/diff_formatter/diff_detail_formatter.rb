@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "paint"
+require_relative "../xml/namespace_helper"
 
 module Canon
   class DiffFormatter
@@ -223,6 +224,8 @@ module Canon
             format_attribute_order_details(diff, use_color)
           when :namespace_uri
             format_namespace_uri_details(diff, use_color)
+          when :namespace_declarations
+            format_namespace_declarations_details(diff, use_color)
           when :text_content
             format_text_content_details(diff, use_color)
           when :structural_whitespace
@@ -239,12 +242,13 @@ module Canon
           node1 = diff.node1
           node2 = diff.node2
 
-          # Extract namespace URIs
-          ns1 = node1.respond_to?(:namespace_uri) ? node1.namespace_uri : nil
-          ns2 = node2.respond_to?(:namespace_uri) ? node2.namespace_uri : nil
-
-          ns1_display = ns1.nil? || ns1.empty? ? "(no namespace)" : ns1
-          ns2_display = ns2.nil? || ns2.empty? ? "(no namespace)" : ns2
+          # Use NamespaceHelper for consistent formatting
+          ns1_display = Canon::Xml::NamespaceHelper.format_namespace(
+            node1.respond_to?(:namespace_uri) ? node1.namespace_uri : nil
+          )
+          ns2_display = Canon::Xml::NamespaceHelper.format_namespace(
+            node2.respond_to?(:namespace_uri) ? node2.namespace_uri : nil
+          )
 
           element_name = if node1.respond_to?(:name)
                            node1.name
@@ -252,10 +256,8 @@ module Canon
                            node2.respond_to?(:name) ? node2.name : "element"
                          end
 
-          detail1 = "<#{element_name}> with namespace: #{colorize(ns1_display,
-                                                                  :cyan, use_color)}"
-          detail2 = "<#{element_name}> with namespace: #{colorize(ns2_display,
-                                                                  :cyan, use_color)}"
+          detail1 = "<#{element_name}> #{colorize(ns1_display, :cyan, use_color)}"
+          detail2 = "<#{element_name}> #{colorize(ns2_display, :cyan, use_color)}"
 
           changes = "Namespace differs: #{colorize(ns1_display, :red,
                                                    use_color)} → #{colorize(
@@ -263,6 +265,142 @@ module Canon
                                                    )}"
 
           [detail1, detail2, changes]
+        end
+
+        # Format namespace_declarations dimension details
+        def format_namespace_declarations_details(diff, use_color)
+          node1 = diff.node1
+          node2 = diff.node2
+
+          # Extract namespace declarations from both nodes
+          ns_decls1 = extract_namespace_declarations_from_node(node1)
+          ns_decls2 = extract_namespace_declarations_from_node(node2)
+
+          element_name = if node1.respond_to?(:name)
+                           node1.name
+                         else
+                           node2.respond_to?(:name) ? node2.name : "element"
+                         end
+
+          # Format namespace declarations for display
+          detail1 = if ns_decls1.empty?
+                      "<#{element_name}> #{colorize('(no namespace declarations)', :red, use_color)}"
+                    else
+                      ns_str = ns_decls1.map do |prefix, uri|
+                        attr_name = prefix.empty? ? "xmlns" : "xmlns:#{prefix}"
+                        "#{attr_name}=\"#{uri}\""
+                      end.join(" ")
+                      "<#{element_name}> #{ns_str}"
+                    end
+
+          detail2 = if ns_decls2.empty?
+                      "<#{element_name}> #{colorize('(no namespace declarations)', :green, use_color)}"
+                    else
+                      ns_str = ns_decls2.map do |prefix, uri|
+                        attr_name = prefix.empty? ? "xmlns" : "xmlns:#{prefix}"
+                        "#{attr_name}=\"#{uri}\""
+                      end.join(" ")
+                      "<#{element_name}> #{ns_str}"
+                    end
+
+          # Analyze changes
+          missing = ns_decls1.keys - ns_decls2.keys  # In node1 but not node2
+          extra = ns_decls2.keys - ns_decls1.keys    # In node2 but not node1
+          changed = ns_decls1.select { |prefix, uri| ns_decls2[prefix] && ns_decls2[prefix] != uri }.keys
+
+          # Format changes
+          changes_parts = []
+          if missing.any?
+            missing_str = missing.map do |prefix|
+              attr_name = prefix.empty? ? "xmlns" : "xmlns:#{prefix}"
+              colorize("-#{attr_name}=\"#{ns_decls1[prefix]}\"", :red, use_color)
+            end.join(", ")
+            changes_parts << "Removed: #{missing_str}"
+          end
+          if extra.any?
+            extra_str = extra.map do |prefix|
+              attr_name = prefix.empty? ? "xmlns" : "xmlns:#{prefix}"
+              colorize("+#{attr_name}=\"#{ns_decls2[prefix]}\"", :green, use_color)
+            end.join(", ")
+            changes_parts << "Added: #{extra_str}"
+          end
+          if changed.any?
+            changed_str = changed.map do |prefix|
+              attr_name = prefix.empty? ? "xmlns" : "xmlns:#{prefix}"
+              "#{colorize(attr_name, :cyan, use_color)}: \"#{ns_decls1[prefix]}\" → \"#{ns_decls2[prefix]}\""
+            end.join(", ")
+            changes_parts << "Changed: #{changed_str}"
+          end
+
+          changes = changes_parts.join(" | ")
+
+          [detail1, detail2, changes]
+        end
+
+        # Extract namespace declarations from a node (helper for formatter)
+        # @param node [Object] Node to extract namespace declarations from
+        # @return [Hash] Hash of prefix => URI mappings
+        def extract_namespace_declarations_from_node(node)
+          return {} if node.nil?
+
+          declarations = {}
+
+          # Handle Canon::Xml::Node (uses namespace_nodes)
+          if node.respond_to?(:namespace_nodes)
+            node.namespace_nodes.each do |ns|
+              # Skip the implicit xml namespace (always present)
+              next if ns.prefix == "xml" && ns.uri == "http://www.w3.org/XML/1998/namespace"
+
+              prefix = ns.prefix || ""
+              declarations[prefix] = ns.uri
+            end
+            return declarations
+          end
+
+          # Handle Nokogiri/Moxml nodes (use attributes)
+          # Get raw attributes
+          raw_attrs = if node.respond_to?(:attribute_nodes)
+                        node.attribute_nodes
+                      elsif node.respond_to?(:attributes)
+                        node.attributes
+                      else
+                        return {}
+                      end
+
+          # Handle Canon::Xml::Node attribute format (array of AttributeNode)
+          if raw_attrs.is_a?(Array)
+            raw_attrs.each do |attr|
+              name = attr.name
+              value = attr.value
+
+              if name == "xmlns" || name.start_with?("xmlns:")
+                # Extract prefix: "xmlns" -> "", "xmlns:xmi" -> "xmi"
+                prefix = name == "xmlns" ? "" : name.split(":", 2)[1]
+                declarations[prefix] = value
+              end
+            end
+          else
+            # Handle Nokogiri and Moxml attribute formats (Hash-like)
+            raw_attrs.each do |key, val|
+              if key.is_a?(String)
+                # Nokogiri format: key=name (String), val=attr object
+                name = key
+                value = val.respond_to?(:value) ? val.value : val.to_s
+              else
+                # Moxml format: key=attr object, val=nil
+                name = key.respond_to?(:name) ? key.name : key.to_s
+                value = key.respond_to?(:value) ? key.value : key.to_s
+              end
+
+              if name == "xmlns" || name.start_with?("xmlns:")
+                # Extract prefix: "xmlns" -> "", "xmlns:xmi" -> "xmi"
+                prefix = name == "xmlns" ? "" : name.split(":", 2)[1]
+                declarations[prefix] = value
+              end
+            end
+          end
+
+          declarations
         end
 
         # Format element_structure dimension details (INSERT/DELETE operations)
@@ -419,7 +557,7 @@ module Canon
           [detail1, detail2, changes]
         end
 
-        # Format text_content dimension details
+        # Format text content dimension details
         def format_text_content_details(diff, use_color)
           node1 = diff.node1
           node2 = diff.node2
@@ -431,28 +569,33 @@ module Canon
           preview1 = truncate_text(text1, 100)
           preview2 = truncate_text(text2, 100)
 
-          element_name = node1.respond_to?(:name) ? node1.name : "(text)"
+          # Get element names - for text nodes, use parent element name
+          # When one node is nil, use the other's name for context
+          element_name1 = get_element_name_for_display(node1)
+          element_name2 = get_element_name_for_display(node2)
 
-          "<#{element_name}> \"#{escape_quotes(preview1)}\""
-          "<#{element_name}> \"#{escape_quotes(preview2)}\""
-
-          # Extract namespace information and include it in the details
-          element_name1 = node1.respond_to?(:name) ? node1.name : "(text)"
-          element_name2 = node2.respond_to?(:name) ? node2.name : "(text)"
+          # If one shows nil-node, try to use the other's name for context
+          if element_name1.include?("nil") && !element_name2.include?("nil")
+            # Use node2's name as a hint for what node1 should be
+            element_name1 = element_name2
+          elsif element_name2.include?("nil") && !element_name1.include?("nil")
+            # Use node1's name as a hint for what node2 should be
+            element_name2 = element_name1
+          end
 
           # Get namespace URIs
-          ns1 = node1.respond_to?(:namespace_uri) ? node1.namespace_uri : nil
-          ns2 = node2.respond_to?(:namespace_uri) ? node2.namespace_uri : nil
+          ns1 = get_namespace_uri_for_display(node1)
+          ns2 = get_namespace_uri_for_display(node2)
 
-          # Build namespace display strings
+          # Build namespace display strings using NamespaceHelper
           ns1_info = if ns1 && !ns1.empty?
-                       " [namespace: #{colorize(ns1, :cyan, use_color)}]"
+                       " #{Canon::Xml::NamespaceHelper.format_namespace(ns1)}"
                      else
                        ""
                      end
 
           ns2_info = if ns2 && !ns2.empty?
-                       " [namespace: #{colorize(ns2, :cyan, use_color)}]"
+                       " #{Canon::Xml::NamespaceHelper.format_namespace(ns2)}"
                      else
                        ""
                      end
@@ -476,7 +619,7 @@ module Canon
           [detail1, detail2, changes]
         end
 
-        # Format structural_whitespace dimension details
+        # Format structural whitespace dimension details
         def format_structural_whitespace_details(diff, _use_color)
           node1 = diff.node1
           node2 = diff.node2
@@ -566,6 +709,11 @@ module Canon
 
         # Helper: Get attribute names from a node
         def get_attribute_names(node)
+          # Handle Canon::Xml::Nodes::ElementNode (uses attribute_nodes array)
+          if node.respond_to?(:attribute_nodes) && node.attribute_nodes.is_a?(Array)
+            return node.attribute_nodes.map(&:qname).sort
+          end
+
           return [] unless node.respond_to?(:attributes)
 
           attrs = node.attributes
@@ -573,15 +721,22 @@ module Canon
           # Handle Moxml::Element (attributes is an Array)
           if attrs.is_a?(Array)
             attrs.map do |attr|
-              attr.respond_to?(:name) ? attr.name : attr.to_s
+              if attr.respond_to?(:qname)
+                attr.qname
+              elsif attr.respond_to?(:name)
+                attr.name
+              else
+                attr.to_s
+              end
             end.sort
           # Handle Nokogiri nodes (attributes is a Hash)
           else
-            attrs.map do |key, _val|
-              if key.is_a?(String)
-                key
+            attrs.map do |key, val|
+              # Get the qualified name (with prefix if present)
+              if val.respond_to?(:namespace) && val.namespace&.prefix
+                "#{val.namespace.prefix}:#{val.name}"
               else
-                (key.respond_to?(:name) ? key.name : key.to_s)
+                val.respond_to?(:name) ? val.name : key.to_s
               end
             end.sort
           end
@@ -603,6 +758,11 @@ module Canon
 
         # Helper: Get attribute names in document order (not sorted)
         def get_attribute_names_in_order(node)
+          # Handle Canon::Xml::Nodes::ElementNode (uses attribute_nodes array)
+          if node.respond_to?(:attribute_nodes) && node.attribute_nodes.is_a?(Array)
+            return node.attribute_nodes.map(&:qname)
+          end
+
           return [] unless node.respond_to?(:attributes)
 
           attrs = node.attributes
@@ -610,13 +770,26 @@ module Canon
           # Handle Moxml::Element (attributes is an Array)
           if attrs.is_a?(Array)
             attrs.map do |attr|
-              attr.respond_to?(:name) ? attr.name : attr.to_s
+              # Use qname for AttributeNode objects (includes prefix)
+              if attr.respond_to?(:qname)
+                attr.qname
+              elsif attr.respond_to?(:name)
+                attr.name
+              else
+                attr.to_s
+              end
             end
           # Handle Nokogiri nodes (attributes is a Hash)
           else
-            attrs.map do |key, _val|
+            attrs.map do |key, val|
+              # For Nokogiri attributes, get the full qualified name
               if key.is_a?(String)
                 key
+              elsif val.respond_to?(:namespace) && val.namespace
+                # Construct qualified name if attribute has a namespace prefix
+                prefix = val.namespace.prefix
+                name = val.respond_to?(:name) ? val.name : key.to_s
+                prefix ? "#{prefix}:#{name}" : name
               else
                 (key.respond_to?(:name) ? key.name : key.to_s)
               end
@@ -626,6 +799,15 @@ module Canon
 
         # Helper: Get attributes as hash
         def get_attributes_hash(node)
+          # Handle Canon::Xml::Nodes::ElementNode (uses attribute_nodes array)
+          if node.respond_to?(:attribute_nodes) && node.attribute_nodes.is_a?(Array)
+            hash = {}
+            node.attribute_nodes.each do |attr|
+              hash[attr.qname] = attr.value
+            end
+            return hash
+          end
+
           return {} unless node.respond_to?(:attributes)
 
           hash = {}
@@ -634,7 +816,14 @@ module Canon
           # Handle Moxml::Element (attributes is an Array of Moxml::Attribute)
           if attrs.is_a?(Array)
             attrs.each do |attr|
-              name = attr.respond_to?(:name) ? attr.name : attr.to_s
+              # Use qname for AttributeNode objects (includes prefix)
+              name = if attr.respond_to?(:qname)
+                       attr.qname
+                     elsif attr.respond_to?(:name)
+                       attr.name
+                     else
+                       attr.to_s
+                     end
               value = if attr.respond_to?(:value)
                         attr.value
                       elsif attr.respond_to?(:native) && attr.native.respond_to?(:value)
@@ -647,10 +836,11 @@ module Canon
           # Handle Nokogiri nodes (attributes is a Hash)
           else
             attrs.each do |key, val|
-              name = if key.is_a?(String)
-                       key
+              # Get the qualified name (with prefix if present)
+              name = if val.respond_to?(:namespace) && val.namespace&.prefix
+                       "#{val.namespace.prefix}:#{val.name}"
                      else
-                       (key.respond_to?(:name) ? key.name : key.to_s)
+                       val.respond_to?(:name) ? val.name : key.to_s
                      end
               value = val.respond_to?(:value) ? val.value : val.to_s
               hash[name] = value
@@ -675,6 +865,141 @@ module Canon
             node.text.to_s
           else
             ""
+          end
+        end
+
+        # Helper: Get element name for display
+        # For text nodes, returns parent element name
+        # For element nodes, returns the node's own name
+        def get_element_name_for_display(node)
+          # Handle completely nil nodes
+          return "(nil-node)" if node.nil?
+
+          # Try to get name
+          node_name = if node.respond_to?(:name)
+                        begin
+                          node.name
+                        rescue StandardError
+                          nil
+                        end
+                      else
+                        nil
+                      end
+
+          # Special check: if name is explicitly nil (not just empty), this might be a parsing issue
+          # Show node type information to help debug
+          if node_name.nil?
+            # Try to show what type of node this is
+            if node.respond_to?(:node_type)
+              type = node.node_type rescue nil
+              return "(nil-name:#{type})" if type
+            end
+
+            # fallback to class name
+            class_info = node.class.name&.split("::")&.last || "UnknownClass"
+            return "(nil-name:#{class_info})"
+          end
+
+          # If we have a valid element name, return it
+          if !node_name.to_s.empty? && !["#text", "text", "#document", "document"].include?(node_name.to_s)
+            return node_name.to_s
+          end
+
+          # Check if this is a text node
+          is_text_node = if node.respond_to?(:node_type)
+                           begin
+                             node.node_type == :text
+                           rescue StandardError
+                             false
+                           end
+                         elsif ["#text", "text"].include?(node_name.to_s)
+                           true
+                         elsif node.class.name
+                           node.class.name.include?("TextNode") ||
+                           node.class.name.include?("Text")
+                         else
+                           false
+                         end
+
+          # For text nodes or document nodes, try parent
+          if is_text_node || ["#text", "text", "#document", "document"].include?(node_name.to_s)
+            parent = if node.respond_to?(:parent)
+                       begin
+                         node.parent
+                       rescue StandardError
+                         nil
+                       end
+                     else
+                       nil
+                     end
+
+            max_depth = 5
+            depth = 0
+
+            # Traverse up to find named parent element
+            while parent && depth < max_depth
+              parent_name = if parent.respond_to?(:name)
+                              begin
+                                parent.name
+                              rescue StandardError
+                                nil
+                              end
+                            else
+                              nil
+                            end
+
+              if parent_name && !parent_name.to_s.empty? &&
+                 !["#text", "text", "#document", "document"].include?(parent_name.to_s)
+                return parent_name.to_s
+              end
+
+              parent = if parent.respond_to?(:parent)
+                         begin
+                           parent.parent
+                         rescue StandardError
+                           nil
+                         end
+                       else
+                         nil
+                       end
+              depth += 1
+            end
+
+            # Still no name found
+            return "(text)" if is_text_node
+            return "(no-name)"
+          end
+
+          # Fallback
+          node_name.to_s
+        end
+
+        # Helper: Get namespace URI for display
+        # For text nodes, returns parent element's namespace URI
+        # For element nodes, returns the node's own namespace URI
+        def get_namespace_uri_for_display(node)
+          # Check if this is a text node
+          is_text_node = if node.respond_to?(:node_type)
+                           node.node_type == :text
+                         elsif node.class.name
+                           node.class.name.include?("TextNode") || node.class.name.include?("Text")
+                         else
+                           false
+                         end
+
+          if is_text_node
+            # For text nodes, get parent element's namespace
+            parent = node.respond_to?(:parent) ? node.parent : nil
+            if parent && parent.respond_to?(:namespace_uri)
+              parent.namespace_uri
+            else
+              nil
+            end
+          elsif node.respond_to?(:namespace_uri)
+            # For element nodes, use their own namespace
+            node.namespace_uri
+          else
+            nil
           end
         end
 

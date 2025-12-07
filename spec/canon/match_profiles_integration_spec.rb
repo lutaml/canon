@@ -192,16 +192,28 @@ RSpec.describe "Match Profiles Integration" do
       end
 
       it "ignore behavior matches when one has comments and other doesn't" do
-        expect(xml_with_comment).to be_xml_equivalent_to(
+        # With the new architecture, comment differences create DiffNodes
+        # but they're marked as informative, so documents are still equivalent
+        result = Canon::Comparison.equivalent?(
+          xml_with_comment,
           xml_no_comment,
-          match: {
-            text_content: :normalize,
-            structural_whitespace: :ignore,
-            attribute_presence: :strict,
-            attribute_values: :strict,
-            comments: :ignore,
+          {
+            verbose: true,
+            match: {
+              text_content: :normalize,
+              structural_whitespace: :ignore,
+              attribute_presence: :strict,
+              attribute_values: :strict,
+              comments: :ignore,
+            },
           },
         )
+
+        # Should be equivalent (comment diff is informative)
+        expect(result.equivalent?).to be true
+        # But differences array contains the informative comment diff
+        expect(result.differences.length).to eq(1)
+        expect(result.differences.first.normative?).to be false
       end
     end
 

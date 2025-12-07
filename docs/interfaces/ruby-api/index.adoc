@@ -405,6 +405,103 @@ result = Canon::Comparison.equivalent?(xml1, xml2,
 ----
 ====
 
+=== Display filtering
+
+Use the `show_diffs` parameter to control which differences appear in formatted
+output.
+
+Syntax:
+
+[source,ruby]
+----
+Canon::Comparison.equivalent?(obj1, obj2,
+  verbose: true,
+  show_diffs: :mode
+)
+----
+
+Where `mode` is one of:
+
+`:all`:: Show all differences (default)
+`:normative`:: Show only differences that affect equivalence
+`:informative`:: Show only differences that don't affect equivalence
+
+.Display filtering examples
+[example]
+====
+[source,ruby]
+----
+# Show all differences (default)
+result = Canon::Comparison.equivalent?(xml1, xml2,
+  verbose: true,
+  show_diffs: :all
+)
+
+# Show only normative differences
+result = Canon::Comparison.equivalent?(xml1, xml2,
+  verbose: true,
+  match: { comments: :ignore },
+  show_diffs: :normative
+)
+
+# Show only informative differences
+result = Canon::Comparison.equivalent?(xml1, xml2,
+  verbose: true,
+  match: { comments: :ignore },
+  show_diffs: :informative
+)
+
+# Use with DiffFormatter directly
+formatter = Canon::DiffFormatter.new(
+  use_color: true,
+  mode: :by_object,
+  show_diffs: :normative
+)
+output = formatter.format(result, :xml)
+----
+====
+
+IMPORTANT: Display filtering does NOT affect equivalence determination. It
+only controls which differences appear in formatted output. Equivalence is
+always based on normative differences only, regardless of the `show_diffs`
+setting.
+
+.Common use case: XML comments
+[example]
+====
+[source,ruby]
+----
+xml1 = <<~XML
+  <root>
+    <!-- Old comment -->
+    <element>value1</element>
+  </root>
+XML
+
+xml2 = <<~XML
+  <root>
+    <!-- New comment -->
+    <element>value2</element>
+  </root>
+XML
+
+# With comments: :ignore and show_diffs: :normative
+result = Canon::Comparison.equivalent?(xml1, xml2,
+  verbose: true,
+  match: { comments: :ignore },
+  show_diffs: :normative
+)
+
+# Result:
+# - equivalent? => false (element value differs)
+# - Diff output shows: only the element value change
+# - Diff output hides: comment differences (informative)
+----
+====
+
+See link:../../features/diff-formatting/display-filtering.adoc[Display
+filtering] for complete details.
+
 === Format-specific comparators
 
 You can use format-specific comparator classes directly.
@@ -421,8 +518,6 @@ Canon::Comparison::YamlComparator.equivalent?(obj1, obj2, options)
 
 .Format-specific comparator examples
 [example]
-====
-[source,ruby]
 ----
 # XML comparison with strict attribute order
 Canon::Comparison::XmlComparator.equivalent?(xml1, xml2,

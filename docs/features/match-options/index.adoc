@@ -413,15 +413,208 @@ expect(actual).to be_xml_equivalent_to(expected,
     element_position: :ignore,
     element_hierarchy: :ignore
   )
+====
+
+== Comments dimension
+
+The `comments` dimension controls how comment nodes are matched and how their differences are classified in diff output.
+
+=== Matching behaviors
+
+`strict`:: Comment content must match exactly. Differences are classified as **normative** (shown in red/green).
+`normalize`:: Comment text is normalized (whitespace collapsed) before matching. Differences are still classified as **normative**.
+`ignore`:: Comment content is compared but differences are classified as **informative** (shown in cyan/blue) rather than normative.
+
+IMPORTANT: With `comments: :ignore`, comment nodes still participate in comparison and create DiffNodes. The difference is that these DiffNodes are marked as **informative** rather than **normative**. Use the `show_diffs` option to control visibility of informative diffs in the output.
+
+=== Default values
+
+* **XML**: `comments: :strict` - Comment differences are normative
+* **HTML**: `comments: :ignore` - Comment differences are informative
+
+=== Example: Comments as informative differences
+
+.Match comments but classify differences as informative
+[source,ruby]
+----
+xml1 = '<root><!--comment 1--><child>text</child></root>'
+xml2 = '<root><!--comment 2--><child>text</child></root>'
+
+Canon.equivalent?(xml1, xml2,
+  format: :xml,
+  verbose: true,
+  match: { comments: :ignore },  # Comment diffs → informative
+  show_diffs: :all                # Show all diffs (cyan for comments)
+)
 ----
 
-== See also
+In this example, the comment difference is still detected and included in the diff output, but is shown in cyan color to indicate it's an informative difference.
 
-* link:dimensions.adoc[Match Dimensions] - Detailed dimension reference
-* link:profiles.adoc[Match Profiles] - Complete profile details
-* link:algorithm-specific-behavior.adoc[Algorithm-Specific Behavior] - How algorithms interpret options
-* link:../../understanding/comparison-pipeline.adoc[Comparison Pipeline] - Understanding the 4 layers
-* link:../../understanding/formats/[Format Support] - Format-specific defaults
-* link:../../interfaces/ruby-api/[Ruby API documentation]
-* link:../../interfaces/cli/[Command-line interface]
-* link:../../interfaces/rspec/[RSpec matchers]
+=== Example: Hide informative differences
+
+.Hide informative differences including comments
+[source,ruby]
+----
+Canon.equivalent?(xml1, xml2,
+  format: :xml,
+  verbose: true,
+  match: { comments: :ignore },   # Comment diffs → informative
+  show_diffs: :normative          # Hide informative diffs
+)
+# Returns empty string - no normative diffs to show
+----
+
+== Controlling diff visibility with show_diffs
+
+The `show_diffs` option controls which differences appear in verbose output. This provides fine-grained control over what is displayed without affecting the comparison algorithm.
+
+=== Values
+
+`:all` (default):: Show all differences (both normative and informative)
+`:normative`:: Show only normative differences (hide informative)
+`:informative`:: Show only informative differences (hide normative)
+
+=== Color scheme
+
+Normative differences:: Shown in red (removed) and green (added)
+Informative differences:: Shown in cyan/blue (both removed and added)
+
+=== Three-stage pipeline
+
+The comparison process follows a three-stage pipeline:
+
+[source]
+----
+┌─────────────────────────────────────────────────────────────┐
+│  STAGE 1: MATCHING - Compare all nodes                      │
+│  • Parse XML/HTML to DOM or TreeNode                         │
+│  • Compare ALL nodes (including comments)                    │
+│  • Create DiffNodes for ALL differences                      │
+└────────────────────┬────────────────────────────────────────┘
+                     │
+                     ▼
+┌─────────────────────────────────────────────────────────────┐
+│  STAGE 2: CLASSIFICATION - Mark normative vs informative    │
+│  • DiffClassifier uses match_options                         │
+│  • comments: :ignore → comment diffs = informative           │
+│  • comments: :strict → comment diffs = normative             │
+└────────────────────┬────────────────────────────────────────┘
+                     │
+                     ▼
+┌─────────────────────────────────────────────────────────────┐
+│  STAGE 3: RENDERING - Control visibility                    │
+│  • show_diffs: :all → show everything                        │
+│  • show_diffs: :normative → show only normative              │
+│  • show_diffs: :informative → show only informative          │
+└─────────────────────────────────────────────────────────────┘
+----
+
+=== Example: Show only normative differences
+
+.Show only normative differences (common use case)
+[source,ruby]
+----
+result = Canon.equivalent?(xml1, xml2,
+  format: :xml,
+  verbose: true,
+  show_diffs: :normative
+)
+----
+
+This is useful when you want to focus on actual semantic differences and hide cosmetic ones like comment changes or whitespace formatting.
+
+=== Example: Show only informative differences
+
+.Show only informative differences (debugging use case)
+[source,ruby]
+----
+result = Canon.equivalent?(xml1, xml2,
+  format: :xml,
+  verbose: true,
+  show_diffs: :informative
+)
+----
+
+This is useful for debugging or reviewing formatting/cosmetic changes separately from semantic ones.
+
+=== Combining comments and show_diffs
+
+The `comments` match option and `show_diffs` option work together:
+
+[cols="1,1,2"]
+|===
+| comments | show_diffs | Result
+
+| `:ignore`
+| `:normative`
+| Comment diffs hidden (informative)
+
+| `:ignore`
+| `:all`
+| Comment diffs shown in cyan (informative)
+
+| `:strict`
+| `:normative`
+| Comment diffs shown in red/green (normative)
+
+| `:strict`
+| `:informative`
+| Comment diffs hidden (normative)
+|===
+
+.Example: Mixed scenario
+// XML with both comment and text differences
+xml1 = '<root><!--old comment--><child>text1</child></root>'
+xml2 = '<root><!--new comment--><child>text2</child></root>'
+
+// Show only normative diffs (hide comment changes)
+result = Canon.equivalent?(xml1, xml2,
+  format: :xml,
+  verbose: true,
+  match: { comments: :ignore, text_content: :strict },
+  show_diffs: :normative
+)
+
+// Output shows text change but not comment change
+// - text1 (in red)
+// + text2 (in green)
+// Comment diff is hidden because it's informative
+----
+
+=== CLI usage
+
+[source,bash]
+----
+# Show only normative differences
+canon diff file1.xml file2.xml --show-diffs=normative
+
+# Show all differences (default)
+canon diff file1.xml file2.xml --show-diffs=all
+
+# Show only informative differences
+canon diff file1.xml file2.xml --show-diffs=informative
+----
+
+=== RSpec usage
+
+[source,ruby]
+----
+RSpec.describe 'XML comparison' do
+  it 'matches despite comment differences' do
+    expect(xml1).to be_xml_equivalent_to(xml2)
+      .with_match(comments: :ignore)
+      .show_diffs(:normative)
+  end
+end
+----
+
+=== Environment variable
+
+You can set a default value using the `CANON_SHOW_DIFFS` environment variable:
+
+[source,bash]
+----
+export CANON_SHOW_DIFFS=normative
+----
+
+Valid values: `all`, `normative`, `informative`

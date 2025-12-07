@@ -148,7 +148,19 @@ module Canon
               algorithm: :dom,
             )
           else
-            result == Comparison::EQUIVALENT
+            # Non-verbose mode: check equivalence
+            # If comparison found differences, classify them to determine if normative
+            if result != Comparison::EQUIVALENT && !differences.empty?
+              classifier = Canon::Diff::DiffClassifier.new(match_opts)
+              classifier.classify_all(differences.select do |d|
+                d.is_a?(Canon::Diff::DiffNode)
+              end)
+              # Equivalent if no normative differences (matches semantic algorithm)
+              differences.none?(&:normative?)
+            else
+              # Either equivalent or no differences tracked
+              result == Comparison::EQUIVALENT
+            end
           end
         end
 

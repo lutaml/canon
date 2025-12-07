@@ -88,6 +88,32 @@ module Canon
         output.join("\n")
       end
 
+      # Build diff symbol legend
+      #
+      # @param use_color [Boolean] Whether to use colors
+      # @return [String] Formatted diff symbol legend
+      def self.build_diff_symbol_legend(use_color: true)
+        output = []
+        separator = "━" * 60
+
+        output << colorize("Diff Symbol Legend:", :cyan, :bold, use_color)
+        output << colorize(separator, :cyan, :bold, use_color)
+
+        # Normative changes
+        output << colorize("Normative Changes (affect equivalence):", :yellow, :bold, use_color)
+        output << "  #{colorize('-', :red, :bold, use_color)}: Line removed (normative difference)"
+        output << "  #{colorize('+', :green, :bold, use_color)}: Line added (normative difference)"
+        output << ""
+
+        # Informative changes
+        output << colorize("Informative Changes (do not affect equivalence):", :yellow, :bold, use_color)
+        output << "  #{colorize('~', :cyan, :bold, use_color)}: Line differs (informative only)"
+        output << ""
+
+        output << colorize(separator, :cyan, :bold, use_color)
+        output.join("\n")
+      end
+
       # Format character name for display
       #
       # @param name [String] Unicode character name

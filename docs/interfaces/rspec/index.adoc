@@ -372,6 +372,65 @@ end
 ----
 ====
 
+=== Display filtering
+
+Use `.show_diffs()` to control which differences appear in failure output.
+
+.Display filtering modes
+[example]
+====
+[source,ruby]
+----
+RSpec.describe 'Display filtering' do
+  it 'shows all differences (default)' do
+    expect(actual_xml).to be_xml_equivalent_to(expected_xml)
+      .show_diffs(:all)
+  end
+
+  it 'shows only normative differences' do
+    # Only show differences that affect equivalence
+    expect(actual_xml).to be_xml_equivalent_to(expected_xml)
+      .show_diffs(:normative)
+  end
+
+  it 'shows only informative differences' do
+    # Only show differences that don't affect equivalence
+    expect(actual_xml).to be_xml_equivalent_to(expected_xml,
+      match: { comments: :ignore }
+    ).show_diffs(:informative)
+  end
+end
+----
+====
+
+.Combining with match options
+[example]
+====
+[source,ruby]
+----
+RSpec.describe 'Combined filtering' do
+  it 'ignores comments but shows only normative diffs' do
+    expect(actual_xml).to be_xml_equivalent_to(expected_xml)
+      .with_options(comments: :ignore)
+      .show_diffs(:normative)
+  end
+
+  it 'uses spec_friendly profile with normative filtering' do
+    expect(actual_xml).to be_xml_equivalent_to(expected_xml)
+      .with_profile(:spec_friendly)
+      .show_diffs(:normative)
+  end
+end
+----
+====
+
+IMPORTANT: Display filtering does NOT affect equivalence determination. It
+only controls which differences appear in the failure output. Equivalence is
+always based on normative differences only.
+
+See link:../../features/diff-formatting/display-filtering.adoc[Display
+filtering] for complete details.
+
 == Diff algorithms
 
 Canon supports two diff algorithms that can be selected based on your needs:
@@ -507,8 +566,6 @@ The diff algorithm can be combined with match profiles and options:
 
 .Algorithm with profiles and options
 [example]
-====
-[source,ruby]
 ----
 RSpec.describe 'Combined configuration' do
   it 'uses semantic algorithm with spec_friendly profile' do
@@ -547,8 +604,6 @@ end
 
 .XML generation tests
 [example]
-====
-[source,ruby]
 ----
 RSpec.describe 'XML generation' do
   let(:expected_xml) do
@@ -584,8 +639,6 @@ end
 
 .HTML output tests
 [example]
-====
-[source,ruby]
 ----
 RSpec.describe 'HTML generation' do
   let(:expected_html) do
@@ -632,8 +685,6 @@ end
 
 .JSON API tests
 [example]
-====
-[source,ruby]
 ----
 RSpec.describe 'API responses' do
   let(:expected_response) do
@@ -668,8 +719,6 @@ end
 
 .Configuration file tests
 [example]
-====
-[source,ruby]
 ----
 RSpec.describe 'Configuration files' do
   it 'generates correct YAML config' do
@@ -708,8 +757,6 @@ detail:
 
 .Debugging example
 [example]
-====
-[source,ruby]
 ----
 it 'shows exactly what differs' do
   expect(actual).to be_xml_equivalent_to(expected, verbose: true)
@@ -723,14 +770,12 @@ The diff output will show:
 * Color-coded changes (red/green)
 * Whitespace visualization
 * Non-ASCII character warnings
-====
+----
 
 === Temporarily disabling global config
 
 .Override global config
 [example]
-====
-[source,ruby]
 ----
 it 'uses different config for this test' do
   # Global config uses spec_friendly, but we want strict here
@@ -742,14 +787,11 @@ it 'uses different config for this test' do
     )
 end
 ----
-====
 
 === Checking what's being compared
 
 .Debug preprocessed content
 [example]
-====
-[source,ruby]
 ----
 # In your test, temporarily add:
 result = Canon::Comparison.equivalent?(actual, expected, verbose: true)
@@ -764,7 +806,6 @@ puts result[:preprocessed][1]
 puts "Differences:"
 pp result[:differences]
 ----
-====
 
 == See also
 

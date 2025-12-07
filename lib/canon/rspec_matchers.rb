@@ -44,13 +44,23 @@ module Canon
     # This is a THIN WRAPPER around Canon::Comparison API
     class SerializationMatcher
       def initialize(expected, format = nil, match_profile: nil,
-                     match: nil, preprocessing: nil, diff_algorithm: nil)
+                     match: nil, preprocessing: nil, diff_algorithm: nil,
+                     show_diffs: nil)
         @expected = expected
         @format = format&.to_sym
         @match_profile = match_profile
         @match = match
         @preprocessing = preprocessing
         @diff_algorithm = diff_algorithm
+        @show_diffs = show_diffs
+      end
+
+      # Chain method for controlling diff display
+      # @param value [Symbol, String] :all, :normative, or :informative
+      # @return [SerializationMatcher] self for chaining
+      def show_diffs(value)
+        @show_diffs = value.to_sym
+        self
       end
 
       def matches?(target)
@@ -136,6 +146,7 @@ module Canon
         opts[:match] = @match if @match
         opts[:preprocessing] = @preprocessing if @preprocessing
         opts[:diff_algorithm] = @diff_algorithm if @diff_algorithm
+        opts[:show_diffs] = @show_diffs if @show_diffs
 
         # Add global configuration from Canon::Config (lower priority)
         if @format

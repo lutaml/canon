@@ -184,8 +184,6 @@ module Canon
       # Build attribute nodes for an element
       def self.build_attribute_nodes(nokogiri_element, element)
         nokogiri_element.attributes.each do |name, attr|
-          next if name.start_with?("xmlns")
-
           attr_node = Nodes::AttributeNode.new(
             name: attr.name,
             value: attr.value,
