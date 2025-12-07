@@ -201,6 +201,11 @@ module Canon
                   type: :string,
                   enum: %w[strict normalize ignore],
                   desc: "Comment matching: strict, normalize, or ignore"
+    method_option :show_diffs,
+                  type: :string,
+                  enum: %w[all normative informative],
+                  default: "all",
+                  desc: "Control which diffs to display: all, normative, or informative"
     method_option :context_lines,
                   type: :numeric,
                   default: 3,

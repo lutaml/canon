@@ -169,11 +169,59 @@ Compare documents based on meaning, not formatting:
 
 * Whitespace normalization options
 * Attribute/key order handling
-* Comment handling
+* Comment handling with display control
 * Multiple match dimensions with behaviors
 * Predefined match profiles (strict, rendered, spec_friendly, content_only)
 
 See link:docs/MATCH_OPTIONS[Match options] for details.
+
+==== Comment display control
+
+Control which differences are displayed in diff output:
+
+[source,ruby]
+----
+# Show all differences (default)
+result = Canon::Comparison.equivalent?(xml1, xml2,
+  verbose: true,
+  match: { comments: :ignore },
+  show_diffs: :all
+)
+
+# Show only normative differences (affect equivalence)
+result = Canon::Comparison.equivalent?(xml1, xml2,
+  verbose: true,
+  match: { comments: :ignore },
+  show_diffs: :normative
+)
+
+# Show only informative differences
+result = Canon::Comparison.equivalent?(xml1, xml2,
+  verbose: true,
+  match: { comments: :ignore },
+  show_diffs: :informative
+)
+----
+
+**CLI usage:**
+[source,bash]
+----
+# Show all differences
+$ canon diff file1.xml file2.xml --show-diffs all
+
+# Show only normative differences
+$ canon diff file1.xml file2.xml --show-diffs normative
+
+# Show only informative differences
+$ canon diff file1.xml file2.xml --show-diffs informative
+----
+
+**RSpec usage:**
+[source,ruby]
+----
+expect(actual).to be_xml_equivalent_to(expected)
+  .show_diffs(:normative)
+----
 
 === Algorithm choice
 
@@ -260,8 +308,10 @@ See link:docs/MODES[Diff modes] for details.
 
 === Enhanced diff features
 
-* **Color-coded output**: Red (normative deletions), green (normative additions), yellow
-  (normative structure), cyan (informative diffs)
+* **Color-coded output**: Red (normative deletions), green (normative additions), cyan
+  (informative diffs with `~` symbol)
+* **Namespace rendering**: Explicit namespace display in XML diffs using `ns:[uri]` or `ns:[{blank}]` format
+* **Informative diff visualization**: Visually distinct cyan-colored `~` markers for differences that don't affect equivalence
 * **Whitespace visualization**: Make invisible characters visible with CJK-safe
   Unicode symbols
 * **Non-ASCII detection**: Warnings for unexpected Unicode characters

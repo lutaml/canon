@@ -1108,4 +1108,117 @@ RSpec.describe Canon::RSpecMatchers do
       end
     end
   end
+
+  describe "show_diffs filtering" do
+    let(:xml_with_comment1) do
+      <<~XML
+        <root>
+          <!-- Comment A -->
+          <element>value1</element>
+        </root>
+      XML
+    end
+
+    let(:xml_with_comment2) do
+      <<~XML
+        <root>
+          <!-- Comment B -->
+          <element>value2</element>
+        </root>
+      XML
+    end
+
+    context "with show_diffs chain method" do
+      it "accepts :all parameter" do
+        matcher = be_xml_equivalent_to(xml_with_comment2).show_diffs(:all)
+        expect(matcher).to be_a(Canon::RSpecMatchers::SerializationMatcher)
+      end
+
+      it "accepts :normative parameter" do
+        matcher = be_xml_equivalent_to(xml_with_comment2).show_diffs(:normative)
+        expect(matcher).to be_a(Canon::RSpecMatchers::SerializationMatcher)
+      end
+
+      it "accepts :informative parameter" do
+        matcher = be_xml_equivalent_to(xml_with_comment2).show_diffs(:informative)
+        expect(matcher).to be_a(Canon::RSpecMatchers::SerializationMatcher)
+      end
+    end
+
+    context "with comments: :ignore" do
+      it "shows both normative and informative diffs with show_diffs: :all" do
+        begin
+          expect(xml_with_comment1).to be_xml_equivalent_to(
+            xml_with_comment2,
+            match: { comments: :ignore }
+          ).show_diffs(:all)
+        rescue RSpec::Expectations::ExpectationNotMetError => e
+          # Should fail because of normative diff (element value)
+          expect(e.message).to include("expected XML to be equivalent")
+        end
+      end
+
+      it "filters to normative diffs only with show_diffs: :normative" do
+        begin
+          expect(xml_with_comment1).to be_xml_equivalent_to(
+            xml_with_comment2,
+            match: { comments: :ignore }
+          ).show_diffs(:normative)
+        rescue RSpec::Expectations::ExpectationNotMetError => e
+          # Should show normative diffs (element value change)
+          expect(e.message).to include("expected XML to be equivalent")
+        end
+      end
+
+      it "filters to informative diffs only with show_diffs: :informative" do
+        # When comments are ignored, comment diffs are informative
+        # So documents with only comment diffs are equivalent
+        xml1 = "<root><!-- Comment A --><element>same</element></root>"
+        xml2 = "<root><!-- Comment B --><element>same</element></root>"
+
+        # These should be equivalent (comments ignored = informative)
+        expect(xml1).to be_xml_equivalent_to(
+          xml2,
+          match: { comments: :ignore }
+        ).show_diffs(:informative)
+      end
+    end
+
+    context "with comments: :strict" do
+      it "comment diffs are normative and shown with show_diffs: :normative" do
+        xml1 = "<root><!-- Comment A --><element>same</element></root>"
+        xml2 = "<root><!-- Comment B --><element>same</element></root>"
+
+        begin
+          expect(xml1).to be_xml_equivalent_to(
+            xml2,
+            match: { comments: :strict }
+          ).show_diffs(:normative)
+        rescue RSpec::Expectations::ExpectationNotMetError => e
+          # Should fail because comment diffs are normative
+          expect(e.message).to include("expected XML to be equivalent")
+        end
+      end
+    end
+
+    context "equivalence determination" do
+      it "show_diffs does not affect equivalence result" do
+        xml1 = "<root><el>A</el></root>"
+        xml2 = "<root><el>B</el></root>"
+
+        # All three should fail (not equivalent) regardless of show_diffs
+        expect do
+          expect(xml1).to be_xml_equivalent_to(xml2).show_diffs(:all)
+        end.to raise_error(RSpec::Expectations::ExpectationNotMetError)
+
+        expect do
+          expect(xml1).to be_xml_equivalent_to(xml2).show_diffs(:normative)
+        end.to raise_error(RSpec::Expectations::ExpectationNotMetError)
+
+        expect do
+          expect(xml1).to be_xml_equivalent_to(xml2).show_diffs(:informative)
+        end.to raise_error(RSpec::Expectations::ExpectationNotMetError)
+      end
+    end
+  end
 end

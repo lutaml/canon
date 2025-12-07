@@ -8,10 +8,11 @@ module Canon
       class BaseFormatter
         attr_reader :use_color, :visualization_map
 
-        def initialize(use_color: true, visualization_map: nil)
+        def initialize(use_color: true, visualization_map: nil, show_diffs: :all)
           @use_color = use_color
           @visualization_map = visualization_map ||
             Canon::DiffFormatter::DEFAULT_VISUALIZATION_MAP
+          @show_diffs = show_diffs
         end
 
         # Format differences for display
@@ -35,8 +36,11 @@ module Canon
           output = []
           output << colorize("Visual Diff:", :cyan, :bold)
 
+          # Filter differences for display based on show_diffs setting
+          filtered_diffs = filter_differences_for_display(diffs_array)
+
           # Group differences by path for tree building
-          tree = build_diff_tree(diffs_array)
+          tree = build_diff_tree(filtered_diffs)
 
           # Render tree with line counting
           @line_count = 0
@@ -61,26 +65,59 @@ module Canon
         end
 
         # Factory method to create format-specific formatter
-        def self.for_format(format, use_color: true, visualization_map: nil)
+        def self.for_format(format, use_color: true, visualization_map: nil, show_diffs: :all)
           case format
           when :xml, :html
             require_relative "xml_formatter"
             XmlFormatter.new(use_color: use_color,
-                             visualization_map: visualization_map)
+                             visualization_map: visualization_map,
+                             show_diffs: show_diffs)
           when :json
             require_relative "json_formatter"
             JsonFormatter.new(use_color: use_color,
-                              visualization_map: visualization_map)
+                              visualization_map: visualization_map,
+                              show_diffs: show_diffs)
           when :yaml
             require_relative "yaml_formatter"
             YamlFormatter.new(use_color: use_color,
-                              visualization_map: visualization_map)
+                              visualization_map: visualization_map,
+                              show_diffs: show_diffs)
           else
-            new(use_color: use_color, visualization_map: visualization_map)
+            new(use_color: use_color, visualization_map: visualization_map,
+                show_diffs: show_diffs)
           end
         end
 
         private
+
+        # Filter differences for display based on show_diffs setting
+        #
+        # @param differences [Array<Canon::Diff::DiffNode>] Array of differences
+        # @return [Array<Canon::Diff::DiffNode>] Filtered differences
+        def filter_differences_for_display(differences)
+          return differences if @show_diffs.nil? || @show_diffs == :all
+
+          differences.select do |diff|
+            # Handle both DiffNode objects and legacy Hash format
+            is_normative = if diff.respond_to?(:normative?)
+                            diff.normative?
+                          elsif diff.is_a?(Hash) && diff.key?(:normative)
+                            diff[:normative]
+                          else
+                            # Default to normative if unknown
+                            true
+                          end
+
+            case @show_diffs
+            when :normative
+              is_normative
+            when :informative
+              !is_normative
+            else
+              true # Unknown value, show all
+            end
+          end
+        end
 
         # Generate success message
         def success_message

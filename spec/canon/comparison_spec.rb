@@ -211,18 +211,23 @@ RSpec.describe Canon::Comparison do
         html1 = "<html><body><!-- comment --><p>Test</p></body></html>"
         html2 = "<html><body><p>Test</p></body></html>"
 
-        # HTML defaults: comments are ignored, should return empty differences
+        # HTML defaults: comments are ignored, should create informative DiffNodes
         result = described_class.equivalent?(html1, html2,
                                              { verbose: true })
         expect(result).to be_a(Canon::Comparison::ComparisonResult)
-        expect(result.differences).to be_empty
+        # DiffNodes are created but marked as informative
+        expect(result.differences.length).to eq(1)
+        expect(result.differences.first.dimension).to eq(:comments)
+        expect(result.differences.first.normative?).to be false
+        # Still equivalent because comment diff is informative
         expect(result.equivalent?).to be true
 
-        # With strict comments matching, should return differences
+        # With strict comments matching, should return normative differences
         result = described_class.equivalent?(html1, html2,
                                              { verbose: true, match: { comments: :strict } })
         expect(result).to be_a(Canon::Comparison::ComparisonResult)
         expect(result.differences).not_to be_empty
+        expect(result.differences.first.normative?).to be true
         expect(result.equivalent?).to be false
       end
     end

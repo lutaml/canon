@@ -52,6 +52,7 @@ module Canon
           mode: mode,
           context_lines: @options.fetch(:context_lines, 3),
           diff_grouping_lines: @options[:diff_grouping_lines],
+          show_diffs: @options[:show_diffs]&.to_sym || :all,
         )
         if comp_opts[:verbose]
           # result is always a ComparisonResult object
@@ -98,6 +99,9 @@ module Canon
 
         # Add diff algorithm option
         opts[:diff_algorithm] = determine_algorithm
+
+        # Add show_diffs option
+        opts[:show_diffs] = @options[:show_diffs].to_sym if @options[:show_diffs]
 
         opts
       end

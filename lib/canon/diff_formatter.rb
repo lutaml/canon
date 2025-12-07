@@ -333,8 +333,9 @@ module Canon
 
       # Check if comparison result is a ComparisonResult object
       if comparison_result.is_a?(Canon::Comparison::ComparisonResult)
-        # Use preprocessed strings from comparison - avoids re-preprocessing
-        doc1, doc2 = comparison_result.preprocessed_strings
+        # Use original strings for line diff to show actual formatting/namespace differences
+        # Use preprocessed strings for semantic comparison only
+        doc1, doc2 = comparison_result.original_strings
         differences = comparison_result.differences
         html_version = comparison_result.html_version
       elsif comparison_result.is_a?(Hash) && comparison_result[:preprocessed]
@@ -482,6 +483,7 @@ module Canon
         format,
         use_color: @use_color,
         visualization_map: @visualization_map,
+        show_diffs: @show_diffs,
       )
 
       output << formatter.format(diffs_array, format)
