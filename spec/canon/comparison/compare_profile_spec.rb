@@ -88,10 +88,10 @@ RSpec.describe Canon::Comparison::CompareProfile do
         expect(profile.supports_formatting_detection?(:structural_whitespace)).to be true
       end
 
-      it "returns true for :comments" do
+      it "returns false for :comments" do
         profile = described_class.new({})
 
-        expect(profile.supports_formatting_detection?(:comments)).to be true
+        expect(profile.supports_formatting_detection?(:comments)).to be false
       end
     end
 

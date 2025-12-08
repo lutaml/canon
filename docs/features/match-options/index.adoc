@@ -29,6 +29,7 @@ Match options control which aspects of documents are compared and how strictly t
 * link:dimensions.adoc[Match Dimensions] - Detailed reference for all dimensions
 * link:profiles.adoc[Match Profiles] - Predefined configurations
 * link:algorithm-specific-behavior.adoc[Algorithm-Specific Behavior] - How DOM and Semantic algorithms interpret options differently
+* link:html-policies.adoc[HTML-Specific Policies] - HTML format-specific comparison policies
 
 == Match dimensions overview
 

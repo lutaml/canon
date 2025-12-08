@@ -1,0 +1,312 @@
+---
+layout: default
+title: HTML-Specific Policies
+parent: Match Options
+grand_parent: Features
+nav_order: 4
+---
+
+:toc:
+:toclevels: 3
+
+== HTML-Specific Comparison Policies
+
+=== Overview
+
+HTML comparison has specific policies that differ from XML due to HTML's unique
+characteristics and rendering behavior. Canon uses `HtmlCompareProfile` to
+implement these format-specific policies.
+
+=== Default Policies
+
+HTML uses the `:rendered` profile by default:
+
+[source,ruby]
+----
+{
+  preprocessing: :rendered,
+  text_content: :normalize,
+  structural_whitespace: :normalize,
+  comments: :ignore,
+  attribute_order: :ignore
+}
+----
+
+This reflects how browsers render HTML - whitespace is normalized and comments
+are presentational.
+
+=== HTML Version Detection
+
+Canon automatically detects HTML version:
+
+* **HTML4**: Case-insensitive element/attribute names
+* **HTML5**: Case-sensitive (preserves case)
+
+Detection is based on DOCTYPE or parsing mode.
+
+=== Whitespace Preservation
+
+Certain HTML elements require strict whitespace preservation regardless of the
+`text_content` policy:
+
+[cols="1,3"]
+|===
+|Element |Purpose
+
+|`<pre>`
+|Preformatted text blocks
+
+|`<code>`
+|Code snippets
+
+|`<textarea>`
+|Form input fields
+
+|`<script>`
+|JavaScript code
+
+|`<style>`
+|CSS stylesheets
+|===
+
+Inside these elements, ALL whitespace is preserved even when `text_content:
+:normalize` is set.
+
+.Example: Whitespace preservation in <pre>
+====
+[source,ruby]
+----
+html1 = '<pre>Line 1\n  Line 2</pre>'
+html2 = '<pre>Line 1\nLine 2</pre>'
+
+# Whitespace is preserved - not equivalent
+Canon::Comparison.equivalent?(html1, html2, preprocessing: :rendered)
+# => false
+----
+
+The indentation difference matters in `<pre>` elements.
+====
+
+.Example: Whitespace normalization in <div>
+====
+[source,ruby]
+----
+html1 = '<div>Text    with    spaces</div>'
+html2 = '<div>Text with spaces</div>'
+
+# Whitespace is normalized - equivalent
+Canon::Comparison.equivalent?(html1, html2, preprocessing: :rendered)
+# => true
+----
+
+Multiple spaces are normalized to single spaces in regular elements.
+====
+
+=== Comment Handling
+
+HTML comments are presentational by default (like CSS styles):
+
+[source,ruby]
+----
+# Default: comments ignored (informative)
+html1 = '<div><!-- comment --><p>Text</p></div>'
+html2 = '<div><p>Text</p></div>'
+
+Canon::Comparison.equivalent?(html1, html2)
+# => true (comments don't affect equivalence)
+
+# Strict mode: comments compared (normative)
+Canon::Comparison.equivalent?(html1, html2, match: { comments: :strict })
+# => false (comments affect equivalence)
+----
+
+=== Why comments are ignored by default
+
+In HTML, comments serve similar purposes to CSS:
+* Developer notes
+* Conditional comments (IE hacks)
+* Disabled code blocks
+* Build tool markers
+
+They don't affect rendering or semantic meaning, so they're
+informative by default.
+
+=== Case Sensitivity
+
+HTML4 and HTML5 have different case sensitivity rules:
+
+.HTML4 (case-insensitive)
+====
+[source,ruby]
+----
+html1 = '<DIV CLASS="test">Content</DIV>'
+html2 = '<div class="test">Content</div>'
+
+Canon::Comparison.equivalent?(html1, html2, format: :html4)
+# => true (case doesn't matter in HTML4)
+----
+====
+
+.HTML5 (case-sensitive)
+====
+[source,ruby]
+----
+html1 = '<DIV CLASS="test">Content</DIV>'
+html2 = '<div class="test">Content</div>'
+
+Canon::Comparison.equivalent?(html1, html2, format: :html5)
+# => false (case matters in HTML5, though uncommon)
+----
+====
+
+=== Usage Examples
+
+=== Default HTML comparison
+
+[source,ruby]
+----
+require 'canon/comparison'
+
+html1 = '<div>  <p>  Text  </p>  </div>'
+html2 = '<div><p>Text</p></div>'
+
+# Uses HtmlCompareProfile automatically
+result = Canon::Comparison.equivalent?(html1, html2)
+# => true (whitespace normalized, comments ignored)
+----
+
+=== Strict HTML comparison
+
+[source,ruby]
+----
+# All differences matter
+result = Canon::Comparison.equivalent?(html1, html2,
+  match: {
+    text_content: :strict,
+    structural_whitespace: :strict,
+    comments: :strict,
+    attribute_order: :strict
+  }
+)
+# => false (whitespace differences are normative)
+----
+
+=== Mixed policies
+
+[source,ruby]
+----
+# Normalize whitespace but compare comments strictly
+result = Canon::Comparison.equivalent?(html1, html2,
+  match: {
+    text_content: :normalize,
+    structural_whitespace: :normalize,
+    comments: :strict
+  }
+)
+----
+
+=== Preprocessing Options
+
+HTML supports several preprocessing modes:
+
+=== `:rendered` (default)
+
+Simulates browser rendering:
+- Normalizes whitespace
+- Preserves whitespace in special elements
+- Ignores comments
+
+[source,ruby]
+----
+Canon::Comparison.equivalent?(html1, html2, preprocessing: :rendered)
+----
+
+=== `:format`
+
+Pretty-prints before comparison:
+- Consistent indentation
+- One element per line
+- Good for visual diffs
+
+[source,ruby]
+----
+Canon::Comparison.equivalent?(html1, html2, preprocessing: :format)
+----
+
+=== `:none`
+
+No preprocessing:
+- Raw comparison
+- Useful for exact matching
+
+[source,ruby]
+----
+Canon::Comparison.equivalent?(html1, html2, preprocessing: :none)
+----
+
+=== Advanced Examples
+
+=== Compare HTML with mixed content
+
+[source,ruby]
+----
+html1 = '<p>This is <em>important</em> text.</p>'
+html2 = '<p>This is  <em>important</em>  text.</p>'
+
+result = Canon::Comparison.equivalent?(
+  html1, html2,
+  verbose: true,
+  match: { text_content: :normalize, structural_whitespace: :normalize }
+)
+
+result.equivalent?  # => true
+result.differences  # => [#<DiffNode formatting: true, normative: false>]
+----
+
+=== Compare with element-specific preservation
+
+[source,ruby]
+----
+html1 = '<div><pre>  Code  </pre></div>'
+html2 = '<div><pre>Code</pre></div>'
+
+# Whitespace preserved in <pre>, normalized in <div>
+result = Canon::Comparison.equivalent?(html1, html2)
+# => false (whitespace matters in <pre>)
+----
+
+=== Detect normative vs informative differences
+
+[source,ruby]
+----
+html1 = '<div class="a" id="1"><!-- v1 --><p>Text</p></div>'
+html2 = '<div id="1" class="b"><!-- v2 --><p>Text</p></div>'
+
+result = Canon::Comparison.equivalent?(
+  html1, html2,
+  verbose: true,
+  match: { attribute_order: :ignore, comments: :ignore }
+)
+
+# Attribute order: informative (ignored)
+# Comments: informative (ignored)
+# Attribute value (class): normative (different)
+
+result.equivalent?  # => false
+result.differences.select(&:normative?)  # => [class attribute diff]
+result.differences.reject(&:normative?) # => [order diff, comment diff]
+----
+
+=== Implementation
+
+See the following files for implementation details:
+
+* [`lib/canon/comparison/html_compare_profile.rb`](../../lib/canon/comparison/html_compare_profile.rb) - HTML-specific profile
+* [`lib/canon/comparison/compare_profile.rb`](../../lib/canon/comparison/compare_profile.rb) - Base profile
+* [`spec/canon/comparison/html_compare_profile_spec.rb`](../../spec/canon/comparison/html_compare_profile_spec.rb) - Comprehensive examples
+
+=== See Also
+
+* link:index.html[Match Options] - Overview of match system
+* link:algorithm-specific-behavior.html[Algorithm-Specific Behavior] - How algorithms handle options
+* link:../../advanced/diff-classification.html[Diff Classification] - Normative vs informative

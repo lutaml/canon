@@ -23,36 +23,31 @@ module Canon
       end
 
       # Classify a single DiffNode as normative or informative
-      # First checks if the difference is formatting-only, then applies normative/informative logic
+      # Hierarchy: formatting-only < informative < normative
+      # CompareProfile determines base classification, FormattingDetector refines informative differences
       # @param diff_node [DiffNode] The diff node to classify
       # @return [DiffNode] The same diff node with normative/formatting attributes set
       def classify(diff_node)
-        # First, determine if this dimension is normative (affects equivalence)
+        # FIRST: Determine if this dimension is normative based on CompareProfile
+        # This respects the policy settings (strict/normalize/ignore)
         is_normative = profile.normative_dimension?(diff_node.dimension)
 
-        # If the dimension is normative, it cannot be formatting-only
-        if is_normative
-          diff_node.formatting = false
-          diff_node.normative = true
+        # SECOND: Check if FormattingDetector should be consulted
+        # Only check for formatting-only when dimension is NOT normative
+        # This ensures strict mode differences remain normative
+        should_check_formatting = !is_normative &&
+                                  profile.supports_formatting_detection?(diff_node.dimension)
+
+        # If we should check formatting, see if it's formatting-only
+        if should_check_formatting && formatting_only_diff?(diff_node)
+          diff_node.formatting = true
+          diff_node.normative = false
           return diff_node
         end
 
-        # For non-normative dimensions, check if formatting-only applies
-        if profile.supports_formatting_detection?(diff_node.dimension)
-          # For text/content dimensions, check if formatting-only
-          if formatting_only_diff?(diff_node)
-            diff_node.formatting = true
-            diff_node.normative = false
-          else
-            # Not formatting-only, but still non-normative (informative)
-            diff_node.formatting = false
-            diff_node.normative = false
-          end
-        else
-          # Doesn't support formatting detection, just mark as non-normative
-          diff_node.formatting = false
-          diff_node.normative = false
-        end
+        # Otherwise, use the normative determination from CompareProfile
+        diff_node.formatting = false
+        diff_node.normative = is_normative
 
         diff_node
       end

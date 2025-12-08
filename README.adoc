@@ -148,6 +148,7 @@ $ canon help
   classification
 * **link:docs/DIFF_ARCHITECTURE[Diff architecture]** - Technical pipeline
   details
+* **link:docs/COMPARE_PROFILE[CompareProfile architecture]** - Format-specific policies
 
 == Features
 
@@ -436,6 +437,93 @@ Used by DiffClassifier to set the normative flag on DiffNodes.
 `supports_formatting_detection?(dimension)`:: Can FormattingDetector apply to this dimension?
 Returns `true` only for text/content dimensions (`:text_content`, `:structural_whitespace`, `:comments`).
 
+=== CompareProfile architecture
+
+Canon uses a `CompareProfile` system to define format-specific comparison policies.
+This allows different formats (HTML, XML, JSON, YAML) to have their own default
+behaviors while maintaining a consistent architecture.
+
+==== How CompareProfile works
+
+The `CompareProfile` class provides the foundation for policy-based comparison:
+
+**Normative policy**: Determines what differences matter for equivalence. Each
+dimension (`:text_content`, `:structural_whitespace`, `:comments`, etc.) has a
+behavior (`:strict`, `:normalize`, `:ignore`) that determines whether differences
+in that dimension affect equivalence.
+
+**Dimension-based classification**: Each difference has a dimension and the
+profile determines if that dimension is:
+
+* **Normative**: Affects equivalence (documents not equivalent if different)
+* **Informative**: Tracked but doesn't affect equivalence
+* **Formatting-only**: Pure whitespace differences when normalized content matches
+
+**Classification hierarchy**:
+
+1. **Normative** (highest priority): Differences that make documents non-equivalent
+2. ** Informative** (medium priority): Differences that are tracked but don't affect equivalence
+3. **Formatting-only** (lowest priority): Pure whitespace/formatting differences
+
+==== Dimension behaviors
+
+Each dimension can have one of three behaviors:
+
+* **`:strict`**: Differences in this dimension are normative (affect equivalence)
+* **`:normalize`**: Differences are normalized; only semantic changes are normative
+* **`:ignore`**: Differences are informative only (don't affect equivalence)
+
+.Example: Whitespace handling
+[example]
+====
+----
+# Default (strict mode): whitespace differences are normative
+xml1 = '<root><p>Hello world</p></root>'
+xml2 = '<root><p>Hello\nworld</p></root>'
+Canon::Comparison.equivalent?(xml1, xml2)  # => false
+
+# Normalize mode: whitespace-only differences are formatting-only
+Canon::Comparison.equivalent?(xml1, xml2,
+  match: { text_content: :normalize, structural_whitespace: :normalize }
+)  # => true
+----
+====
+
+In normalize mode, the line break is detected as formatting-only because the
+normalized content ("Hello world") is the same.
+
+==== Format-specific profiles
+
+Different formats can extend `CompareProfile` with format-specific policies:
+
+* **XML** (base): Strict policies for all dimensions
+* **HTML** (HtmlCompareProfile): Comments ignored by default, whitespace preserved in certain elements
+* **JSON/YAML** (future): Key order policies, type handling
+
+See `lib/canon/comparison/compare_profile.rb` for the base implementation and
+`lib/canon/comparison/html_compare_profile.rb` for HTML-specific policies.
+
+==== Format-specific policies for HTML
+
+Canon provides a format-specific CompareProfile implementation called
+HtmlCompareProfile that encapsulates policies specific to HTML comparison.
+This profile is automatically used by HtmlComparator based on detected
+HTML version.
+
+**Comments**: Default behavior is `:ignore` (presentational content in HTML),
+unless explicitly set to `:strict`. When comments are set to `:strict`,
+they will affect equivalence.
+
+**Whitespace preservation**: HtmlCompareProfile automatically preserves
+whitespace in elements where it's semantically significant (e.g., `<pre>`,
+`<code>`, `<textarea>`, `<script>`, `<style>`). In other elements, whitespace
+is normalized.
+
+**Case sensitivity**: HTML5 is case-sensitive for element names, while
+HTML4 is case-insensitive. HtmlCompareProfile uses HTML5 case-sensitivity
+by default.
+
+
 ==== Usage example
 
 When using `match: { comments: :ignore }`:
@@ -444,7 +532,8 @@ When using `match: { comments: :ignore }`:
 * `affects_equivalence?(:comments)` returns `false` (doesn't affect equivalence)
 * `normative_dimension?(:comments)` returns `false` (informative only)
 
-This ensures that comment differences are tracked and displayed in verbose mode but don't make documents non-equivalent.
+This ensures that comment differences are tracked and displayed in verbose mode
+but don't make documents non-equivalent.
 
 .Example: Comment differences with :ignore behavior
 ====
@@ -463,8 +552,57 @@ result.differences[0].normative?  # => false (informative)
 result.equivalent?           # => true (doesn't affect equivalence)
 ----
 
-The comment difference is tracked and displayed, but the documents are still considered equivalent because comments are set to `:ignore`.
+The comment difference is tracked and displayed, but the documents are still
+considered equivalent because comments are set to `:ignore`.
 ====
+
+.Example: HTML comment handling
+====
+[source,ruby]
+----
+html1 = '<div><!-- comment --><p>Text</p></div>'
+html2 = '<div><p>Text</p></div>'
+
+# HTML defaults: comments are ignored (presentational)
+result = Canon::Comparison.equivalent?(html1, html2)
+# => true (comments don't affect HTML equivalence by default)
+
+# Explicit strict matching
+result = Canon::Comparison.equivalent?(html1, html2,
+  match: { comments: :strict }
+)
+# => false (comments now affect equivalence)
+----
+
+Comments in HTML are considered presentational content (like CSS styles) and
+don't affect the semantic meaning unless explicitly configured to `:strict`.
+====
+
+.Example: HTML whitespace preservation
+====
+[source,ruby]
+----
+html1 = '<pre>Line 1\n  Line 2</pre>'
+html2 = '<pre>Line 1\nLine 2</pre>'
+
+# Whitespace is preserved in <pre> elements
+result = Canon::Comparison.equivalent?(html1, html2)
+# => false (whitespace differs in pre element)
+
+# But normalized in other elements
+html3 = '<div>Text    with    spaces</div>'
+html4 = '<div>Text with spaces</div>'
+result = Canon::Comparison.equivalent?(html3, html4)
+# => true (whitespace normalized in regular elements)
+----
+
+HtmlCompareProfile automatically preserves whitespace in elements where it's
+semantically significant (`<pre>`, `<code>`, `<textarea>`, `<script>`,
+`<style>`), while normalizing it in other elements.
+====
+
+**Future format profiles**: The architecture supports additional format-specific
+profiles for JSON, YAML, and other formats as needed.
 
 == Development
 

@@ -23,6 +23,7 @@ module Canon
 
       # Aggressive normalization for formatting comparison
       # Collapses all whitespace to single space and strips
+      # Also normalizes whitespace around tag delimiters
       #
       # @param line [String, nil] Line to normalize
       # @return [String] Normalized line
@@ -30,8 +31,14 @@ module Canon
         return "" if line.nil?
 
         # Collapse all whitespace (spaces, tabs, newlines) to single space
-        # Then strip leading/trailing whitespace
-        line.gsub(/\s+/, ' ').strip
+        normalized = line.gsub(/\s+/, ' ').strip
+
+        # Normalize whitespace around tag delimiters
+        # Remove spaces before > and after <
+        normalized = normalized.gsub(/\s+>/, '>')  # "div >" -> "div>"
+        normalized = normalized.gsub(/<\s+/, '<')   # "< div" -> "<div"
+
+        normalized
       end
 
       # Check if a line is blank (nil or whitespace-only)
