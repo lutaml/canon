@@ -1,0 +1,472 @@
+= Display filtering
+:toc:
+
+== General
+
+The `show_diffs` parameter controls which differences appear in diff output
+while maintaining correct equivalence determination.
+
+This feature allows you to filter diff display based on whether differences are
+normative (affect equivalence) or informative (don't affect equivalence).
+
+== Purpose
+
+When comparing documents with both normative and informative differences, you
+may want to:
+
+* **Show only normative differences**: Focus on changes that make documents
+  non-equivalent
+* **Show only informative differences**: View differences that don't affect
+  equivalence (e.g., comments when set to `:ignore`)
+* **Show all differences**: See both types (default behavior)
+
+=== Common use case: XML comments
+
+When comparing XML with `comments: :ignore`, comment differences are classified
+as informative (they don't affect equivalence). Using `show_diffs: :normative`
+hides these comment diffs while showing only structural/content differences.
+
+[example]
+====
+[source,ruby]
+----
+xml1 = <<~XML
+  <root>
+    <!-- Old comment -->
+    <element>value1</element>
+  </root>
+XML
+
+xml2 = <<~XML
+  <root>
+    <!-- New comment -->
+    <element>value2</element>
+  </root>
+XML
+
+# With comments: :ignore and show_diffs: :normative
+result = Canon::Comparison.equivalent?(xml1, xml2,
+  verbose: true,
+  match: { comments: :ignore },
+  show_diffs: :normative
+)
+
+# Result:
+# - equivalent? => false (element value differs)
+# - Diff output shows: only the element value change
+# - Diff output hides: comment differences (informative)
+----
+====
+
+== Filtering modes
+
+The `show_diffs` parameter accepts three values:
+
+=== All differences (`:all`)
+
+**Default mode**. Shows both normative and informative differences.
+
+[source,ruby]
+----
+Canon::Comparison.equivalent?(doc1, doc2,
+  verbose: true,
+  show_diffs: :all  # or omit (default)
+)
+----
+
+Use when:
+
+* You want to see every difference
+* Debugging to understand all changes
+* Initial comparison to assess document similarity
+
+=== Normative differences only (`:normative`)
+
+Shows only differences that affect equivalence.
+
+[source,ruby]
+----
+Canon::Comparison.equivalent?(doc1, doc2,
+  verbose: true,
+  show_diffs: :normative
+)
+----
+
+Use when:
+
+* Focusing on changes that make documents non-equivalent
+* Hiding informative diffs (e.g., comments when ignored)
+* Clean output for CI/CD pipelines
+* Reviewing semantic changes only
+
+=== Informative differences only (`:informative`)
+
+Shows only differences that don't affect equivalence.
+
+[source,ruby]
+----
+Canon::Comparison.equivalent?(doc1, doc2,
+  verbose: true,
+  show_diffs: :informative
+)
+----
+
+Use when:
+
+* Reviewing non-semantic changes
+* Checking comment differences
+* Auditing metadata changes
+* Verifying ignored dimensions are truly informative
+
+== Visual distinction: Informative vs normative diffs
+
+Canon visually distinguishes informative from normative diffs using different symbols and colors:
+
+=== Normative diffs (affect equivalence)
+
+* **Symbols**: `-` (red) for deletions, `+` (green) for additions
+* **Colors**: Red for removed lines, green for added lines
+* **Meaning**: These differences cause documents to be non-equivalent
+
+[example]
+====
+[source]
+----
+   4|   -| <item>Old</item>         # Red - (normative deletion)
+     |  5+| <item>New</item>         # Green + (normative addition)
+----
+====
+
+=== Informative diffs (don't affect equivalence)
+
+* **Symbol**: `~` (tilde) in cyan/blue
+* **Color**: Cyan (blue) for both removed and added content
+* **Meaning**: These differences are ignored based on match options
+
+[example]
+====
+[source]
+----
+   4|   ~| <!-- Old comment -->     # Cyan ~ (informative)
+     |  5~| <!-- New comment -->     # Cyan ~ (informative)
+----
+====
+
+This visual distinction makes it immediately clear which diffs affect equivalence and which are informational only.
+
+.Common scenario: Attribute order with spec_friendly profile
+[example]
+====
+When using the `spec_friendly` profile, attribute order is informative:
+
+[source]
+----
+   4|   ~| <el attr2="b" attr1="a"/>  # Cyan ~ (informative)
+     |  5~| <el attr1="a" attr2="b"/>  # Cyan ~ (informative)
+----
+
+The cyan color and `~` symbol indicate this differs does not affect equivalence in the `spec_friendly` profile.
+====
+
+== Usage examples
+
+=== Ruby API
+
+[source,ruby]
+----
+require 'canon/comparison'
+
+# Show all differences
+result = Canon::Comparison.equivalent?(xml1, xml2,
+  verbose: true,
+  match: { comments: :ignore },
+  show_diffs: :all
+)
+
+# Show only normative differences
+result = Canon::Comparison.equivalent?(xml1, xml2,
+  verbose: true,
+  match: { comments: :ignore },
+  show_diffs: :normative
+)
+
+# Show only informative differences
+result = Canon::Comparison.equivalent?(xml1, xml2,
+  verbose: true,
+  match: { comments: :ignore },
+  show_diffs: :informative
+)
+
+# Access via DiffFormatter directly
+formatter = Canon::DiffFormatter.new(
+  use_color: true,
+  mode: :by_object,
+  show_diffs: :normative
+)
+output = formatter.format(result, :xml)
+----
+
+=== Command-line interface
+
+[source,bash]
+----
+# Show all differences (default)
+$ canon diff file1.xml file2.xml
+
+# Show only normative differences
+$ canon diff file1.xml file2.xml --show-diffs normative
+
+# Show only informative differences
+$ canon diff file1.xml file2.xml --show-diffs informative
+
+# Combined with match options
+$ canon diff file1.xml file2.xml \
+  --comments ignore \
+  --show-diffs normative
+----
+
+=== RSpec matchers
+
+[source,ruby]
+----
+require 'canon/rspec_matchers'
+
+RSpec.describe 'XML comparison' do
+  it 'matches equivalent documents' do
+    # Show all differences on failure
+    expect(actual).to be_xml_equivalent_to(expected)
+      .show_diffs(:all)
+  end
+
+  it 'shows only normative differences' do
+    expect(actual).to be_xml_equivalent_to(expected,
+      match: { comments: :ignore }
+    ).show_diffs(:normative)
+  end
+
+  it 'shows only informative differences' do
+    expect(actual).to be_xml_equivalent_to(expected,
+      match: { comments: :ignore }
+    ).show_diffs(:informative)
+  end
+end
+----
+
+=== Configuration
+
+Set default for all comparisons:
+
+[source,ruby]
+----
+Canon::Config.configure do |config|
+  config.xml.diff.show_diffs = :normative
+end
+
+# Now all XML comparisons use normative-only by default
+result = Canon::Comparison.equivalent?(xml1, xml2, verbose: true)
+----
+
+== Relationship to equivalence
+
+IMPORTANT: Display filtering does NOT affect equivalence determination.
+Equivalence is always based on normative differences only, regardless of the
+`show_diffs` setting.
+
+[source,ruby]
+----
+xml1 = "<root><!-- Comment A --><el>value</el></root>"
+xml2 = "<root><!-- Comment B --><el>value</el></root>"
+
+# All three produce the same equivalence result
+result_all = Canon::Comparison.equivalent?(xml1, xml2,
+  verbose: true,
+  match: { comments: :ignore },
+  show_diffs: :all
+)
+
+result_normative = Canon::Comparison.equivalent?(xml1, xml2,
+  verbose: true,
+  match: { comments: :ignore },
+  show_diffs: :normative
+)
+
+result_informative = Canon::Comparison.equivalent?(xml1, xml2,
+  verbose: true,
+  match: { comments: :ignore },
+  show_diffs: :informative
+)
+
+# All return true (only comment diffs, which are informative)
+result_all.equivalent?         # => true
+result_normative.equivalent?   # => true
+result_informative.equivalent? # => true
+
+# Only diff output differs:
+# - result_all: shows comment diffs
+# - result_normative: hides comment diffs
+# - result_informative: shows comment diffs
+----
+
+== How it works
+
+The filtering operates at the display layer:
+
+. **Comparison phase**: All differences are detected and classified as
+  normative or informative based on match options
+. **Equivalence determination**: Only normative differences affect the
+  equivalence result
+. **Display phase**: The `show_diffs` parameter filters which differences
+  appear in formatted output
+
+.Diff pipeline with display filtering
+[source]
+----
+Input Documents
+      │
+      ▼
+Preprocessing (optional)
+      │
+      ▼
+Semantic Matching
+      │
+      ▼
+Diff Detection & Classification
+      │
+      ├──► Normative DiffNodes
+      │
+      └──► Informative DiffNodes
+      │
+      ▼
+Equivalence Determination
+(based on normative diffs only)
+      │
+      ▼
+Display Filtering ◄── show_diffs parameter
+(filter which diffs to show)
+      │
+      ▼
+Formatted Output
+----
+
+== Match dimensions and informativeness
+
+Different match dimension settings affect which diffs are normative vs
+informative:
+
+[cols="2,1,3"]
+|===
+|Dimension |Setting |Diff Classification
+
+|`comments`
+|`:strict`
+|Normative (affects equivalence)
+
+|`comments`
+|`:ignore`
+|Informative (doesn't affect equivalence)
+
+|`text_content`
+|`:strict`
+|Normative
+
+|`text_content`
+|`:normalize`
+|Normative (but normalized first)
+
+|`structural_whitespace`
+|`:strict`
+|Normative
+
+|`structural_whitespace`
+|`:ignore`
+|Informative
+
+|`attribute_whitespace`
+|`:strict`
+|Normative
+
+|`attribute_whitespace`
+|`:normalize`
+|Normative (but normalized first)
+
+|`attribute_order`
+|`:strict`
+|Normative
+
+|`attribute_order`
+|`:ignore`
+|Informative
+
+|`key_order`
+|`:strict`
+|Normative (JSON/YAML)
+
+|`key_order`
+|`:ignore`
+|Informative (JSON/YAML)
+|===
+
+== Best practices
+
+=== In test suites
+
+Use `show_diffs: :normative` to reduce noise in test failures:
+
+[source,ruby]
+----
+Canon::Config.configure do |config|
+  config.xml.match.profile = :spec_friendly
+  config.xml.diff.show_diffs = :normative
+end
+----
+
+=== In CI/CD pipelines
+
+Use `show_diffs: :normative` for cleaner output:
+
+[source,bash]
+----
+#!/bin/bash
+canon diff expected.xml actual.xml \
+  --match-profile spec_friendly \
+  --show-diffs normative
+----
+
+=== During development
+
+Use `show_diffs: :all` to see everything while debugging:
+
+[source,ruby]
+----
+result = Canon::Comparison.equivalent?(doc1, doc2,
+  verbose: true,
+  show_diffs: :all
+)
+----
+
+=== For auditing
+
+Use `show_diffs: :informative` to verify ignored dimensions don't have
+unexpected changes:
+
+[source,ruby]
+----
+result = Canon::Comparison.equivalent?(doc1, doc2,
+  verbose: true,
+  match: { comments: :ignore },
+  show_diffs: :informative
+)
+
+# Review comment changes that were ignored for equivalence
+puts result.differences.count  # Number of informative diffs
+----
+
+== See also
+
+* link:../match-options/index.adoc[Match options] - Configure match dimensions
+* link:colors-and-symbols.adoc[Colors and symbols] - Understanding diff
+  visualization
+* link:../../../understanding/algorithms/index.adoc[Diff algorithms] -
+  Algorithm-specific behavior
+* link:../../../advanced/diff-classification.adoc[Diff classification] -
+  Normative vs informative classification

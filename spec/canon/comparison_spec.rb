@@ -107,7 +107,7 @@ RSpec.describe Canon::Comparison do
         expect(result.differences.length).to eq(1)
         expect(result.differences.all?(Canon::Diff::DiffNode)).to be true
         expect(result.differences.all? do |d|
-          d.dimension == :text_content
+          d.dimension == :element_structure
         end).to be true
       end
 
@@ -204,7 +204,7 @@ RSpec.describe Canon::Comparison do
         expect(result).to be_a(Canon::Comparison::ComparisonResult)
         expect(result.differences).not_to be_empty
         expect(result.equivalent?).to be false
-        expect(result.differences.first.dimension).to eq(:text_content)
+        expect(result.differences.first.dimension).to eq(:element_structure)
       end
 
       it "respects other options when in verbose mode" do

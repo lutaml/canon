@@ -99,33 +99,85 @@ module Canon
                                             diff_line.content)
             when :removed
               line_num = diff_line.line_number + 1
+              formatting = diff_line.formatting?
               informative = diff_line.informative?
-              output << format_unified_line(line_num, nil, "-",
-                                            diff_line.content,
-                                            informative ? :cyan : :red,
-                                            informative: informative)
+
+              if formatting
+                # Formatting-only removal: [ marker in dark gray
+                output << format_unified_line(line_num, nil, "[",
+                                              diff_line.content,
+                                              :black,
+                                              formatting: true)
+              elsif informative
+                # Informative removal: < marker in blue
+                output << format_unified_line(line_num, nil, "<",
+                                              diff_line.content,
+                                              :blue,
+                                              informative: true)
+              else
+                # Normative removal: - marker in red
+                output << format_unified_line(line_num, nil, "-",
+                                              diff_line.content,
+                                              :red)
+              end
             when :added
               line_num = diff_line.line_number + 1
+              formatting = diff_line.formatting?
               informative = diff_line.informative?
-              output << format_unified_line(nil, line_num, "+",
-                                            diff_line.content,
-                                            informative ? :cyan : :green,
-                                            informative: informative)
+
+              if formatting
+                # Formatting-only addition: ] marker in light gray
+                output << format_unified_line(nil, line_num, "]",
+                                              diff_line.content,
+                                              :white,
+                                              formatting: true)
+              elsif informative
+                # Informative addition: > marker in cyan
+                output << format_unified_line(nil, line_num, ">",
+                                              diff_line.content,
+                                              :cyan,
+                                              informative: true)
+              else
+                # Normative addition: + marker in green
+                output << format_unified_line(nil, line_num, "+",
+                                              diff_line.content,
+                                              :green)
+              end
             when :changed
               line_num = diff_line.line_number + 1
+              formatting = diff_line.formatting?
               informative = diff_line.informative?
               # For changed lines, we need both old and new content
               # For now, show as removed + added
               old_content = lines1[diff_line.line_number]
               new_content = diff_line.content
-              output << format_unified_line(line_num, nil, "-",
-                                            old_content,
-                                            informative ? :cyan : :red,
-                                            informative: informative)
-              output << format_unified_line(nil, line_num, "+",
-                                            new_content,
-                                            informative ? :cyan : :green,
-                                            informative: informative)
+
+              if formatting
+                output << format_unified_line(line_num, nil, "[",
+                                              old_content,
+                                              :black,
+                                              formatting: true)
+                output << format_unified_line(nil, line_num, "]",
+                                              new_content,
+                                              :white,
+                                              formatting: true)
+              elsif informative
+                output << format_unified_line(line_num, nil, "<",
+                                              old_content,
+                                              :blue,
+                                              informative: true)
+                output << format_unified_line(nil, line_num, ">",
+                                              new_content,
+                                              :cyan,
+                                              informative: true)
+              else
+                output << format_unified_line(line_num, nil, "-",
+                                              old_content,
+                                              :red)
+                output << format_unified_line(nil, line_num, "+",
+                                              new_content,
+                                              :green)
+              end
             end
           end
 
@@ -626,6 +678,8 @@ module Canon
 
         # Format a context
         def format_context(context, diffs, base_line1, base_line2)
+          require_relative "../../diff/formatting_detector"
+
           output = []
 
           (context.start_idx..context.end_idx).each do |idx|
@@ -639,22 +693,46 @@ module Canon
               output << format_unified_line(line1, line2, " ",
                                             change.old_element)
             when "-"
-              output << format_unified_line(line1, nil, "-",
-                                            change.old_element, :red)
+              # Check if removal is formatting-only
+              if Canon::Diff::FormattingDetector.formatting_only?(change.old_element, "")
+                output << format_unified_line(line1, nil, "[",
+                                              change.old_element, :black,
+                                              formatting: true)
+              else
+                output << format_unified_line(line1, nil, "-",
+                                              change.old_element, :red)
+              end
             when "+"
-              output << format_unified_line(nil, line2, "+",
-                                            change.new_element, :green)
+              # Check if addition is formatting-only
+              if Canon::Diff::FormattingDetector.formatting_only?("", change.new_element)
+                output << format_unified_line(nil, line2, "]",
+                                              change.new_element, :white,
+                                              formatting: true)
+              else
+                output << format_unified_line(nil, line2, "+",
+                                              change.new_element, :green)
+              end
             when "!"
-              # Token-level highlighting
-              old_tokens = tokenize_xml(change.old_element)
-              new_tokens = tokenize_xml(change.new_element)
-              token_diffs = ::Diff::LCS.sdiff(old_tokens, new_tokens)
+              # Check if change is formatting-only
+              if Canon::Diff::FormattingDetector.formatting_only?(change.old_element, change.new_element)
+                output << format_unified_line(line1, nil, "[",
+                                              change.old_element, :black,
+                                              formatting: true)
+                output << format_unified_line(nil, line2, "]",
+                                              change.new_element, :white,
+                                              formatting: true)
+              else
+                # Token-level highlighting
+                old_tokens = tokenize_xml(change.old_element)
+                new_tokens = tokenize_xml(change.new_element)
+                token_diffs = ::Diff::LCS.sdiff(old_tokens, new_tokens)
 
-              old_highlighted = build_token_highlighted_text(token_diffs, :old)
-              new_highlighted = build_token_highlighted_text(token_diffs, :new)
+                old_highlighted = build_token_highlighted_text(token_diffs, :old)
+                new_highlighted = build_token_highlighted_text(token_diffs, :new)
 
-              output << format_token_diff_line(line1, line2, old_highlighted,
-                                               new_highlighted)
+                output << format_token_diff_line(line1, line2, old_highlighted,
+                                                 new_highlighted)
+              end
             end
           end
 
@@ -722,7 +800,7 @@ module Canon
 
         # Format a unified diff line
         def format_unified_line(old_num, new_num, marker, content, color = nil,
-informative: false)
+informative: false, formatting: false)
           old_str = old_num ? "%4d" % old_num : "    "
           new_str = new_num ? "%4d" % new_num : "    "
           marker_part = "#{marker} "

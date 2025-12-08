@@ -186,31 +186,83 @@ module Canon
                                             diff_line.content)
             when :removed
               line_num = diff_line.line_number + 1
+              formatting = diff_line.formatting?
               informative = diff_line.informative?
-              output << format_unified_line(line_num, nil, "-",
-                                            diff_line.content,
-                                            informative ? :cyan : :red,
-                                            informative: informative)
+
+              if formatting
+                # Formatting-only removal: [ marker in dark gray
+                output << format_unified_line(line_num, nil, "[",
+                                              diff_line.content,
+                                              :black,
+                                              formatting: true)
+              elsif informative
+                # Informative removal: < marker in blue
+                output << format_unified_line(line_num, nil, "<",
+                                              diff_line.content,
+                                              :blue,
+                                              informative: true)
+              else
+                # Normative removal: - marker in red
+                output << format_unified_line(line_num, nil, "-",
+                                              diff_line.content,
+                                              :red)
+              end
             when :added
               line_num = diff_line.line_number + 1
+              formatting = diff_line.formatting?
               informative = diff_line.informative?
-              output << format_unified_line(nil, line_num, "+",
-                                            diff_line.content,
-                                            informative ? :cyan : :green,
-                                            informative: informative)
+
+              if formatting
+                # Formatting-only addition: ] marker in light gray
+                output << format_unified_line(nil, line_num, "]",
+                                              diff_line.content,
+                                              :white,
+                                              formatting: true)
+              elsif informative
+                # Informative addition: > marker in cyan
+                output << format_unified_line(nil, line_num, ">",
+                                              diff_line.content,
+                                              :cyan,
+                                              informative: true)
+              else
+                # Normative addition: + marker in green
+                output << format_unified_line(nil, line_num, "+",
+                                              diff_line.content,
+                                              :green)
+              end
             when :changed
               line_num = diff_line.line_number + 1
+              formatting = diff_line.formatting?
               informative = diff_line.informative?
               old_content = lines1[diff_line.line_number]
               new_content = diff_line.content
-              output << format_unified_line(line_num, nil, "-",
-                                            old_content,
-                                            informative ? :cyan : :red,
-                                            informative: informative)
-              output << format_unified_line(nil, line_num, "+",
-                                            new_content,
-                                            informative ? :cyan : :green,
-                                            informative: informative)
+
+              if formatting
+                output << format_unified_line(line_num, nil, "[",
+                                              old_content,
+                                              :black,
+                                              formatting: true)
+                output << format_unified_line(nil, line_num, "]",
+                                              new_content,
+                                              :white,
+                                              formatting: true)
+              elsif informative
+                output << format_unified_line(line_num, nil, "<",
+                                              old_content,
+                                              :blue,
+                                              informative: true)
+                output << format_unified_line(nil, line_num, ">",
+                                              new_content,
+                                              :cyan,
+                                              informative: true)
+              else
+                output << format_unified_line(line_num, nil, "-",
+                                              old_content,
+                                              :red)
+                output << format_unified_line(nil, line_num, "+",
+                                              new_content,
+                                              :green)
+              end
             end
           end
 

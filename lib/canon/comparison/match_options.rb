@@ -15,11 +15,12 @@ module Canon
     # Wrapper class for resolved match options
     # Provides convenient methods for accessing behaviors by dimension
     class ResolvedMatchOptions
-      attr_reader :options, :format
+      attr_reader :options, :format, :compare_profile
 
-      def initialize(options, format:)
+      def initialize(options, format:, compare_profile: nil)
         @options = options
         @format = format
+        @compare_profile = compare_profile
       end
 
       # Get the behavior for a specific dimension

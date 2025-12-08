@@ -61,31 +61,70 @@ module Canon
                           diff_node: nil,
                         )
                       when "-"
+                        # Find the diff node for this line
+                        node = shared_informative_node || find_diff_node_for_line(
+                          line_num, lines1, :removed
+                        )
+
+                        # Check if this is formatting-only:
+                        # 1. First check if the DiffNode itself is marked as formatting-only
+                        # 2. Otherwise, check line-level formatting
+                        formatting = if node&.respond_to?(:formatting?) && node.formatting?
+                                       true
+                                     else
+                                       formatting_only_line?(change.old_element, "")
+                                     end
+
                         DiffLine.new(
                           line_number: line_num,
                           content: change.old_element,
                           type: :removed,
-                          diff_node: shared_informative_node || find_diff_node_for_line(
-                            line_num, lines1, :removed
-                          ),
+                          diff_node: node,
+                          formatting: formatting,
                         )
                       when "+"
+                        # Find the diff node for this line
+                        node = shared_informative_node || find_diff_node_for_line(
+                          line_num, lines2, :added
+                        )
+
+                        # Check if this is formatting-only:
+                        # 1. First check if the DiffNode itself is marked as formatting-only
+                        # 2. Otherwise, check line-level formatting
+                        formatting = if node&.respond_to?(:formatting?) && node.formatting?
+                                       true
+                                     else
+                                       formatting_only_line?("", change.new_element)
+                                     end
+
                         DiffLine.new(
                           line_number: line_num,
                           content: change.new_element,
                           type: :added,
-                          diff_node: shared_informative_node || find_diff_node_for_line(
-                            line_num, lines2, :added
-                          ),
+                          diff_node: node,
+                          formatting: formatting,
                         )
                       when "!"
+                        # Find the diff node for this line
+                        node = shared_informative_node || find_diff_node_for_line(
+                          line_num, lines2, :changed
+                        )
+
+                        # Check if this is formatting-only:
+                        # 1. First check if the DiffNode itself is marked as formatting-only
+                        # 2. Otherwise, check line-level formatting
+                        formatting = if node&.respond_to?(:formatting?) && node.formatting?
+                                       true
+                                     else
+                                       formatting_only_line?(change.old_element, change.new_element)
+                                     end
+
                         DiffLine.new(
                           line_number: line_num,
                           content: change.new_element,
                           type: :changed,
-                          diff_node: shared_informative_node || find_diff_node_for_line(
-                            line_num, lines2, :changed
-                          ),
+                          diff_node: node,
+                          formatting: formatting,
                         )
                       end
 
@@ -97,6 +136,15 @@ module Canon
       end
 
       private
+
+      # Check if two lines differ only in formatting (whitespace)
+      # @param line1 [String] First line
+      # @param line2 [String] Second line
+      # @return [Boolean] true if formatting-only difference
+      def formatting_only_line?(line1, line2)
+        require_relative "formatting_detector"
+        FormattingDetector.formatting_only?(line1, line2)
+      end
 
       # Find the DiffNode associated with a line
       # Uses element name matching for precise line-level linking
@@ -125,9 +173,15 @@ module Canon
                            end
 
           nodes_to_check.any? do |node|
-            next unless node.respond_to?(:name)
-
-            node.name == line_element_name
+            # Check if the node itself has the matching name
+            if node.respond_to?(:name) && node.name == line_element_name
+              true
+            # Check if the node's parent has the matching name (for TextNode diffs)
+            elsif node.respond_to?(:parent) && node.parent.respond_to?(:name) && node.parent.name == line_element_name
+              true
+            else
+              false
+            end
           end
         end
       end

@@ -104,7 +104,7 @@ RSpec.describe Canon::Comparison::HtmlComparator do
         expect(result.equivalent?).to be false
         # First difference should be a DiffNode
         expect(result.differences.first).to be_a(Canon::Diff::DiffNode)
-        expect(result.differences.first.dimension).to eq(:text_content)
+        expect(result.differences.first.dimension).to eq(:element_structure)
       end
 
       it "returns ComparisonResult with differences for different text content" do

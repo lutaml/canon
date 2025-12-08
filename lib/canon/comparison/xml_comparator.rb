@@ -319,7 +319,7 @@ module Canon
           # Compare element names
           unless n1.name == n2.name
             add_difference(n1, n2, Comparison::UNEQUAL_ELEMENTS,
-                           Comparison::UNEQUAL_ELEMENTS, :text_content, opts,
+                           Comparison::UNEQUAL_ELEMENTS, :element_structure, opts,
                            differences)
             return Comparison::UNEQUAL_ELEMENTS
           end
@@ -512,26 +512,34 @@ module Canon
             behavior = :strict
           end
 
-          if MatchOptions.match_text?(text1, text2, behavior)
-            Comparison::EQUIVALENT
-          else
-            # Determine the correct dimension for this difference
-            # - If text_content is :strict, ALL differences use :text_content dimension
-            # - If text_content is :normalize, whitespace-only diffs use :structural_whitespace
-            # - Otherwise use :text_content
-            dimension = if behavior == :normalize && whitespace_only_difference?(
-              text1, text2
-            )
-                          :structural_whitespace
-                        else
-                          :text_content
-                        end
+          # Check if raw content differs
+          raw_differs = text1 != text2
 
+          # Check if matches according to behavior
+          matches_per_behavior = MatchOptions.match_text?(text1, text2, behavior)
+
+          # Determine the correct dimension for this difference
+          # - If text_content is :strict, ALL differences use :text_content dimension
+          # - If text_content is :normalize, whitespace-only diffs use :structural_whitespace
+          # - Otherwise use :text_content
+          dimension = if behavior == :normalize && whitespace_only_difference?(
+            text1, text2
+          )
+                        :structural_whitespace
+                      else
+                        :text_content
+                      end
+
+          # Create DiffNode in verbose mode when raw content differs
+          # This ensures informative diffs are created even for :ignore/:normalize
+          if raw_differs && opts[:verbose]
             add_difference(n1, n2, Comparison::UNEQUAL_TEXT_CONTENTS,
                            Comparison::UNEQUAL_TEXT_CONTENTS, dimension,
                            opts, differences)
-            Comparison::UNEQUAL_TEXT_CONTENTS
           end
+
+          # Return based on whether behavior makes difference acceptable
+          matches_per_behavior ? Comparison::EQUIVALENT : Comparison::UNEQUAL_TEXT_CONTENTS
         end
 
         # Check if the difference between two texts is only whitespace-related
@@ -588,12 +596,21 @@ module Canon
           content1 = node_text(n1)
           content2 = node_text(n2)
 
-          if MatchOptions.match_text?(content1, content2, behavior)
-            Comparison::EQUIVALENT
-          else
+          # Check if content differs
+          contents_differ = content1 != content2
+
+          # Create DiffNode in verbose mode when content differs
+          # This ensures informative diffs are created even for :ignore behavior
+          if contents_differ && opts[:verbose]
             add_difference(n1, n2, Comparison::UNEQUAL_COMMENTS,
                            Comparison::UNEQUAL_COMMENTS, :comments, opts,
                            differences)
+          end
+
+          # Return based on behavior and whether content matches
+          if behavior == :ignore || !contents_differ
+            Comparison::EQUIVALENT
+          else
             Comparison::UNEQUAL_COMMENTS
           end
         end
@@ -771,14 +788,14 @@ module Canon
             when :deleted
               # Element present in first tree but not second
               add_difference(match.elem1, nil, Comparison::MISSING_NODE,
-                             Comparison::MISSING_NODE, :text_content, opts,
+                             Comparison::MISSING_NODE, :element_structure, opts,
                              differences)
               all_equivalent = false
 
             when :inserted
               # Element present in second tree but not first
               add_difference(nil, match.elem2, Comparison::MISSING_NODE,
-                             Comparison::MISSING_NODE, :text_content, opts,
+                             Comparison::MISSING_NODE, :element_structure, opts,
                              differences)
               all_equivalent = false
             end

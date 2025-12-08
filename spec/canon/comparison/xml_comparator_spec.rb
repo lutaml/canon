@@ -62,7 +62,7 @@ RSpec.describe Canon::Comparison::XmlComparator do
         expect(result).to be_a(Canon::Comparison::ComparisonResult)
         expect(result.differences).not_to be_empty
         expect(result.equivalent?).to be false
-        expect(result.differences.first.dimension).to eq(:text_content)
+        expect(result.differences.first.dimension).to eq(:element_structure)
       end
 
       it "returns ComparisonResult with differences for different text content" do

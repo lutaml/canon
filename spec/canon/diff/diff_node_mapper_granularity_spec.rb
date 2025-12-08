@@ -150,8 +150,8 @@ RSpec.describe Canon::Diff::DiffNodeMapper do
 
       # Should NOT show parent attribute order diff (cosmetic)
       # Should NOT show child attribute order diff (cosmetic)
-      # Only the element with name diff should be normative
-      expect(normative_lines.length).to eq(1)
+      # Element name changes create 2 DiffNodes (deleted + inserted)
+      expect(normative_lines.length).to eq(2)
     end
   end
 end

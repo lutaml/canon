@@ -11,17 +11,21 @@ module Canon
       # @param content [String] The text content of the line
       # @param type [Symbol] The type of line (:unchanged, :added, :removed, :changed)
       # @param diff_node [DiffNode, nil] The semantic diff node this line belongs to
-      def initialize(line_number:, content:, type:, diff_node: nil)
+      # @param formatting [Boolean] Whether this is a formatting-only difference
+      def initialize(line_number:, content:, type:, diff_node: nil, formatting: false)
         @line_number = line_number
         @content = content
         @type = type
         @diff_node = diff_node
+        @formatting = formatting
       end
 
       # @return [Boolean] true if this line represents a normative difference
       # If diff_node is nil (not linked to any semantic difference), the line
       # is considered informative (cosmetic/unchanged)
+      # Formatting-only diffs are never normative
       def normative?
+        return false if formatting?
         return false if diff_node.nil?
 
         diff_node.normative?
@@ -29,10 +33,18 @@ module Canon
 
       # @return [Boolean] true if this line represents an informative-only difference
       # If diff_node is nil (not linked), it's not informative either (it's unchanged/cosmetic)
+      # Formatting-only diffs are never informative
       def informative?
+        return false if formatting?
         return false if diff_node.nil?
 
         diff_node.informative?
+      end
+
+      # @return [Boolean] true if this line represents a formatting-only difference
+      # Formatting diffs are purely cosmetic (whitespace, line breaks) with no semantic meaning
+      def formatting?
+        @formatting == true
       end
 
       # @return [Boolean] true if this line is unchanged
@@ -62,6 +74,8 @@ module Canon
           type: type,
           diff_node: diff_node&.to_h,
           normative: normative?,
+          informative: informative?,
+          formatting: formatting?,
         }
       end
 
@@ -70,7 +84,8 @@ module Canon
           line_number == other.line_number &&
           content == other.content &&
           type == other.type &&
-          diff_node == other.diff_node
+          diff_node == other.diff_node &&
+          @formatting == other.instance_variable_get(:@formatting)
       end
     end
   end
