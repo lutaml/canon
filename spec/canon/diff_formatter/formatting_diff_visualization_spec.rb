@@ -19,7 +19,12 @@ RSpec.describe "Formatting diff visualization" do
         </root>
       XML
 
-      result = Canon::Comparison.equivalent?(xml1, xml2, verbose: true, use_color: false)
+      result = Canon::Comparison.equivalent?(
+        xml1, xml2,
+        verbose: true,
+        use_color: false,
+        match: { text_content: :normalize, structural_whitespace: :normalize }
+      )
       diff = result.diff(use_color: false)
 
       # Should show formatting markers [ and ]
@@ -205,13 +210,15 @@ RSpec.describe "Formatting diff visualization" do
       )
 
       # Formatting (lowest priority) - use text content with line break differences
+      # Use normalize mode to allow formatting-only detection
       xml_fmt1 = "<root><p>Hello world</p></root>"
       xml_fmt2 = "<root><p>Hello\nworld</p></root>"
 
       result_fmt = Canon::Comparison.equivalent?(
         xml_fmt1, xml_fmt2,
         verbose: true,
-        use_color: false
+        use_color: false,
+        match: { text_content: :normalize, structural_whitespace: :normalize }
       )
 
       # Normative uses - and +

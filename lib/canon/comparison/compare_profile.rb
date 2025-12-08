@@ -57,7 +57,14 @@ module Canon
         # Element structure changes are ALWAYS normative
         return true if dimension == :element_structure
 
-        # If the dimension affects equivalence, it's normative
+        # Structural whitespace with :normalize or :ignore behavior is INFORMATIVE
+        # Only :strict mode makes whitespace normative
+        if dimension == :structural_whitespace
+          behavior = behavior_for(dimension)
+          return behavior == :strict
+        end
+
+        # For other dimensions, if behavior affects equivalence, it's normative
         affects_equivalence?(dimension)
       end
 
@@ -69,9 +76,9 @@ module Canon
       # @param dimension [Symbol] The match dimension to check
       # @return [Boolean] true if formatting detection should apply
       def supports_formatting_detection?(dimension)
-        # Only text/content dimensions can have formatting-only diffs
-        text_dimensions = [:text_content, :structural_whitespace, :comments]
-        text_dimensions.include?(dimension)
+        # Only text_content and structural_whitespace can have formatting-only diffs
+        # Comments are policy-based (strict/ignore), not formatting-based
+        [:text_content, :structural_whitespace].include?(dimension)
       end
 
       private

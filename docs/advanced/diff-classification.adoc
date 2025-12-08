@@ -102,6 +102,188 @@ Classification depends on `attribute_order` setting:
 └──────────────────────────────────────────────────────────────────┘
 ----
 
+== CompareProfile-Based Classification
+
+=== Overview
+
+Canon's classification system uses `CompareProfile` to determine which differences
+are normative (affect equivalence) versus informative (do not affect equivalence).
+
+The classification flow:
+
+[source,text]
+----
+DiffNode → DiffClassifier → CompareProfile → normative?
+                                   ↓
+                           dimension + behavior → decision
+----
+
+=== Classification Hierarchy
+
+Canon uses a three-level hierarchy for classifying differences:
+
+1. **Formatting-only** (lowest priority)
+   - Pure whitespace/formatting differences
+   - Normalized content is identical
+   - Markers: `[` and `]` in diff output
+
+2. **Informative** (medium priority)
+   - Tracked but doesn't affect equivalence
+   - Based on behavior `:ignore`
+   - Markers: `<` and `>` in diff output
+
+3. **Normative** (highest priority)
+   - Affects equivalence
+   - Based on behavior `:strict`
+   - Markers: `-` and `+` in diff output
+
+=== Format-Specific Policies
+
+Each format can define its own policies through CompareProfile subclasses:
+
+==== XML (Base CompareProfile)
+
+Default policies:
+- Comments: normative (`:strict`)
+- Whitespace: normative (`:strict`)
+- All dimensions: strict by default
+
+==== HTML (HtmlCompareProfile)
+
+Default policies:
+- Comments: informative (`:ignore`) - presentational content
+- Whitespace: preserved in `<pre>`, `<code>`, `<textarea>`, `<script>`, `<style>`
+- Case sensitivity: HTML5 respects case, HTML4 is case-insensitive
+
+==== Future formats
+
+The architecture supports format-specific profiles for:
+- JSON: key order policies, type handling
+- YAML: comment handling, anchor/alias policies
+
+=== Dimension Policy Examples
+
+==== Structural Whitespace
+
+* **`:strict` behavior** → Normative
+  - Whitespace must match exactly
+  - Any whitespace difference causes non-equivalence
+
+* **`:normalize` behavior** → Informative (if formatting-only)
+  - Whitespace differences detected as formatting-only when normalized content matches
+  - Uses FormattingDetector to determine if difference is purely whitespace
+
+* **`:ignore` behavior** → Informative
+  - Whitespace differences tracked but don't affect equivalence
+
+.Example: Structural whitespace with normalize
+====
+[source,ruby]
+----
+xml1 = '<root><p>Hello world</p></root>'
+xml2 = '<root><p>Hello\nworld</p></root>'
+
+# Normalize mode: formatting-only
+result = Canon::Comparison.equivalent?(
+  xml1, xml2,
+  match: { text_content: :normalize, structural_whitespace: :normalize }
+)
+# => true (line break is formatting-only)
+
+# Strict mode: normative
+result = Canon::Comparison.equivalent?(xml1, xml2)
+# => false (line break is normative in strict mode)
+----
+====
+
+==== Comments
+
+* **`:strict` behavior** → Normative
+  - Comments must match exactly
+  - Comment differences cause non-equivalence
+
+* **`:ignore` behavior** → Informative
+  - Comment differences tracked but don't affect equivalence
+  - Default for HTML (comments are presentational)
+
+.Example: Comment handling
+====
+[source,ruby]
+----
+xml1 = '<root><!-- v1 --><data>text</data></root>'
+xml2 = '<root><!-- v2 --><data>text</data></root>'
+
+# Ignore mode: informative
+result = Canon::Comparison.equivalent?(
+  xml1, xml2,
+  match: { comments: :ignore }
+)
+# => true (comment difference is informative)
+
+# Strict mode: normative
+result = Canon::Comparison.equivalent?(
+  xml1, xml2,
+  match: { comments: :strict }
+)
+# => false (comment difference is normative)
+----
+====
+
+=== FormattingDetector Integration
+
+For dimensions that support it (`:text_content`, `:structural_whitespace`),
+`FormattingDetector` is consulted to determine if a difference is formatting-only:
+
+1. **Check normative status** based on CompareProfile policy
+2. **If non-normative**, check if formatting-only using FormattingDetector
+3. **If formatting-only**, mark with `formatting: true`
+
+.Example: Formatting detection
+====
+[source,xml]
+----
+<!-- Extra spaces around tag delimiter -->
+<div>content</div>     <!-- xml1 -->
+<div  >content</div>    <!-- xml2 - space before > -->
+----
+
+With `:normalize` mode:
+- Normalized: `<div>content</div>` (both)
+- Classification: Formatting-only
+- Markers: `[` and `]`
+- Equivalent: true
+====
+
+=== Implementation Details
+
+The [`CompareProfile`](../../lib/canon/comparison/compare_profile.rb) class provides:
+
+* `normative_dimension?(dimension)` - Is this dimension normative?
+* `affects_equivalence?(dimension)` - Does this dimension affect equivalence?
+* `supports_formatting_detection?(dimension)` - Can this dimension have formatting-only diffs?
+
+The [`DiffClassifier`](../../lib/canon/diff/diff_classifier.rb) uses CompareProfile to classify:
+
+[source,ruby]
+----
+def classify(diff_node)
+  # Check normative status based on policy
+  is_normative = profile.normative_dimension?(diff_node.dimension)
+
+  # Only check formatting for non-normative dimensions
+  if !is_normative && profile.supports_formatting_detection?(diff_node.dimension)
+    if formatting_only_diff?(diff_node)
+      diff_node.formatting = true
+      diff_node.normative = false
+      return diff_node
+    end
+  end
+
+  diff_node.normative = is_normative
+  diff_node
+end
+----
+
 == Visual Indicators
 
 === Normative Diffs
