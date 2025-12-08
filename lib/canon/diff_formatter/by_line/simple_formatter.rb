@@ -89,48 +89,6 @@ module Canon
           output.join("\n")
         end
 
-        # Format a unified diff line
-        #
-        # @param old_num [Integer, nil] Line number in old file
-        # @param new_num [Integer, nil] Line number in new file
-        # @param marker [String] Diff marker (' ', '-', '+')
-        # @param content [String] Line content
-        # @param color [Symbol, nil] Color for diff lines
-        # @return [String] Formatted line
-        def format_unified_line(old_num, new_num, marker, content, color = nil)
-          old_str = old_num ? "%4d" % old_num : "    "
-          new_str = new_num ? "%4d" % new_num : "    "
-          marker_part = "#{marker} "
-
-          # Only apply visualization to diff lines (when color is provided),
-          # not context lines
-          visualized_content = if color
-                                 apply_visualization(content, color)
-                               else
-                                 content
-                               end
-
-          if @use_color
-            # Yellow for line numbers and pipes
-            yellow_old = colorize(old_str, :yellow)
-            yellow_pipe1 = colorize("|", :yellow)
-            yellow_new = colorize(new_str, :yellow)
-            yellow_pipe2 = colorize("|", :yellow)
-
-            if color
-              # Colored marker for additions/deletions
-              colored_marker = colorize(marker, color)
-              "#{yellow_old}#{yellow_pipe1}#{yellow_new}#{colored_marker} #{yellow_pipe2} #{visualized_content}"
-            else
-              # Context line - apply visualization but no color
-              "#{yellow_old}#{yellow_pipe1}#{yellow_new}#{marker} #{yellow_pipe2} #{visualized_content}"
-            end
-          else
-            # No color mode
-            "#{old_str}|#{new_str}#{marker_part}| #{visualized_content}"
-          end
-        end
-
         # Format changed lines with basic character-level diff
         #
         # @param line_num [Integer] Line number

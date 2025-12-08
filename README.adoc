@@ -308,10 +308,12 @@ See link:docs/MODES[Diff modes] for details.
 
 === Enhanced diff features
 
-* **Color-coded output**: Red (normative deletions), green (normative additions), cyan
-  (informative diffs with `~` symbol)
+* **Three-tier diff classification**: Formatting-only (`[` dark gray/`]` light gray), informative (`<` blue/`>` cyan), and normative (`-` red/`+` green) differences with directional colors
+* **Directional color coding**: Removals and additions use different colors within each tier (red/green for normative, blue/cyan for informative, dark gray/light gray for formatting)
+* **Namespace declaration tracking**: Separate dimension for tracking `xmlns` and `xmlns:*` attribute changes, reported independently from regular data attributes
 * **Namespace rendering**: Explicit namespace display in XML diffs using `ns:[uri]` or `ns:[{blank}]` format
-* **Informative diff visualization**: Visually distinct cyan-colored `~` markers for differences that don't affect equivalence
+* **Informative diff visualization**: Visually distinct blue/cyan markers for differences that don't affect equivalence
+* **Formatting diff detection**: Automatically detects and highlights purely cosmetic whitespace/line break differences
 * **Whitespace visualization**: Make invisible characters visible with CJK-safe
   Unicode symbols
 * **Non-ASCII detection**: Warnings for unexpected Unicode characters
@@ -399,6 +401,70 @@ delegation to mode-specific formatters (by-line, by-object).
 . **Diff rendering**: Formatted output with visualization
 
 See link:docs/MATCH_ARCHITECTURE[Match architecture] for details.
+
+=== CompareProfile architecture
+
+Canon uses the **CompareProfile** class to encapsulate policy decisions about how differences in various dimensions should be handled during comparison. This provides clean separation of concerns between policy decisions, comparison logic, and difference classification.
+
+==== Separation of concerns
+
+The comparison system is divided into four distinct components:
+
+**CompareProfile**:: Policy decisions (what to track, what affects equivalence)
+**XmlComparator/HtmlComparator**:: Comparison logic (detect differences)
+**DiffNode**:: Data representation (represents a difference)
+**DiffClassifier**:: Classification logic (normative vs informative vs formatting)
+
+Each component has ONE responsibility with no overlapping concerns:
+
+* CompareProfile does NOT classify differences
+* XmlComparator does NOT make policy decisions
+* DiffClassifier does NOT compare documents
+
+==== Policy methods
+
+CompareProfile provides four key policy methods:
+
+`track_dimension?(dimension)`:: Should DiffNodes be created for this dimension? Returns `true` in verbose mode to track all differences for reporting.
+
+`affects_equivalence?(dimension)`:: Should differences affect equivalence? Determines the return value of the comparison.
+Returns `false` for dimensions with `:ignore` behavior.
+
+`normative_dimension?(dimension)`:: Is this dimension normative (affects equivalence) or informative (display only)?
+Used by DiffClassifier to set the normative flag on DiffNodes.
+
+`supports_formatting_detection?(dimension)`:: Can FormattingDetector apply to this dimension?
+Returns `true` only for text/content dimensions (`:text_content`, `:structural_whitespace`, `:comments`).
+
+==== Usage example
+
+When using `match: { comments: :ignore }`:
+
+* `track_dimension?(:comments)` returns `true` (track in verbose mode)
+* `affects_equivalence?(:comments)` returns `false` (doesn't affect equivalence)
+* `normative_dimension?(:comments)` returns `false` (informative only)
+
+This ensures that comment differences are tracked and displayed in verbose mode but don't make documents non-equivalent.
+
+.Example: Comment differences with :ignore behavior
+====
+[source,ruby]
+----
+xml1 = '<root><!-- comment 1 --><data>value</data></root>'
+xml2 = '<root><!-- comment 2 --><data>value</data></root>'
+
+result = Canon::Comparison.equivalent?(xml1, xml2,
+  verbose: true,
+  match: { comments: :ignore }
+)
+
+result.differences           # => [#<DiffNode @dimension=:comments>]
+result.differences[0].normative?  # => false (informative)
+result.equivalent?           # => true (doesn't affect equivalence)
+----
+
+The comment difference is tracked and displayed, but the documents are still considered equivalent because comments are set to `:ignore`.
+====
 
 == Development
 

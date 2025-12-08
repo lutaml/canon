@@ -1,0 +1,140 @@
+---
+title: Diff Formatting
+parent: Features
+nav_order: 2
+has_children: true
+---
+= Diff formatting
+:toc:
+:toclevels: 2
+
+== Purpose
+
+Canon provides extensive options for customizing diff output to make
+differences clear, actionable, and easy to understand.
+
+This section covers all aspects of diff output formatting, from basic color
+schemes to advanced filtering options.
+
+== Features overview
+
+Canon's diff formatting includes:
+
+* **Display filtering**: Control which differences appear in output based on
+  whether they affect equivalence
+* **Colors and symbols**: Visual indicators for different types of changes
+* **Character visualization**: Make invisible characters visible
+* **Context and grouping**: Control how much surrounding context to show
+* **Algorithm-specific output**: Different output styles for different diff
+  algorithms
+
+== Available formatting options
+
+=== Display filtering
+
+Filter which differences appear in output while maintaining correct equivalence
+determination.
+
+* Show all differences (default)
+* Show only normative differences (affect equivalence)
+* Show only informative differences (don't affect equivalence)
+
+See link:display-filtering.adoc[Display filtering] for complete details.
+
+=== Colors and symbols
+
+Canon uses color-coded output to distinguish different types of changes:
+
+* Red: Normative deletions
+* Green: Normative additions
+* Yellow: Normative structural changes
+* Cyan: Informative differences
+
+See link:colors-and-symbols.adoc[Colors and symbols] for details.
+
+=== Character visualization
+
+Make invisible characters visible in diff output:
+
+* Whitespace visualization (spaces, tabs, newlines)
+* Non-ASCII character detection
+* CJK-safe Unicode symbols
+
+See link:character-visualization.adoc[Character visualization] for details.
+
+=== Context and grouping
+
+Control how much surrounding context to show:
+
+* Context lines: Number of unchanged lines around changes
+* Grouping: Combine nearby changes into single blocks
+
+See link:context-and-grouping.adoc[Context and grouping] for details.
+
+=== Algorithm-specific output
+
+Different diff algorithms produce different output styles:
+
+* DOM diff: Line-by-line or by-object output
+* Semantic tree diff: Operation-based output with tree structure
+
+See link:algorithm-specific-output.adoc[Algorithm-specific output] for details.
+
+== Common use cases
+
+=== Testing
+
+Focus on actionable differences by filtering informative diffs:
+
+[source,ruby]
+----
+Canon::Config.configure do |config|
+  config.xml.diff.show_diffs = :normative
+  config.xml.diff.use_color = true
+end
+----
+
+=== Debugging
+
+See all differences with maximum context:
+
+[source,ruby]
+----
+result = Canon::Comparison.equivalent?(doc1, doc2,
+  verbose: true,
+  show_diffs: :all
+)
+----
+
+=== CI/CD pipelines
+
+Clean, focused output for automated testing:
+
+[source,bash]
+----
+canon diff expected.xml actual.xml \
+  --show-diffs normative \
+  --no-color
+----
+
+== Configuration
+
+Diff formatting can be configured:
+
+* Globally via `Canon::Config.configure`
+* Per-format (XML, HTML, JSON, YAML)
+* Per-operation via method parameters
+
+See link:../../reference/cli-options.adoc[CLI options] and
+link:../../interfaces/ruby-api/index.adoc[Ruby API] for configuration details.
+
+== See also
+
+* link:../../understanding/comparison-pipeline.adoc[Comparison pipeline] -
+  Understanding the diff generation process
+* link:../match-options/index.adoc[Match options] - Controlling what gets
+  compared
+* link:../../advanced/diff-classification.adoc[Diff classification] -
+  Normative vs informative differences
+* link:../../interfaces/cli/index.adoc[CLI interface] - Command-line usage
+* link:../../interfaces/ruby-api/index.adoc[Ruby API] - Programmatic usage

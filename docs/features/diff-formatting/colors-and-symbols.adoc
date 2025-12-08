@@ -11,106 +11,218 @@ nav_order: 5
 
 == Purpose
 
-Canon uses a consistent color scheme and symbol system to make diff output easy to read and understand at a glance. Colors and symbols distinguish between different types of changes and provide immediate visual feedback about the nature of differences.
+Canon uses a carefully designed color scheme and symbol system to communicate
+the nature and severity of differences in document comparisons.
 
-== Color Scheme
+== Diff classification
 
-Canon uses ANSI terminal colors to highlight different aspects of diffs:
+Canon classifies differences into three distinct categories, each with unique
+visual markers and directional colors.
 
-=== Primary Diff Colors
-
-[cols="2,2,3"]
+[cols="1,1,1,3",options="header"]
 |===
-|Color |Usage |Meaning
+| Type | Marker | Color | Meaning
 
-|Red
-|Deletions, removed content
-|Lines or elements that exist in the expected/first file but are missing in the actual/second file
+h| Formatting-only
+| `[` (removed) +
+`]` (added)
+| Dark gray (removed) +
+Light gray (added)
+| Purely cosmetic differences with no semantic meaning. +
+Only whitespace, line breaks, or indentation differ. +
+Content is semantically identical.
 
-|Green
-|Additions, added content
-|Lines or elements that exist in the actual/second file but are missing in the expected/first file
+h| Informative
+| `<` (removed) +
+`>` (added)
+| Blue (removed) +
+Cyan (added)
+| Differences that don't affect current match results. +
+May become normative with different match option settings. +
+Provides context about ignored differences.
 
-|Yellow
-|Modified content, changes
-|Content that exists in both files but with different values
-
-|Cyan
-|Headers, structural information
-|Section headers, file names, metadata
-|===
-
-=== Normative vs Informative Colors
-
-Canon classifies diffs as either **normative** (affect equivalence) or **informative** (don't affect equivalence based on match options):
-
-[cols="2,2,3"]
-|===
-|Classification |Color |Meaning
-
-|Normative
-|Red/Green
-|Differences that cause files to be non-equivalent based on current match options
-
-|Informative
-|Cyan (with different markers)
-|Differences that are ignored by current match options but shown for informational purposes
+h| Normative
+| `-` (removed) +
+`+` (added)
+| Red (removed) +
+Green (added)
+| Semantic differences that affect match results. +
+Requires developer attention. +
+Represents actual content changes.
 |===
 
-.Example: Informative diff with strict whitespace matching off
-[example]
+=== Classification hierarchy
+
+The classification follows a strict hierarchy:
+
+----
+formatting < informative < normative
+----
+
+A difference is classified using the highest applicable category:
+
+normative:: the differences leads to semantic changes that are considered normative
+informative:: the differences leads to semantic changes that are considered informative
+formatting-only:: the differences do not cause any semantic difference
+
+== Formatting-only detection
+
+Formatting-only differences are detected through aggressive normalization:
+
+. Collapse all whitespace (spaces, tabs, newlines) to single space
+. Strip leading and trailing whitespace
+. Compare normalized content
+
+If the normalized content is identical, the difference is classified as formatting-only.
+
+.Example: Formatting-Only Difference
 ====
 [source]
 ----
-# With text_content: :normalize (default)
-# Whitespace differences are informative
-
-  5| ~~ | <p>Hello world</p>       # Original
-    | ~~ | <p>Hello  world</p>      # Extra space (cyan, informative)
+  5|   5[ | <p class="section-break"><br clear="all" class="section"></p>
+   |   5] | <p class="section-break"><br clear="all" class="section"><div class="WordSection2">
+  6|   6] | <div class="WordSection2">
 ----
 
-The cyan color indicates this difference is informative - it won't cause equivalence to fail because `text_content: :normalize` ignores extra whitespace.
+These lines differ only in how content is split across lines. The semantic content (when
+whitespace is normalized) is identical, so they show as formatting-only with `[` (dark gray) for
+removed and `]` (light gray) for added lines.
 ====
 
-== Symbol System
+== Color Coding
 
-=== Line-by-Line Diff Symbols
+=== By Difference Type
 
-In by-line diff mode, symbols at the start of each line indicate the type of change:
+==== Formatting-Only (Gray Tones)
 
-[cols="1,2,3"]
-|===
-|Symbol |Color |Meaning
+Formatting-only changes use directional gray tones to indicate low visual priority:
 
-|`-`
-|Red
-|Deleted line (normative difference - exists in expected, not in actual)
+* **Dark gray** (`[`): Formatting-only removal
+* **Light gray** (`]`): Formatting-only addition
+* Purely cosmetic
+* Safe to ignore
+* No semantic impact
 
-|`+`
-|Green
-|Added line (normative difference - exists in actual, not in expected)
+==== Informative (Blue Tones)
 
-|`~`
-|Cyan
-|Informative difference (doesn't affect equivalence)
+Informative changes use blue tones to indicate medium visual priority:
 
-|(no symbol)
-|Default
-|Context line (unchanged)
-|===
+* **Blue** (`<`): Informative removal
+* **Cyan** (`>`): Informative addition
+* Context-dependent
+* Currently ignored
+* May matter with different settings
 
-.Example: Line symbols in action
-[example]
-====
+==== Normative (Red/Green)
+
+Normative changes use red/green for high visual priority:
+
+* **Red** (`-`): Content removed (normative difference)
+* **Green** (`+`): Content added (normative difference)
+* Requires attention
+* Affects comparison result
+
+== Symbol Meanings
+
+=== Line-Level Markers
+
+==== Formatting Markers (Gray)
+
+* `[` - Line removed (formatting-only difference, dark gray)
+* `]` - Line added (formatting-only difference, light gray)
+
+==== Informative Markers (Blue)
+
+* `<` - Line removed (informative difference, blue)
+* `>` - Line added (informative difference, cyan)
+
+==== Normative Markers (Red/Green)
+
+* `-` - Line removed (normative difference, red)
+* `+` - Line added (normative difference, green)
+
+==== Context Marker
+
+* ` ` (space) - Unchanged line (context)
+
+=== Line Numbers
+
+Line numbers are displayed in yellow with pipe separators:
+
+```
+ 123|  45+ | content here
+^^^^  ^^
+old   new
+line  line
+```
+
+* Left number: Line number in original file
+* Right number: Line number in modified file
+* Empty space (` `) when line doesn't exist in that file
+
+== Visual Examples
+
+=== Formatting-Only Change (Gray Tones)
+
 [source]
 ----
-   3|    | <root>                   # Context (unchanged)
-   4|   -| <item>Old</item>         # Deleted (red, normative)
-     |  5+| <item>New</item>         # Added (green, normative)
-   5|  6~| <!-- Comment -->          # Informative (cyan)
-   6|  7 | </root>                  # Context (unchanged)
+  5|   5[ | <p>Content that spans        (dark gray)
+   |   5] | <p>Content that spans multiple lines</p>    (light gray)
+  6|   6] | multiple lines</p>           (light gray)
 ----
-====
+
+=== Informative Change (Blue Tones)
+
+[source]
+----
+  10|  10< | <div  class="test">         (blue)
+    |  10> | <div class="test">          (cyan)
+----
+
+=== Normative Change (Red/Green)
+
+[source]
+----
+  15|  15- | <title>Old Title</title>    (red)
+    |  15+ | <title>New Title</title>    (green)
+----
+
+=== Mixed Context
+
+[source]
+----
+  20|  20  | <body>
+  21|  21[ |   <p>Hello</p>                                (dark gray)
+    |  21] |   <p>Hello</p><span>World</span>             (light gray)
+  22|  22] |   <span>World</span>                         (light gray)
+  23|  23- | <footer>2023</footer>                        (red)
+    |  23+ | <footer>2024</footer>                        (green)
+  24|  24  | </body>
+----
+
+This example shows:
+
+* Line 20, 24: Unchanged context (space marker)
+* Lines 21-22: Formatting-only change (`[` dark gray, `]` light gray)
+* Line 23: Normative change (`-` red, `+` green)
+
+== Configuration
+
+Colors can be disabled for terminal compatibility:
+
+[source,ruby]
+----
+result = Canon.compare(doc1, doc2, format: :xml, use_color: false)
+----
+
+When colors are disabled:
+
+* Markers remain (`  [ ] < > - +`)
+* All text appears in terminal default color
+* Line numbers and pipes remain visible
+
+
+
 
 === Tree Diff Symbols
 
@@ -398,38 +510,6 @@ export CANON_USE_COLOR=false
 export CANON_USE_COLOR=true
 ----
 
-== Terminal Compatibility
-
-=== ANSI Support
-
-Canon's color output requires terminal ANSI escape sequence support:
-
-**Compatible terminals**:
-* macOS Terminal
-* iTerm2
-* GNOME Terminal
-* Konsole
-* Windows Terminal
-* VS Code integrated terminal
-
-**Limited support**:
-* Windows CMD (requires Windows 10 or later)
-* Basic terminal emulators
-
-=== Unicode Support
-
-The symbol system requires Unicode (UTF-8) support:
-
-**Requirements**:
-* Terminal encoding set to UTF-8
-* Font with Unicode glyph support
-* Terminal that renders box-drawing characters
-
-**Recommended fonts**:
-* Menlo, Monaco (macOS)
-* Consolas (Windows)
-* DejaVu Sans Mono (Linux)
-* Any "Nerd Font" variant
 
 == Diff Type Display Options
 
@@ -510,6 +590,13 @@ While Canon uses colors, it also provides symbols that work without color:
 * **Text labels** describe differences
 
 The combination ensures diffs are readable even without color perception.
+
+
+== Related Features
+
+* link:display-filtering.adoc[Display Filtering] - Control which diff types to show
+* link:context-and-grouping.adoc[Context and Grouping] - Control surrounding context
+* link:../match-options/index.adoc[Match Options] - Configure what's considered normative vs informative
 
 == See Also
 

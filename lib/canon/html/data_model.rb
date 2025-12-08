@@ -29,11 +29,12 @@ module Canon
 
         # Parse with Nokogiri using appropriate parser
         doc = if is_full_document
-                # Full document - use document parser to preserve structure
+                # Full document - use fragment parser to avoid Nokogiri's phantom tag insertion
+                # The fragment parser avoids auto-inserted meta tags in HTML4
                 if version == :html5
-                  Nokogiri::HTML5(html_string)
+                  Nokogiri::HTML5.fragment(html_string)
                 else
-                  Nokogiri::HTML4::Document.parse(html_string, &:nonet)
+                  Nokogiri::HTML4.fragment(html_string)
                 end
               elsif version == :html5
                 # Fragment - use fragment parser to avoid implicit wrappers

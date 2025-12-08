@@ -1,9 +1,12 @@
 # frozen_string_literal: true
 
 require "nokogiri"
+require_relative "../comparison"  # Load base module with constants first
 require_relative "xml_comparator"
 require_relative "match_options"
 require_relative "comparison_result"
+require_relative "compare_profile"
+require_relative "html_compare_profile"
 require_relative "../diff/diff_node"
 require_relative "../diff/diff_classifier"
 require_relative "strategies/match_strategy_factory"
@@ -61,10 +64,27 @@ module Canon
             global_options: opts[:global_options],
           )
 
+          # Parse nodes to detect HTML version before creating profile
+          # We need to parse early to know if we're dealing with HTML4 or HTML5
+          node1 = parse_node(html1, match_opts_hash[:preprocessing],
+                             match_opts_hash)
+          node2 = parse_node(html2, match_opts_hash[:preprocessing],
+                             match_opts_hash)
+
+          # Detect HTML version from parsed nodes
+          html_version = detect_html_version_from_node(node1)
+
+          # Create HTML-specific compare profile
+          compare_profile = HtmlCompareProfile.new(
+            match_opts_hash,
+            html_version: html_version
+          )
+
           # Wrap in ResolvedMatchOptions for DiffClassifier
           match_opts = Canon::Comparison::ResolvedMatchOptions.new(
             match_opts_hash,
             format: :html,
+            compare_profile: compare_profile
           )
 
           # Store resolved match options hash for use in comparison logic
@@ -78,12 +98,6 @@ module Canon
 
           # Create child_opts with resolved options
           child_opts = opts.merge(child_opts)
-
-          # Parse nodes if they are strings, applying preprocessing if needed
-          node1 = parse_node(html1, match_opts_hash[:preprocessing],
-                             match_opts_hash)
-          node2 = parse_node(html2, match_opts_hash[:preprocessing],
-                             match_opts_hash)
 
           # Serialize preprocessed nodes for diff display (avoid re-preprocessing)
           preprocessed_str1 = serialize_for_display(node1)
@@ -489,14 +503,23 @@ module Canon
         #
         # @param doc [Nokogiri::HTML::Document] Document to normalize
         # @param match_opts [Hash] Match options to respect during normalization
-        def normalize_rendered_whitespace(doc, match_opts = {})
+        # @param compare_profile [HtmlCompareProfile] Optional profile for whitespace rules
+        def normalize_rendered_whitespace(doc, match_opts = {}, compare_profile = nil)
           # If text_content is :strict, don't normalize ANY text content
           # This allows users to explicitly request strict text matching
           return if match_opts[:text_content] == :strict
 
           # Elements where whitespace is significant - don't normalize
-          # This is an HTML rendering rule, not a match option
-          preserve_whitespace = %w[pre code textarea script style]
+          # Use profile if available, otherwise use default list
+          preserve_whitespace = if compare_profile.is_a?(HtmlCompareProfile)
+                                  # Profile handles HTML-specific whitespace rules
+                                  %w[pre code textarea script style].select do |elem|
+                                    compare_profile.preserve_whitespace?(elem)
+                                  end
+                                else
+                                  # Fallback to default list
+                                  %w[pre code textarea script style]
+                                end
 
           # Walk all text nodes
           doc.xpath(".//text()").each do |text_node|

@@ -341,23 +341,20 @@ module Canon
         #
         # @param old_num [Integer, nil] Line number in old file
         # @param new_num [Integer, nil] Line number in new file
-        # @param marker [String] Diff marker (' ', '-', '+', '~')
+        # @param marker [String] Diff marker (' ', '-', '+', '<', '>', '[', ']')
         # @param content [String] Line content
         # @param color [Symbol, nil] Color for diff lines
         # @param informative [Boolean] Whether this is an informative diff
+        # @param formatting [Boolean] Whether this is a formatting-only diff
         # @return [String] Formatted line
         def format_unified_line(old_num, new_num, marker, content, color = nil,
-                                informative: false)
+                                informative: false, formatting: false)
           old_str = old_num ? "%4d" % old_num : "    "
           new_str = new_num ? "%4d" % new_num : "    "
 
-          # For informative diffs, use ~ marker and cyan color
-          if informative
-            marker = "~"
-            effective_color = :cyan
-          else
-            effective_color = color
-          end
+          # Formatting and informative diffs use directional colors already passed in
+          # No need to override since callers set the correct color
+          effective_color = color
 
           marker_part = "#{marker} "
 
