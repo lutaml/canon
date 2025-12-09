@@ -28,6 +28,7 @@ module Canon
       # Formatting-only diffs are never normative
       def normative?
         return false if formatting?
+
         @normative == true
       end
 
@@ -35,6 +36,7 @@ module Canon
       # Formatting-only diffs are never informative
       def informative?
         return false if formatting?
+
         @normative == false
       end
 

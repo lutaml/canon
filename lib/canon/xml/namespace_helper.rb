@@ -33,7 +33,7 @@ module Canon
 
         name_differs = node1.name != node2.name
         namespace_differs = normalize_namespace(node1.namespace_uri) !=
-                           normalize_namespace(node2.namespace_uri)
+          normalize_namespace(node2.namespace_uri)
 
         if name_differs && namespace_differs
           :both

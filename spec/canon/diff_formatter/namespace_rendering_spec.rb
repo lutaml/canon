@@ -107,7 +107,7 @@ RSpec.describe "Canon::DiffFormatter namespace rendering" do
     end
 
     context "empty namespace vs populated namespace" do
-      let(:xml1) { '<root><element>value</element></root>' }
+      let(:xml1) { "<root><element>value</element></root>" }
       let(:xml2) do
         '<root><element xmlns="http://example.com">value</element></root>'
       end
@@ -170,7 +170,7 @@ RSpec.describe "Canon::DiffFormatter namespace rendering" do
     it "formats empty namespace as ns:[{blank}]" do
       node = Canon::Xml::Nodes::ElementNode.new(
         name: "element",
-        namespace_uri: nil
+        namespace_uri: nil,
       )
 
       helper = Canon::Xml::NamespaceHelper
@@ -180,7 +180,7 @@ RSpec.describe "Canon::DiffFormatter namespace rendering" do
     it "formats populated namespace as ns:[uri]" do
       node = Canon::Xml::Nodes::ElementNode.new(
         name: "element",
-        namespace_uri: "http://example.com"
+        namespace_uri: "http://example.com",
       )
 
       helper = Canon::Xml::NamespaceHelper
@@ -197,18 +197,18 @@ RSpec.describe "Canon::DiffFormatter namespace rendering" do
     it "tracks namespace mismatch type" do
       node1 = Canon::Xml::Nodes::ElementNode.new(
         name: "element",
-        namespace_uri: "http://example1.com"
+        namespace_uri: "http://example1.com",
       )
       node2 = Canon::Xml::Nodes::ElementNode.new(
         name: "element",
-        namespace_uri: "http://example2.com"
+        namespace_uri: "http://example2.com",
       )
 
       diff_node = Canon::Diff::DiffNode.new(
         node1: node1,
         node2: node2,
         dimension: :element_namespace,
-        reason: "Namespace differs"
+        reason: "Namespace differs",
       )
 
       expect(diff_node.dimension).to eq(:element_namespace)
@@ -217,18 +217,18 @@ RSpec.describe "Canon::DiffFormatter namespace rendering" do
     it "tracks name mismatch type" do
       node1 = Canon::Xml::Nodes::ElementNode.new(
         name: "oldname",
-        namespace_uri: "http://example.com"
+        namespace_uri: "http://example.com",
       )
       node2 = Canon::Xml::Nodes::ElementNode.new(
         name: "newname",
-        namespace_uri: "http://example.com"
+        namespace_uri: "http://example.com",
       )
 
       diff_node = Canon::Diff::DiffNode.new(
         node1: node1,
         node2: node2,
         dimension: :element_name,
-        reason: "Name differs"
+        reason: "Name differs",
       )
 
       expect(diff_node.dimension).to eq(:element_name)

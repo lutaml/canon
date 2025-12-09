@@ -45,7 +45,8 @@ RSpec.describe "Formatting diff visualization" do
         </root>
       XML
 
-      result = Canon::Comparison.equivalent?(xml1, xml2, verbose: true, use_color: false)
+      result = Canon::Comparison.equivalent?(xml1, xml2, verbose: true,
+                                                         use_color: false)
       diff = result.diff(use_color: false)
 
       # Should detect formatting-only difference
@@ -57,7 +58,8 @@ RSpec.describe "Formatting diff visualization" do
       xml1 = "<root><p>Hello  world</p></root>"
       xml2 = "<root><p>Hello world</p></root>"
 
-      result = Canon::Comparison.equivalent?(xml1, xml2, verbose: true, use_color: true)
+      result = Canon::Comparison.equivalent?(xml1, xml2, verbose: true,
+                                                         use_color: true)
       diff = result.diff(use_color: true)
 
       # Should include formatting markers
@@ -79,7 +81,8 @@ RSpec.describe "Formatting diff visualization" do
         </root>
       XML
 
-      result = Canon::Comparison.equivalent?(xml1, xml2, verbose: true, use_color: false)
+      result = Canon::Comparison.equivalent?(xml1, xml2, verbose: true,
+                                                         use_color: false)
       diff = result.diff(use_color: false)
 
       # Should show normative markers (- and +) not formatting markers
@@ -93,7 +96,8 @@ RSpec.describe "Formatting diff visualization" do
       xml1 = "<root><p class='old'>Content</p></root>"
       xml2 = "<root><p  class='new'>Content</p></root>"
 
-      result = Canon::Comparison.equivalent?(xml1, xml2, verbose: true, use_color: false)
+      result = Canon::Comparison.equivalent?(xml1, xml2, verbose: true,
+                                                         use_color: false)
       diff = result.diff(use_color: false)
 
       # Attribute value change is normative, not formatting
@@ -154,7 +158,8 @@ RSpec.describe "Formatting diff visualization" do
       xml1 = "<root>\n\n  <p>Content</p>\n</root>"
       xml2 = "<root>\n   <p>Content</p>\n</root>"
 
-      result = Canon::Comparison.equivalent?(xml1, xml2, verbose: true, use_color: false)
+      result = Canon::Comparison.equivalent?(xml1, xml2, verbose: true,
+                                                         use_color: false)
 
       # Should not crash
       expect(result.diff(use_color: false)).to be_a(String)
@@ -164,7 +169,8 @@ RSpec.describe "Formatting diff visualization" do
       xml1 = "<root><a>1</a><b>2</b></root>"
       xml2 = "<root>  <a>1</a>  <b>2</b>  </root>"
 
-      result = Canon::Comparison.equivalent?(xml1, xml2, verbose: true, use_color: false)
+      result = Canon::Comparison.equivalent?(xml1, xml2, verbose: true,
+                                                         use_color: false)
 
       # Should be equivalent
       expect(result.equivalent?).to be true
@@ -178,7 +184,8 @@ RSpec.describe "Formatting diff visualization" do
       xml1 = "<root>\t<p>Content</p></root>"
       xml2 = "<root>  <p>Content</p></root>"
 
-      result = Canon::Comparison.equivalent?(xml1, xml2, verbose: true, use_color: false)
+      result = Canon::Comparison.equivalent?(xml1, xml2, verbose: true,
+                                                         use_color: false)
       diff = result.diff(use_color: false)
 
       # Should handle mixed whitespace
@@ -238,7 +245,8 @@ RSpec.describe "Formatting diff visualization" do
       xml1 = "<root><p>Hello  world</p></root>"
       xml2 = "<root><p>Hello world</p></root>"
 
-      result = Canon::Comparison.equivalent?(xml1, xml2, verbose: true, use_color: false)
+      result = Canon::Comparison.equivalent?(xml1, xml2, verbose: true,
+                                                         use_color: false)
 
       # The legend should document [ and ] markers
       # This would be tested if we add a method to show the legend

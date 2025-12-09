@@ -97,11 +97,8 @@ module Canon
         opts[:ignore_attr_order] = @options.fetch(:ignore_attr_order, true)
         opts[:verbose] = @options.fetch(:verbose, false)
 
-        # Add diff algorithm option
-        opts[:diff_algorithm] = determine_algorithm
-
-        # Add show_diffs option
-        opts[:show_diffs] = @options[:show_diffs].to_sym if @options[:show_diffs]
+        add_algorithm_option(opts)
+        add_show_diffs_option(opts)
 
         opts
       end
@@ -130,6 +127,20 @@ module Canon
         dimensions.each_with_object({}) do |dim, opts|
           opts[dim] = @options[dim].to_sym if @options[dim]
         end
+      end
+
+      # Add show_diffs option to comparison options
+      # @param opts [Hash] Options hash to modify
+      def add_show_diffs_option(opts)
+        return unless @options[:show_diffs]
+
+        opts[:show_diffs] = @options[:show_diffs].to_sym
+      end
+
+      # Add diff_algorithm option to comparison options
+      # @param opts [Hash] Options hash to modify
+      def add_algorithm_option(opts)
+        opts[:diff_algorithm] = determine_algorithm
       end
 
       # Determine diff mode based on format and options

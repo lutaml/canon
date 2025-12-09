@@ -36,7 +36,7 @@ module Canon
         # Only check for formatting-only when dimension is NOT normative
         # This ensures strict mode differences remain normative
         should_check_formatting = !is_normative &&
-                                  profile.supports_formatting_detection?(diff_node.dimension)
+          profile.supports_formatting_detection?(diff_node.dimension)
 
         # If we should check formatting, see if it's formatting-only
         if should_check_formatting && formatting_only_diff?(diff_node)

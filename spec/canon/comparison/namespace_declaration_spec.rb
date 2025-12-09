@@ -8,13 +8,16 @@ RSpec.describe "Namespace declaration diffs" do
       xml1 = '<ownedEnd xmlns:xmi="http://www.omg.org/spec/XMI/20131001" type="test"/>'
       xml2 = '<ownedEnd type="test"/>'
 
-      result = Canon::Comparison::XmlComparator.equivalent?(xml1, xml2, verbose: true)
+      result = Canon::Comparison::XmlComparator.equivalent?(xml1, xml2,
+                                                            verbose: true)
 
       expect(result).to be_a(Canon::Comparison::ComparisonResult)
       expect(result.differences).not_to be_empty
 
       # Find the namespace_declarations difference
-      ns_diff = result.differences.find { |d| d.dimension == :namespace_declarations }
+      ns_diff = result.differences.find do |d|
+        d.dimension == :namespace_declarations
+      end
       expect(ns_diff).not_to be_nil
       expect(ns_diff.dimension).to eq(:namespace_declarations)
     end
@@ -23,13 +26,16 @@ RSpec.describe "Namespace declaration diffs" do
       xml1 = '<ownedEnd type="test"/>'
       xml2 = '<ownedEnd xmlns:xmi="http://www.omg.org/spec/XMI/20131001" type="test"/>'
 
-      result = Canon::Comparison::XmlComparator.equivalent?(xml1, xml2, verbose: true)
+      result = Canon::Comparison::XmlComparator.equivalent?(xml1, xml2,
+                                                            verbose: true)
 
       expect(result).to be_a(Canon::Comparison::ComparisonResult)
       expect(result.differences).not_to be_empty
 
       # Find the namespace_declarations difference
-      ns_diff = result.differences.find { |d| d.dimension == :namespace_declarations }
+      ns_diff = result.differences.find do |d|
+        d.dimension == :namespace_declarations
+      end
       expect(ns_diff).not_to be_nil
       expect(ns_diff.dimension).to eq(:namespace_declarations)
     end
@@ -38,13 +44,16 @@ RSpec.describe "Namespace declaration diffs" do
       xml1 = '<ownedEnd xmlns:xmi="http://www.omg.org/spec/XMI/20131001" type="test"/>'
       xml2 = '<ownedEnd xmlns:xmi="http://www.omg.org/spec/XMI/20111001" type="test"/>'
 
-      result = Canon::Comparison::XmlComparator.equivalent?(xml1, xml2, verbose: true)
+      result = Canon::Comparison::XmlComparator.equivalent?(xml1, xml2,
+                                                            verbose: true)
 
       expect(result).to be_a(Canon::Comparison::ComparisonResult)
       expect(result.differences).not_to be_empty
 
       # Find the namespace_declarations difference
-      ns_diff = result.differences.find { |d| d.dimension == :namespace_declarations }
+      ns_diff = result.differences.find do |d|
+        d.dimension == :namespace_declarations
+      end
       expect(ns_diff).not_to be_nil
       expect(ns_diff.dimension).to eq(:namespace_declarations)
     end
@@ -53,18 +62,23 @@ RSpec.describe "Namespace declaration diffs" do
       xml1 = '<ownedEnd xmlns:xmi="http://www.omg.org/spec/XMI/20131001" xmi:type="xmi_type" xmi:id="my_id" type="test"/>'
       xml2 = '<ownedEnd xmi:id="my_id" xmi:type="xmi_type" type="test"/>'
 
-      result = Canon::Comparison::XmlComparator.equivalent?(xml1, xml2, verbose: true)
+      result = Canon::Comparison::XmlComparator.equivalent?(xml1, xml2,
+                                                            verbose: true)
 
       expect(result).to be_a(Canon::Comparison::ComparisonResult)
       expect(result.differences).not_to be_empty
 
       # Should have a namespace_declarations difference
-      ns_diff = result.differences.find { |d| d.dimension == :namespace_declarations }
+      ns_diff = result.differences.find do |d|
+        d.dimension == :namespace_declarations
+      end
       expect(ns_diff).not_to be_nil
 
       # Should NOT have an attribute_presence difference for data attributes
       # (all data attributes are the same: xmi:id, xmi:type, type)
-      attr_presence_diff = result.differences.find { |d| d.dimension == :attribute_presence }
+      attr_presence_diff = result.differences.find do |d|
+        d.dimension == :attribute_presence
+      end
       expect(attr_presence_diff).to be_nil
     end
 
@@ -72,13 +86,16 @@ RSpec.describe "Namespace declaration diffs" do
       xml1 = '<root xmlns:xmi="http://xmi.com" xmlns:uml="http://uml.com" xmlns:xsi="http://xsi.com"/>'
       xml2 = '<root xmlns:xmi="http://xmi.com" xmlns:uml="http://uml.com"/>'
 
-      result = Canon::Comparison::XmlComparator.equivalent?(xml1, xml2, verbose: true)
+      result = Canon::Comparison::XmlComparator.equivalent?(xml1, xml2,
+                                                            verbose: true)
 
       expect(result).to be_a(Canon::Comparison::ComparisonResult)
       expect(result.differences).not_to be_empty
 
       # Find the namespace_declarations difference
-      ns_diff = result.differences.find { |d| d.dimension == :namespace_declarations }
+      ns_diff = result.differences.find do |d|
+        d.dimension == :namespace_declarations
+      end
       expect(ns_diff).not_to be_nil
       expect(ns_diff.dimension).to eq(:namespace_declarations)
     end
@@ -87,12 +104,15 @@ RSpec.describe "Namespace declaration diffs" do
       xml1 = '<ownedEnd xmlns:xmi="http://www.omg.org/spec/XMI/20131001" type="test"/>'
       xml2 = '<ownedEnd xmlns:xmi="http://www.omg.org/spec/XMI/20131001" type="test"/>'
 
-      result = Canon::Comparison::XmlComparator.equivalent?(xml1, xml2, verbose: true)
+      result = Canon::Comparison::XmlComparator.equivalent?(xml1, xml2,
+                                                            verbose: true)
 
       expect(result).to be_a(Canon::Comparison::ComparisonResult)
 
       # Should have no namespace_declarations differences
-      ns_diff = result.differences.find { |d| d.dimension == :namespace_declarations }
+      ns_diff = result.differences.find do |d|
+        d.dimension == :namespace_declarations
+      end
       expect(ns_diff).to be_nil
     end
   end
@@ -102,8 +122,11 @@ RSpec.describe "Namespace declaration diffs" do
       xml1 = '<ownedEnd xmlns:xmi="http://www.omg.org/spec/XMI/20131001" type="test"/>'
       xml2 = '<ownedEnd type="test"/>'
 
-      result = Canon::Comparison::XmlComparator.equivalent?(xml1, xml2, verbose: true)
-      output = Canon::DiffFormatter::DiffDetailFormatter.format_report(result.differences, use_color: false)
+      result = Canon::Comparison::XmlComparator.equivalent?(xml1, xml2,
+                                                            verbose: true)
+      output = Canon::DiffFormatter::DiffDetailFormatter.format_report(
+        result.differences, use_color: false
+      )
 
       # Should mention namespace_declarations dimension
       expect(output).to include("namespace_declarations")
@@ -117,8 +140,11 @@ RSpec.describe "Namespace declaration diffs" do
       xml1 = '<ownedEnd type="test"/>'
       xml2 = '<ownedEnd xmlns:xmi="http://www.omg.org/spec/XMI/20131001" type="test"/>'
 
-      result = Canon::Comparison::XmlComparator.equivalent?(xml1, xml2, verbose: true)
-      output = Canon::DiffFormatter::DiffDetailFormatter.format_report(result.differences, use_color: false)
+      result = Canon::Comparison::XmlComparator.equivalent?(xml1, xml2,
+                                                            verbose: true)
+      output = Canon::DiffFormatter::DiffDetailFormatter.format_report(
+        result.differences, use_color: false
+      )
 
       # Should mention namespace_declarations dimension
       expect(output).to include("namespace_declarations")
@@ -132,8 +158,11 @@ RSpec.describe "Namespace declaration diffs" do
       xml1 = '<ownedEnd xmlns:xmi="http://www.omg.org/spec/XMI/20131001" type="test"/>'
       xml2 = '<ownedEnd xmlns:xmi="http://www.omg.org/spec/XMI/20111001" type="test"/>'
 
-      result = Canon::Comparison::XmlComparator.equivalent?(xml1, xml2, verbose: true)
-      output = Canon::DiffFormatter::DiffDetailFormatter.format_report(result.differences, use_color: false)
+      result = Canon::Comparison::XmlComparator.equivalent?(xml1, xml2,
+                                                            verbose: true)
+      output = Canon::DiffFormatter::DiffDetailFormatter.format_report(
+        result.differences, use_color: false
+      )
 
       # Should mention namespace_declarations dimension
       expect(output).to include("namespace_declarations")
@@ -149,15 +178,20 @@ RSpec.describe "Namespace declaration diffs" do
       xml1 = '<element xmlns:ns="http://example.com" ns:attr="value" data="test"/>'
       xml2 = '<element ns:attr="value" data="test"/>'
 
-      result = Canon::Comparison::XmlComparator.equivalent?(xml1, xml2, verbose: true)
+      result = Canon::Comparison::XmlComparator.equivalent?(xml1, xml2,
+                                                            verbose: true)
 
       # Should have namespace_declarations difference
-      ns_diff = result.differences.find { |d| d.dimension == :namespace_declarations }
+      ns_diff = result.differences.find do |d|
+        d.dimension == :namespace_declarations
+      end
       expect(ns_diff).not_to be_nil
 
       # Should NOT have attribute_presence difference for data attributes
       # (ns:attr and data are present in both)
-      attr_presence_diff = result.differences.find { |d| d.dimension == :attribute_presence }
+      attr_presence_diff = result.differences.find do |d|
+        d.dimension == :attribute_presence
+      end
       expect(attr_presence_diff).to be_nil
     end
 
@@ -173,11 +207,15 @@ RSpec.describe "Namespace declaration diffs" do
       )
 
       # Should have attribute_order difference (data attributes in different order)
-      attr_order_diff = result.differences.find { |d| d.dimension == :attribute_order }
+      attr_order_diff = result.differences.find do |d|
+        d.dimension == :attribute_order
+      end
       expect(attr_order_diff).not_to be_nil
 
       # Should NOT have namespace_declarations difference (same xmlns:ns)
-      ns_diff = result.differences.find { |d| d.dimension == :namespace_declarations }
+      ns_diff = result.differences.find do |d|
+        d.dimension == :namespace_declarations
+      end
       expect(ns_diff).to be_nil
     end
   end

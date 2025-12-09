@@ -1147,27 +1147,23 @@ RSpec.describe Canon::RSpecMatchers do
 
     context "with comments: :ignore" do
       it "shows both normative and informative diffs with show_diffs: :all" do
-        begin
-          expect(xml_with_comment1).to be_xml_equivalent_to(
-            xml_with_comment2,
-            match: { comments: :ignore }
-          ).show_diffs(:all)
-        rescue RSpec::Expectations::ExpectationNotMetError => e
-          # Should fail because of normative diff (element value)
-          expect(e.message).to include("expected XML to be equivalent")
-        end
+        expect(xml_with_comment1).to be_xml_equivalent_to(
+          xml_with_comment2,
+          match: { comments: :ignore },
+        ).show_diffs(:all)
+      rescue RSpec::Expectations::ExpectationNotMetError => e
+        # Should fail because of normative diff (element value)
+        expect(e.message).to include("expected XML to be equivalent")
       end
 
       it "filters to normative diffs only with show_diffs: :normative" do
-        begin
-          expect(xml_with_comment1).to be_xml_equivalent_to(
-            xml_with_comment2,
-            match: { comments: :ignore }
-          ).show_diffs(:normative)
-        rescue RSpec::Expectations::ExpectationNotMetError => e
-          # Should show normative diffs (element value change)
-          expect(e.message).to include("expected XML to be equivalent")
-        end
+        expect(xml_with_comment1).to be_xml_equivalent_to(
+          xml_with_comment2,
+          match: { comments: :ignore },
+        ).show_diffs(:normative)
+      rescue RSpec::Expectations::ExpectationNotMetError => e
+        # Should show normative diffs (element value change)
+        expect(e.message).to include("expected XML to be equivalent")
       end
 
       it "filters to informative diffs only with show_diffs: :informative" do
@@ -1179,7 +1175,7 @@ RSpec.describe Canon::RSpecMatchers do
         # These should be equivalent (comments ignored = informative)
         expect(xml1).to be_xml_equivalent_to(
           xml2,
-          match: { comments: :ignore }
+          match: { comments: :ignore },
         ).show_diffs(:informative)
       end
     end
@@ -1192,7 +1188,7 @@ RSpec.describe Canon::RSpecMatchers do
         begin
           expect(xml1).to be_xml_equivalent_to(
             xml2,
-            match: { comments: :strict }
+            match: { comments: :strict },
           ).show_diffs(:normative)
         rescue RSpec::Expectations::ExpectationNotMetError => e
           # Should fail because comment diffs are normative

@@ -8,7 +8,8 @@ module Canon
       class BaseFormatter
         attr_reader :use_color, :visualization_map
 
-        def initialize(use_color: true, visualization_map: nil, show_diffs: :all)
+        def initialize(use_color: true, visualization_map: nil,
+show_diffs: :all)
           @use_color = use_color
           @visualization_map = visualization_map ||
             Canon::DiffFormatter::DEFAULT_VISUALIZATION_MAP
@@ -65,7 +66,8 @@ module Canon
         end
 
         # Factory method to create format-specific formatter
-        def self.for_format(format, use_color: true, visualization_map: nil, show_diffs: :all)
+        def self.for_format(format, use_color: true, visualization_map: nil,
+show_diffs: :all)
           case format
           when :xml, :html
             require_relative "xml_formatter"
@@ -100,13 +102,13 @@ module Canon
           differences.select do |diff|
             # Handle both DiffNode objects and legacy Hash format
             is_normative = if diff.respond_to?(:normative?)
-                            diff.normative?
-                          elsif diff.is_a?(Hash) && diff.key?(:normative)
-                            diff[:normative]
-                          else
-                            # Default to normative if unknown
-                            true
-                          end
+                             diff.normative?
+                           elsif diff.is_a?(Hash) && diff.key?(:normative)
+                             diff[:normative]
+                           else
+                             # Default to normative if unknown
+                             true
+                           end
 
             case @show_diffs
             when :normative

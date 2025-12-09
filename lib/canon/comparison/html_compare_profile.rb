@@ -43,6 +43,7 @@ module Canon
           if match_options.is_a?(Hash)
             # If comments key doesn't exist, default to false (HTML default: ignore)
             return false unless match_options.key?(:comments)
+
             # If key exists, check if it's :strict
             return match_options[:comments] == :strict
           elsif match_options.respond_to?(:behavior_for)
@@ -104,7 +105,7 @@ module Canon
           begin
             match_options[dimension]
             true
-          rescue
+          rescue StandardError
             false
           end
         else

@@ -183,7 +183,7 @@ module Canon
 
       # Build attribute nodes for an element
       def self.build_attribute_nodes(nokogiri_element, element)
-        nokogiri_element.attributes.each do |name, attr|
+        nokogiri_element.attributes.each_value do |attr|
           attr_node = Nodes::AttributeNode.new(
             name: attr.name,
             value: attr.value,

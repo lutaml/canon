@@ -37,7 +37,7 @@ RSpec.describe "Canon::DiffFormatter informative diff visualization" do
         formatter = Canon::DiffFormatter.new(
           use_color: false,
           mode: :by_line,
-          show_diffs: :all
+          show_diffs: :all,
         )
 
         str1, str2 = result.preprocessed_strings
@@ -58,7 +58,7 @@ RSpec.describe "Canon::DiffFormatter informative diff visualization" do
         formatter = Canon::DiffFormatter.new(
           use_color: true,
           mode: :by_line,
-          show_diffs: :all
+          show_diffs: :all,
         )
 
         str1, str2 = result.preprocessed_strings
@@ -85,7 +85,7 @@ RSpec.describe "Canon::DiffFormatter informative diff visualization" do
         formatter = Canon::DiffFormatter.new(
           use_color: false,
           mode: :by_line,
-          show_diffs: :normative
+          show_diffs: :normative,
         )
 
         str1, str2 = result.preprocessed_strings
@@ -106,7 +106,7 @@ RSpec.describe "Canon::DiffFormatter informative diff visualization" do
         formatter = Canon::DiffFormatter.new(
           use_color: true,
           mode: :by_line,
-          show_diffs: :normative
+          show_diffs: :normative,
         )
 
         str1, str2 = result.preprocessed_strings
@@ -156,7 +156,7 @@ RSpec.describe "Canon::DiffFormatter informative diff visualization" do
         formatter = Canon::DiffFormatter.new(
           use_color: false,
           mode: :by_line,
-          show_diffs: :informative
+          show_diffs: :informative,
         )
 
         str1, str2 = result.preprocessed_strings
@@ -175,11 +175,11 @@ RSpec.describe "Canon::DiffFormatter informative diff visualization" do
         formatter = Canon::DiffFormatter.new(
           use_color: false,
           mode: :by_line,
-          show_diffs: :normative
+          show_diffs: :normative,
         )
 
         str1, str2 = result.preprocessed_strings
-        output = formatter.format(result, :xml, doc1: str1, doc2: str2)
+        formatter.format(result, :xml, doc1: str1, doc2: str2)
 
         # Note: Legacy XML formatter path may still show some output
         # The important thing is that informative diffs are classified correctly
@@ -196,7 +196,7 @@ RSpec.describe "Canon::DiffFormatter informative diff visualization" do
         node1: "node1",
         node2: "node2",
         dimension: :comments,
-        reason: "Comment differs"
+        reason: "Comment differs",
       )
       diff_node.normative = false
 
@@ -209,7 +209,7 @@ RSpec.describe "Canon::DiffFormatter informative diff visualization" do
         node1: "node1",
         node2: "node2",
         dimension: :text_content,
-        reason: "Text content differs"
+        reason: "Text content differs",
       )
       diff_node.normative = true
 

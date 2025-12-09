@@ -31,14 +31,12 @@ module Canon
         return "" if line.nil?
 
         # Collapse all whitespace (spaces, tabs, newlines) to single space
-        normalized = line.gsub(/\s+/, ' ').strip
+        normalized = line.gsub(/\s+/, " ").strip
 
         # Normalize whitespace around tag delimiters
         # Remove spaces before > and after <
-        normalized = normalized.gsub(/\s+>/, '>')  # "div >" -> "div>"
-        normalized = normalized.gsub(/<\s+/, '<')   # "< div" -> "<div"
-
-        normalized
+        normalized = normalized.gsub(/\s+>/, ">") # "div >" -> "div>"
+        normalized.gsub(/<\s+/, "<") # "< div" -> "<div"
       end
 
       # Check if a line is blank (nil or whitespace-only)

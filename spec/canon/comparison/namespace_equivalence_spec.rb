@@ -46,7 +46,7 @@ RSpec.describe "Canon::Comparison namespace equivalence" do
 
       formatter = Canon::DiffFormatter.new(
         use_color: false,
-        mode: :by_object
+        mode: :by_object,
       )
 
       output = formatter.format(result, :xml)
@@ -64,7 +64,7 @@ RSpec.describe "Canon::Comparison namespace equivalence" do
 
       formatter = Canon::DiffFormatter.new(
         use_color: false,
-        mode: :by_object
+        mode: :by_object,
       )
 
       output = formatter.format(result, :xml)
@@ -82,7 +82,7 @@ RSpec.describe "Canon::Comparison namespace equivalence" do
 
       formatter = Canon::DiffFormatter.new(
         use_color: false,
-        mode: :by_line
+        mode: :by_line,
       )
 
       # Use original_strings instead of preprocessed_strings to see actual namespace declarations
@@ -162,7 +162,7 @@ RSpec.describe "Canon::Comparison namespace equivalence" do
 
       formatter = Canon::DiffFormatter.new(
         use_color: false,
-        mode: :by_line
+        mode: :by_line,
       )
 
       str1, str2 = result.preprocessed_strings

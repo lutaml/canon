@@ -93,7 +93,8 @@ html_version: nil, match_options: nil, algorithm: :dom, original_strings: nil)
       # @param diff_grouping_lines [Integer] Maximum gap for grouping diffs
       # @param show_diffs [Symbol] Which diffs to show (:all, :normative, :informative)
       # @return [String] Formatted diff output
-      def diff(use_color: true, context_lines: 3, diff_grouping_lines: nil, show_diffs: :all)
+      def diff(use_color: true, context_lines: 3, diff_grouping_lines: nil,
+show_diffs: :all)
         require_relative "../diff_formatter"
 
         formatter = Canon::DiffFormatter.new(
@@ -101,7 +102,7 @@ html_version: nil, match_options: nil, algorithm: :dom, original_strings: nil)
           mode: :by_line,
           context_lines: context_lines,
           diff_grouping_lines: diff_grouping_lines,
-          show_diffs: show_diffs
+          show_diffs: show_diffs,
         )
 
         formatter.format(
@@ -109,7 +110,7 @@ html_version: nil, match_options: nil, algorithm: :dom, original_strings: nil)
           @format,
           doc1: @original_strings[0],
           doc2: @original_strings[1],
-          html_version: @html_version
+          html_version: @html_version,
         )
       end
     end
