@@ -82,8 +82,16 @@ module Canon
           node2 = parse_node(n2, match_opts_hash[:preprocessing])
 
           # Store original strings for line diff display (before preprocessing)
-          original1 = n1.is_a?(String) ? n1 : (n1.respond_to?(:to_xml) ? n1.to_xml : n1.to_s)
-          original2 = n2.is_a?(String) ? n2 : (n2.respond_to?(:to_xml) ? n2.to_xml : n2.to_s)
+          original1 = if n1.is_a?(String)
+                        n1
+                      else
+                        (n1.respond_to?(:to_xml) ? n1.to_xml : n1.to_s)
+                      end
+          original2 = if n2.is_a?(String)
+                        n2
+                      else
+                        (n2.respond_to?(:to_xml) ? n2.to_xml : n2.to_s)
+                      end
 
           differences = []
           diff_children = opts[:diff_children] || false
@@ -115,20 +123,18 @@ module Canon
               match_options: match_opts_hash,
               algorithm: :dom,
             )
-          else
+          elsif result != Comparison::EQUIVALENT && !differences.empty?
             # Non-verbose mode: check equivalence
             # If comparison found differences, classify them to determine if normative
-            if result != Comparison::EQUIVALENT && !differences.empty?
-              classifier = Canon::Diff::DiffClassifier.new(match_opts)
-              classifier.classify_all(differences.select do |d|
-                d.is_a?(Canon::Diff::DiffNode)
-              end)
-              # Equivalent if no normative differences (matches semantic algorithm)
-              differences.none?(&:normative?)
-            else
-              # Either equivalent or no differences tracked
-              result == Comparison::EQUIVALENT
-            end
+            classifier = Canon::Diff::DiffClassifier.new(match_opts)
+            classifier.classify_all(differences.select do |d|
+              d.is_a?(Canon::Diff::DiffNode)
+            end)
+            # Equivalent if no normative differences (matches semantic algorithm)
+            differences.none?(&:normative?)
+          else
+            # Either equivalent or no differences tracked
+            result == Comparison::EQUIVALENT
           end
         end
 
@@ -143,8 +149,16 @@ module Canon
         # @return [Boolean, ComparisonResult] Result of tree diff comparison
         def perform_semantic_tree_diff(n1, n2, opts, match_opts_hash)
           # Store original strings for line diff display (before preprocessing)
-          original1 = n1.is_a?(String) ? n1 : (n1.respond_to?(:to_xml) ? n1.to_xml : n1.to_s)
-          original2 = n2.is_a?(String) ? n2 : (n2.respond_to?(:to_xml) ? n2.to_xml : n2.to_s)
+          original1 = if n1.is_a?(String)
+                        n1
+                      else
+                        (n1.respond_to?(:to_xml) ? n1.to_xml : n1.to_s)
+                      end
+          original2 = if n2.is_a?(String)
+                        n2
+                      else
+                        (n2.respond_to?(:to_xml) ? n2.to_xml : n2.to_s)
+                      end
 
           # Parse to Canon::Xml::Node (preserves preprocessing)
           node1 = parse_node(n1, match_opts_hash[:preprocessing])
@@ -516,7 +530,8 @@ module Canon
           raw_differs = text1 != text2
 
           # Check if matches according to behavior
-          matches_per_behavior = MatchOptions.match_text?(text1, text2, behavior)
+          matches_per_behavior = MatchOptions.match_text?(text1, text2,
+                                                          behavior)
 
           # Determine the correct dimension for this difference
           # - If text_content is :strict, ALL differences use :text_content dimension
@@ -818,11 +833,11 @@ module Canon
           # Determine node type
           # Canon::Xml::Node uses node_type that returns Symbol
           # Nokogiri uses node_type that returns Integer, so check for Symbol first
-          is_comment = if node.respond_to?(:node_type) && node.node_type.is_a?(Symbol)
-                         node.node_type == :comment
-                       else
-                         node.respond_to?(:comment?) && node.comment?
-                       end
+          if node.respond_to?(:node_type) && node.node_type.is_a?(Symbol)
+            node.node_type == :comment
+          else
+            node.respond_to?(:comment?) && node.comment?
+          end
 
           is_text = if node.respond_to?(:node_type) && node.node_type.is_a?(Symbol)
                       node.node_type == :text
@@ -977,7 +992,7 @@ module Canon
         # @param dimension [Symbol] The match dimension causing this difference
         # @param opts [Hash] Options
         # @param differences [Array] Array to append difference to
-        def add_difference(node1, node2, diff1, diff2, dimension, opts,
+        def add_difference(node1, node2, diff1, diff2, dimension, _opts,
                            differences)
           # All differences must be DiffNode objects (OO architecture)
           if dimension.nil?
@@ -1036,15 +1051,29 @@ module Canon
           # Find missing, extra, and changed namespace declarations
           missing = ns_decls1.keys - ns_decls2.keys  # In n1 but not n2
           extra = ns_decls2.keys - ns_decls1.keys    # In n2 but not n1
-          changed = ns_decls1.select { |prefix, uri| ns_decls2[prefix] && ns_decls2[prefix] != uri }.keys
+          changed = ns_decls1.select do |prefix, uri|
+            ns_decls2[prefix] && ns_decls2[prefix] != uri
+          end.keys
 
           # If there are any differences, create a DiffNode
           if missing.any? || extra.any? || changed.any?
             # Build a descriptive reason
             reasons = []
-            reasons << "removed: #{missing.map { |p| p.empty? ? 'xmlns' : "xmlns:#{p}" }.join(', ')}" if missing.any?
-            reasons << "added: #{extra.map { |p| p.empty? ? 'xmlns' : "xmlns:#{p}" }.join(', ')}" if extra.any?
-            reasons << "changed: #{changed.map { |p| p.empty? ? 'xmlns' : "xmlns:#{p}" }.join(', ')}" if changed.any?
+            if missing.any?
+              reasons << "removed: #{missing.map do |p|
+                p.empty? ? 'xmlns' : "xmlns:#{p}"
+              end.join(', ')}"
+            end
+            if extra.any?
+              reasons << "added: #{extra.map do |p|
+                p.empty? ? 'xmlns' : "xmlns:#{p}"
+              end.join(', ')}"
+            end
+            if changed.any?
+              reasons << "changed: #{changed.map do |p|
+                p.empty? ? 'xmlns' : "xmlns:#{p}"
+              end.join(', ')}"
+            end
 
             add_difference(
               n1,
@@ -1053,7 +1082,7 @@ module Canon
               Comparison::UNEQUAL_ATTRIBUTES,
               :namespace_declarations,
               opts,
-              differences
+              differences,
             )
             return Comparison::UNEQUAL_ATTRIBUTES
           end

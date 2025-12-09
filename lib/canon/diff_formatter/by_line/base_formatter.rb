@@ -78,13 +78,13 @@ module Canon
           differences.select do |diff|
             # Handle both DiffNode objects and legacy Hash format
             is_normative = if diff.respond_to?(:normative?)
-                            diff.normative?
-                          elsif diff.is_a?(Hash) && diff.key?(:normative)
-                            diff[:normative]
-                          else
-                            # Default to normative if unknown
-                            true
-                          end
+                             diff.normative?
+                           elsif diff.is_a?(Hash) && diff.key?(:normative)
+                             diff[:normative]
+                           else
+                             # Default to normative if unknown
+                             true
+                           end
 
             case @show_diffs
             when :normative

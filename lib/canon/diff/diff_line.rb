@@ -12,7 +12,8 @@ module Canon
       # @param type [Symbol] The type of line (:unchanged, :added, :removed, :changed)
       # @param diff_node [DiffNode, nil] The semantic diff node this line belongs to
       # @param formatting [Boolean] Whether this is a formatting-only difference
-      def initialize(line_number:, content:, type:, diff_node: nil, formatting: false)
+      def initialize(line_number:, content:, type:, diff_node: nil,
+formatting: false)
         @line_number = line_number
         @content = content
         @type = type

@@ -100,21 +100,30 @@ module Canon
         output << colorize(separator, :cyan, :bold, use_color)
 
         # Formatting-only changes
-        output << colorize("Formatting Changes (cosmetic only):", :yellow, :bold, use_color)
-        output << "  #{colorize('[', :black, :bold, use_color)}: Line removed (formatting only - dark gray)"
-        output << "  #{colorize(']', :white, :bold, use_color)}: Line added (formatting only - light gray)"
+        output << colorize("Formatting Changes (cosmetic only):", :yellow,
+                           :bold, use_color)
+        output << "  #{colorize('[', :black, :bold,
+                                use_color)}: Line removed (formatting only - dark gray)"
+        output << "  #{colorize(']', :white, :bold,
+                                use_color)}: Line added (formatting only - light gray)"
         output << ""
 
         # Informative changes
-        output << colorize("Informative Changes (do not affect equivalence):", :yellow, :bold, use_color)
-        output << "  #{colorize('<', :blue, :bold, use_color)}: Line removed (informative - blue)"
-        output << "  #{colorize('>', :cyan, :bold, use_color)}: Line added (informative - cyan)"
+        output << colorize("Informative Changes (do not affect equivalence):",
+                           :yellow, :bold, use_color)
+        output << "  #{colorize('<', :blue, :bold,
+                                use_color)}: Line removed (informative - blue)"
+        output << "  #{colorize('>', :cyan, :bold,
+                                use_color)}: Line added (informative - cyan)"
         output << ""
 
         # Normative changes
-        output << colorize("Normative Changes (affect equivalence):", :yellow, :bold, use_color)
-        output << "  #{colorize('-', :red, :bold, use_color)}: Line removed (normative difference - red)"
-        output << "  #{colorize('+', :green, :bold, use_color)}: Line added (normative difference - green)"
+        output << colorize("Normative Changes (affect equivalence):", :yellow,
+                           :bold, use_color)
+        output << "  #{colorize('-', :red, :bold,
+                                use_color)}: Line removed (normative difference - red)"
+        output << "  #{colorize('+', :green, :bold,
+                                use_color)}: Line added (normative difference - green)"
         output << ""
 
         output << colorize(separator, :cyan, :bold, use_color)

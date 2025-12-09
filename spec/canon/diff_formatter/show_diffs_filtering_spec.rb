@@ -33,7 +33,7 @@ RSpec.describe "Canon::DiffFormatter show_diffs filtering" do
         formatter = Canon::DiffFormatter.new(
           use_color: false,
           mode: :by_object,
-          show_diffs: :all
+          show_diffs: :all,
         )
 
         output = formatter.format(result, :xml)
@@ -56,7 +56,7 @@ RSpec.describe "Canon::DiffFormatter show_diffs filtering" do
         formatter = Canon::DiffFormatter.new(
           use_color: false,
           mode: :by_object,
-          show_diffs: :normative
+          show_diffs: :normative,
         )
 
         output = formatter.format(result, :xml)
@@ -70,7 +70,7 @@ RSpec.describe "Canon::DiffFormatter show_diffs filtering" do
       end
 
       it "filters differences internally" do
-        result = Canon::Comparison.equivalent?(
+        Canon::Comparison.equivalent?(
           xml1, xml2,
           verbose: true,
           match: { comments: :ignore }
@@ -79,7 +79,7 @@ RSpec.describe "Canon::DiffFormatter show_diffs filtering" do
         formatter = Canon::DiffFormatter.new(
           use_color: false,
           mode: :by_object,
-          show_diffs: :normative
+          show_diffs: :normative,
         )
 
         # The formatter should accept the parameter
@@ -98,7 +98,7 @@ RSpec.describe "Canon::DiffFormatter show_diffs filtering" do
         formatter = Canon::DiffFormatter.new(
           use_color: false,
           mode: :by_object,
-          show_diffs: :informative
+          show_diffs: :informative,
         )
 
         output = formatter.format(result, :xml)
@@ -108,7 +108,7 @@ RSpec.describe "Canon::DiffFormatter show_diffs filtering" do
       end
 
       it "filters differences internally" do
-        result = Canon::Comparison.equivalent?(
+        Canon::Comparison.equivalent?(
           xml1, xml2,
           verbose: true,
           match: { comments: :ignore }
@@ -117,7 +117,7 @@ RSpec.describe "Canon::DiffFormatter show_diffs filtering" do
         formatter = Canon::DiffFormatter.new(
           use_color: false,
           mode: :by_object,
-          show_diffs: :informative
+          show_diffs: :informative,
         )
 
         # The formatter should accept the parameter
@@ -156,7 +156,7 @@ RSpec.describe "Canon::DiffFormatter show_diffs filtering" do
         formatter = Canon::DiffFormatter.new(
           use_color: false,
           mode: :by_line,
-          show_diffs: :all
+          show_diffs: :all,
         )
 
         str1, str2 = result.preprocessed_strings
@@ -178,7 +178,7 @@ RSpec.describe "Canon::DiffFormatter show_diffs filtering" do
         formatter = Canon::DiffFormatter.new(
           use_color: false,
           mode: :by_line,
-          show_diffs: :normative
+          show_diffs: :normative,
         )
 
         str1, str2 = result.preprocessed_strings
@@ -203,7 +203,7 @@ RSpec.describe "Canon::DiffFormatter show_diffs filtering" do
         formatter = Canon::DiffFormatter.new(
           use_color: false,
           mode: :by_line,
-          show_diffs: :informative
+          show_diffs: :informative,
         )
 
         str1, str2 = result.preprocessed_strings
@@ -251,7 +251,7 @@ RSpec.describe "Canon::DiffFormatter show_diffs filtering" do
         formatter = Canon::DiffFormatter.new(
           use_color: false,
           mode: :by_object,
-          show_diffs: :normative
+          show_diffs: :normative,
         )
         expect(formatter.instance_variable_get(:@show_diffs)).to eq(:normative)
       end
@@ -266,7 +266,7 @@ RSpec.describe "Canon::DiffFormatter show_diffs filtering" do
         formatter = Canon::DiffFormatter.new(
           use_color: false,
           mode: :by_object,
-          show_diffs: :informative
+          show_diffs: :informative,
         )
 
         # Formatter should accept the parameter
@@ -286,7 +286,7 @@ RSpec.describe "Canon::DiffFormatter show_diffs filtering" do
         formatter = Canon::DiffFormatter.new(
           use_color: false,
           mode: :by_object,
-          show_diffs: :all
+          show_diffs: :all,
         )
 
         # Formatter should accept the parameter
@@ -314,7 +314,7 @@ RSpec.describe "Canon::DiffFormatter show_diffs filtering" do
         formatter = Canon::DiffFormatter.new(
           use_color: false,
           mode: :by_object,
-          show_diffs: :normative
+          show_diffs: :normative,
         )
 
         # Formatter should accept the parameter

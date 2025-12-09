@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 require "nokogiri"
-require_relative "../comparison"  # Load base module with constants first
+require_relative "../comparison" # Load base module with constants first
 require_relative "xml_comparator"
 require_relative "match_options"
 require_relative "comparison_result"
@@ -77,14 +77,14 @@ module Canon
           # Create HTML-specific compare profile
           compare_profile = HtmlCompareProfile.new(
             match_opts_hash,
-            html_version: html_version
+            html_version: html_version,
           )
 
           # Wrap in ResolvedMatchOptions for DiffClassifier
           match_opts = Canon::Comparison::ResolvedMatchOptions.new(
             match_opts_hash,
             format: :html,
-            compare_profile: compare_profile
+            compare_profile: compare_profile,
           )
 
           # Store resolved match options hash for use in comparison logic
@@ -161,20 +161,18 @@ module Canon
               match_options: match_opts_hash,
               algorithm: :dom,
             )
-          else
+          elsif result != Comparison::EQUIVALENT && !differences.empty?
             # Non-verbose mode: check equivalence
             # If comparison found differences, classify them to determine if normative
-            if result != Comparison::EQUIVALENT && !differences.empty?
-              classifier = Canon::Diff::DiffClassifier.new(match_opts)
-              classifier.classify_all(differences.select do |d|
-                d.is_a?(Canon::Diff::DiffNode)
-              end)
-              # Equivalent if no normative differences (matches semantic algorithm)
-              differences.none?(&:normative?)
-            else
-              # Either equivalent or no differences tracked
-              result == Comparison::EQUIVALENT
-            end
+            classifier = Canon::Diff::DiffClassifier.new(match_opts)
+            classifier.classify_all(differences.select do |d|
+              d.is_a?(Canon::Diff::DiffNode)
+            end)
+            # Equivalent if no normative differences (matches semantic algorithm)
+            differences.none?(&:normative?)
+          else
+            # Either equivalent or no differences tracked
+            result == Comparison::EQUIVALENT
           end
         end
 
@@ -504,7 +502,8 @@ module Canon
         # @param doc [Nokogiri::HTML::Document] Document to normalize
         # @param match_opts [Hash] Match options to respect during normalization
         # @param compare_profile [HtmlCompareProfile] Optional profile for whitespace rules
-        def normalize_rendered_whitespace(doc, match_opts = {}, compare_profile = nil)
+        def normalize_rendered_whitespace(doc, match_opts = {},
+compare_profile = nil)
           # If text_content is :strict, don't normalize ANY text content
           # This allows users to explicitly request strict text matching
           return if match_opts[:text_content] == :strict
@@ -513,7 +512,8 @@ module Canon
           # Use profile if available, otherwise use default list
           preserve_whitespace = if compare_profile.is_a?(HtmlCompareProfile)
                                   # Profile handles HTML-specific whitespace rules
-                                  %w[pre code textarea script style].select do |elem|
+                                  %w[pre code textarea script
+                                     style].select do |elem|
                                     compare_profile.preserve_whitespace?(elem)
                                   end
                                 else

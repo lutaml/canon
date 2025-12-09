@@ -143,22 +143,26 @@ RSpec.describe Canon::Diff::FormattingDetector do
 
   describe ".normalize_for_comparison" do
     it "collapses multiple spaces to single space" do
-      normalized = described_class.send(:normalize_for_comparison, "Hello    world")
+      normalized = described_class.send(:normalize_for_comparison,
+                                        "Hello    world")
       expect(normalized).to eq("Hello world")
     end
 
     it "strips leading and trailing whitespace" do
-      normalized = described_class.send(:normalize_for_comparison, "  Hello world  ")
+      normalized = described_class.send(:normalize_for_comparison,
+                                        "  Hello world  ")
       expect(normalized).to eq("Hello world")
     end
 
     it "handles tabs" do
-      normalized = described_class.send(:normalize_for_comparison, "Hello\t\tworld")
+      normalized = described_class.send(:normalize_for_comparison,
+                                        "Hello\t\tworld")
       expect(normalized).to eq("Hello world")
     end
 
     it "handles newlines" do
-      normalized = described_class.send(:normalize_for_comparison, "Hello\n\nworld")
+      normalized = described_class.send(:normalize_for_comparison,
+                                        "Hello\n\nworld")
       expect(normalized).to eq("Hello world")
     end
 

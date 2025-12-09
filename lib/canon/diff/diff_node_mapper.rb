@@ -69,10 +69,12 @@ module Canon
                         # Check if this is formatting-only:
                         # 1. First check if the DiffNode itself is marked as formatting-only
                         # 2. Otherwise, check line-level formatting
-                        formatting = if node&.respond_to?(:formatting?) && node.formatting?
+                        formatting = if node.respond_to?(:formatting?) && node.formatting?
                                        true
                                      else
-                                       formatting_only_line?(change.old_element, "")
+                                       formatting_only_line?(
+                                         change.old_element, ""
+                                       )
                                      end
 
                         DiffLine.new(
@@ -91,10 +93,11 @@ module Canon
                         # Check if this is formatting-only:
                         # 1. First check if the DiffNode itself is marked as formatting-only
                         # 2. Otherwise, check line-level formatting
-                        formatting = if node&.respond_to?(:formatting?) && node.formatting?
+                        formatting = if node.respond_to?(:formatting?) && node.formatting?
                                        true
                                      else
-                                       formatting_only_line?("", change.new_element)
+                                       formatting_only_line?("",
+                                                             change.new_element)
                                      end
 
                         DiffLine.new(
@@ -113,10 +116,12 @@ module Canon
                         # Check if this is formatting-only:
                         # 1. First check if the DiffNode itself is marked as formatting-only
                         # 2. Otherwise, check line-level formatting
-                        formatting = if node&.respond_to?(:formatting?) && node.formatting?
+                        formatting = if node.respond_to?(:formatting?) && node.formatting?
                                        true
                                      else
-                                       formatting_only_line?(change.old_element, change.new_element)
+                                       formatting_only_line?(
+                                         change.old_element, change.new_element
+                                       )
                                      end
 
                         DiffLine.new(

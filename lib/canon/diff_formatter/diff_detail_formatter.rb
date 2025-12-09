@@ -244,10 +244,10 @@ module Canon
 
           # Use NamespaceHelper for consistent formatting
           ns1_display = Canon::Xml::NamespaceHelper.format_namespace(
-            node1.respond_to?(:namespace_uri) ? node1.namespace_uri : nil
+            node1.respond_to?(:namespace_uri) ? node1.namespace_uri : nil,
           )
           ns2_display = Canon::Xml::NamespaceHelper.format_namespace(
-            node2.respond_to?(:namespace_uri) ? node2.namespace_uri : nil
+            node2.respond_to?(:namespace_uri) ? node2.namespace_uri : nil,
           )
 
           element_name = if node1.respond_to?(:name)
@@ -256,8 +256,10 @@ module Canon
                            node2.respond_to?(:name) ? node2.name : "element"
                          end
 
-          detail1 = "<#{element_name}> #{colorize(ns1_display, :cyan, use_color)}"
-          detail2 = "<#{element_name}> #{colorize(ns2_display, :cyan, use_color)}"
+          detail1 = "<#{element_name}> #{colorize(ns1_display, :cyan,
+                                                  use_color)}"
+          detail2 = "<#{element_name}> #{colorize(ns2_display, :cyan,
+                                                  use_color)}"
 
           changes = "Namespace differs: #{colorize(ns1_display, :red,
                                                    use_color)} → #{colorize(
@@ -284,7 +286,9 @@ module Canon
 
           # Format namespace declarations for display
           detail1 = if ns_decls1.empty?
-                      "<#{element_name}> #{colorize('(no namespace declarations)', :red, use_color)}"
+                      "<#{element_name}> #{colorize(
+                        '(no namespace declarations)', :red, use_color
+                      )}"
                     else
                       ns_str = ns_decls1.map do |prefix, uri|
                         attr_name = prefix.empty? ? "xmlns" : "xmlns:#{prefix}"
@@ -294,7 +298,9 @@ module Canon
                     end
 
           detail2 = if ns_decls2.empty?
-                      "<#{element_name}> #{colorize('(no namespace declarations)', :green, use_color)}"
+                      "<#{element_name}> #{colorize(
+                        '(no namespace declarations)', :green, use_color
+                      )}"
                     else
                       ns_str = ns_decls2.map do |prefix, uri|
                         attr_name = prefix.empty? ? "xmlns" : "xmlns:#{prefix}"
@@ -306,28 +312,33 @@ module Canon
           # Analyze changes
           missing = ns_decls1.keys - ns_decls2.keys  # In node1 but not node2
           extra = ns_decls2.keys - ns_decls1.keys    # In node2 but not node1
-          changed = ns_decls1.select { |prefix, uri| ns_decls2[prefix] && ns_decls2[prefix] != uri }.keys
+          changed = ns_decls1.select do |prefix, uri|
+            ns_decls2[prefix] && ns_decls2[prefix] != uri
+          end.keys
 
           # Format changes
           changes_parts = []
           if missing.any?
             missing_str = missing.map do |prefix|
               attr_name = prefix.empty? ? "xmlns" : "xmlns:#{prefix}"
-              colorize("-#{attr_name}=\"#{ns_decls1[prefix]}\"", :red, use_color)
+              colorize("-#{attr_name}=\"#{ns_decls1[prefix]}\"", :red,
+                       use_color)
             end.join(", ")
             changes_parts << "Removed: #{missing_str}"
           end
           if extra.any?
             extra_str = extra.map do |prefix|
               attr_name = prefix.empty? ? "xmlns" : "xmlns:#{prefix}"
-              colorize("+#{attr_name}=\"#{ns_decls2[prefix]}\"", :green, use_color)
+              colorize("+#{attr_name}=\"#{ns_decls2[prefix]}\"", :green,
+                       use_color)
             end.join(", ")
             changes_parts << "Added: #{extra_str}"
           end
           if changed.any?
             changed_str = changed.map do |prefix|
               attr_name = prefix.empty? ? "xmlns" : "xmlns:#{prefix}"
-              "#{colorize(attr_name, :cyan, use_color)}: \"#{ns_decls1[prefix]}\" → \"#{ns_decls2[prefix]}\""
+              "#{colorize(attr_name, :cyan,
+                          use_color)}: \"#{ns_decls1[prefix]}\" → \"#{ns_decls2[prefix]}\""
             end.join(", ")
             changes_parts << "Changed: #{changed_str}"
           end
@@ -882,8 +893,6 @@ module Canon
                         rescue StandardError
                           nil
                         end
-                      else
-                        nil
                       end
 
           # Special check: if name is explicitly nil (not just empty), this might be a parsing issue
@@ -891,7 +900,11 @@ module Canon
           if node_name.nil?
             # Try to show what type of node this is
             if node.respond_to?(:node_type)
-              type = node.node_type rescue nil
+              type = begin
+                node.node_type
+              rescue StandardError
+                nil
+              end
               return "(nil-name:#{type})" if type
             end
 
@@ -901,7 +914,8 @@ module Canon
           end
 
           # If we have a valid element name, return it
-          if !node_name.to_s.empty? && !["#text", "text", "#document", "document"].include?(node_name.to_s)
+          if !node_name.to_s.empty? && !["#text", "text", "#document",
+                                         "document"].include?(node_name.to_s)
             return node_name.to_s
           end
 
@@ -916,21 +930,20 @@ module Canon
                            true
                          elsif node.class.name
                            node.class.name.include?("TextNode") ||
-                           node.class.name.include?("Text")
+                             node.class.name.include?("Text")
                          else
                            false
                          end
 
           # For text nodes or document nodes, try parent
-          if is_text_node || ["#text", "text", "#document", "document"].include?(node_name.to_s)
+          if is_text_node || ["#text", "text", "#document",
+                              "document"].include?(node_name.to_s)
             parent = if node.respond_to?(:parent)
                        begin
                          node.parent
                        rescue StandardError
                          nil
                        end
-                     else
-                       nil
                      end
 
             max_depth = 5
@@ -944,12 +957,11 @@ module Canon
                               rescue StandardError
                                 nil
                               end
-                            else
-                              nil
                             end
 
               if parent_name && !parent_name.to_s.empty? &&
-                 !["#text", "text", "#document", "document"].include?(parent_name.to_s)
+                  !["#text", "text", "#document",
+                    "document"].include?(parent_name.to_s)
                 return parent_name.to_s
               end
 
@@ -959,14 +971,13 @@ module Canon
                          rescue StandardError
                            nil
                          end
-                       else
-                         nil
                        end
               depth += 1
             end
 
             # Still no name found
             return "(text)" if is_text_node
+
             return "(no-name)"
           end
 
@@ -990,10 +1001,8 @@ module Canon
           if is_text_node
             # For text nodes, get parent element's namespace
             parent = node.respond_to?(:parent) ? node.parent : nil
-            if parent && parent.respond_to?(:namespace_uri)
+            if parent.respond_to?(:namespace_uri)
               parent.namespace_uri
-            else
-              nil
             end
           elsif node.respond_to?(:namespace_uri)
             # For element nodes, use their own namespace

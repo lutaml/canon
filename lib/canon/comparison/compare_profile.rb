@@ -24,7 +24,7 @@ module Canon
       #
       # @param dimension [Symbol] The match dimension to check
       # @return [Boolean] true if differences should be tracked
-      def track_dimension?(dimension)
+      def track_dimension?(_dimension)
         # Always track dimensions that affect equivalence
         # In verbose mode, also track informative dimensions
         true
@@ -78,7 +78,7 @@ module Canon
       def supports_formatting_detection?(dimension)
         # Only text_content and structural_whitespace can have formatting-only diffs
         # Comments are policy-based (strict/ignore), not formatting-based
-        [:text_content, :structural_whitespace].include?(dimension)
+        %i[text_content structural_whitespace].include?(dimension)
       end
 
       private
