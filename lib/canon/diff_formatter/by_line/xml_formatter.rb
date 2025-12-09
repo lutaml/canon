@@ -694,27 +694,27 @@ module Canon
                                             change.old_element)
             when "-"
               # Check if removal is formatting-only
-              if Canon::Diff::FormattingDetector.formatting_only?(
+              output << if Canon::Diff::FormattingDetector.formatting_only?(
                 change.old_element, ""
               )
-                output << format_unified_line(line1, nil, "[",
+                          format_unified_line(line1, nil, "[",
                                               change.old_element, :black,
                                               formatting: true)
-              else
-                output << format_unified_line(line1, nil, "-",
+                        else
+                          format_unified_line(line1, nil, "-",
                                               change.old_element, :red)
-              end
+                        end
             when "+"
               # Check if addition is formatting-only
-              if Canon::Diff::FormattingDetector.formatting_only?("",
-                                                                  change.new_element)
-                output << format_unified_line(nil, line2, "]",
+              output << if Canon::Diff::FormattingDetector.formatting_only?("",
+                                                                            change.new_element)
+                          format_unified_line(nil, line2, "]",
                                               change.new_element, :white,
                                               formatting: true)
-              else
-                output << format_unified_line(nil, line2, "+",
+                        else
+                          format_unified_line(nil, line2, "+",
                                               change.new_element, :green)
-              end
+                        end
             when "!"
               # Check if change is formatting-only
               if Canon::Diff::FormattingDetector.formatting_only?(
