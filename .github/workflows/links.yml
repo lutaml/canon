@@ -76,22 +76,22 @@ jobs:
           docs/link-check-results.md
         retention-days: 30
 
-    - name: Comment PR with results
-      if: failure() && github.event_name == 'pull_request'
-      uses: actions/github-script@v7
-      with:
-        script: |
-          const fs = require('fs');
-          let comment = '## 🔗 Link Check Failed\n\n';
+    # - name: Comment PR with results
+    #   if: failure() && github.event_name == 'pull_request'
+    #   uses: actions/github-script@v7
+    #   with:
+    #     script: |
+    #       const fs = require('fs');
+    #       let comment = '## 🔗 Link Check Failed\n\n';
 
-          if (fs.existsSync('docs/link-check-results.md')) {
-            const results = fs.readFileSync('docs/link-check-results.md', 'utf8');
-            comment += '### Built Site Results\n\n' + results + '\n\n';
-          }
+    #       if (fs.existsSync('docs/link-check-results.md')) {
+    #         const results = fs.readFileSync('docs/link-check-results.md', 'utf8');
+    #         comment += '### Built Site Results\n\n' + results + '\n\n';
+    #       }
 
-          github.rest.issues.createComment({
-            issue_number: context.issue.number,
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            body: comment
-          });
+    #       github.rest.issues.createComment({
+    #         issue_number: context.issue.number,
+    #         owner: context.repo.owner,
+    #         repo: context.repo.repo,
+    #         body: comment
+    #       });
