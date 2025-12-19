@@ -6,7 +6,7 @@ require "canon/comparison/comparison_result"
 
 RSpec.describe Canon::DiffFormatter, "#format_original_strings" do
   describe "original input strings display" do
-    let(:xml1) do
+    let(:original_xml) do
       <<~XML
         <root>
           <element>value1</element>
@@ -14,7 +14,7 @@ RSpec.describe Canon::DiffFormatter, "#format_original_strings" do
       XML
     end
 
-    let(:xml2) do
+    let(:modified_xml) do
       <<~XML
         <root>
           <element>value2</element>
@@ -31,13 +31,14 @@ RSpec.describe Canon::DiffFormatter, "#format_original_strings" do
 
         comparison_result = Canon::Comparison::ComparisonResult.new(
           differences: [],
-          preprocessed_strings: [xml1, xml2],
-          original_strings: [xml1, xml2],
+          preprocessed_strings: [original_xml, modified_xml],
+          original_strings: [original_xml, modified_xml],
           format: :xml,
           match_options: {},
         )
 
-        output = formatter.format_comparison_result(comparison_result, xml1, xml2)
+        output = formatter.format_comparison_result(comparison_result, original_xml,
+                                                    modified_xml)
 
         expect(output).to include("ORIGINAL INPUT STRINGS")
         expect(output).to include("Expected (as string):")
@@ -55,13 +56,14 @@ RSpec.describe Canon::DiffFormatter, "#format_original_strings" do
 
         comparison_result = Canon::Comparison::ComparisonResult.new(
           differences: [],
-          preprocessed_strings: [xml1, xml2],
-          original_strings: [xml1, xml2],
+          preprocessed_strings: [original_xml, modified_xml],
+          original_strings: [original_xml, modified_xml],
           format: :xml,
           match_options: {},
         )
 
-        output = formatter.format_comparison_result(comparison_result, xml1, xml2)
+        output = formatter.format_comparison_result(comparison_result, original_xml,
+                                                    modified_xml)
 
         # Check for line numbers
         expect(output).to match(/\s+1\s+\|/)
@@ -79,13 +81,14 @@ RSpec.describe Canon::DiffFormatter, "#format_original_strings" do
 
         comparison_result = Canon::Comparison::ComparisonResult.new(
           differences: [],
-          preprocessed_strings: [xml1, xml2],
-          original_strings: [xml1, xml2],
+          preprocessed_strings: [original_xml, modified_xml],
+          original_strings: [original_xml, modified_xml],
           format: :xml,
           match_options: {},
         )
 
-        output = formatter.format_comparison_result(comparison_result, xml1, xml2)
+        output = formatter.format_comparison_result(comparison_result, original_xml,
+                                                    modified_xml)
 
         expect(output).not_to include("ORIGINAL INPUT STRINGS")
         expect(output).not_to include("Expected (as string):")
@@ -94,7 +97,7 @@ RSpec.describe Canon::DiffFormatter, "#format_original_strings" do
     end
 
     context "with multiline content" do
-      let(:json1) do
+      let(:original_json) do
         <<~JSON
           {
             "key1": "value1",
@@ -103,7 +106,7 @@ RSpec.describe Canon::DiffFormatter, "#format_original_strings" do
         JSON
       end
 
-      let(:json2) do
+      let(:modified_json) do
         <<~JSON
           {
             "key1": "value1",
@@ -120,13 +123,14 @@ RSpec.describe Canon::DiffFormatter, "#format_original_strings" do
 
         comparison_result = Canon::Comparison::ComparisonResult.new(
           differences: [],
-          preprocessed_strings: [json1, json2],
-          original_strings: [json1, json2],
+          preprocessed_strings: [original_json, modified_json],
+          original_strings: [original_json, modified_json],
           format: :json,
           match_options: {},
         )
 
-        output = formatter.format_comparison_result(comparison_result, json1, json2)
+        output = formatter.format_comparison_result(comparison_result, original_json,
+                                                    modified_json)
 
         expect(output).to include("ORIGINAL INPUT STRINGS")
         expect(output).to include('"key1": "value1"')
