@@ -447,14 +447,16 @@ module Canon
       # Format expected
       output << colorize("Expected (as string):", :yellow, :bold)
       original1.each_line.with_index do |line, idx|
-        output << "  #{colorize(sprintf('%4d', idx + 1), :blue)} | #{line.chomp}"
+        output << "  #{colorize(sprintf('%4d', idx + 1),
+                                :blue)} | #{line.chomp}"
       end
       output << ""
 
       # Format actual
       output << colorize("Actual (as string):", :yellow, :bold)
       original2.each_line.with_index do |line, idx|
-        output << "  #{colorize(sprintf('%4d', idx + 1), :blue)} | #{line.chomp}"
+        output << "  #{colorize(sprintf('%4d', idx + 1),
+                                :blue)} | #{line.chomp}"
       end
       output << ""
       output << colorize("=" * 70, :cyan, :bold)
