@@ -224,6 +224,62 @@ expect(actual).to be_xml_equivalent_to(expected)
   .show_diffs(:normative)
 ----
 
+=== Original input string display
+
+When debugging test failures, it's often helpful to see the exact strings that
+were passed to the comparison before any preprocessing or normalization. The
+`verbose_diff` option displays the original input strings in an RSpec-style
+format with line numbers.
+
+[source,ruby]
+----
+# Enable original string display in configuration
+Canon::Config.configure do |config|
+  config.xml.diff.verbose_diff = true
+end
+
+# Or programmatically for a specific comparison
+result = Canon::Comparison.equivalent?(xml1, xml2,
+  verbose: true,
+  verbose_diff: true
+)
+----
+
+**Output format:**
+----
+==================================================================
+  ORIGINAL INPUT STRINGS
+==================================================================
+
+Expected (as string):
+     1 | <root>
+     2 |   <element>value1</element>
+     3 | </root>
+
+Actual (as string):
+     1 | <root>
+     2 |   <element>value2</element>
+     3 | </root>
+
+==================================================================
+----
+
+**When to use this feature:**
+
+* Debugging why two documents are considered different
+* Understanding preprocessing effects (c14n, normalization, etc.)
+* Verifying the exact input received by the comparison
+* Comparing raw vs processed content
+
+**Environment variable:**
+[source,bash]
+----
+export CANON_XML_DIFF_VERBOSE_DIFF=true
+export CANON_HTML_DIFF_VERBOSE_DIFF=true
+export CANON_JSON_DIFF_VERBOSE_DIFF=true
+export CANON_YAML_DIFF_VERBOSE_DIFF=true
+----
+
 === Algorithm choice
 
 Canon provides two diff algorithms:

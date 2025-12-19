@@ -329,6 +329,14 @@ module Canon
         )
       end
 
+      # 2.5. Original Input Strings (ONLY if verbose_diff is enabled)
+      if @verbose_diff && comparison_result.is_a?(Canon::Comparison::ComparisonResult)
+        original1, original2 = comparison_result.original_strings
+        if original1 && original2
+          output << format_original_strings(original1, original2)
+        end
+      end
+
       # 3. Main diff output (by-line or by-object) - ALWAYS
 
       # Check if comparison result is a ComparisonResult object
@@ -374,7 +382,7 @@ module Canon
             /></, ">\n<"
           ),
           Canon::Xml::C14n.canonicalize(actual, with_comments: false).gsub(
-            /></, ">\n<"
+            />\s+$/, ""
           ),
         ]
       when :html
@@ -418,6 +426,41 @@ module Canon
       Nokogiri::HTML(html).to_html
     rescue StandardError
       html.to_s
+    end
+
+    # Format original input strings for display (RSpec-style)
+    # Shows the actual strings that were passed in before any preprocessing
+    #
+    # @param original1 [String] First original input string
+    # @param original2 [String] Second original input string
+    # @return [String] Formatted display of original strings
+    def format_original_strings(original1, original2)
+      return "" if original1.nil? || original2.nil?
+
+      output = []
+      output << ""
+      output << colorize("=" * 70, :cyan, :bold)
+      output << colorize("  ORIGINAL INPUT STRINGS", :cyan, :bold)
+      output << colorize("=" * 70, :cyan, :bold)
+      output << ""
+
+      # Format expected
+      output << colorize("Expected (as string):", :yellow, :bold)
+      original1.each_line.with_index do |line, idx|
+        output << "  #{colorize(sprintf('%4d', idx + 1), :blue)} | #{line.chomp}"
+      end
+      output << ""
+
+      # Format actual
+      output << colorize("Actual (as string):", :yellow, :bold)
+      original2.each_line.with_index do |line, idx|
+        output << "  #{colorize(sprintf('%4d', idx + 1), :blue)} | #{line.chomp}"
+      end
+      output << ""
+      output << colorize("=" * 70, :cyan, :bold)
+      output << ""
+
+      output.join("\n")
     end
 
     # Build the final visualization map from various customization options
