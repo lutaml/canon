@@ -2,6 +2,7 @@
 
 require_relative "canon/version"
 require_relative "canon/errors"
+require_relative "canon/config"
 require_relative "canon/data_model"
 require_relative "canon/html"
 require_relative "canon/formatters/xml_formatter"

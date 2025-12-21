@@ -410,7 +410,21 @@ module Canon
 
             # Order matches, now check values in order
           else
-            # Ignore/normalize mode: sort attributes so order doesn't matter
+            # Ignore/normalize mode: attribute order doesn't affect equivalence
+            # But in verbose mode, we should still track order differences as informative
+            keys1 = attrs1.keys.map(&:to_s)
+            keys2 = attrs2.keys.map(&:to_s)
+
+            # Check if order differs (but keys are the same)
+            if keys1 != keys2 && keys1.sort == keys2.sort && opts[:verbose]
+              # Same keys, different order - create informative DiffNode
+              # This allows line diffs to be properly classified as informative
+              add_difference(n1, n2, Comparison::UNEQUAL_ATTRIBUTES,
+                             Comparison::UNEQUAL_ATTRIBUTES,
+                             :attribute_order, opts, differences)
+            end
+
+            # Sort attributes so order doesn't matter for comparison
             attrs1 = attrs1.sort_by { |k, _v| k.to_s }.to_h
             attrs2 = attrs2.sort_by { |k, _v| k.to_s }.to_h
 
@@ -1016,8 +1030,8 @@ module Canon
         # Build a human-readable reason for a difference
         # @param node1 [Object] First node
         # @param node2 [Object] Second node
-        # @param diff1 [String] Difference description for node1
-        # @param diff2 [String] Difference description for node2
+        # @param diff1 [String] Difference type for node1
+        # @param diff2 [String] Difference type for node2
         # @param dimension [Symbol] The dimension of the difference
         # @return [String] Human-readable reason
         def build_difference_reason(node1, node2, diff1, diff2, dimension)
