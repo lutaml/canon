@@ -150,8 +150,33 @@ RSpec.describe Canon::Diff::DiffNodeMapper do
 
       # Should NOT show parent attribute order diff (cosmetic)
       # Should NOT show child attribute order diff (cosmetic)
-      # Element name changes create 2 DiffNodes (deleted + inserted)
-      expect(normative_lines.length).to eq(2)
+      # Element name changes create a single element_structure DiffNode
+      expect(normative_lines.length).to eq(1)
+    end
+
+    it "creates attribute_order DiffNodes as informative in spec_friendly mode" do
+      xml1 = '<parent attr1="value1" attr2="value2"><child/></parent>'
+      xml2 = '<parent attr2="value2" attr1="value1"><child/></parent>'
+
+      result = Canon::Comparison::XmlComparator.equivalent?(
+        xml1,
+        xml2,
+        verbose: true,
+        match_profile: :spec_friendly,
+      )
+
+      # Should have:
+      # - 1 informative DiffNode for attribute_order
+      # - 0 normative DiffNodes
+      expect(result.differences.length).to eq(1)
+
+      attr_order_diff = result.differences.find { |d| d.dimension == :attribute_order }
+      expect(attr_order_diff).not_to be_nil
+      expect(attr_order_diff.informative?).to be true
+      expect(attr_order_diff.normative?).to be false
+
+      # Documents should be equivalent when attribute order is ignored
+      expect(result.equivalent?).to be true
     end
   end
 end

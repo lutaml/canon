@@ -384,11 +384,11 @@ module Canon
           attribute_order_behavior = match_opts[:attribute_order] || :strict
 
           # Check attribute order if not ignored
+          keys1 = attrs1.keys.map(&:to_s)
+          keys2 = attrs2.keys.map(&:to_s)
           if attribute_order_behavior == :strict
             # Strict mode: attribute order matters
             # Check if keys are in same order
-            keys1 = attrs1.keys.map(&:to_s)
-            keys2 = attrs2.keys.map(&:to_s)
 
             if keys1 != keys2
               # Keys are different or in different order
@@ -408,12 +408,10 @@ module Canon
               end
             end
 
-            # Order matches, now check values in order
+          # Order matches, now check values in order
           else
             # Ignore/normalize mode: attribute order doesn't affect equivalence
             # But in verbose mode, we should still track order differences as informative
-            keys1 = attrs1.keys.map(&:to_s)
-            keys2 = attrs2.keys.map(&:to_s)
 
             # Check if order differs (but keys are the same)
             if keys1 != keys2 && keys1.sort == keys2.sort && opts[:verbose]
