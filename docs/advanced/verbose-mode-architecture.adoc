@@ -13,12 +13,13 @@ Canon provides a two-tier verbose output architecture for debugging comparison f
 
 == Overview
 
-Canon's verbose mode has two output tiers:
+Canon's verbose mode enhances diff output with configuration tables and summaries:
 
-* **Semantic Diff Report**: Always shown in verbose mode - provides actionable, dimension-specific details for each difference
-* **CANON VERBOSE tables**: Extra detailed option tables shown only when `CANON_VERBOSE=1` environment variable is set
+* **Diffs**: Always shown when files differ (default behavior)
+* **Configuration Tables**: Shown with `--verbose` flag or `CANON_VERBOSE=1`
+* **Semantic Diff Report**: Always shown when differences exist in verbose mode
 
-This progressive disclosure ensures developers get useful information by default, with additional debugging details available when needed.
+The `--verbose` flag adds diagnostic information, not gates diff display.
 
 == Architecture
 
@@ -27,28 +28,28 @@ The output architecture follows a clear three-tier structure:
 [source]
 ----
 ╔═════════════════════════════════════════════════════════════════════╗
-║              CANON VERBOSE MODE OUTPUT ARCHITECTURE                 ║
+║              CANON DIFF OUTPUT ARCHITECTURE                         ║
 ╚═════════════════════════════════════════════════════════════════════╝
 
-When verbose: true is used:
+When files differ:
 
 ┌─────────────────────────────────────────────────────────────────────┐
-│ TIER 1: CANON VERBOSE Tables (ONLY if CANON_VERBOSE=1)             │
+│ TIER 1: Configuration Tables (with --verbose flag)                  │
 │                                                                      │
 │  ┌────────────────────────────────────────────────────────────────┐ │
-│  │ Match Options Table                                            │ │
+│  │ Match Options Table (if CANON_VERBOSE=1)                       │ │
 │  │  • Shows preprocessing behavior                                │ │
 │  │  • Shows dimension behaviors (strict/normalize/ignore)         │ │
 │  │  • Explains what each setting means                            │ │
 │  └────────────────────────────────────────────────────────────────┘ │
 │  ┌────────────────────────────────────────────────────────────────┐ │
-│  │ Formatter Options Table                                        │ │
+│  │ Formatter Options Table (if CANON_VERBOSE=1)                   │ │
 │  │  • Shows mode (by_line vs by_object)                           │ │
 │  │  • Shows context_lines, diff_grouping_lines                    │ │
 │  │  • Shows show_diffs filter setting                             │ │
 │  └────────────────────────────────────────────────────────────────┘ │
 │  ┌────────────────────────────────────────────────────────────────┐ │
-│  │ Comparison Result Summary                                      │ │
+│  │ Comparison Result Summary (if CANON_VERBOSE=1)                 │ │
 │  │  • Equivalent? (YES/NO)                                        │ │
 │  │  • Normative/Informative/Total diff counts                     │ │
 │  └────────────────────────────────────────────────────────────────┘ │
@@ -56,7 +57,7 @@ When verbose: true is used:
                                │
                                ▼
 ┌─────────────────────────────────────────────────────────────────────┐
-│ TIER 2: Semantic Diff Report (ALWAYS if diffs exist)               │
+│ TIER 2: Semantic Diff Report (if --verbose and diffs exist)        │
 │                                                                      │
 │  For each difference:                                               │
 │   • XPath location (e.g., /html/body/div/table/pre/text)           │
@@ -68,21 +69,22 @@ When verbose: true is used:
                                │
                                ▼
 ┌─────────────────────────────────────────────────────────────────────┐
-│ TIER 3: Detailed Diff (ALWAYS)                                     │
+│ TIER 3: Detailed Diff (ALWAYS when files differ)                   │
 │                                                                      │
 │  Either:                                                            │
-│   • Line-by-line diff (for HTML, or with --by-line flag)           │
-│   • Object tree diff (for XML/JSON/YAML by default)                │
+│   • Line-by-line diff (for HTML, or with --diff-mode by_line)      │
+│   • Object tree diff (for XML/JSON/YAML, or with --diff-mode       │
+│     by_object)                                                      │
 └─────────────────────────────────────────────────────────────────────┘
 ----
 
 === Output flow
 
-The `DiffFormatter.format_comparison_result()` method orchestrates the output:
+The `DiffCommand` and `DiffFormatter.format_comparison_result()` orchestrate output:
 
-. Check if `CANON_VERBOSE=1` → Render option tables
-. Check if differences exist → Render Semantic Diff Report
-. Always render detailed diff (by-line or by-object)
+. Always show diff when files differ (Tier 3)
+. If `--verbose`: Add configuration tables (Tier 1 if CANON_VERBOSE=1)
+. If `--verbose` and diffs exist: Add Semantic Diff Report (Tier 2)
 
 == Semantic diff report
 

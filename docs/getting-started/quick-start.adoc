@@ -38,10 +38,13 @@ puts result ? "✅ Equivalent" : "❌ Different"
 
 [source,bash]
 ----
-# Compare two files
+# Compare two files (shows diff if they differ)
 canon diff expected.xml actual.xml
 
-# With options
+# With detailed configuration info
+canon diff expected.xml actual.xml --verbose
+
+# With advanced options
 canon diff expected.xml actual.xml \
   --diff-algorithm semantic \
   --match-profile strict \

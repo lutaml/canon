@@ -174,7 +174,7 @@ Controls how differences are displayed.
 |Option |Description
 
 |`--verbose`, `-v`
-|Show detailed diff output (default: false)
+|Show configuration tables and detailed information (diffs always shown when files differ)
 
 |`--color`, `--no-color`
 |Enable/disable colored output (default: enabled)
