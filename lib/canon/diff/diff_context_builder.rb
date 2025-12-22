@@ -41,6 +41,9 @@ grouping_lines: nil)
           create_context_for_blocks(block_group)
         end
 
+        # Merge overlapping contexts to avoid duplicate line display
+        contexts = merge_overlapping_contexts(contexts)
+
         # Filter out all-informative contexts if show_diffs was :normative
         # Note: The filtering based on show_diffs happens at the block level
         # in DiffBlockBuilder, so we don't need to re-filter here.
@@ -50,6 +53,44 @@ grouping_lines: nil)
       end
 
       private
+
+      # Merge overlapping contexts into single contexts
+      # When contexts have overlapping line ranges, combine them
+      def merge_overlapping_contexts(contexts)
+        return contexts if contexts.empty?
+
+        # Sort by start_idx
+        sorted = contexts.sort_by(&:start_idx)
+        merged = [sorted.first]
+
+        sorted[1..].each do |context|
+          last = merged.last
+
+          # Check if contexts overlap (including touching contexts)
+          if context.start_idx <= last.end_idx + 1
+            # Merge: extend the range and combine blocks
+            new_end = [last.end_idx, context.end_idx].max
+            combined_blocks = (last.blocks + context.blocks).uniq
+
+            # Extract combined lines
+            combined_lines = @all_lines[last.start_idx..new_end]
+
+            # Replace last context with merged one
+            merged[-1] = DiffContext.new(
+              start_line: last.start_idx,
+              end_line: new_end,
+              blocks: combined_blocks,
+              lines: combined_lines,
+              normative: last.normative? || context.normative?,
+            )
+          else
+            # No overlap, add as separate context
+            merged << context
+          end
+        end
+
+        merged
+      end
 
       # Group blocks that are close together
       def group_nearby_blocks(blocks, max_gap)

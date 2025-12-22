@@ -54,24 +54,34 @@ module Canon
           diff_grouping_lines: @options[:diff_grouping_lines],
           show_diffs: @options[:show_diffs]&.to_sym || :all,
         )
-        if comp_opts[:verbose]
-          # result is always a ComparisonResult object
-          output = formatter.format(
+
+        # Show configuration in verbose mode using shared DebugOutput
+        if @options[:verbose]
+          require_relative "../diff_formatter/debug_output"
+          config_output = Canon::DiffFormatter::DebugOutput.verbose_tables_only(
             result,
-            format1,
-            doc1: formatted1,
-            doc2: formatted2,
+            {
+              use_color: @options[:color],
+              mode: mode,
+              context_lines: @options.fetch(:context_lines, 3),
+              diff_grouping_lines: @options[:diff_grouping_lines],
+              show_diffs: @options[:show_diffs]&.to_sym || :all,
+              verbose_diff: true, # Enable verbose table output
+            },
           )
-          puts output
-          exit result.equivalent? ? 0 : 1
-        elsif result
-          # result is a boolean
-          puts formatter.send(:success_message)
-          exit 0
-        else
-          puts "Files are semantically different"
-          exit 1
+          puts config_output unless config_output.empty?
         end
+
+        # Always show diff when files are not equivalent
+        # result is always a ComparisonResult object when verbose: true
+        output = formatter.format(
+          result,
+          format1,
+          doc1: formatted1,
+          doc2: formatted2,
+        )
+        puts output
+        exit result.equivalent? ? 0 : 1
       rescue Errno::ENOENT => e
         abort "Error: #{e.message}"
       rescue JSON::ParserError => e
@@ -95,7 +105,9 @@ module Canon
 
         opts[:match] = match_opts unless match_opts.empty?
         opts[:ignore_attr_order] = @options.fetch(:ignore_attr_order, true)
-        opts[:verbose] = @options.fetch(:verbose, false)
+        # Always request verbose comparison to get ComparisonResult with differences
+        # The CLI --verbose flag only affects output formatting, not comparison detail
+        opts[:verbose] = true
 
         add_algorithm_option(opts)
         add_show_diffs_option(opts)
