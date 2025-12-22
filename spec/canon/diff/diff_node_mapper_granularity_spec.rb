@@ -170,7 +170,9 @@ RSpec.describe Canon::Diff::DiffNodeMapper do
       # - 0 normative DiffNodes
       expect(result.differences.length).to eq(1)
 
-      attr_order_diff = result.differences.find { |d| d.dimension == :attribute_order }
+      attr_order_diff = result.differences.find do |d|
+        d.dimension == :attribute_order
+      end
       expect(attr_order_diff).not_to be_nil
       expect(attr_order_diff.informative?).to be true
       expect(attr_order_diff.normative?).to be false

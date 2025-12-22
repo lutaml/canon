@@ -159,7 +159,9 @@ show_diffs: :all)
           parts.each_with_index do |part, index|
             current[part] ||= {}
             if index == parts.length - 1
-              current[part][:__diff__] = diff
+              # Support multiple diffs at the same path
+              current[part][:__diffs__] ||= []
+              current[part][:__diffs__] << diff
             else
               current = current[part]
             end
@@ -218,7 +220,7 @@ show_diffs: :all)
         def render_tree(tree, prefix: "", is_last: true)
           output = []
 
-          sorted_keys = tree.keys.reject { |k| k == :__diff__ }
+          sorted_keys = tree.keys.reject { |k| k == :__diffs__ }
           begin
             sorted_keys = sorted_keys.sort_by(&:to_s)
           rescue ArgumentError
@@ -237,13 +239,22 @@ show_diffs: :all)
             continuation = is_last_item ? "    " : "│   "
 
             value = tree[key]
-            diff = value[:__diff__] if value.is_a?(Hash)
+            diffs = value[:__diffs__] if value.is_a?(Hash)
 
-            if diff
-              # Render difference
-              line = render_diff_node(key, diff, prefix, connector)
-              output << line
-              @line_count += line.count("\n") + 1
+            if diffs && !diffs.empty?
+              # Render all differences at this path
+              diffs.each_with_index do |diff, diff_idx|
+                # Use proper connector for each diff
+                current_connector = if diff_idx == diffs.length - 1
+                                      connector
+                                    else
+                                      is_last_item ? "├── " : "├── "
+                                    end
+
+                line = render_diff_node(key, diff, prefix, current_connector)
+                output << line
+                @line_count += line.count("\n") + 1
+              end
             else
               # Render intermediate path
               line = colorize("#{prefix}#{connector}#{key}:", :cyan)

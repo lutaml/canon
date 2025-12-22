@@ -255,10 +255,7 @@ module Canon
               children1.zip(children2).each do |child1, child2|
                 child_result = compare_nodes(child1, child2, opts, child_opts,
                                              diff_children, differences)
-                if child_result != Comparison::EQUIVALENT
-                  result = child_result
-                  break
-                end
+                result = child_result unless child_result == Comparison::EQUIVALENT
               end
               return result
             end
@@ -738,13 +735,14 @@ module Canon
             end
 
             # Compare children pairwise by position
+            result = Comparison::EQUIVALENT
             children1.zip(children2).each do |child1, child2|
-              result = compare_nodes(child1, child2, child_opts, child_opts,
-                                     diff_children, differences)
-              return result unless result == Comparison::EQUIVALENT
+              child_result = compare_nodes(child1, child2, child_opts, child_opts,
+                                           diff_children, differences)
+              result = child_result unless child_result == Comparison::EQUIVALENT
             end
 
-            Comparison::EQUIVALENT
+            result
           end
         end
 

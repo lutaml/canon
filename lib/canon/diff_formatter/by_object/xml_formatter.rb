@@ -99,6 +99,32 @@ module Canon
                 "[#{diff_node.dimension}: #{diff_node.reason}]", :yellow
               )}"
             end
+          when :comments
+            # Show actual comment content, not just counts
+            if node1 && node2
+              content1 = extract_text(node1)
+              content2 = extract_text(node2)
+              output << "#{prefix}├── - #{colorize(
+                "<!-- #{format_text_inline(content1)} -->", :red
+              )}"
+              output << "#{prefix}└── + #{colorize(
+                "<!-- #{format_text_inline(content2)} -->", :green
+              )}"
+            elsif node1
+              content1 = extract_text(node1)
+              output << "#{prefix}└── - #{colorize(
+                "<!-- #{format_text_inline(content1)} --> [deleted]", :red
+              )}"
+            elsif node2
+              content2 = extract_text(node2)
+              output << "#{prefix}└── + #{colorize(
+                "<!-- #{format_text_inline(content2)} --> [added]", :green
+              )}"
+            else
+              output << "#{prefix}└── #{colorize(
+                "[#{diff_node.dimension}: #{diff_node.reason}]", :yellow
+              )}"
+            end
           when :structural_whitespace, :attribute_whitespace, :attribute_values
             output << "#{prefix}└── #{colorize(
               "[#{diff_node.dimension}: #{diff_node.reason}]", :yellow
@@ -221,7 +247,10 @@ module Canon
         # @param node [Object] Node with content or text
         # @return [String] Text content
         def extract_text(node)
-          if node.respond_to?(:content)
+          if node.respond_to?(:value)
+            # CommentNode and similar nodes use .value
+            node.value.to_s
+          elsif node.respond_to?(:content)
             node.content.to_s
           elsif node.respond_to?(:text)
             node.text.to_s
