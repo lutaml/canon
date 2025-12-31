@@ -69,7 +69,7 @@ Canon::PrettyPrinter::Xml.new(indent: 2).format(xml_input)
 require 'canon/comparison'
 
 xml1 = '<root><a>1</a><b>2</b></root>'
-xml2 = '<root>  <b>2</b>  <a>1</a>  </root>'
+xml2 = '<root>  <a>1</a>  <b>2</b>    </root>'
 
 Canon::Comparison.equivalent?(xml1, xml2)
 # => true (semantically equivalent despite formatting differences)
@@ -534,14 +534,14 @@ Each dimension can have one of three behaviors:
 ====
 ----
 # Default (strict mode): whitespace differences are normative
-xml1 = '<root><p>Hello world</p></root>'
-xml2 = '<root><p>Hello\nworld</p></root>'
+xml1 = "<root><p>Hello world</p></root>"
+xml2 = "<root><p>Hello   \nworld</p></root>"
 Canon::Comparison.equivalent?(xml1, xml2)  # => false
 
 # Normalize mode: whitespace-only differences are formatting-only
 Canon::Comparison.equivalent?(xml1, xml2,
-  match: { text_content: :normalize, structural_whitespace: :normalize }
-)  # => true
+  match: { text_content: :normalize }
+) # => true
 ----
 ====
 
@@ -620,11 +620,11 @@ html1 = '<div><!-- comment --><p>Text</p></div>'
 html2 = '<div><p>Text</p></div>'
 
 # HTML defaults: comments are ignored (presentational)
-result = Canon::Comparison.equivalent?(html1, html2)
+result = Canon::Comparison.equivalent?(html1, html2, format: :html)
 # => true (comments don't affect HTML equivalence by default)
 
 # Explicit strict matching
-result = Canon::Comparison.equivalent?(html1, html2,
+result = Canon::Comparison.equivalent?(html1, html2, format: :html,
   match: { comments: :strict }
 )
 # => false (comments now affect equivalence)
@@ -638,17 +638,17 @@ don't affect the semantic meaning unless explicitly configured to `:strict`.
 ====
 [source,ruby]
 ----
-html1 = '<pre>Line 1\n  Line 2</pre>'
-html2 = '<pre>Line 1\nLine 2</pre>'
+html1 = "<pre>Line 1\n  Line 2</pre>"
+html2 = "<pre>Line 1\nLine 2</pre>"
 
 # Whitespace is preserved in <pre> elements
-result = Canon::Comparison.equivalent?(html1, html2)
+result = Canon::Comparison::HtmlComparator.equivalent?(html1, html2)
 # => false (whitespace differs in pre element)
 
 # But normalized in other elements
-html3 = '<div>Text    with    spaces</div>'
-html4 = '<div>Text with spaces</div>'
-result = Canon::Comparison.equivalent?(html3, html4)
+html3 = "<div>Text    with\n    spaces</div>"
+html4 = "<div>Text with\n spaces</div>"
+result = Canon::Comparison::HtmlComparator.equivalent?(html3, html4)
 # => true (whitespace normalized in regular elements)
 ----
 
