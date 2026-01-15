@@ -108,6 +108,9 @@ module Canon
 
           # DocumentFragment nodes need special handling - compare their children
           # instead of the fragment nodes themselves
+          # This is a SAFETY CHECK for legacy cases where Nokogiri nodes might still be used
+          # The main path (parse_node) now returns Canon::Xml::Nodes::RootNode, so this
+          # check should rarely trigger, but we keep it for robustness
           if (node1.is_a?(Nokogiri::HTML4::DocumentFragment) ||
               node1.is_a?(Nokogiri::XML::DocumentFragment)) &&
               (node2.is_a?(Nokogiri::HTML4::DocumentFragment) ||
@@ -313,8 +316,15 @@ module Canon
 
         # Parse a node from string or return as-is
         # Applies preprocessing transformation before parsing if specified
-        # For DOM comparison, returns Nokogiri nodes (not Canon::Xml::Node)
+        # Returns Nokogiri nodes for DOM comparison (preserves original behavior)
         def parse_node(node, preprocessing = :none, match_opts = {})
+          # If already a Canon::Xml::Node, convert to Nokogiri for DOM path
+          if node.is_a?(Canon::Xml::Node)
+            # Canon nodes used in semantic diff path, convert to Nokogiri for DOM path
+            xml_str = Canon::Xml::DataModel.serialize(node)
+            node = xml_str
+          end
+
           # If already a Nokogiri node, check for incompatible XML documents
           unless node.is_a?(String)
             # Detect if this is an XML document (not HTML)
