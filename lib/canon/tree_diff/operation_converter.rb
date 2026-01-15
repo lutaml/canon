@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 
 require_relative "../diff/diff_node"
+require_relative "../diff/path_builder"
+require_relative "../diff/node_serializer"
 require_relative "../comparison/match_options"
 
 module Canon
@@ -121,13 +123,18 @@ module Canon
       # @param operation [Operation] Insert operation
       # @return [DiffNode] Diff node representing insertion
       def convert_insert(operation)
-        node2 = extract_source_node(operation[:node])
+        tree_node2 = operation[:node] # TreeNode from adapter
+        node2 = extract_source_node(tree_node2)
+
+        # Enrich with path and serialized content
+        metadata = enrich_diff_metadata(nil, tree_node2)
 
         diff_node = Canon::Diff::DiffNode.new(
           node1: nil,
           node2: node2,
           dimension: :element_structure,
           reason: build_insert_reason(operation),
+          **metadata,
         )
         # Metadata elements are informative (don't affect equivalence)
         diff_node.normative = metadata_element?(node2) ? false : determine_normative(:element_structure)
@@ -139,13 +146,18 @@ module Canon
       # @param operation [Operation] Delete operation
       # @return [DiffNode] Diff node representing deletion
       def convert_delete(operation)
-        node1 = extract_source_node(operation[:node])
+        tree_node1 = operation[:node] # TreeNode from adapter
+        node1 = extract_source_node(tree_node1)
+
+        # Enrich with path and serialized content
+        metadata = enrich_diff_metadata(tree_node1, nil)
 
         diff_node = Canon::Diff::DiffNode.new(
           node1: node1,
           node2: nil,
           dimension: :element_structure,
           reason: build_delete_reason(operation),
+          **metadata,
         )
         # Metadata elements are informative (don't affect equivalence)
         diff_node.normative = metadata_element?(node1) ? false : determine_normative(:element_structure)
@@ -159,9 +171,14 @@ module Canon
       # @param operation [Operation] Update operation
       # @return [Array<DiffNode>] Diff nodes representing updates
       def convert_update(operation)
-        node1 = extract_source_node(operation[:node1])
-        node2 = extract_source_node(operation[:node2])
+        tree_node1 = operation[:node1] # TreeNode from adapter
+        tree_node2 = operation[:node2] # TreeNode from adapter
+        node1 = extract_source_node(tree_node1)
+        node2 = extract_source_node(tree_node2)
         changes = operation[:changes]
+
+        # Enrich with path and serialized content (shared by all DiffNodes from this operation)
+        metadata = enrich_diff_metadata(tree_node1, tree_node2)
 
         # Handle case where changes is a boolean or non-hash value
         changes = {} unless changes.is_a?(Hash)
@@ -190,6 +207,7 @@ module Canon
             node2: node2,
             dimension: :attribute_values,
             reason: diff_details,
+            **metadata,
           )
           diff_node.normative = is_metadata ? false : determine_normative(:attribute_values)
           diff_nodes << diff_node
@@ -210,6 +228,7 @@ module Canon
             node2: node2,
             dimension: :attribute_order,
             reason: reason,
+            **metadata,
           )
           diff_node.normative = is_metadata ? false : determine_normative(:attribute_order)
           diff_nodes << diff_node
@@ -232,6 +251,7 @@ module Canon
             node2: node2,
             dimension: :text_content,
             reason: reason,
+            **metadata,
           )
           diff_node.normative = is_metadata ? false : determine_normative(:text_content)
           diff_nodes << diff_node
@@ -252,6 +272,7 @@ module Canon
             node2: node2,
             dimension: :element_structure,
             reason: reason,
+            **metadata,
           )
           diff_node.normative = is_metadata ? false : determine_normative(:element_structure)
           diff_nodes << diff_node
@@ -264,6 +285,7 @@ module Canon
             node2: node2,
             dimension: :text_content,
             reason: "content differs",
+            **metadata,
           )
           diff_node.normative = is_metadata ? false : determine_normative(:text_content)
           diff_nodes << diff_node
@@ -277,14 +299,20 @@ module Canon
       # @param operation [Operation] Move operation
       # @return [DiffNode] Diff node representing move
       def convert_move(operation)
-        node1 = extract_source_node(operation[:node1])
-        node2 = extract_source_node(operation[:node2])
+        tree_node1 = operation[:node1]
+        tree_node2 = operation[:node2]
+        node1 = extract_source_node(tree_node1)
+        node2 = extract_source_node(tree_node2)
+
+        # Enrich with path and serialized content
+        metadata = enrich_diff_metadata(tree_node1, tree_node2)
 
         diff_node = Canon::Diff::DiffNode.new(
           node1: node1,
           node2: node2,
           dimension: :element_position,
           reason: build_move_reason(operation),
+          **metadata,
         )
         # Metadata elements are informative (don't affect equivalence)
         is_metadata = metadata_element?(node1) || metadata_element?(node2)
@@ -299,14 +327,20 @@ module Canon
       def convert_merge(operation)
         # Merge combines multiple nodes into one
         # node1 represents the source nodes, node2 is the merged result
-        node1 = extract_source_node(operation[:nodes]&.first)
-        node2 = extract_source_node(operation[:result])
+        tree_node1 = operation[:nodes]&.first
+        tree_node2 = operation[:result]
+        node1 = extract_source_node(tree_node1)
+        node2 = extract_source_node(tree_node2)
+
+        # Enrich with path and serialized content
+        metadata = enrich_diff_metadata(tree_node1, tree_node2)
 
         diff_node = Canon::Diff::DiffNode.new(
           node1: node1,
           node2: node2,
           dimension: :element_structure,
           reason: "merged #{operation[:nodes]&.length || 0} nodes",
+          **metadata,
         )
         diff_node.normative = true # Merges are structural changes, always normative
         diff_node
@@ -319,14 +353,20 @@ module Canon
       def convert_split(operation)
         # Split divides one node into multiple
         # node1 is the original, node2 represents the split results
-        node1 = extract_source_node(operation[:node])
-        node2 = extract_source_node(operation[:results]&.first)
+        tree_node1 = operation[:node]
+        tree_node2 = operation[:results]&.first
+        node1 = extract_source_node(tree_node1)
+        node2 = extract_source_node(tree_node2)
+
+        # Enrich with path and serialized content
+        metadata = enrich_diff_metadata(tree_node1, tree_node2)
 
         diff_node = Canon::Diff::DiffNode.new(
           node1: node1,
           node2: node2,
           dimension: :element_structure,
           reason: "split into #{operation[:results]&.length || 0} nodes",
+          **metadata,
         )
         diff_node.normative = true # Splits are structural changes, always normative
         diff_node
@@ -337,14 +377,20 @@ module Canon
       # @param operation [Operation] Upgrade operation
       # @return [DiffNode] Diff node representing upgrade
       def convert_upgrade(operation)
-        node1 = extract_source_node(operation[:node1])
-        node2 = extract_source_node(operation[:node2])
+        tree_node1 = operation[:node1]
+        tree_node2 = operation[:node2]
+        node1 = extract_source_node(tree_node1)
+        node2 = extract_source_node(tree_node2)
+
+        # Enrich with path and serialized content
+        metadata = enrich_diff_metadata(tree_node1, tree_node2)
 
         diff_node = Canon::Diff::DiffNode.new(
           node1: node1,
           node2: node2,
           dimension: :element_hierarchy,
           reason: "promoted to higher level",
+          **metadata,
         )
         diff_node.normative = determine_normative(:element_hierarchy)
         diff_node
@@ -355,14 +401,20 @@ module Canon
       # @param operation [Operation] Downgrade operation
       # @return [DiffNode] Diff node representing downgrade
       def convert_downgrade(operation)
-        node1 = extract_source_node(operation[:node1])
-        node2 = extract_source_node(operation[:node2])
+        tree_node1 = operation[:node1]
+        tree_node2 = operation[:node2]
+        node1 = extract_source_node(tree_node1)
+        node2 = extract_source_node(tree_node2)
+
+        # Enrich with path and serialized content
+        metadata = enrich_diff_metadata(tree_node1, tree_node2)
 
         diff_node = Canon::Diff::DiffNode.new(
           node1: node1,
           node2: node2,
           dimension: :element_hierarchy,
           reason: "demoted to lower level",
+          **metadata,
         )
         diff_node.normative = determine_normative(:element_hierarchy)
         diff_node
@@ -376,6 +428,61 @@ module Canon
         return nil if tree_node.nil?
 
         tree_node.respond_to?(:source_node) ? tree_node.source_node : tree_node
+      end
+
+      # Enrich DiffNode with canonical path, serialized content, and attributes
+      # This extracts presentation-ready metadata from TreeNodes for Stage 4 rendering
+      #
+      # @param tree_node1 [Canon::TreeDiff::Core::TreeNode, nil] First tree node
+      # @param tree_node2 [Canon::TreeDiff::Core::TreeNode, nil] Second tree node
+      # @return [Hash] Enriched metadata hash
+      def enrich_diff_metadata(tree_node1, tree_node2)
+        {
+          path: build_path_for_node(tree_node1 || tree_node2),
+          serialized_before: serialize_node(tree_node1),
+          serialized_after: serialize_node(tree_node2),
+          attributes_before: extract_attributes(tree_node1),
+          attributes_after: extract_attributes(tree_node2),
+        }
+      end
+
+      # Build canonical path for a TreeNode
+      #
+      # @param tree_node [Canon::TreeDiff::Core::TreeNode] Tree node
+      # @return [String, nil] Canonical path with ordinal indices
+      def build_path_for_node(tree_node)
+        return nil if tree_node.nil?
+
+        Canon::Diff::PathBuilder.build(tree_node, format: @format == :xml ? :document : :fragment)
+      end
+
+      # Serialize a TreeNode's source node to string
+      #
+      # @param tree_node [Canon::TreeDiff::Core::TreeNode, nil] Tree node
+      # @return [String, nil] Serialized content
+      def serialize_node(tree_node)
+        return nil if tree_node.nil?
+
+        # Defensive: check if tree_node has source_node before extracting
+        source = if tree_node.respond_to?(:source_node)
+                   extract_source_node(tree_node)
+                 else
+                   tree_node
+                 end
+
+        Canon::Diff::NodeSerializer.serialize(source)
+      end
+
+      # Extract attributes from a TreeNode
+      #
+      # @param tree_node [Canon::TreeDiff::Core::TreeNode, nil] Tree node
+      # @return [Hash, nil] Attributes hash
+      def extract_attributes(tree_node)
+        return nil if tree_node.nil?
+
+        # Use TreeNode's attributes directly (already normalized by adapter)
+        # Defensive: check if tree_node has attributes method
+        tree_node.respond_to?(:attributes) ? (tree_node.attributes || {}) : {}
       end
 
       # Determine update dimension based on what changed

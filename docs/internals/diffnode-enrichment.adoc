@@ -1,0 +1,611 @@
+---
+title: DiffNode Enrichment
+parent: Internals
+nav_order: 1
+---
+= DiffNode Enrichment
+
+== Purpose
+
+This document explains how DiffNode objects carry complete information about differences through Canon's comparison pipeline, including location paths, serialized content, and normalized attributes.
+
+== DiffNode structure
+
+=== Properties
+
+DiffNode objects contain all information needed to understand and display a difference:
+
+[source,ruby]
+----
+class DiffNode
+  # Core properties
+  attr_reader :node1, :node2           # Raw node references
+  attr_accessor :dimension, :reason    # What changed and why
+  attr_accessor :normative, :formatting # Classification
+
+  # Location and display information
+  attr_accessor :path                  # Canonical path with ordinal indices
+  attr_accessor :serialized_before     # Serialized "before" content
+  attr_accessor :serialized_after      # Serialized "after" content
+  attr_accessor :attributes_before     # Normalized "before" attributes
+  attr_accessor :attributes_after      # Normalized "after" attributes
+end
+----
+
+=== Property categories
+
+**Core properties** - Describe what changed:
+
+* `node1, node2` - Raw node references from original documents
+* `dimension` - Type of difference (`:text_content`, `:attribute_values`, `:element_structure`, etc.)
+* `reason` - Human-readable explanation
+* `normative` - Affects semantic equivalence (true) or formatting only (false)
+* `formatting` - Purely cosmetic whitespace difference
+
+**Location and display properties** - Enable accurate rendering:
+
+* `path` - Canonical path with ordinal indices
+* `serialized_before/after` - Serialized content captured at comparison time
+* `attributes_before/after` - Normalized attribute hashes
+
+== Architecture
+
+=== Enrichment flow
+
+[mermaid]
+----
+graph TD
+    A[Raw Nodes] --> B{Algorithm Layer}
+    B -->|DOM| C[XmlComparator]
+    B -->|Semantic| D[OperationConverter]
+    C --> E[enrich_diff_metadata]
+    D --> E
+    E --> F[PathBuilder]
+    E --> G[NodeSerializer]
+    F --> H[DiffNode.path]
+    G --> I[DiffNode.serialized_before/after]
+    G --> J[DiffNode.attributes_before/after]
+    H --> K[Enriched DiffNode]
+    I --> K
+    J --> K
+    K --> L[Layer 4: Rendering]
+
+    style B fill:#fff4e1
+    style E fill:#e1f5ff
+    style K fill:#e1ffe1
+----
+
+=== Library-agnostic design
+
+Canon supports multiple parsing libraries (Nokogiri, Moxml, Canon::Xml::Node) and must remain library-agnostic to support future libraries. The enrichment utilities handle this by:
+
+1. **Detecting node type** using `respond_to?` checks
+2. **Calling appropriate methods** for each library
+3. **Normalizing output** to library-agnostic format
+
+This allows Layer 4 to work with enriched metadata without knowing which parsing library created the nodes.
+
+== PathBuilder: Canonical paths with ordinal indices
+
+=== Purpose
+
+Generate unambiguous XPath-like paths that uniquely identify nodes regardless of parsing library.
+
+=== Location
+
+`lib/canon/diff/path_builder.rb`
+
+=== API
+
+[source,ruby]
+----
+# Build canonical path from node
+path = Canon::Diff::PathBuilder.build(node, format: :document)
+# => "/#document/div[0]/body[0]/p[1]/span[2]"
+
+# Build human-readable path
+human = Canon::Diff::PathBuilder.human_path(node)
+# => "#document → div[0] → body[0] → p[1] → span[2]"
+----
+
+=== Implementation
+
+==== segment_for_node
+
+Generates a single path segment with ordinal index:
+
+[source,ruby]
+----
+def self.segment_for_node(tree_node)
+  # Get label/name - handles TreeNodes and raw nodes
+  label = if tree_node.respond_to?(:label)
+            tree_node.label          # TreeNode (semantic diff)
+          elsif tree_node.respond_to?(:name)
+            tree_node.name           # Canon::Xml::Node or Nokogiri
+          else
+            "unknown"
+          end
+
+  # Get ordinal index among siblings with same label
+  index = ordinal_index(tree_node)
+
+  "#{label}[#{index}]"
+end
+----
+
+==== ordinal_index
+
+Calculates position among siblings with same label:
+
+[source,ruby]
+----
+def self.ordinal_index(tree_node)
+  return 0 unless tree_node.respond_to?(:parent)
+  return 0 unless tree_node.parent
+  return 0 unless tree_node.parent.respond_to?(:children)
+
+  siblings = tree_node.parent.children
+  return 0 unless siblings
+
+  # Handle Nokogiri NodeSet
+  siblings = siblings.to_a unless siblings.is_a?(Array)
+
+  # Get my label for comparison
+  my_label = if tree_node.respond_to?(:label)
+               tree_node.label
+             elsif tree_node.respond_to?(:name)
+               tree_node.name
+             else
+               nil
+             end
+
+  return 0 unless my_label
+
+  # Find position among same-label siblings
+  same_label_siblings = siblings.select do |s|
+    sibling_label = if s.respond_to?(:label)
+                      s.label
+                    elsif s.respond_to?(:name)
+                      s.name
+                    else
+                      nil
+                    end
+    sibling_label == my_label
+  end
+
+  same_label_siblings.index(tree_node) || 0
+end
+----
+
+=== Example
+
+Given this HTML:
+
+[source,html]
+----
+<html>
+  <body>
+    <div>
+      <p>First paragraph</p>
+      <p>Second paragraph</p>
+      <span>A span</span>
+      <span>Another span</span>
+    </div>
+  </body>
+</html>
+----
+
+PathBuilder generates:
+
+[source,text]
+----
+/#document/html[0]/body[0]/div[0]/p[0]     # First paragraph
+/#document/html[0]/body[0]/div[0]/p[1]     # Second paragraph
+/#document/html[0]/body[0]/div[0]/span[0]  # First span
+/#document/html[0]/body[0]/div[0]/span[1]  # Second span
+----
+
+== NodeSerializer: Library-agnostic serialization
+
+=== Purpose
+
+Serialize nodes and extract attributes in a library-agnostic way.
+
+=== Location
+
+`lib/canon/diff/node_serializer.rb`
+
+=== API
+
+[source,ruby]
+----
+# Serialize any node
+serialized = Canon::Diff::NodeSerializer.serialize(node)
+
+# Extract attributes as hash
+attrs = Canon::Diff::NodeSerializer.extract_attributes(node)
+# => {"lang" => "EN-GB", "xml:lang" => "EN-GB", "id" => "example"}
+----
+
+=== Implementation
+
+==== serialize
+
+Handles different node types:
+
+[source,ruby]
+----
+def self.serialize(node)
+  return "" if node.nil?
+
+  # Canon::Xml::Node - use DataModel serializer
+  if node.is_a?(Canon::Xml::Node)
+    return Canon::Xml::DataModel.serialize(node)
+  end
+
+  # Nokogiri HTML nodes
+  if node.respond_to?(:to_html)
+    return node.to_html
+  end
+
+  # Nokogiri/Moxml XML nodes
+  if node.respond_to?(:to_xml)
+    return node.to_xml
+  end
+
+  # Fallback
+  node.to_s
+end
+----
+
+==== extract_attributes
+
+Extracts normalized attribute hash:
+
+[source,ruby]
+----
+def self.extract_attributes(node)
+  return {} if node.nil?
+
+  # Canon::Xml::Nodes::ElementNode (uses attribute_nodes array)
+  if node.is_a?(Canon::Xml::Nodes::ElementNode)
+    attrs = {}
+    node.attribute_nodes.each do |attr|
+      attrs[attr.name] = attr.value
+    end
+    return attrs
+  end
+
+  # Nokogiri/Moxml (attributes is Hash-like)
+  if node.respond_to?(:attributes) && node.attributes.is_a?(Hash)
+    attrs = {}
+    node.attributes.each do |name, attr|
+      value = if attr.respond_to?(:value)
+                attr.value
+              else
+                attr.to_s
+              end
+      attrs[name] = value
+    end
+    return attrs
+  end
+
+  {}
+end
+----
+
+=== Example
+
+Given this element:
+
+[source,html]
+----
+<span lang="EN-GB" xml:lang="EN-GB" id="example">Text</span>
+----
+
+NodeSerializer extracts:
+
+[source,ruby]
+----
+Canon::Diff::NodeSerializer.extract_attributes(node)
+# => {"lang" => "EN-GB", "xml:lang" => "EN-GB", "id" => "example"}
+----
+
+== Algorithm integration
+
+=== DOM algorithm enrichment
+
+In `lib/canon/comparison/xml_comparator.rb`:
+
+[source,ruby]
+----
+module Canon
+  module Comparison
+    class XmlComparator
+      private
+
+      def add_difference(node1, node2, diff1, diff2, dimension, _opts,
+                         differences)
+        # Build reason
+        reason = build_difference_reason(node1, node2, diff1, diff2, dimension)
+
+        # Enrich with metadata for Layer 4
+        metadata = enrich_diff_metadata(node1, node2)
+
+        # Create DiffNode with enriched metadata
+        diff_node = Canon::Diff::DiffNode.new(
+          node1: node1,
+          node2: node2,
+          dimension: dimension,
+          reason: reason,
+          **metadata  # Spreads enriched metadata
+        )
+        differences << diff_node
+      end
+
+      def enrich_diff_metadata(node1, node2)
+        {
+          path: build_path_for_node(node1 || node2),
+          serialized_before: serialize_node(node1),
+          serialized_after: serialize_node(node2),
+          attributes_before: extract_attributes(node1),
+          attributes_after: extract_attributes(node2),
+        }
+      end
+
+      def build_path_for_node(node)
+        return nil if node.nil?
+        Canon::Diff::PathBuilder.build(node, format: :document)
+      end
+
+      def serialize_node(node)
+        return nil if node.nil?
+        Canon::Diff::NodeSerializer.serialize(node)
+      end
+
+      def extract_attributes(node)
+        return nil if node.nil?
+        Canon::Diff::NodeSerializer.extract_attributes(node)
+      end
+    end
+  end
+end
+----
+
+=== Semantic algorithm enrichment
+
+In `lib/canon/tree_diff/operation_converter.rb`:
+
+[source,ruby]
+----
+module Canon
+  module TreeDiff
+    class OperationConverter
+      private
+
+      def convert_insert(operation)
+        tree_node2 = operation[:node]
+        node2 = extract_source_node(tree_node2)
+
+        # Enrich with metadata for Layer 4
+        metadata = enrich_diff_metadata(nil, tree_node2)
+
+        diff_node = Canon::Diff::DiffNode.new(
+          node1: nil,
+          node2: node2,
+          dimension: :element_structure,
+          reason: build_insert_reason(operation),
+          **metadata  # Spreads enriched metadata
+        )
+        diff_node.normative = determine_normative(:element_structure)
+        diff_node
+      end
+
+      def enrich_diff_metadata(tree_node1, tree_node2)
+        {
+          path: build_path_for_node(tree_node1 || tree_node2),
+          serialized_before: serialize_node(tree_node1),
+          serialized_after: serialize_node(tree_node2),
+          attributes_before: extract_attributes(tree_node1),
+          attributes_after: extract_attributes(tree_node2),
+        }
+      end
+
+      def build_path_for_node(tree_node)
+        return nil if tree_node.nil?
+        # Use fragment format for HTML, document for XML
+        format = @format == :xml ? :document : :fragment
+        Canon::Diff::PathBuilder.build(tree_node, format: format)
+      end
+
+      def serialize_node(tree_node)
+        return nil if tree_node.nil?
+        source = extract_source_node(tree_node)
+        Canon::Diff::NodeSerializer.serialize(source)
+      end
+
+      def extract_attributes(tree_node)
+        return nil if tree_node.nil?
+        # TreeNode has attributes directly (normalized by adapter)
+        tree_node.respond_to?(:attributes) ? (tree_node.attributes || {}) : {}
+      end
+    end
+  end
+end
+----
+
+== Layer 4 rendering
+
+=== Using enriched metadata
+
+In `lib/canon/diff_formatter/diff_detail_formatter.rb`:
+
+[source,ruby]
+----
+module Canon
+  class DiffFormatter
+    module DiffDetailFormatter
+      private
+
+      def extract_location(diff)
+        # Use enriched path if available (with ordinal indices)
+        if diff.respond_to?(:path) && diff.path
+          return diff.path
+        end
+
+        # Fallback: extract from node (legacy path)
+        node = diff.respond_to?(:node1) ? (diff.node1 || diff.node2) : nil
+        if node.respond_to?(:name)
+          return extract_xpath(node)
+        end
+
+        # Final fallback
+        diff.respond_to?(:dimension) ? diff.dimension.to_s : "(unknown)"
+      end
+
+      def format_element_structure_details(diff, use_color)
+        # Use enriched serialized content if available
+        serialized_before = diff.respond_to?(:serialized_before) ? diff.serialized_before : nil
+        serialized_after = diff.respond_to?(:serialized_after) ? diff.serialized_after : nil
+
+        if node1.nil? && !node2.nil?
+          # INSERT - use serialized_after
+          content_preview = serialized_after || extract_content_preview(node2, 50)
+          detail1 = colorize("(not present)", :red, use_color)
+          detail2 = content_preview
+          changes = "Element inserted"
+        elsif !node1.nil? && node2.nil?
+          # DELETE - use serialized_before
+          content_preview = serialized_before || extract_content_preview(node1, 50)
+          detail1 = content_preview
+          detail2 = colorize("(not present)", :green, use_color)
+          changes = "Element deleted"
+        else
+          # STRUCTURAL CHANGE - use both
+          detail1 = serialized_before || extract_content_preview(node1, 50)
+          detail2 = serialized_after || extract_content_preview(node2, 50)
+          changes = "Element structure changed"
+        end
+
+        [detail1, detail2, changes]
+      end
+
+      def format_attribute_values_details(diff, use_color)
+        # Use enriched attributes if available
+        attrs1_before = diff.respond_to?(:attributes_before) ? diff.attributes_before : nil
+        attrs2_after = diff.respond_to?(:attributes_after) ? diff.attributes_after : nil
+
+        if attrs1_before && attrs2_after
+          # Use enriched attributes
+          all_keys = (attrs1_before.keys + attrs2_after.keys).uniq
+          differing_attrs = all_keys.reject { |key| attrs1_before[key] == attrs2_after[key] }
+        else
+          # Fallback to extracting from nodes
+          differing_attrs = find_all_differing_attributes(diff.node1, diff.node2)
+        end
+
+        # ... format using differing_attrs
+      end
+    end
+  end
+end
+----
+
+=== Benefits
+
+1. **Accurate before/after**: Shows actual node state at diff creation time
+2. **Useful paths**: Ordinal indices make XPaths actionable for debugging
+3. **Library flexibility**: New parsing libraries work without changing Layer 4
+4. **Performance**: Metadata captured once, not re-computed
+5. **Testability**: Enriched DiffNodes are self-contained
+
+== Testing
+
+=== PathBuilder tests
+
+`spec/canon/diff/path_builder_spec.rb`:
+
+[source,ruby]
+----
+RSpec.describe Canon::Diff::PathBuilder do
+  describe ".build" do
+    it "generates canonical path with ordinal indices" do
+      # TreeNodes from semantic diff
+      tree_node = build_tree_node_with_siblings
+      path = Canon::Diff::PathBuilder.build(tree_node)
+      expect(path).to eq("/#document-fragment/div[0]/p[1]/span[2]")
+    end
+
+    it "handles Nokogiri nodes" do
+      html = "<div><p></p><p></p></div>"
+      doc = Nokogiri::HTML4.fragment(html)
+      p_tag = doc.at_css("p:last")
+      path = Canon::Diff::PathBuilder.build(p_tag)
+      expect(path).to include("/p[1]")
+    end
+  end
+end
+----
+
+=== NodeSerializer tests
+
+`spec/canon/diff/node_serializer_spec.rb`:
+
+[source,ruby]
+----
+RSpec.describe Canon::Diff::NodeSerializer do
+  describe ".serialize" do
+    it "serializes Canon::Xml::Node" do
+      node = Canon::Xml::DataModel.from_xml("<div>Text</div>")
+      serialized = Canon::Diff::NodeSerializer.serialize(node)
+      expect(serialized).to include("<div")
+    end
+
+    it "serializes Nokogiri nodes" do
+      node = Nokogiri::HTML4.fragment("<span>Text</span>").children.first
+      serialized = Canon::Diff::NodeSerializer.serialize(node)
+      expect(serialized).to include("<span")
+    end
+  end
+
+  describe ".extract_attributes" do
+    it "extracts normalized attributes" do
+      node = Nokogiri::HTML4.fragment("<span lang='en' id='test'>").children.first
+      attrs = Canon::Diff::NodeSerializer.extract_attributes(node)
+      expect(attrs).to eq({"lang" => "en", "id" => "test"})
+    end
+  end
+end
+----
+
+== Migration guide
+
+If you have code that interacts with DiffNodes:
+
+=== Before (old API)
+
+[source,ruby]
+----
+diff_node = differences.first
+path = extract_xpath_from_node(diff_node.node1)
+before_content = diff_node.node1.to_s
+after_content = diff_node.node2.to_s
+----
+
+=== After (new API)
+
+[source,ruby]
+----
+diff_node = differences.first
+path = diff_node.path  # Enriched with ordinal indices
+before_content = diff_node.serialized_before  # Captured at diff creation
+after_content = diff_node.serialized_after
+----
+
+The old API still works for backwards compatibility, but enriched properties provide more accurate and useful data.
+
+== See also
+
+* link:../understanding/architecture.adoc[Architecture] - 4-layer architecture overview
+* link:../understanding/algorithms/[Algorithms] - DOM and Semantic algorithm details
+* link:../features/diff-formatting/[Diff Formatting] - Layer 4 rendering options
