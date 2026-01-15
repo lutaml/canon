@@ -132,13 +132,19 @@ module Canon
         end
 
         # Extract XPath or JSON path for the difference location
+        # Uses enriched path from DiffNode if available (with ordinal indices)
         def extract_location(diff)
           # For Hash diffs (JSON/YAML)
           if diff.is_a?(Hash)
             return diff[:path] || "(root)"
           end
 
-          # For DiffNode (XML/HTML)
+          # For DiffNode (XML/HTML) - use enriched path if available
+          if diff.respond_to?(:path) && diff.path
+            return diff.path
+          end
+
+          # Fallback: extract from node (legacy path)
           node = diff.respond_to?(:node1) ? (diff.node1 || diff.node2) : nil
 
           # For XML/HTML element nodes
@@ -146,7 +152,7 @@ module Canon
             return extract_xpath(node)
           end
 
-          # Fallback
+          # Final fallback
           if diff.respond_to?(:dimension)
             diff.dimension.to_s
           else
@@ -415,22 +421,29 @@ module Canon
         end
 
         # Format element_structure dimension details (INSERT/DELETE operations)
+        # Uses enriched serialized content from DiffNode when available
         def format_element_structure_details(diff, use_color)
           node1 = diff.node1
           node2 = diff.node2
+
+          # Use enriched serialized content if available
+          serialized_before = diff.respond_to?(:serialized_before) ? diff.serialized_before : nil
+          serialized_after = diff.respond_to?(:serialized_after) ? diff.serialized_after : nil
 
           # Determine operation type
           if node1.nil? && !node2.nil?
             # INSERT operation - show content preview
             node2.respond_to?(:name) ? node2.name : "element"
-            content_preview = extract_content_preview(node2, 50)
+            # Use serialized_after if available, otherwise extract from node
+            content_preview = serialized_after || extract_content_preview(node2, 50)
             detail1 = colorize("(not present)", :red, use_color)
             detail2 = content_preview
             changes = "Element inserted"
           elsif !node1.nil? && node2.nil?
             # DELETE operation - show content preview
             node1.respond_to?(:name) ? node1.name : "element"
-            content_preview = extract_content_preview(node1, 50)
+            # Use serialized_before if available, otherwise extract from node
+            content_preview = serialized_before || extract_content_preview(node1, 50)
             detail1 = content_preview
             detail2 = colorize("(not present)", :green, use_color)
             changes = "Element deleted"
@@ -438,8 +451,9 @@ module Canon
             # STRUCTURAL CHANGE (both nodes present) - show both previews
             name1 = node1.respond_to?(:name) ? node1.name : "element"
             name2 = node2.respond_to?(:name) ? node2.name : "element"
-            detail1 = extract_content_preview(node1, 50)
-            detail2 = extract_content_preview(node2, 50)
+            # Use enriched serialized content if available
+            detail1 = serialized_before || extract_content_preview(node1, 50)
+            detail2 = serialized_after || extract_content_preview(node2, 50)
 
             changes = if name1 == name2
                         "Element structure changed"
@@ -495,22 +509,35 @@ module Canon
         end
 
         # Format attribute_values dimension details
+        # Uses enriched attributes from DiffNode when available
         def format_attribute_values_details(diff, use_color)
           node1 = diff.node1
           node2 = diff.node2
 
+          # Use enriched attributes if available
+          attrs1_before = diff.respond_to?(:attributes_before) ? diff.attributes_before : nil
+          attrs2_after = diff.respond_to?(:attributes_after) ? diff.attributes_after : nil
+
           # Find ALL attributes with different values
-          differing_attrs = find_all_differing_attributes(node1, node2)
+          # Use enriched attributes if available, otherwise extract from nodes
+          if attrs1_before && attrs2_after
+            # Use enriched attributes
+            all_keys = (attrs1_before.keys + attrs2_after.keys).uniq
+            differing_attrs = all_keys.reject { |key| attrs1_before[key] == attrs2_after[key] }
+          else
+            # Fallback to extracting from nodes
+            differing_attrs = find_all_differing_attributes(node1, node2)
+          end
 
           if differing_attrs.any?
             # Show element name with all differing attributes
             attrs1_str = differing_attrs.map do |attr|
-              val1 = get_attribute_value(node1, attr)
+              val1 = attrs1_before ? attrs1_before[attr] : get_attribute_value(node1, attr)
               "#{colorize(attr, :cyan, use_color)}=\"#{escape_quotes(val1)}\""
             end.join(" ")
 
             attrs2_str = differing_attrs.map do |attr|
-              val2 = get_attribute_value(node2, attr)
+              val2 = attrs2_after ? attrs2_after[attr] : get_attribute_value(node2, attr)
               "#{colorize(attr, :cyan, use_color)}=\"#{escape_quotes(val2)}\""
             end.join(" ")
 
@@ -519,8 +546,8 @@ module Canon
 
             # List all attribute changes
             changes_parts = differing_attrs.map do |attr|
-              val1 = get_attribute_value(node1, attr)
-              val2 = get_attribute_value(node2, attr)
+              val1 = attrs1_before ? attrs1_before[attr] : get_attribute_value(node1, attr)
+              val2 = attrs2_after ? attrs2_after[attr] : get_attribute_value(node2, attr)
 
               if val1.empty? && !val2.empty?
                 "#{colorize(attr, :cyan,

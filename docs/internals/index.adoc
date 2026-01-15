@@ -1,0 +1,251 @@
+---
+title: Internals
+parent: Advanced
+nav_order: 7
+has_children: true
+---
+= Internals
+
+== Purpose
+
+This section contains detailed implementation documentation for Canon's internal systems. These documents explain how Canon works under the hood, covering data structures, algorithms, and architectural patterns.
+
+== Audience
+
+These documents are intended for:
+
+* Canon contributors and maintainers
+* Developers extending Canon with custom functionality
+* Anyone debugging complex comparison issues
+* Users wanting to understand implementation details
+
+== Topics
+
+link:diffnode-enrichment[**DiffNode Enrichment**]::
+How DiffNode objects carry location, serialized content, and attribute metadata through the comparison pipeline. Covers PathBuilder (canonical paths with ordinal indices), NodeSerializer (library-agnostic serialization), and how Layer 2 algorithms populate metadata for Layer 4 rendering.
+
+link:../advanced/dom-diff-internals[**DOM Diff Internals**]::
+Deep dive into Canon's default DOM diff algorithm: position-based matching, operation detection, and diff generation.
+
+link:../advanced/semantic-tree-diff-internals[**Semantic Tree Diff Internals**]::
+How the experimental semantic tree diff works: signature calculation, similarity matching, and operation classification.
+
+link:../advanced/verbose-mode-architecture[**Verbose Mode Architecture**]::
+The two-tier diff output system: normative vs informative diffs, and how verbose mode enriches output.
+
+link:../advanced/diff-classification[**Diff Classification System**]::
+How Canon classifies differences as normative (structural) or informative (presentational).
+
+link:../advanced/diff-pipeline[**Diff Pipeline Architecture**]::
+The six-layer technical pipeline from input to formatted output.
+
+link:../advanced/extending-canon[**Extending Canon**]::
+How to create custom comparators, formatters, and match strategies.
+
+== Core Concepts
+
+=== Library Agnosticism
+
+Canon is designed to work with multiple parsing libraries (Nokogiri, Moxml, Canon::Xml::Node) without being tied to any specific implementation. This is achieved through:
+
+* **Adapter pattern**: Format-specific adapters normalize different node types
+* **Utility classes**: PathBuilder and NodeSerializer work with any library
+* **Interface-based design**: Code depends on behavior (respond_to?) not concrete types
+
+This allows Canon to:
+* Support new parsing libraries without major refactoring
+* Switch libraries for better performance or features
+* Remain compatible as libraries evolve
+
+=== The 4-Layer Architecture
+
+Canon separates comparison concerns into four layers:
+
+* **Layer 1**: Preprocessing - Normalize documents before comparison
+* **Layer 2**: Algorithm - Choose comparison strategy (DOM vs Semantic)
+* **Layer 3**: Match Options - Configure what to compare
+* **Layer 4**: Diff Formatting - Control output presentation
+
+Only Layer 2 differs between algorithms, and the enriched DiffNode structure ensures clean communication between layers.
+
+See link:../understanding/architecture.adoc[Architecture] for the complete overview.
+
+=== Enriched Metadata Flow
+
+[mermaid]
+----
+graph LR
+    A[Layer 2: Algorithm] -->|Creates DiffNode| B[PathBuilder]
+    A -->|Creates DiffNode| C[NodeSerializer]
+    B -->|Enriches| D[DiffNode.path]
+    C -->|Enriches| E[DiffNode.serialized_before/after]
+    C -->|Enriches| F[DiffNode.attributes_before/after]
+    D --> G[Layer 4: Rendering]
+    E --> G
+    F --> G
+    G --> H[Accurate diff output]
+
+    style A fill:#fff4e1
+    style D fill:#e1f5ff
+    style G fill:#e1ffe1
+----
+
+Key insight: Metadata is captured at diff creation time (Layer 2) and carried through to rendering (Layer 4), ensuring accurate display even if nodes are modified during comparison.
+
+== Data Structures
+
+=== DiffNode
+
+Represents a semantic difference between two nodes:
+
+[source,ruby]
+----
+class DiffNode
+  # Core properties
+  attr_reader :node1, :node2           # Raw node references
+  attr_accessor :dimension, :reason    # What changed and why
+  attr_accessor :normative, :formatting # Classification
+
+  # Enriched metadata for Layer 4 rendering
+  attr_accessor :path                  # Canonical path with ordinal indices
+  attr_accessor :serialized_before     # Serialized "before" content
+  attr_accessor :serialized_after      # Serialized "after" content
+  attr_accessor :attributes_before     # Normalized "before" attributes
+  attr_accessor :attributes_after      # Normalized "after" attributes
+end
+----
+
+See link:diffnode-enrichment[DiffNode Enrichment] for details.
+
+=== TreeNode (Semantic Diff)
+
+Canonical node representation from semantic diff:
+
+[source,ruby]
+----
+class TreeNode
+  attr_reader :label          # Element name (e.g., "div", "span")
+  attr_reader :parent         # Parent TreeNode
+  attr_reader :children       # Array of child TreeNodes
+  attr_reader :attributes     # Normalized attribute hash
+  attr_reader :source_node    # Original parsing library node
+  attr_reader :signature      # Calculated signature for matching
+end
+----
+
+See link:../advanced/semantic-tree-diff-internals[Semantic Tree Diff Internals] for details.
+
+=== ComparisonResult
+
+Result object from verbose comparison:
+
+[source,ruby]
+----
+class ComparisonResult
+  attr_reader :differences           # Array of DiffNode objects
+  attr_reader :preprocessed_strings  # Preprocessed document strings
+  attr_reader :original_strings      # Original document strings
+  attr_reader :format               # :xml, :html, :json, :yaml
+  attr_reader :match_options         # Resolved match options
+  attr_reader :algorithm            # :dom or :semantic
+end
+----
+
+== Utility Classes
+
+=== PathBuilder
+
+Generates canonical XPath-like paths with ordinal indices:
+
+[source,ruby]
+----
+# Build path for any node type
+path = Canon::Diff::PathBuilder.build(node)
+# => "/#document/div[0]/body[0]/p[1]/span[2]"
+
+# Build human-readable path
+human = Canon::Diff::PathBuilder.human_path(node)
+# => "#document → div[0] → body[0] → p[1] → span[2]"
+----
+
+**Features**:
+* Library-agnostic: works with TreeNodes, Canon::Xml::Node, Nokogiri nodes
+* Ordinal indices: uniquely identifies nodes among siblings
+* Traverses parent hierarchy: builds complete path from root to node
+
+See link:diffnode-enrichment#pathbuilder-canonical-paths-with-ordinal-indices[PathBuilder documentation] for details.
+
+=== NodeSerializer
+
+Serializes nodes and extracts attributes regardless of parsing library:
+
+[source,ruby]
+----
+# Serialize any node
+serialized = Canon::Diff::NodeSerializer.serialize(node)
+
+# Extract normalized attributes
+attrs = Canon::Diff::NodeSerializer.extract_attributes(node)
+# => {"lang" => "EN-GB", "xml:lang" => "EN-GB", "id" => "example"}
+----
+
+**Features**:
+* Library-agnostic: handles Canon::Xml::Node, Nokogiri, Moxml
+* Normalized output: consistent format regardless of source library
+* Attribute extraction: returns hash of name-value pairs
+
+See link:diffnode-enrichment#nodeserializer-library-agnostic-serialization[NodeSerializer documentation] for details.
+
+== Algorithm Integration
+
+=== DOM Algorithm
+
+Enriches DiffNodes during positional comparison in `lib/canon/comparison/xml_comparator.rb`:
+
+[source,ruby]
+----
+def add_difference(node1, node2, diff1, diff2, dimension, opts, differences)
+  metadata = enrich_diff_metadata(node1, node2)
+  diff_node = Canon::Diff::DiffNode.new(
+    node1: node1,
+    node2: node2,
+    dimension: dimension,
+    reason: build_difference_reason(node1, node2, diff1, diff2, dimension),
+    **metadata  # Enriched from raw Nokogiri/Canon nodes
+  )
+  differences << diff_node
+end
+----
+
+See link:../understanding/algorithms/dom-diff.adoc[DOM Diff Algorithm] for details.
+
+=== Semantic Algorithm
+
+Enriches DiffNodes during operation conversion in `lib/canon/tree_diff/operation_converter.rb`:
+
+[source,ruby]
+----
+def convert_insert(operation)
+  tree_node2 = operation[:node]
+  node2 = extract_source_node(tree_node2)
+  metadata = enrich_diff_metadata(nil, tree_node2)
+  diff_node = Canon::Diff::DiffNode.new(
+    node1: nil,
+    node2: node2,
+    dimension: :element_structure,
+    reason: build_insert_reason(operation),
+    **metadata  # Enriched from TreeNode
+  )
+  diff_node.normative = determine_normative(:element_structure)
+  diff_node
+end
+----
+
+See link:../understanding/algorithms/semantic-tree-diff.adoc[Semantic Tree Diff Algorithm] for details.
+
+== See Also
+
+* link:../understanding/architecture.adoc[Architecture] - 4-layer architecture overview
+* link:../understanding/algorithms/[Algorithms] - DOM and Semantic algorithm details
+* link:../features/diff-formatting/[Diff Formatting] - Layer 4 rendering options
+* link:../advanced/[Advanced Topics] - Deep technical documentation

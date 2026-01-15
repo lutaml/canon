@@ -369,6 +369,121 @@ result = Canon::Comparison.equivalent?(doc1, doc2,
 
 See link:comparison-pipeline.adoc[Comparison Pipeline] for layer-by-layer examples.
 
+=== DiffNode: Representation of differences
+
+==== Purpose
+
+`DiffNode` objects represent individual differences between documents. Each DiffNode carries complete information about what changed, where it changed, and how to display it.
+
+==== DiffNode structure
+
+[source,ruby]
+----
+class DiffNode
+  # Core properties
+  attr_reader :node1, :node2           # Raw node references
+  attr_accessor :dimension, :reason    # What changed and why
+  attr_accessor :normative, :formatting # Classification
+
+  # Location and display information
+  attr_accessor :path                  # Canonical path with ordinal indices
+  attr_accessor :serialized_before     # Serialized "before" content
+  attr_accessor :serialized_after      # Serialized "after" content
+  attr_accessor :attributes_before     # Normalized "before" attributes
+  attr_accessor :attributes_after      # Normalized "after" attributes
+end
+----
+
+===== Properties explained
+
+**Core properties**:
+
+`node1, node2`:: Raw node references from the original documents
+
+`dimension`:: What type of difference (`:text_content`, `:attribute_values`, `:element_structure`, etc.)
+
+`reason`:: Human-readable explanation of the difference
+
+`normative`:: Whether this difference affects semantic equivalence (true) or is just formatting (false)
+
+`formatting`:: Whether this is a purely cosmetic whitespace difference
+
+**Location and display properties**:
+
+`path`:: Canonical XPath-like path with ordinal indices that uniquely identifies the node location (e.g., `/#document/div[0]/body[0]/p[1]/span[2]`)
+
+`serialized_before`:: Serialized content of the "before" state captured at comparison time
+
+`serialized_after`:: Serialized content of the "after" state captured at comparison time
+
+`attributes_before`:: Normalized attribute hash from the "before" state
+
+`attributes_after`:: Normalized attribute hash from the "after" state
+
+==== Using DiffNode in verbose output
+
+When you enable verbose mode, Canon returns a `ComparisonResult` containing DiffNode objects:
+
+[source,ruby]
+----
+result = Canon::Comparison.equivalent?(doc1, doc2, verbose: true)
+
+# Access individual differences
+result.differences.each do |diff|
+  puts "Location: #{diff.path}"
+  puts "Dimension: #{diff.dimension}"
+  puts "Reason: #{diff.reason}"
+  puts "Normative: #{diff.normative?}"
+end
+----
+
+==== Canonical paths with ordinal indices
+
+DiffNode paths use ordinal indices to uniquely identify nodes. Instead of ambiguous paths like:
+
+[source,text]
+----
+/#document-fragment/div/p/span/span
+----
+
+Canon generates precise paths like:
+
+[source,text]
+----
+/#document-fragment/div[0]/p[1]/span[2]/span[0]
+----
+
+This tells you exactly which element changed:
+* `div[0]` - First div element
+* `p[1]` - Second paragraph element
+* `span[2]` - Third span element
+* `span[0]` - First nested span element
+
+==== Enriched metadata in diff output
+
+Layer 4 (diff formatting) uses enriched metadata to display accurate before/after content:
+
+[source,text]
+----
+🔍 DIFFERENCE #1/3 [NORMATIVE]
+════════════════════════════════════════════════════════════════════════
+Dimension: element_structure
+Location:  /#document/div[0]/body[0]/p[1]/span[2]
+
+⊖ Expected (File 1):
+   (not present)
+
+⊕ Actual (File 2):
+   <span id="new-element">Added content</span>
+
+✨ Changes:
+   Element inserted
+----
+
+The `Location` field shows the enriched path, and the before/after content uses `serialized_before` and `serialized_after` to ensure accurate display.
+
+See link:../internals/[Internals] for implementation details on PathBuilder, NodeSerializer, and how metadata flows through the comparison layers.
+
 == Configuration precedence
 
 When options are specified in multiple places, Canon resolves them using this hierarchy (highest to lowest priority):
@@ -436,6 +551,8 @@ expect(actual).to be_xml_equivalent_to(expected)
 
 * link:comparison-pipeline.adoc[Comparison Pipeline] - Complete 4-layer walkthrough
 * link:algorithms/[Algorithms] - DOM and Semantic algorithm details
+* link:../internals/[Internals] - Implementation details and data structures
+* link:../internals/diffnode-enrichment.adoc[DiffNode Enrichment] - How metadata flows from Layer 2 to Layer 4
 * link:../features/preprocessing/[Preprocessing options]
 * link:../features/match-options/[Match dimensions and profiles]
 * link:../features/match-options/algorithm-specific-behavior.adoc[Algorithm-Specific Behavior]

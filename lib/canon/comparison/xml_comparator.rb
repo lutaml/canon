@@ -4,6 +4,8 @@ require_relative "../xml/c14n"
 require_relative "match_options"
 require_relative "../diff/diff_node"
 require_relative "../diff/diff_classifier"
+require_relative "../diff/path_builder"
+require_relative "../diff/node_serializer"
 require_relative "comparison_result"
 require_relative "../tree_diff"
 require_relative "strategies/match_strategy_factory"
@@ -995,6 +997,8 @@ module Canon
         end
 
         # Add a difference to the differences array
+        # Enriches DiffNode with path, serialized content, and attributes for Stage 4 rendering
+        #
         # @param node1 [Object] First node
         # @param node2 [Object] Second node
         # @param diff1 [String] Difference type for node1
@@ -1014,13 +1018,63 @@ module Canon
           reason = build_difference_reason(node1, node2, diff1, diff2,
                                            dimension)
 
+          # Enrich with path, serialized content, and attributes for Stage 4 rendering
+          metadata = enrich_diff_metadata(node1, node2)
+
           diff_node = Canon::Diff::DiffNode.new(
             node1: node1,
             node2: node2,
             dimension: dimension,
             reason: reason,
+            **metadata,
           )
           differences << diff_node
+        end
+
+        # Enrich DiffNode with canonical path, serialized content, and attributes
+        # This extracts presentation-ready metadata from nodes for Stage 4 rendering
+        #
+        # @param node1 [Object, nil] First node
+        # @param node2 [Object, nil] Second node
+        # @return [Hash] Enriched metadata hash
+        def enrich_diff_metadata(node1, node2)
+          {
+            path: build_path_for_node(node1 || node2),
+            serialized_before: serialize_node(node1),
+            serialized_after: serialize_node(node2),
+            attributes_before: extract_attributes(node1),
+            attributes_after: extract_attributes(node2),
+          }
+        end
+
+        # Build canonical path for a node
+        #
+        # @param node [Object] Node to build path for
+        # @return [String, nil] Canonical path with ordinal indices
+        def build_path_for_node(node)
+          return nil if node.nil?
+
+          Canon::Diff::PathBuilder.build(node, format: :document)
+        end
+
+        # Serialize a node to string for display
+        #
+        # @param node [Object, nil] Node to serialize
+        # @return [String, nil] Serialized content
+        def serialize_node(node)
+          return nil if node.nil?
+
+          Canon::Diff::NodeSerializer.serialize(node)
+        end
+
+        # Extract attributes from a node as a normalized hash
+        #
+        # @param node [Object, nil] Node to extract attributes from
+        # @return [Hash, nil] Normalized attributes hash
+        def extract_attributes(node)
+          return nil if node.nil?
+
+          Canon::Diff::NodeSerializer.extract_attributes(node)
         end
 
         # Build a human-readable reason for a difference
