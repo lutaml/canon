@@ -45,7 +45,7 @@ module Canon
             return ""
           end
 
-          require_relative "../../xml/data_model"
+          require_relative "../../html/data_model"
           require_relative "../../xml/element_matcher"
           require_relative "../../xml/line_range_mapper"
           require_relative "../../pretty_printer/html"
@@ -54,9 +54,9 @@ module Canon
 
           begin
             # Parse to DOM using HTML parser
-            root1 = Canon::Xml::DataModel.from_html(doc1,
+            root1 = Canon::Html::DataModel.from_html(doc1,
                                                     version: @html_version)
-            root2 = Canon::Xml::DataModel.from_html(doc2,
+            root2 = Canon::Html::DataModel.from_html(doc2,
                                                     version: @html_version)
 
             # Match elements semantically

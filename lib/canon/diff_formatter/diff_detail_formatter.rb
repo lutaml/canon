@@ -720,11 +720,12 @@ module Canon
 
         # Helper: Get attribute names from a node
         def get_attribute_names(node)
-          # Handle Canon::Xml::Nodes::ElementNode (uses attribute_nodes array)
-          if node.respond_to?(:attribute_nodes) && node.attribute_nodes.is_a?(Array)
+          # Handle Canon::Xml::Nodes::ElementNode (uses attribute_nodes array with AttributeNode objects)
+          if node.is_a?(Canon::Xml::Nodes::ElementNode) && node.attribute_nodes.is_a?(Array)
             return node.attribute_nodes.map(&:qname).sort
           end
 
+          # Handle Nokogiri nodes and others
           return [] unless node.respond_to?(:attributes)
 
           attrs = node.attributes
@@ -769,8 +770,8 @@ module Canon
 
         # Helper: Get attribute names in document order (not sorted)
         def get_attribute_names_in_order(node)
-          # Handle Canon::Xml::Nodes::ElementNode (uses attribute_nodes array)
-          if node.respond_to?(:attribute_nodes) && node.attribute_nodes.is_a?(Array)
+          # Handle Canon::Xml::Nodes::ElementNode (uses attribute_nodes array with AttributeNode objects)
+          if node.is_a?(Canon::Xml::Nodes::ElementNode) && node.attribute_nodes.is_a?(Array)
             return node.attribute_nodes.map(&:qname)
           end
 
@@ -810,8 +811,8 @@ module Canon
 
         # Helper: Get attributes as hash
         def get_attributes_hash(node)
-          # Handle Canon::Xml::Nodes::ElementNode (uses attribute_nodes array)
-          if node.respond_to?(:attribute_nodes) && node.attribute_nodes.is_a?(Array)
+          # Handle Canon::Xml::Nodes::ElementNode (uses attribute_nodes array with AttributeNode objects)
+          if node.is_a?(Canon::Xml::Nodes::ElementNode) && node.attribute_nodes.is_a?(Array)
             hash = {}
             node.attribute_nodes.each do |attr|
               hash[attr.qname] = attr.value
