@@ -55,9 +55,9 @@ module Canon
           begin
             # Parse to DOM using HTML parser
             root1 = Canon::Html::DataModel.from_html(doc1,
-                                                    version: @html_version)
+                                                     version: @html_version)
             root2 = Canon::Html::DataModel.from_html(doc2,
-                                                    version: @html_version)
+                                                     version: @html_version)
 
             # Match elements semantically
             matcher = Canon::Xml::ElementMatcher.new
