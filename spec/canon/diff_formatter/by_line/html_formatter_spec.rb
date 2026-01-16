@@ -45,13 +45,15 @@ RSpec.describe Canon::DiffFormatter::ByLine::HtmlFormatter do
         HTML
 
         # The HTML should be semantically equivalent (Nokogiri normalizes <br/> to <br>)
-        result = Canon::Comparison.equivalent?(html1, html2, format: :html5, verbose: true)
+        result = Canon::Comparison.equivalent?(html1, html2, format: :html5,
+                                                             verbose: true)
 
         expect(result.equivalent?).to be true
         expect(result.differences).to be_empty
 
         # Also verify diff formatter works without errors
-        diff_formatter = Canon::DiffFormatter.new(use_color: false, mode: :by_line)
+        diff_formatter = Canon::DiffFormatter.new(use_color: false,
+                                                  mode: :by_line)
         output = diff_formatter.format_comparison_result(result, html1, html2)
 
         # Should show the algorithm and diff mode (or success message)
@@ -93,7 +95,8 @@ RSpec.describe Canon::DiffFormatter::ByLine::HtmlFormatter do
           <html><body><div><ul id="_"><li id="_">Item 1</li><li id="_"><p>Item 2</p><div class="ul_wrap"><ul id="_"><li id="_">Nested 1</li></ul></div></li></ul></div></body></html>
         HTML
 
-        result = Canon::Comparison.equivalent?(html1, html2, format: :html5, verbose: true)
+        result = Canon::Comparison.equivalent?(html1, html2, format: :html5,
+                                                             verbose: true)
 
         expect(result.equivalent?).to be true
         expect(result.differences).to be_empty

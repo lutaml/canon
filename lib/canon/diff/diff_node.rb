@@ -13,7 +13,7 @@ module Canon
       attr_reader :node1, :node2
       attr_accessor :dimension, :reason, :normative, :formatting,
                     # Enriched metadata for Stage 4 rendering
-                    :path,              # Canonical path with ordinal indices
+                    :path, # Canonical path with ordinal indices
                     :serialized_before,  # Serialized content for display (before)
                     :serialized_after,   # Serialized content for display (after)
                     :attributes_before,  # Normalized attributes hash (before)

@@ -35,9 +35,7 @@ module Canon
         segments = build_segments(node)
 
         # Join segments with /
-        path = "/" + segments.join("/")
-
-        path
+        "/#{segments.join('/')}"
       end
 
       # Build path segments (node names with ordinal indices)
@@ -58,6 +56,7 @@ module Canon
 
           # Move to parent if available
           break unless current.respond_to?(:parent)
+
           current = current.parent
           depth += 1
         end
@@ -111,8 +110,6 @@ module Canon
                      tree_node.label
                    elsif tree_node.respond_to?(:name)
                      tree_node.name
-                   else
-                     nil
                    end
 
         return 0 unless my_label
@@ -123,8 +120,6 @@ module Canon
                             s.label
                           elsif s.respond_to?(:name)
                             s.name
-                          else
-                            nil
                           end
           sibling_label == my_label
         end

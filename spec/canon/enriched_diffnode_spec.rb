@@ -9,9 +9,8 @@ RSpec.describe "Enriched DiffNode metadata" do
       xml2 = "<root><div><p>Changed</p></div></root>"
 
       result = Canon::Comparison.equivalent?(xml1, xml2,
-        diff_algorithm: :dom,
-        verbose: true,
-      )
+                                             diff_algorithm: :dom,
+                                             verbose: true)
 
       expect(result.differences).not_to be_empty
 
@@ -28,9 +27,8 @@ RSpec.describe "Enriched DiffNode metadata" do
       xml2 = "<root><div><p>Modified</p></div></root>"
 
       result = Canon::Comparison.equivalent?(xml1, xml2,
-        diff_algorithm: :dom,
-        verbose: true,
-      )
+                                             diff_algorithm: :dom,
+                                             verbose: true)
 
       expect(result.differences).not_to be_empty
 
@@ -51,10 +49,9 @@ RSpec.describe "Enriched DiffNode metadata" do
       xml2 = "<root><div id='new'>Text</div></root>"
 
       result = Canon::Comparison.equivalent?(xml1, xml2,
-        diff_algorithm: :dom,
-        verbose: true,
-        match: { attribute_values: :strict },
-      )
+                                             diff_algorithm: :dom,
+                                             verbose: true,
+                                             match: { attribute_values: :strict })
 
       expect(result.differences).not_to be_empty
 
@@ -76,9 +73,8 @@ RSpec.describe "Enriched DiffNode metadata" do
       xml2 = "<root><div><span><p>Changed</p></span></div></root>"
 
       result = Canon::Comparison.equivalent?(xml1, xml2,
-        diff_algorithm: :dom,
-        verbose: true,
-      )
+                                             diff_algorithm: :dom,
+                                             verbose: true)
 
       expect(result.differences).not_to be_empty
 
@@ -91,9 +87,8 @@ RSpec.describe "Enriched DiffNode metadata" do
       xml2 = "<root><div><p>A</p><p>B</p><p>C</p></div></root>"
 
       result = Canon::Comparison.equivalent?(xml1, xml2,
-        diff_algorithm: :dom,
-        verbose: true,
-      )
+                                             diff_algorithm: :dom,
+                                             verbose: true)
 
       # Find the element_structure difference (different number of children)
       insert_diff = result.differences.find do |d|
@@ -117,9 +112,8 @@ RSpec.describe "Enriched DiffNode metadata" do
       xml2 = "<root><div><p>A</p><p>B</p></div></root>"
 
       result = Canon::Comparison.equivalent?(xml1, xml2,
-        diff_algorithm: :dom,
-        verbose: true,
-      )
+                                             diff_algorithm: :dom,
+                                             verbose: true)
 
       # Find the element_structure difference (different number of children)
       delete_diff = result.differences.find do |d|
@@ -145,9 +139,8 @@ RSpec.describe "Enriched DiffNode metadata" do
       xml2 = "<root><item>A</item><item>C</item></root>"
 
       result = Canon::Comparison.equivalent?(xml1, xml2,
-        diff_algorithm: :semantic,
-        verbose: true,
-      )
+                                             diff_algorithm: :semantic,
+                                             verbose: true)
 
       expect(result.differences).not_to be_empty
 
@@ -164,11 +157,12 @@ RSpec.describe "Enriched DiffNode metadata" do
       xml2 = "<root><item>A</item><item>B</item></root>"
 
       result = Canon::Comparison.equivalent?(xml1, xml2,
-        diff_algorithm: :semantic,
-        verbose: true,
-      )
+                                             diff_algorithm: :semantic,
+                                             verbose: true)
 
-      insert_diff = result.differences.find { |d| d.reason.include?("inserted") }
+      insert_diff = result.differences.find do |d|
+        d.reason.include?("inserted")
+      end
       expect(insert_diff).not_to be_nil
 
       expect(insert_diff.serialized_before).to be_nil
@@ -181,9 +175,8 @@ RSpec.describe "Enriched DiffNode metadata" do
       xml2 = "<root><item>A</item></root>"
 
       result = Canon::Comparison.equivalent?(xml1, xml2,
-        diff_algorithm: :semantic,
-        verbose: true,
-      )
+                                             diff_algorithm: :semantic,
+                                             verbose: true)
 
       delete_diff = result.differences.find { |d| d.reason.include?("deleted") }
       expect(delete_diff).not_to be_nil
@@ -198,9 +191,8 @@ RSpec.describe "Enriched DiffNode metadata" do
       xml2 = "<root><item>Modified</item></root>"
 
       result = Canon::Comparison.equivalent?(xml1, xml2,
-        diff_algorithm: :semantic,
-        verbose: true,
-      )
+                                             diff_algorithm: :semantic,
+                                             verbose: true)
 
       update_diff = result.differences.find { |d| d.dimension == :text_content }
       expect(update_diff).not_to be_nil
@@ -216,12 +208,13 @@ RSpec.describe "Enriched DiffNode metadata" do
       xml2 = "<root><div id='new'>Text</div></root>"
 
       result = Canon::Comparison.equivalent?(xml1, xml2,
-        diff_algorithm: :semantic,
-        verbose: true,
-        match: { attribute_values: :strict },
-      )
+                                             diff_algorithm: :semantic,
+                                             verbose: true,
+                                             match: { attribute_values: :strict })
 
-      attr_diff = result.differences.find { |d| d.dimension == :attribute_values }
+      attr_diff = result.differences.find do |d|
+        d.dimension == :attribute_values
+      end
       expect(attr_diff).not_to be_nil
 
       expect(attr_diff.attributes_before).to be_a(Hash)
@@ -237,10 +230,9 @@ RSpec.describe "Enriched DiffNode metadata" do
       html2 = "<html><body><div><p>Changed</p></div></body></html>"
 
       result = Canon::Comparison.equivalent?(html1, html2,
-        format: :html,
-        diff_algorithm: :dom,
-        verbose: true,
-      )
+                                             format: :html,
+                                             diff_algorithm: :dom,
+                                             verbose: true)
 
       expect(result.differences).not_to be_empty
 
@@ -255,11 +247,10 @@ RSpec.describe "Enriched DiffNode metadata" do
       html2 = "<div class='new-class'>Text</div>"
 
       result = Canon::Comparison.equivalent?(html1, html2,
-        format: :html,
-        diff_algorithm: :dom,
-        verbose: true,
-        match: { attribute_values: :strict },
-      )
+                                             format: :html,
+                                             diff_algorithm: :dom,
+                                             verbose: true,
+                                             match: { attribute_values: :strict })
 
       expect(result.differences).not_to be_empty
 
