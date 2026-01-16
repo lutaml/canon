@@ -1,0 +1,485 @@
+---
+layout: default
+title: Ruby API
+nav_order: 10
+parent: Basic Usage
+grand_parent: Documentation Index
+---
+= Canon Ruby API
+:toc:
+:toclevels: 3
+
+== Scope
+
+This document describes how to use Canon from Ruby code. It covers formatting,
+parsing, and comparison APIs.
+
+For command-line usage, see link:CLI[CLI documentation].
+
+For RSpec testing, see link:RSPEC[RSpec documentation].
+
+== General
+
+Canon provides a unified Ruby API for working with XML, HTML, JSON, and YAML
+formats. All methods follow consistent patterns across formats.
+
+== Formatting
+
+=== Canonical formatting
+
+The `Canon.format` method produces canonical output (compact, normalized).
+
+Syntax:
+
+[source,ruby]
+----
+Canon.format(content, format)
+Canon.format_{format}(content)  # Format-specific shorthand
+----
+
+Where:
+
+`content`:: The input string
+`format`:: The format type (`:xml`, `:html`, `:json`, or `:yaml`)
+
+.Canonical formatting examples
+[example]
+====
+[source,ruby]
+----
+require 'canon'
+
+# XML - compact canonical form
+xml = '<root><b>2</b><a>1</a></root>'
+Canon.format(xml, :xml)
+# => "<root><a>1</a><b>2</b></root>"
+
+Canon.format_xml(xml)  # Shorthand
+# => "<root><a>1</a><b>2</b></root>"
+
+# HTML - compact canonical form
+html = '<div><p>Hello</p></div>'
+Canon.format(html, :html)
+Canon.format_html(html)  # Shorthand
+
+# JSON - canonical with sorted keys
+json = '{"z":3,"a":1,"b":2}'
+Canon.format(json, :json)
+# => {"a":1,"b":2,"z":3}
+
+# YAML - canonical with sorted keys
+yaml = "z: 3\na: 1\nb: 2"
+Canon.format(yaml, :yaml)
+----
+====
+
+=== Pretty-print formatting
+
+For human-readable output with indentation, use format-specific pretty printer
+classes.
+
+Syntax:
+
+[source,ruby]
+----
+Canon::{Format}::PrettyPrinter.new(indent: n, indent_type: type).format(content)
+----
+
+Where:
+
+`{Format}`:: The format module (`Xml`, `Html`, `Json`)
+`n`:: Number of spaces (default: 2) or tabs (use 1 for tabs)
+`type`:: Indentation type: `'space'` (default) or `'tab'`
+`content`:: The input string
+
+.Pretty-print examples
+[example]
+====
+[source,ruby]
+----
+require 'canon/pretty_printer/xml'
+require 'canon/pretty_printer/html'
+require 'canon/pretty_printer/json'
+
+xml_input = '<root><b>2</b><a>1</a></root>'
+
+# XML with 2-space indentation (default)
+Canon::Xml::PrettyPrinter.new(indent: 2).format(xml_input)
+# =>
+# <?xml version="1.0" encoding="UTF-8"?>
+# <root>
+#   <a>1</a>
+#   <b>2</b>
+# </root>
+
+# XML with 4-space indentation
+Canon::Xml::PrettyPrinter.new(indent: 4).format(xml_input)
+
+# XML with tab indentation
+Canon::Xml::PrettyPrinter.new(
+  indent: 1,
+  indent_type: 'tab'
+).format(xml_input)
+
+# HTML with 2-space indentation
+html_input = '<div><p>Hello</p></div>'
+Canon::Html::PrettyPrinter.new(indent: 2).format(html_input)
+
+# JSON with 2-space indentation
+json_input = '{"z":3,"a":{"b":1}}'
+Canon::Json::PrettyPrinter.new(indent: 2).format(json_input)
+
+# JSON with tab indentation
+Canon::Json::PrettyPrinter.new(
+  indent: 1,
+  indent_type: 'tab'
+).format(json_input)
+----
+====
+
+== Parsing
+
+The `Canon.parse` method parses content into Ruby objects or Nokogiri
+documents.
+
+Syntax:
+
+[source,ruby]
+----
+Canon.parse(content, format)
+Canon.parse_{format}(content)  # Format-specific shorthand
+----
+
+Where:
+
+`content`:: The input string
+`format`:: The format type (`:xml`, `:html`, `:json`, or `:yaml`)
+
+.Parsing examples
+[example]
+====
+[source,ruby]
+----
+# Parse XML → Nokogiri::XML::Document
+xml_doc = Canon.parse(xml_input, :xml)
+xml_doc = Canon.parse_xml(xml_input)
+
+# Parse HTML → Nokogiri::HTML5::Document (or XML::Document for XHTML)
+html_doc = Canon.parse(html_input, :html)
+html_doc = Canon.parse_html(html_input)
+
+# Parse JSON → Ruby Hash/Array
+json_obj = Canon.parse(json_input, :json)
+json_obj = Canon.parse_json(json_input)
+
+# Parse YAML → Ruby Hash/Array
+yaml_obj = Canon.parse(yaml_input, :yaml)
+yaml_obj = Canon.parse_yaml(yaml_input)
+----
+====
+
+== Comparison
+
+=== General
+
+The `Canon::Comparison.equivalent?` method compares two documents semantically.
+
+The comparison uses depth-first traversal of DOM trees (XML/HTML) or object
+graphs (JSON/YAML), comparing nodes/values based on configurable match
+dimensions.
+
+See link:MATCH_OPTIONS[Match options] for details on match dimensions and
+profiles.
+
+=== Basic comparison
+
+Syntax:
+
+[source,ruby]
+----
+Canon::Comparison.equivalent?(obj1, obj2, options = {})
+----
+
+Where:
+
+`obj1`:: First document (String, Nokogiri document, or Ruby object)
+`obj2`:: Second document (String, Nokogiri document, or Ruby object)
+`options`:: Hash of comparison options (optional)
+
+Returns:
+
+* `true` if documents are semantically equivalent
+* `false` if documents differ
+* `ComparisonResult` object if `verbose: true`
+
+Options:
+
+* `diff_algorithm`: `:dom` (default) or `:semantic` - chooses the diff algorithm
+* `verbose`: `true` or `false` - returns detailed results when true
+* `match`: Hash of match dimension options
+* `match_profile`: Symbol specifying a predefined profile
+
+.Basic comparison examples
+[example]
+====
+[source,ruby]
+----
+require 'canon/comparison'
+
+# HTML comparison - ignores whitespace by default
+html1 = '<div><p>Hello</p></div>'
+html2 = '<div> <p> Hello </p> </div>'
+Canon::Comparison.equivalent?(html1, html2)
+# => true
+
+# XML comparison - element order doesn't matter for children
+xml1 = '<root><a>1</a><b>2</b></root>'
+xml2 = '<root>  <b>2</b>  <a>1</a>  </root>'
+Canon::Comparison.equivalent?(xml1, xml2)
+# => true
+
+# JSON comparison
+json1 = '{"a":1,"b":2}'
+json2 = '{"b":2,"a":1}'
+Canon::Comparison.equivalent?(json1, json2)
+# => true
+
+# With Nokogiri documents
+doc1 = Nokogiri::HTML5(html1)
+doc2 = Nokogiri::HTML5(html2)
+Canon::Comparison.equivalent?(doc1, doc2)
+# => true
+----
+====
+
+=== Comparison with match options
+
+Match options control which aspects of documents are compared and how strictly.
+
+Syntax:
+
+[source,ruby]
+----
+Canon::Comparison.equivalent?(obj1, obj2,
+  match: {
+    dimension1: behavior1,
+    dimension2: behavior2,
+    ...
+  }
+)
+----
+
+See link:MATCH_OPTIONS[Match options] for complete dimension reference.
+
+.Match option examples
+[example]
+====
+[source,ruby]
+----
+# Normalize whitespace in text content
+Canon::Comparison.equivalent?(xml1, xml2,
+  match: {
+    text_content: :normalize,
+    structural_whitespace: :ignore
+  }
+)
+
+# Ignore comments
+Canon::Comparison.equivalent?(xml1, xml2,
+  match: {
+    comments: :ignore
+  }
+)
+
+# Strict attribute order
+Canon::Comparison.equivalent?(xml1, xml2,
+  match: {
+    attribute_order: :strict
+  }
+)
+
+# Multiple dimensions
+Canon::Comparison.equivalent?(html1, html2,
+  match: {
+    text_content: :normalize,
+    structural_whitespace: :ignore,
+    attribute_order: :ignore,
+    comments: :ignore
+  }
+)
+----
+====
+
+=== Using match profiles
+
+Match profiles are predefined combinations of match dimension settings.
+
+Syntax:
+
+[source,ruby]
+----
+Canon::Comparison.equivalent?(obj1, obj2,
+  match_profile: :profile_name
+)
+----
+
+Available profiles:
+
+`:strict`:: Exact matching - all dimensions use `:strict` behavior
+`:rendered`:: Mimics browser rendering - ignores formatting differences
+`:spec_friendly`:: Test-friendly - ignores most formatting, focuses on content
+`:content_only`:: Maximum tolerance - only semantic content matters
+
+.Match profile examples
+[example]
+====
+[source,ruby]
+----
+# Use spec_friendly profile (common for tests)
+Canon::Comparison.equivalent?(xml1, xml2,
+  match_profile: :spec_friendly
+)
+
+# Use rendered profile (for HTML)
+Canon::Comparison.equivalent?(html1, html2,
+  match_profile: :rendered
+)
+
+# Override profile with specific dimension
+Canon::Comparison.equivalent?(xml1, xml2,
+  match_profile: :spec_friendly,
+  match: {
+    comments: :strict  # Override profile setting
+  }
+)
+----
+====
+
+=== Verbose mode
+
+When `verbose: true` is specified, the method returns detailed comparison
+results instead of a boolean.
+
+Syntax:
+
+[source,ruby]
+----
+result = Canon::Comparison.equivalent?(obj1, obj2, verbose: true)
+----
+
+Returns:
+
+A Hash with two keys:
+
+`:differences`:: Array of difference objects (empty if equivalent)
+`:preprocessed`:: Two-element array of preprocessed documents
+
+.Verbose mode examples
+[example]
+====
+[source,ruby]
+----
+# Get detailed diff information
+result = Canon::Comparison.equivalent?(xml1, xml2, verbose: true)
+
+if result[:differences].empty?
+  puts "Documents are equivalent"
+else
+  puts "Found #{result[:differences].size} differences"
+  result[:differences].each do |diff|
+    puts "Difference: #{diff}"
+  end
+end
+
+# Access preprocessed content
+preprocessed1, preprocessed2 = result[:preprocessed]
+
+# Verbose with custom options
+result = Canon::Comparison.equivalent?(xml1, xml2,
+  verbose: true,
+  match: {
+    text_content: :normalize,
+    comments: :ignore
+  }
+)
+----
+====
+
+=== Format-specific comparators
+
+You can use format-specific comparator classes directly.
+
+Syntax:
+
+[source,ruby]
+----
+Canon::Comparison::XmlComparator.equivalent?(obj1, obj2, options)
+Canon::Comparison::HtmlComparator.equivalent?(obj1, obj2, options)
+Canon::Comparison::JsonComparator.equivalent?(obj1, obj2, options)
+Canon::Comparison::YamlComparator.equivalent?(obj1, obj2, options)
+----
+
+.Format-specific comparator examples
+[example]
+====
+[source,ruby]
+----
+# XML comparison with strict attribute order
+Canon::Comparison::XmlComparator.equivalent?(xml1, xml2,
+  match: {
+    attribute_order: :strict
+  }
+)
+
+# HTML comparison with rendered profile
+Canon::Comparison::HtmlComparator.equivalent?(html1, html2,
+  match_profile: :rendered
+)
+
+# JSON comparison ignoring key order
+Canon::Comparison::JsonComparator.equivalent?(json1, json2,
+  match: {
+    key_order: :ignore
+  }
+)
+----
+====
+
+== Validation
+
+Canon validates input before processing and raises `Canon::ValidationError`
+for malformed input.
+
+.Validation error handling
+[example]
+====
+[source,ruby]
+----
+require 'canon'
+
+malformed_xml = '<root><unclosed>'
+
+begin
+  Canon.format(malformed_xml, :xml)
+rescue Canon::ValidationError => e
+  puts e.message
+  # => XML Validation Error: Premature end of data in tag unclosed line 1
+  #    Line: 1
+  #    Column: 18
+
+  puts "Format: #{e.format}"     # => :xml
+  puts "Line: #{e.line}"          # => 1
+  puts "Column: #{e.column}"      # => 18
+end
+----
+====
+
+See link:INPUT_VALIDATION[Input validation] for details.
+
+== See also
+
+* link:CLI[Command-line interface]
+* link:RSPEC[RSpec matchers]
+* link:MATCH_OPTIONS[Match options reference]
+* link:FORMATS[Format support details]
+* link:INPUT_VALIDATION[Input validation]

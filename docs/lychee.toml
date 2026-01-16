@@ -14,7 +14,9 @@ recursive = true
 
 # File types to check
 include = [
-  "_site/**/*.html"
+  "_site/**/*.html",
+  "*.adoc",
+  "*.md"
 ]
 
 # Excluded paths
@@ -25,7 +27,9 @@ exclude = [
   "vendor",
   ".bundle",
   ".sass-cache",
-  ".jekyll-cache"
+  ".jekyll-cache",
+  "_site/.jekyll-cache",
+  "Gemfile.lock"
 ]
 
 # Link checking behavior
@@ -56,10 +60,13 @@ include_mail = false  # Don't check mailto: links
 max_concurrency = 10
 
 # Verbose output for debugging
-verbose = "info"
+verbose = "warn"
 
 # Require HTTPS where possible
 require_https = false  # Don't enforce
 
-# Index files
+# Index files for directory URLs
 index_files = ["index.html"]
+
+# Ignore patterns file
+ignore_file = ".lycheeignore"

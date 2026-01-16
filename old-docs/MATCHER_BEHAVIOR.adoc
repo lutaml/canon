@@ -1,0 +1,90 @@
+== Matcher behavior
+
+=== XML and HTML
+
+
+==== Normalize behavior
+
+When `comments: :normalize`, comment content is matched in a way where
+whitespace is trimmed and collapsed before comparison.
+
+.Example with normalized comments
+[example]
+[source,ruby]
+----
+xml1 = "<root><!--   comment   with   spaces   --><a>text</a></root>"
+xml2 = "<root><!-- comment with spaces --><a>text</a></root>"
+
+expect(xml1).to be_xml_equivalent_to(
+  xml2,
+  match_options: { comments: :normalize }
+)
+# => true (comments are normalized before comparison)
+----
+
+
+[[ignore_attr_order]]
+==== Ignore attribute order
+
+`ignore_attr_order: {true|false}` default: `true`
+
+When `true`, all attributes are sorted before comparison and only attributes of
+the same type are compared.
+
+Usage:
+
+[source,ruby]
+----
+Canon::Comparison.equivalent?(doc1, doc2, ignore_attr_order: true)
+----
+
+.HTML examples with ignore_attr_order
+[example]
+====
+When `true` the following HTML strings are considered equal:
+
+[source,html]
+----
+<a href="/admin" class="button" target="_blank">Link</a>
+<a class="button" target="_blank" href="/admin">Link</a>
+----
+
+[source,ruby]
+----
+html1 = '<a href="/admin" class="button" target="_blank">Link</a>'
+html2 = '<a class="button" target="_blank" href="/admin">Link</a>'
+Canon::Comparison.equivalent?(html1, html2, ignore_attr_order: true)
+# => true
+----
+
+When `false` attributes are compared in order:
+
+[source,ruby]
+----
+html1 = '<a href="/admin" class="button">Link</a>'
+html2 = '<a class="button" href="/admin">Link</a>'
+Canon::Comparison.equivalent?(html1, html2, ignore_attr_order: false)
+# => false
+----
+====
+
+.XML examples with ignore_attr_order
+[example]
+====
+When `true` the following XML strings are considered equal:
+
+[source,xml]
+----
+<item id="1" name="Widget" price="10.00"/>
+<item price="10.00" id="1" name="Widget"/>
+----
+
+[source,ruby]
+----
+xml1 = '<item id="1" name="Widget" price="10.00"/>'
+xml2 = '<item price="10.00" id="1" name="Widget"/>'
+Canon::Comparison.equivalent?(xml1, xml2, ignore_attr_order: true)
+# => true
+----
+====
+

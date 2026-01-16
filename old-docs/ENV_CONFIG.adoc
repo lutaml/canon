@@ -1,0 +1,876 @@
+= Environment Variable Configuration
+:toc:
+:toclevels: 3
+
+== General
+
+Canon supports configuration through environment variables, allowing you to override default settings and programmatically set values without modifying code. This is particularly useful for CI/CD pipelines, containerized environments, and different deployment scenarios.
+
+== Priority Chain
+
+Configuration values are resolved using the following priority (highest to lowest):
+
+. **Environment Variables** (highest priority)
+. **Programmatic Configuration** (via `Canon::Config`)
+. **Default Values** (lowest priority)
+
+This means environment variables always override programmatic settings, which in turn override defaults.
+
+== Naming Convention
+
+Environment variables follow a consistent naming pattern:
+
+[source]
+----
+CANON_{FORMAT}_{CONFIG_TYPE}_{ATTRIBUTE}
+----
+
+Where:
+
+* `FORMAT`: `XML`, `HTML`, `JSON`, `YAML`, or `STRING`
+* `CONFIG_TYPE`: `DIFF` or `MATCH`
+* `ATTRIBUTE`: The configuration attribute name (e.g., `ALGORITHM`, `MODE`, `PROFILE`)
+
+=== Global Variables
+
+You can also use global environment variables that apply to all formats by omitting the format prefix:
+
+[source]
+----
+CANON_{ATTRIBUTE}
+----
+
+Global variables are overridden by format-specific variables.
+
+== Diff Configuration
+
+=== Format-Specific Variables
+
+==== Algorithm Selection
+
+Canon supports two diff algorithms:
+
+* **`dom`**: DOM-based tree diff (default, stable)
+* **`semantic`**: Semantic tree diff (experimental, more sophisticated)
+
+[source,bash]
+----
+# Set algorithm for XML diff
+export CANON_XML_DIFF_ALGORITHM=semantic
+
+# Set algorithm for HTML diff
+export CANON_HTML_DIFF_ALGORITHM=dom
+
+# Set globally for all formats
+export CANON_ALGORITHM=semantic
+----
+
+**Testing/Debugging Use Case**:
+
+When comparing algorithm behavior in test suites:
+
+[source,bash]
+----
+# Test with DOM algorithm (baseline)
+CANON_ALGORITHM=dom bundle exec rspec
+
+# Test with semantic algorithm
+CANON_ALGORITHM=semantic bundle exec rspec
+
+# Format-specific (useful when formats behave differently)
+CANON_HTML_DIFF_ALGORITHM=dom CANON_XML_DIFF_ALGORITHM=dom bundle exec rspec
+----
+
+**RSpec Configuration**:
+
+In your `spec_helper.rb`, simply set the default algorithm:
+
+[source,ruby]
+----
+# Canon's ENV variables will automatically override this
+Canon::Config.instance.html.diff.algorithm = :semantic
+Canon::Config.instance.xml.diff.algorithm = :semantic
+----
+
+Then use ENV variables to override for specific test runs without modifying the spec_helper.
+
+Valid values: `dom`, `semantic`
+
+==== Diff Mode
+
+[source,bash]
+----
+# Set diff mode for JSON
+export CANON_JSON_DIFF_MODE=by_object
+
+# Set diff mode for YAML
+export CANON_YAML_DIFF_MODE=by_line
+----
+
+Valid values: `by_line`, `by_object`
+
+==== Color Output
+
+[source,bash]
+----
+# Disable color output for XML
+export CANON_XML_DIFF_USE_COLOR=false
+
+# Enable color output for HTML
+export CANON_HTML_DIFF_USE_COLOR=true
+----
+
+Valid values: `true`, `false`, `1`, `0`, `yes`, `no`
+
+==== Context Lines
+
+[source,bash]
+----
+# Set context lines for XML diff
+export CANON_XML_DIFF_CONTEXT_LINES=5
+----
+
+Valid values: Any positive integer
+
+==== Grouping Lines
+
+[source,bash]
+----
+# Set grouping lines for XML diff
+export CANON_XML_DIFF_GROUPING_LINES=20
+----
+
+Valid values: Any positive integer
+
+==== Show Diffs
+
+[source,bash]
+----
+# Show only informative diffs
+export CANON_XML_DIFF_SHOW_DIFFS=informative
+
+# Show all diffs
+export CANON_XML_DIFF_SHOW_DIFFS=all
+----
+
+Valid values: `all`, `informative`, `normative`
+
+==== Verbose Diff
+
+[source,bash]
+----
+# Enable verbose diff output
+export CANON_XML_DIFF_VERBOSE_DIFF=true
+----
+
+Valid values: `true`, `false`, `1`, `0`, `yes`, `no`
+
+==== Show Compare
+
+[source,bash]
+----
+# Enable side-by-side algorithm comparison
+export CANON_XML_DIFF_SHOW_COMPARE=true
+----
+
+Valid values: `true`, `false`, `1`, `0`, `yes`, `no`
+
+=== Global Diff Variables
+
+Apply to all formats unless overridden by format-specific variables:
+
+[source,bash]
+----
+# Set algorithm globally
+export CANON_ALGORITHM=semantic
+
+# Disable color globally
+export CANON_USE_COLOR=false
+
+# Set diff mode globally
+export CANON_MODE=by_object
+
+# Set context lines globally
+export CANON_CONTEXT_LINES=10
+
+# Set grouping lines globally
+export CANON_GROUPING_LINES=15
+
+# Set show_diffs globally
+export CANON_SHOW_DIFFS=informative
+
+# Enable verbose diff globally
+export CANON_VERBOSE_DIFF=true
+
+# Enable show_compare globally
+export CANON_SHOW_COMPARE=true
+----
+
+==== Size Limits
+
+Canon provides configurable size limits to prevent hangs or excessive resource usage when processing very large files.
+
+===== File Size Limit
+
+Maximum file size in bytes before comparison is rejected:
+
+[source,bash]
+----
+# Set max file size to 10MB for XML
+export CANON_XML_DIFF_MAX_FILE_SIZE=10485760
+
+# Set globally (5MB default)
+export CANON_MAX_FILE_SIZE=5242880
+----
+
+Valid values: Any positive integer (bytes)
+
+Default: 5,242,880 bytes (5MB)
+
+===== Node Count Limit
+
+Maximum number of nodes in a tree structure before comparison is rejected:
+
+[source,bash]
+----
+# Set max node count for XML diff
+export CANON_XML_DIFF_MAX_NODE_COUNT=20000
+
+# Set globally (10,000 default)
+export CANON_MAX_NODE_COUNT=10000
+----
+
+Valid values: Any positive integer
+
+Default: 10,000 nodes
+
+===== Diff Output Lines Limit
+
+Maximum number of lines in diff output before truncation:
+
+[source,bash]
+----
+# Set max diff lines for XML
+export CANON_XML_DIFF_MAX_DIFF_LINES=15000
+
+# Set globally (10,000 default)
+export CANON_MAX_DIFF_LINES=10000
+----
+
+Valid values: Any positive integer
+
+Default: 10,000 lines
+
+===== Use Case: Large SVG Files
+
+When working with large SVG files (e.g., 3.5MB) that may cause hangs:
+
+[source,bash]
+----
+# Increase limits for large SVG processing
+export CANON_MAX_FILE_SIZE=10485760      # 10MB
+export CANON_MAX_NODE_COUNT=50000        # 50,000 nodes
+export CANON_MAX_DIFF_LINES=20000        # 20,000 lines
+
+bundle exec rspec spec/test_031_spec.rb
+----
+
+===== Disabling Limits
+
+To disable a limit, set it to 0 or a negative value:
+
+[source,bash]
+----
+# Disable file size limit (not recommended)
+export CANON_MAX_FILE_SIZE=0
+
+# Disable node count limit (use with caution)
+export CANON_MAX_NODE_COUNT=-1
+----
+
+WARNING: Disabling limits may cause Canon to hang or consume excessive memory on pathologically large inputs.
+
+== Match Configuration
+
+=== Format-Specific Match Profile
+
+[source,bash]
+----
+# Set match profile for XML
+export CANON_XML_MATCH_PROFILE=ignore_whitespace
+
+# Set match profile for HTML
+export CANON_HTML_MATCH_PROFILE=strict
+----
+
+Valid values: Any match profile name (e.g., `ignore_whitespace`, `strict`, `semantic`)
+
+=== Global Match Profile
+
+[source,bash]
+----
+# Set match profile globally
+export CANON_PROFILE=ignore_whitespace
+----
+
+== Usage Examples
+
+=== Example 1: CI/CD Environment
+
+[source,bash]
+----
+# .github/workflows/test.yml or similar
+export CANON_USE_COLOR=false
+export CANON_ALGORITHM=semantic
+export CANON_SHOW_COMPARE=true
+
+bundle exec rspec
+----
+
+=== Example 2: Docker Container
+
+[source,dockerfile]
+----
+# Dockerfile
+ENV CANON_XML_DIFF_ALGORITHM=semantic
+ENV CANON_USE_COLOR=false
+ENV CANON_CONTEXT_LINES=5
+----
+
+=== Example 3: Different Environments
+
+[source,bash]
+----
+# Development
+export CANON_VERBOSE_DIFF=true
+export CANON_USE_COLOR=true
+
+# Production
+export CANON_VERBOSE_DIFF=false
+export CANON_USE_COLOR=false
+export CANON_XML_MATCH_PROFILE=strict
+----
+
+=== Example 4: Format-Specific Configuration
+
+[source,bash]
+----
+# XML uses semantic diff
+export CANON_XML_DIFF_ALGORITHM=semantic
+
+# HTML uses DOM diff
+export CANON_HTML_DIFF_ALGORITHM=dom
+
+# All formats disable color
+export CANON_USE_COLOR=false
+----
+
+== Programmatic Override
+
+Even when environment variables are set, you can check their values programmatically:
+
+[source,ruby]
+----
+# Environment variable is set
+ENV['CANON_XML_DIFF_ALGORITHM'] = 'semantic'
+
+# Config respects ENV variable
+config = Canon::Config.new
+puts config.xml.diff.algorithm  # => :semantic
+
+# Programmatic setting is ignored when ENV is set
+config.xml.diff.algorithm = :dom
+puts config.xml.diff.algorithm  # => :semantic (ENV wins)
+----
+
+== Type Conversion
+
+Environment variable values are automatically converted to the appropriate Ruby types:
+
+=== Boolean Values
+
+Accepted values for boolean attributes:
+
+* **True**: `true`, `1`, `yes`
+* **False**: `false`, `0`, `no`
+
+Case-insensitive.
+
+=== Integer Values
+
+Any valid integer string is converted to an integer:
+
+[source,bash]
+----
+export CANON_CONTEXT_LINES=15  # Converted to Integer 15
+----
+
+=== Symbol Values
+
+String values are converted to symbols:
+
+[source,bash]
+----
+export CANON_ALGORITHM=semantic  # Converted to Symbol :semantic
+----
+
+== Backward Compatibility
+
+The ENV override system maintains full backward compatibility with existing configuration methods:
+
+[source,ruby]
+----
+# Traditional configuration still works
+Canon::Config.configure do |config|
+  config.xml.diff.algorithm = :semantic
+end
+
+# ENV can override
+ENV['CANON_XML_DIFF_ALGORITHM'] = 'dom'
+config = Canon::Config.new
+puts config.xml.diff.algorithm  # => :dom
+----
+
+== Complete Variable Reference
+
+=== Diff Configuration Variables
+
+[cols="1,2,1"]
+|===
+|Variable Pattern |Description |Type
+
+|`CANON_{FORMAT}_DIFF_MODE`
+|Diff output mode
+|Symbol (`:by_line`, `:by_object`)
+
+|`CANON_{FORMAT}_DIFF_USE_COLOR`
+|Enable/disable colored output
+|Boolean
+
+|`CANON_{FORMAT}_DIFF_CONTEXT_LINES`
+|Number of context lines
+|Integer
+
+|`CANON_{FORMAT}_DIFF_GROUPING_LINES`
+|Number of grouping lines
+|Integer
+
+|`CANON_{FORMAT}_DIFF_SHOW_DIFFS`
+|Which diffs to show
+|Symbol (`:all`, `:informative`, `:normative`)
+
+|`CANON_{FORMAT}_DIFF_VERBOSE_DIFF`
+|Enable verbose output
+|Boolean
+
+|`CANON_{FORMAT}_DIFF_ALGORITHM`
+|Diff algorithm to use
+|Symbol (`:dom`, `:semantic`)
+
+|`CANON_{FORMAT}_DIFF_SHOW_COMPARE`
+|Show algorithm comparison
+|Boolean
+
+|`CANON_{FORMAT}_DIFF_MAX_FILE_SIZE`
+|Maximum file size in bytes
+|Integer (default: 5,242,880)
+
+|`CANON_{FORMAT}_DIFF_MAX_NODE_COUNT`
+|Maximum tree node count
+|Integer (default: 10,000)
+
+|`CANON_{FORMAT}_DIFF_MAX_DIFF_LINES`
+|Maximum diff output lines
+|Integer (default: 10,000)
+|===
+
+=== Match Configuration Variables
+
+[cols="1,2,1"]
+|===
+|Variable Pattern |Description |Type
+
+|`CANON_{FORMAT}_MATCH_PROFILE`
+|Match profile to use
+|Symbol
+|===
+
+=== Global Variables
+
+Replace `{FORMAT}_DIFF_` or `{FORMAT}_MATCH_` with just the attribute name:
+
+[source,bash]
+----
+CANON_ALGORITHM=semantic
+CANON_USE_COLOR=false
+CANON_PROFILE=strict
+CANON_MAX_FILE_SIZE=5242880
+CANON_MAX_NODE_COUNT=10000
+CANON_MAX_DIFF_LINES=10000
+----
+
+== Troubleshooting
+
+=== ENV Variable Not Taking Effect
+
+Check the priority chain. If a programmatic value seems to override ENV, verify:
+
+. The ENV variable is set before creating the Config instance
+. The variable name follows the correct naming convention
+. The value is valid for the attribute type
+
+=== Type Conversion Errors
+
+If you encounter type conversion errors:
+
+. Check that boolean values use accepted strings (`true`, `false`, `1`, `0`, `yes`, `no`)
+. Ensure integer values are valid integers
+. Verify symbol values don't contain special characters
+
+=== Debugging
+
+You can inspect the resolver to see which values are from ENV:
+
+[source,ruby]
+----
+config = Canon::Config.new
+resolver = config.xml.diff.instance_variable_get(:@resolver)
+
+puts "ENV values: #{resolver.env.inspect}"
+puts "Programmatic values: #{resolver.programmatic.inspect}"
+puts "Defaults: #{resolver.defaults.inspect}"
+puts "Source of algorithm: #{resolver.source_for(:algorithm)}"
+
+== Troubleshooting Semantic Tree Algorithm
+
+When using the semantic tree diff algorithm (`CANON_ALGORITHM=semantic`), you may encounter specific issues. This section provides solutions for common problems.
+
+=== Algorithm Not Taking Effect
+
+**Symptom:**
+
+Output shows traditional line-by-line diff instead of operation-level analysis.
+
+**Solutions:**
+
+1. Verify environment variable is set correctly:
++
+[source,bash]
+----
+echo $CANON_ALGORITHM
+----
++
+Should output: `semantic`
+
+2. Ensure `verbose: true` is set to see operations:
++
+[source,ruby]
+----
+result = Canon::Comparison.equivalent?(doc1, doc2,
+  verbose: true,  # Required for operations
+  diff_algorithm: :semantic
+)
+----
+
+3. Check that ENV variable is set before creating Config instance:
++
+[source,ruby]
+----
+ENV['CANON_ALGORITHM'] = 'semantic'  # Set before requiring Canon
+require 'canon'
+----
+
+=== Performance Issues / Hangs
+
+**Symptom:**
+
+Comparison hangs, takes very long, or consumes excessive memory.
+
+**Cause:**
+
+The semantic tree diff has O(n²) complexity in similarity matching phase. Large documents (>10,000 nodes) can be slow.
+
+**Solutions:**
+
+1. Increase size limits to check if document exceeds defaults:
++
+[source,bash]
+----
+export CANON_MAX_NODE_COUNT=20000
+export CANON_MAX_FILE_SIZE=10485760
+bundle exec rspec
+----
+
+2. Disable expensive matching phases:
++
+[source,ruby]
+----
+Canon::Comparison.equivalent?(doc1, doc2,
+  diff_algorithm: :semantic,
+  match: {
+    similarity_matching: false,  # Skip if exact matches suffice
+    propagation: false            # Skip propagation
+  }
+)
+----
+
+3. Switch to DOM diff for large files:
++
+[source,bash]
+----
+export CANON_ALGORITHM=dom
+----
++
+Or conditionally in code:
++
+[source,ruby]
+----
+algorithm = node_count > 5000 ? :dom : :semantic
+Canon::Comparison.equivalent?(doc1, doc2, diff_algorithm: algorithm)
+----
+
+4. Increase similarity threshold to reduce candidates:
++
+[source,bash]
+----
+export CANON_XML_MATCH_SIMILARITY_THRESHOLD=0.98
+----
+
+=== Too Many False Matches
+
+**Symptom:**
+
+Unrelated nodes are matched together, causing incorrect UPDATE operations instead of INSERT/DELETE.
+
+**Cause:**
+
+Similarity threshold too low (too lenient).
+
+**Solutions:**
+
+1. Increase similarity threshold:
++
+[source,ruby]
+----
+Canon::Comparison.equivalent?(doc1, doc2,
+  diff_algorithm: :semantic,
+  match: {
+    similarity_threshold: 0.98  # Was 0.95, now stricter
+  }
+)
+----
+
+2. Disable similarity matching to use only exact matches:
++
+[source,ruby]
+----
+Canon::Comparison.equivalent?(doc1, doc2,
+  diff_algorithm: :semantic,
+  match: {
+    similarity_matching: false  # Only hash-based exact matches
+  }
+)
+----
+
+=== Too Few Matches / Missing MOVE Operations
+
+**Symptom:**
+
+Similar content shows as DELETE + INSERT instead of UPDATE or MOVE. Match rate is low in statistics.
+
+**Cause:**
+
+Similarity threshold too high (too strict).
+
+**Solutions:**
+
+1. Decrease similarity threshold:
++
+[source,ruby]
+----
+Canon::Comparison.equivalent?(doc1, doc2,
+  diff_algorithm: :semantic,
+  match: {
+    similarity_threshold: 0.85  # Was 0.95, now more lenient
+  }
+)
+----
+
+2. Ensure all matching phases are enabled:
++
+[source,ruby]
+----
+Canon::Comparison.equivalent?(doc1, doc2,
+  diff_algorithm: :semantic,
+  match: {
+    hash_matching: true,
+    similarity_matching: true,
+    propagation: true
+  }
+)
+----
+
+3. Use preprocessing to normalize content:
++
+[source,ruby]
+----
+Canon::Comparison.equivalent?(doc1, doc2,
+  diff_algorithm: :semantic,
+  preprocessing: :c14n  # Normalize before comparison
+)
+----
+
+=== Metadata Elements Not Treated as Informative
+
+**Symptom:**
+
+Changes to `semx`, `fmt-*`, `autonum` elements are marked as normative (must-fix) instead of informative.
+
+**Cause:**
+
+Element not in metadata elements list.
+
+**Solutions:**
+
+1. Verify element is in the metadata list (see link:SEMANTIC_TREE_DIFF.adoc#metadata-elements[SEMANTIC_TREE_DIFF.adoc]).
+
+2. Use match dimensions to ignore specific changes:
++
+[source,ruby]
+----
+Canon::Comparison.equivalent?(doc1, doc2,
+  diff_algorithm: :semantic,
+  match: {
+    text_content: :ignore  # All text differences → informative
+  }
+)
+----
+
+=== Whitespace Differences in `<pre>` or `<code>` Elements
+
+**Symptom:**
+
+Documents with identical semantic content fail due to whitespace differences in preformatted blocks.
+
+**Cause:**
+
+Whitespace is preserved in whitespace-sensitive elements (`pre`, `code`, `textarea`, `script`, `style`).
+
+**Solutions:**
+
+This is by design - whitespace in these elements is semantically significant. To ignore:
+
+1. Normalize whitespace before comparison:
++
+[source,ruby]
+----
+def normalize_pre_whitespace(xml)
+  doc = Nokogiri::XML(xml)
+  doc.css('pre, code').each do |elem|
+    elem.content = elem.content.strip.gsub(/\s+/, ' ')
+  end
+  doc.to_xml
+end
+
+normalized1 = normalize_pre_whitespace(doc1)
+normalized2 = normalize_pre_whitespace(doc2)
+
+Canon::Comparison.equivalent?(normalized1, normalized2,
+  diff_algorithm: :semantic
+)
+----
+
+2. Or ignore text content differences globally:
++
+[source,ruby]
+----
+Canon::Comparison.equivalent?(doc1, doc2,
+  diff_algorithm: :semantic,
+  match: {
+    text_content: :ignore  # Ignore all text differences
+  }
+)
+----
+
+=== File Size / Node Count Limit Exceeded
+
+**Symptom:**
+
+Error message: "File size exceeds maximum limit" or "Node count exceeds maximum limit"
+
+**Cause:**
+
+Document exceeds configured size limits (default: 5MB file size, 10,000 nodes).
+
+**Solutions:**
+
+1. Increase limits via environment variables:
++
+[source,bash]
+----
+export CANON_MAX_FILE_SIZE=10485760      # 10MB
+export CANON_MAX_NODE_COUNT=50000        # 50,000 nodes
+export CANON_MAX_DIFF_LINES=20000        # 20,000 lines output
+bundle exec rspec
+----
+
+2. Disable limits (not recommended):
++
+[source,bash]
+----
+export CANON_MAX_FILE_SIZE=0
+export CANON_MAX_NODE_COUNT=-1
+----
++
+WARNING: Disabling limits may cause hangs on pathologically large files.
+
+3. Use DOM diff for oversized files:
++
+[source,ruby]
+----
+algorithm = file_size > 5_242_880 ? :dom : :semantic
+Canon::Comparison.equivalent?(doc1, doc2, diff_algorithm: algorithm)
+----
+
+=== Debugging Algorithm Selection
+
+To verify which algorithm is being used:
+
+[source,ruby]
+----
+config = Canon::Config.instance
+puts "XML algorithm: #{config.xml.diff.algorithm}"
+puts "HTML algorithm: #{config.html.diff.algorithm}"
+
+result = Canon::Comparison.equivalent?(doc1, doc2, verbose: true)
+puts "Used algorithm: #{result.match_options[:diff_algorithm]}"
+puts "Tree diff enabled: #{result.match_options[:tree_diff_enabled]}"
+----
+
+=== Getting Help
+
+If issues persist:
+
+1. Check the link:SEMANTIC_TREE_DIFF.adoc[SEMANTIC_TREE_DIFF.adoc] documentation
+2. Review link:TREE_DIFF.adoc[TREE_DIFF.adoc] for operation details
+3. Enable verbose output to inspect operations:
++
+[source,ruby]
+----
+result = Canon::Comparison.equivalent?(doc1, doc2,
+  verbose: true,
+  diff_algorithm: :semantic
+)
+
+result.operations.each do |op|
+  puts "#{op.type}: #{op.inspect}"
+end
+
+stats = result.match_options[:tree_diff_statistics]
+puts "Match rate: #{stats[:match_rate]}"
+puts "Total operations: #{result.operations.size}"
+----
+
+4. Compare with DOM diff output to identify algorithm-specific issues
+5. Report bugs at https://github.com/lutaml/canon/issues
+----

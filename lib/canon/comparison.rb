@@ -316,8 +316,8 @@ module Canon
           if %i[html html4 html5].include?(opts[:format])
             obj1 = parse_html(obj1, opts[:format]) if obj1.is_a?(String)
             obj2 = parse_html(obj2, opts[:format]) if obj2.is_a?(String)
-            # Normalize html4/html5 to html for comparison
-            format1 = format2 = :html
+            # Note: We preserve html4/html5 format instead of normalizing to :html
+            # This allows HtmlComparator to use the correct parsing behavior
           end
         else
           format1 = detect_format(obj1)
@@ -357,7 +357,7 @@ module Canon
         case comparison_format
         when :xml
           XmlComparator.equivalent?(obj1, obj2, opts)
-        when :html
+        when :html, :html4, :html5
           HtmlComparator.equivalent?(obj1, obj2, opts)
         when :json
           JsonComparator.equivalent?(obj1, obj2, opts)
@@ -366,25 +366,63 @@ module Canon
         end
       end
 
-      # Parse HTML string into Nokogiri document
+      # Parse HTML string into Nokogiri document with the correct parser
       #
       # @param content [String, Object] Content to parse (returns as-is if not a string)
       # @param format [Symbol] HTML format (:html, :html4, :html5)
       # @return [Nokogiri::HTML::Document, Nokogiri::HTML5::Document, Nokogiri::HTML::DocumentFragment, Object]
-      def parse_html(content, _format)
+      def parse_html(content, format)
         return content unless content.is_a?(String)
-        return content if content.is_a?(Nokogiri::HTML::Document) ||
-          content.is_a?(Nokogiri::HTML5::Document) ||
-          content.is_a?(Nokogiri::XML::Document) ||
-          content.is_a?(Nokogiri::HTML::DocumentFragment) ||
-          content.is_a?(Nokogiri::HTML5::DocumentFragment) ||
-          content.is_a?(Nokogiri::XML::DocumentFragment)
+        return content if already_parsed_html?(content)
 
-        # Let HtmlComparator's parse_node handle parsing with preprocessing
-        # For now, just return the string and let it be parsed by HtmlComparator
-        content
-      rescue StandardError
-        content
+        begin
+          case format
+          when :html5
+            Nokogiri::HTML5.fragment(content)
+          when :html4
+            Nokogiri::HTML4.fragment(content)
+          when :html
+            detect_and_parse_html(content)
+          else
+            content
+          end
+        rescue StandardError
+          # Fallback to raw string if parsing fails (maintains backward compatibility)
+          content
+        end
+      end
+
+      # Check if content is already a parsed HTML document/fragment
+      #
+      # @param content [Object] Content to check
+      # @return [Boolean] true if already parsed
+      def already_parsed_html?(content)
+        content.is_a?(Nokogiri::HTML::Document) ||
+          content.is_a?(Nokogiri::HTML5::Document) ||
+          content.is_a?(Nokogiri::HTML::DocumentFragment) ||
+          content.is_a?(Nokogiri::HTML5::DocumentFragment)
+      end
+
+      # Detect HTML version from content and parse with appropriate parser
+      #
+      # @param content [String] HTML content to parse
+      # @return [Nokogiri::HTML::DocumentFragment] Parsed fragment
+      def detect_and_parse_html(content)
+        version = detect_html_version(content)
+        if version == :html5
+          Nokogiri::HTML5.fragment(content)
+        else
+          Nokogiri::HTML4.fragment(content)
+        end
+      end
+
+      # Detect HTML version from content string
+      #
+      # @param content [String] HTML content
+      # @return [Symbol] :html5 or :html4
+      def detect_html_version(content)
+        # Check for HTML5 DOCTYPE (case-insensitive)
+        content.include?("<!DOCTYPE html>") ? :html5 : :html4
       end
 
       # Detect the format of an object

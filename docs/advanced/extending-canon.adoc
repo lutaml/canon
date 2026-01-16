@@ -1,0 +1,193 @@
+---
+title: Extending Canon
+parent: Advanced
+nav_order: 8
+---
+= Extending Canon
+
+== Purpose
+
+This document explains how to extend Canon with custom functionality, including creating custom comparators, formatters, and adapters for different document formats.
+
+== Overview
+
+Canon is designed to be extensible at multiple layers:
+
+* **Layer 1**: Custom preprocessing/normalization
+* **Layer 2**: Custom comparison algorithms
+* **Layer 3**: Custom match options and dimensions
+* **Layer 4**: Custom diff formatters and renderers
+
+== Adapter Pattern
+
+Canon uses an adapter pattern to work with different parsing libraries (Nokogiri, Moxml, etc.).
+
+=== Adapter Structure
+
+[source,ruby]
+----
+module Canon
+  module Adapters
+    class NokogiriAdapter
+      def parse(input)
+        # Parse with Nokogiri
+        Nokogiri::XML(input)
+      end
+
+      def serialize(node)
+        # Serialize with Nokogiri
+        node.to_xml
+      end
+    end
+  end
+end
+----
+
+=== Creating a Custom Adapter
+
+To add support for a new parsing library:
+
+1. Create an adapter class that implements `parse` and `serialize` methods
+2. Register the adapter with the format system
+3. Add tests for the new adapter
+
+== Custom Comparators
+
+=== Creating a Custom Comparison Algorithm
+
+[source,ruby]
+----
+module Canon
+  module Comparison
+    class CustomComparator < BaseComparator
+      def compare(node1, node2, opts)
+        # Your comparison logic here
+        differences = []
+
+        # Your algorithm implementation
+
+        differences
+      end
+    end
+  end
+end
+----
+
+=== Registering Your Algorithm
+
+[source,ruby]
+----
+Canon::Comparison.register_algorithm(:custom, CustomComparator)
+----
+
+Then use it:
+
+[source,ruby]
+----
+Canon::Comparison.equivalent?(doc1, doc2, diff_algorithm: :custom)
+----
+
+== Custom Formatters
+
+=== Creating a Custom Diff Formatter
+
+[source,ruby]
+----
+module Canon
+  class DiffFormatter
+    class CustomFormatter
+      def format(differences, opts)
+        # Your formatting logic here
+        formatted_output = ""
+
+        differences.each do |diff|
+          formatted_output += format_difference(diff, opts)
+        end
+
+        formatted_output
+      end
+    end
+  end
+end
+----
+
+=== Using Your Formatter
+
+[source,ruby]
+----
+result = Canon::Comparison.equivalent?(doc1, doc2, verbose: true)
+
+formatter = Canon::DiffFormatter::CustomFormatter.new
+output = formatter.format(result.differences, use_color: true)
+puts output
+----
+
+== Custom Match Options
+
+=== Defining Custom Dimensions
+
+[source,ruby]
+----
+module Canon
+  module Comparison
+    class CustomDimension
+      def self.key
+        :custom_dimension
+      end
+
+      def self.compare(node1, node2, behavior, opts)
+        # Your comparison logic for this dimension
+        case behavior
+        when :strict
+          node1 == node2
+        when :normalize
+          normalize(node1) == normalize(node2)
+        when :ignore
+          true
+        end
+      end
+    end
+  end
+end
+----
+
+Register your dimension:
+
+[source,ruby]
+----
+Canon::Comparison.register_dimension(CustomDimension)
+----
+
+== Best Practices
+
+=== Testing Your Extensions
+
+1. Write comprehensive tests for your extensions
+2. Use the existing test helpers and fixtures
+3. Test edge cases and error conditions
+
+=== Performance Considerations
+
+1. Cache expensive computations
+2. Use lazy evaluation where appropriate
+3. Avoid unnecessary node cloning
+
+=== Error Handling
+
+1. Provide clear error messages
+2. Use Canon's error classes consistently
+3. Document error conditions
+
+== Examples
+
+See the source code for examples of:
+
+* link:xml-comparator[DOM Comparator implementation]
+* link:semantic-tree-diff-internals[Semantic Diff implementation]
+* link:diff-formatting/[Diff Formatter implementations]
+
+== See Also
+
+* link:../understanding/architecture.adoc[Architecture] - 4-layer architecture overview
+* link:../features/diff-formatting/[Diff Formatting] - Layer 4 rendering options
+* link:diff-pipeline[Comparison Pipeline] - Technical pipeline details

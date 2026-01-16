@@ -1,0 +1,26 @@
+# Lychee ignore patterns
+# These link types are valid but lychee can't verify them
+
+# Ignore directory links (handled by web servers with index.html)
+# Asciidoc/Jekyll creates directories with index.html files
+_site/**/
+
+# Ignore asciidoc source file links without extensions
+# These are resolved by the asciidoc processor, not the file system
+*/extending-canon
+*/verbose-mode-architecture
+
+# Ignore GitHub-specific links
+https://github.com/*/*/edit/*
+https://github.com/*/*/blob/*
+
+# Ignore anchor-only links (same-page navigation)
+#*
+
+# Ignore mailto links
+mailto:*
+
+# Ignore localhost links for development
+http://localhost:*
+http://127.0.0.1:*
+http://0.0.0.0:*

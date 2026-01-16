@@ -1,0 +1,435 @@
+---
+layout: default
+title: Diff Architecture
+nav_order: 43
+parent: Advanced Topics
+---
+= Canon Diff Architecture
+:toc:
+:toclevels: 3
+
+== Overview
+
+Canon's diff system follows a strict separation of concerns with each layer having a single, well-defined responsibility. This document describes the complete architecture from comparison through formatting.
+
+== Architecture Layers
+
+[source]
+----
+┌─────────────────────────────────────────────────────────────────────────┐
+│                         LAYER 1: COMPARISON                              │
+│                      Creates Semantic Differences                        │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  Input: Two documents (doc1, doc2)                                      │
+│  Process: XmlComparator.equivalent?(doc1, doc2, options)                │
+│  Output: DiffNode[]                                                     │
+│                                                                          │
+│  ┌────────────────────────────────────────────────────────────┐         │
+│  │ DiffNode                                                    │         │
+│  │ ────────                                                    │         │
+│  │ • node1: Element from doc1                                 │         │
+│  │ • node2: Element from doc2                                 │         │
+│  │ • dimension: :text_content, :attribute_whitespace, etc     │         │
+│  │ • reason: "7 vs 9" or descriptive text                     │         │
+│  │ • normative: nil (to be classified)                           │         │
+│  └────────────────────────────────────────────────────────────┘         │
+│                                                                          │
+│  Then: DiffClassifier.classify_all(diff_nodes, match_options)          │
+│        Sets normative=true/false based on match dimension behavior         │
+│                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘
+                                    ↓
+┌─────────────────────────────────────────────────────────────────────────┐
+│                    LAYER 2: MAPPING (DiffNodes → Lines)                  │
+│                   Maps Semantic Diffs to Text Lines                      │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  Input: DiffNode[], text1, text2                                        │
+│  Process: DiffNodeMapper.map_to_lines(diff_nodes, text1, text2)        │
+│  Output: DiffLine[]                                                     │
+│                                                                          │
+│  ┌────────────────────────────────────────────────────────────┐         │
+│  │ DiffLine                                                    │         │
+│  │ ────────                                                    │         │
+│  │ • line_number: Integer                                      │         │
+│  │ • content: String (the line text)                          │         │
+│  │ • type: :unchanged, :added, :removed, :changed             │         │
+│  │ • diff_node: DiffNode reference                            │         │
+│  │ • normative?: boolean (inherited from diff_node)              │         │
+│  └────────────────────────────────────────────────────────────┘         │
+│                                                                          │
+│  How it works:                                                          │
+│  1. Run text diff (Diff::LCS) on original text                         │
+│  2. For each changed line, find corresponding DiffNode                  │
+│  3. Create DiffLine linking line ↔ DiffNode                            │
+│  4. Inherit normative/informative from DiffNode                               │
+│                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘
+                                    ↓
+┌─────────────────────────────────────────────────────────────────────────┐
+│                   LAYER 3: BLOCKING (DiffLines → DiffBlocks)             │
+│                   Groups Contiguous Changed Lines                        │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  Input: DiffLine[]                                                      │
+│  Process: DiffBlockBuilder.build_blocks(diff_lines, show_diffs)        │
+│  Output: DiffBlock[]                                                    │
+│                                                                          │
+│  ┌────────────────────────────────────────────────────────────┐         │
+│  │ DiffBlock                                                   │         │
+│  │ ─────────                                                   │         │
+│  │ • start_idx: Integer                                        │         │
+│  │ • end_idx: Integer                                          │         │
+│  │ • types: ['-', '+', '!']                                    │         │
+│  │ • diff_lines: DiffLine[]                                    │         │
+│  │ • diff_node: DiffNode (if all lines from same node)        │         │
+│  │ • normative?: true if ANY diff_line is normative                 │         │
+│  └────────────────────────────────────────────────────────────┘         │
+│                                                                          │
+│  Filtering:                                                             │
+│  • show_diffs: :normative  → keep only blocks with normative?=true           │
+│  • show_diffs: :informative → keep only blocks with normative?=false         │
+│  • show_diffs: :all     → keep all blocks                              │
+│                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘
+                                    ↓
+┌─────────────────────────────────────────────────────────────────────────┐
+│                LAYER 4: CONTEXTING (DiffBlocks → DiffContexts)           │
+│                  Adds Surrounding Context Lines                          │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  Input: DiffBlock[], context_lines, grouping_lines                     │
+│  Process: DiffContextBuilder.build_contexts(blocks, options)           │
+│  Output: DiffContext[]                                                  │
+│                                                                          │
+│  ┌────────────────────────────────────────────────────────────┐         │
+│  │ DiffContext                                                 │         │
+│  │ ───────────                                                 │         │
+│  │ • start_idx: Integer (includes context before)             │         │
+│  │ • end_idx: Integer (includes context after)                │         │
+│  │ • blocks: DiffBlock[]                                       │         │
+│  └────────────────────────────────────────────────────────────┘         │
+│                                                                          │
+│  Process:                                                               │
+│  1. Group blocks by proximity (grouping_lines)                         │
+│  2. Expand each group with context_lines before/after                  │
+│  3. Create DiffContext for each group                                   │
+│                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘
+                                    ↓
+┌─────────────────────────────────────────────────────────────────────────┐
+│                    LAYER 5: REPORTING (Wrap in DiffReport)               │
+│                      Top-Level Container                                 │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  Input: DiffContext[], metadata                                         │
+│  Process: DiffReportBuilder.build(diff_nodes, text1, text2, opts)      │
+│  Output: DiffReport                                                     │
+│                                                                          │
+│  ┌────────────────────────────────────────────────────────────┐         │
+│  │ DiffReport                                                  │         │
+│  │ ──────────                                                  │         │
+│  │ • element_name: String                                      │         │
+│  │ • file1_name: String                                        │         │
+│  │ • file2_name: String                                        │         │
+│  │ • contexts: DiffContext[]                                   │         │
+│  │ • has_differences?: boolean                                 │         │
+│  └────────────────────────────────────────────────────────────┘         │
+│                                                                          │
+│  This is the SINGLE source of truth for what to display                │
+│                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘
+                                    ↓
+┌─────────────────────────────────────────────────────────────────────────┐
+│                    LAYER 6: FORMATTING (Render to String)                │
+│                          Display Only                                    │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  Input: DiffReport                                                      │
+│  Process: Formatter.format(diff_report)                                 │
+│  Output: Formatted string                                               │
+│                                                                          │
+│  Formatters:                                                            │
+│  • ByLine::HtmlFormatter - HTML with DOM-aware display                 │
+│  • ByLine::XmlFormatter  - XML with token highlighting                 │
+│  • ByLine::JsonFormatter - JSON pretty-printed                         │
+│  • ByObject::XmlFormatter - Tree visualization                         │
+│                                                                          │
+│  Formatter responsibilities:                                            │
+│  • Render DiffContext objects                                          │
+│  • Apply visualization (colors, symbols)                                │
+│  • Format line numbers                                                  │
+│  • NO comparison, NO filtering, NO business logic                       │
+│                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘
+----
+
+== Data Flow Example
+
+=== Example: Attribute Order Difference (Normalized Away)
+
+[source]
+----
+Input:
+  doc1: <div class="TOC" id="_">Content</div>
+  doc2: <div id="_" class="TOC">Content</div>
+
+Layer 1 - Comparison:
+  XmlComparator compares → NO DiffNode created
+  (attributes normalized, so equivalent)
+
+Layer 2 - Mapping:
+  DiffNodeMapper receives empty DiffNode[]
+  No DiffLines created
+
+Layer 3 - Blocking:
+  DiffBlockBuilder receives empty DiffLine[]
+  No DiffBlocks created
+
+Layer 4 - Contexting:
+  DiffContextBuilder receives empty DiffBlock[]
+  No DiffContexts created
+
+Layer 5 - Reporting:
+  DiffReport(contexts: [])
+  has_differences? → false
+
+Layer 6 - Formatting:
+  Formatter sees empty contexts
+  Returns empty string (no diff to show)
+----
+
+=== Example: Real Text Difference
+
+[source]
+----
+Input:
+  doc1: <p>Test 1</p>
+  doc2: <p>Test 2</p>
+
+Layer 1 - Comparison:
+  XmlComparator finds text differs
+  Creates: DiffNode(dimension: :text_content, normative: true)
+
+Layer 2 - Mapping:
+  DiffNodeMapper maps to text lines
+  Creates: DiffLine(type: :changed, diff_node: DiffNode, normative: true)
+
+Layer 3 - Blocking:
+  DiffBlockBuilder groups lines
+  Creates: DiffBlock(diff_lines: [DiffLine], normative: true)
+  With show_diffs: :normative → keeps this block
+
+Layer 4 - Contexting:
+  DiffContextBuilder adds context
+  Creates: DiffContext(blocks: [DiffBlock], start_idx: 0, end_idx: 2)
+
+Layer 5 - Reporting:
+  DiffReport(contexts: [DiffContext])
+  has_differences? → true
+
+Layer 6 - Formatting:
+  Formatter renders:
+    1|  - | <p>Test 1</p>
+     | 1+ | <p>Test 2</p>
+----
+
+=== Example: Mixed Normative and Informative Diffs
+
+[source]
+----
+Input:
+  doc1: <div class="foo" id="x"><p>Old</p></div>
+  doc2: <div id="x" class="foo"><p>New</p></div>
+
+Layer 1 - Comparison:
+  • Attribute order normalized → NO DiffNode for <div>
+  • Text differs → DiffNode(dimension: :text_content) for <p>
+  Result: 1 DiffNode (normative)
+
+Layer 2 - Mapping:
+  Maps <p> text difference to line 1
+  Creates: 1 DiffLine for <p> change
+  <div> line has NO DiffLine (no DiffNode for it)
+
+Layer 3 - Blocking:
+  Creates: 1 DiffBlock for <p> line
+
+Layer 4 - Contexting:
+  Creates: 1 DiffContext (might include <div> line as context)
+
+Layer 6 - Formatting:
+  Shows only <p> change:
+    1|  - | <p>Old</p>
+     | 1+ | <p>New</p>
+
+  Does NOT show <div> with attribute order diff ✓
+----
+
+== Class Responsibilities
+
+=== Comparison Layer
+
+**XmlComparator**::
+  **Single Responsibility**: Compare DOM nodes semantically
+  **Creates**: DiffNode objects for semantic differences
+  **Does NOT**: Handle text lines, formatting, filtering
+
+**DiffClassifier**::
+  **Single Responsibility**: Classify DiffNodes as normative/informative
+  **Input**: DiffNode[], MatchOptions
+  **Output**: Same DiffNodes with `normative` set
+  **Logic**: normative = (dimension behavior != :ignore)
+
+=== Mapping Layer
+
+**DiffNodeMapper** (ENHANCE)::
+  **Single Responsibility**: Map semantic diffs to text line positions
+  **Input**: DiffNode[], text1, text2
+  **Output**: DiffLine[]
+  **Process**:
+  1. Run Diff::LCS.sdiff on text
+  2. For each changed line, find owning DiffNode
+  3. Create DiffLine linking line ↔ DiffNode
+  4. Inherit normative/informative from DiffNode
+
+=== Processing Layer
+
+**DiffBlockBuilder** (NEW)::
+  **Single Responsibility**: Group contiguous DiffLines into blocks
+  **Input**: DiffLine[], show_diffs option
+  **Output**: DiffBlock[]
+  **Process**:
+  1. Identify runs of changed lines
+  2. Create DiffBlock for each run
+  3. Set block.normative based on diff_lines
+  4. Filter blocks by show_diffs
+
+**DiffContextBuilder** (NEW)::
+  **Single Responsibility**: Add context lines around blocks
+  **Input**: DiffBlock[], context_lines, grouping_lines
+  **Output**: DiffContext[]
+  **Process**:
+  1. Group nearby blocks (within grouping_lines)
+  2. Expand each group with context_lines
+  3. Create DiffContext for each group
+
+**DiffReportBuilder** (NEW)::
+  **Single Responsibility**: Orchestrate the pipeline
+  **Input**: DiffNode[], text1, text2, options
+  **Output**: DiffReport
+  **Process**:
+  1. DiffNodeMapper → DiffLines
+  2. DiffBlockBuilder → DiffBlocks
+  3. DiffContextBuilder → DiffContexts
+  4. Wrap in DiffReport
+
+=== Formatting Layer
+
+**Formatters** (REFACTOR)::
+  **Single Responsibility**: Render DiffReport to string
+  **Input**: DiffReport (NOT raw text!)
+  **Output**: Formatted string
+  **Does**: Apply colors, line numbers, visualization
+  **Does NOT**: Compare, map, filter, or create blocks
+
+== Key Principles
+
+=== Single Responsibility
+
+Each class does ONE thing:
+- **Comparator**: Compares → DiffNodes
+- **Mapper**: Maps nodes → lines
+- **BlockBuilder**: Groups lines → blocks
+- **ContextBuilder**: Adds context → contexts
+- **ReportBuilder**: Orchestrates pipeline
+- **Formatter**: Renders report → string
+
+=== Separation of Concerns
+
+**Business Logic** (Comparison, Mapping, Blocking):
+- Lives in `lib/canon/diff/` and `lib/canon/comparison/`
+- No knowledge of rendering or colors
+- Pure data transformations
+
+**Presentation** (Formatting):
+- Lives in `lib/canon/diff_formatter/`
+- No business logic
+- Just renders what it's given
+
+=== Information Expert
+
+Each object knows about its own data:
+- `DiffNode.normative?` - knows if it's semantically different
+- `DiffLine.normative?` - knows via its DiffNode
+- `DiffBlock.normative?` - knows via its DiffLines
+- `DiffContext` - knows about its blocks
+
+=== Tell, Don't Ask
+
+Don't ask objects for data to make decisions elsewhere:
+```ruby
+# BAD (Ask)
+if diff_node.dimension == :attribute_whitespace &&
+   match_options[:attribute_whitespace] == :ignore
+  # make decision here
+end
+
+# GOOD (Tell)
+if diff_node.normative?
+  # decision already made by DiffNode/DiffClassifier
+end
+```
+
+== Implementation Plan
+
+=== Phase 1: Enhance DiffNodeMapper
+
+Make it actually map DiffNodes to line positions.
+
+=== Phase 2: Create Builders
+
+**DiffBlockBuilder**:
+- Groups DiffLines into DiffBlocks
+- Filters by show_diffs
+- Sets normative? on blocks
+
+**DiffContextBuilder**:
+- Groups DiffBlocks by proximity
+- Expands with context lines
+- Creates DiffContexts
+
+**DiffReportBuilder**:
+- Orchestrates the full pipeline
+- Single entry point
+
+=== Phase 3: Refactor Formatters
+
+Remove all comparison/mapping/blocking logic.
+Accept DiffReport and just render it.
+
+=== Phase 4: Update Callers
+
+Change from:
+```ruby
+formatter.format(doc1, doc2)  # OLD - formatters did everything
+```
+
+To:
+```ruby
+report = DiffReportBuilder.build(diff_nodes, text1, text2, options)
+formatter.format(report)  # NEW - just renders
+```
+
+== Benefits
+
+**Fixes Issue 1**: When DiffNodes are empty (all normalized), DiffReport has no contexts → no output
+
+**Fixes Issue 2**: Empty diffs handled at DiffReport level, not formatter hacks
+
+**Testable**: Each class tested independently
+
+**Maintainable**: Clear responsibilities, easy to understand
+
+**Extensible**: Easy to add new filtering, grouping, or rendering strategies

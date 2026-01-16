@@ -1,0 +1,625 @@
+== Character visualization
+
+=== General
+
+**Purpose**: Make invisible whitespace and special characters visible in diffs.
+
+Whitespace changes can be difficult to spot in traditional diffs because spaces,
+tabs, and other invisible characters don't appear in output.
+
+Canon visualizes these changes using a comprehensive set of Unicode symbols that
+are safe for use with CJK (Chinese, Japanese, Korean) text.
+
+**Visualization scope**: Character visualization is applied only to **diff lines**
+(additions, deletions, and changes), not to context lines (unchanged lines).
+
+This ensures that:
+
+* Context lines display content in its original form without substitution
+* Only actual changes show visualization, making differences easier to spot
+* Within changed lines showing token-level diffs, unchanged tokens are displayed
+in the terminal's default color (not red/green) to distinguish them from actual
+changes
+
+=== How it works
+
+The character visualization feature works by substituting specific defined
+characters with visible symbols during diff output generation.
+
+This is especially useful for detecting character-level differences that are otherwise
+invisible, such as:
+
+* Extra spaces or tabs
+* Non-breaking spaces (U+00A0)
+* Zero-width spaces (U+200B)
+* Directional markers (e.g., LTR/RTL markers)
+* Control characters (e.g., soft hyphens)
+
+.Whitespace visualization examples
+[example]
+====
+[source]
+----
+# Space added between tags
+  10|     -| <tag>Value</tag>           # No space
+    |  10+| <tag>░Value</tag>           # Space added (green light shade)
+
+# Tab character
+  15|     -| <tag>⇥Value</tag>          # Tab (red arrow-to-bar)
+    |  15+| <tag>░░Value</tag>          # Two spaces (green light shades)
+
+# Non-breaking space (U+00A0)
+  20|     -| <tag>Value</tag>           # Regular space
+    |  20+| <tag>Value␣</tag>           # Non-breaking space (green open box)
+
+# Zero-width space (U+200B)
+  25|     -| <word1><word2>             # No zero-width space
+    |  25+| <word1>→<word2>             # Zero-width space (green arrow)
+
+# Mixed invisible characters
+  30|     -| <p>Text▬more</p>           # Em space (red black rectangle)
+    |  30+| <p>Text░more</p>            # Regular space (green light shade)
+----
+====
+
+Where visualization symbols appear in:
+
+* Red when showing removed/deleted characters
+* Green when showing added/inserted characters
+* Bold to make them more visible
+
+**When is this useful?**
+
+1. **Test failures due to formatting**: Your test expects compact XML but receives
+pretty-printed XML with different indentation
+
+2. **Mixed whitespace**: Some parts of your code use tabs while others use spaces
+
+3. **Non-breaking spaces**: Copy-pasted content from browsers often contains
+U+00A0 instead of regular spaces
+
+4. **Zero-width characters**: Invisible Unicode characters that cause mysterious
+comparison failures
+
+5. **RTL/LTR markers**: Bidirectional text markers in internationalized content
+
+6. **Template differences**: Generated output has invisible character differences
+
+
+.Real-world example: Non-breaking space from web copy-paste
+[example]
+Without whitespace visualization, these two lines look identical:
+
+[source,xml]
+----
+<foreword id="fwd">
+<foreword id="fwd">
+----
+
+With whitespace visualization enabled, the difference is immediately visible:
+
+[source]
+----
+   4|     -| <foreword░id="fwd">         # Regular space (U+0020)
+    |   4+| <foreword␣id="fwd">          # Non-breaking space (U+00A0)
+----
+
+The different symbols (`░` vs `␣`) clearly show that one uses a regular space
+while the other uses a non-breaking space, likely from copying text from a web
+page or word processor.
+
+.Real-world example: Zero-width characters
+[example]
+Zero-width characters are completely invisible but affect comparison:
+
+[source,xml]
+----
+<item>Widget</item>
+<item>Widget</item>  <!-- Contains U+200B zero-width space after "Widget" -->
+----
+
+The diff shows:
+
+[source]
+----
+   5|     -| <item>Widget</item>
+    |   5+| <item>Widget→</item>         # Zero-width space visualized as →
+----
+
+The rightwards arrow (`→`) reveals the presence of a zero-width space that would
+otherwise be impossible to detect.
+
+.Real-world example: Unicode legend in action
+[example]
+When a diff contains multiple non-ASCII characters, the legend appears at the top:
+
+[source]
+----
+Character Visualization Legend:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Whitespace:
+  '␣': U+00A0 (' ') No-Break Space
+  '⏓': U+2005 (' ') Four-Per-Em Space
+
+Zero-Width Characters:
+  '→': U+200B (​​) Zero-Width Space
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+   4|     -| <p>Hello world</p>
+    |   4+| <p>Hello␣world⏓test→end</p>
+----
+
+The legend tells you exactly what each symbol means, making it easy to identify
+and fix the issue.
+
+
+
+=== Character substitution legend
+
+When a character visualization substitution is performed in a diff, Canon
+automatically displays a **Character Substitution Legend** at the top of the
+diff output.
+
+This legend explains what each visualization symbol represents.
+
+This legend applies to all interfaces that display diffs, across all Canon
+supported formats.
+
+.Legend format
+[example]
+====
+[source]
+----
+Character Visualization Legend:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Whitespace:
+  '␣': U+00A0 (' ') No-Break Space
+  '⏓': U+2005 (' ') Four-Per-Em Space
+
+Zero-Width Characters:
+  '→': U+200B (​​) Zero-Width Space
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[... diff output follows ...]
+----
+====
+
+Where,
+
+[source]
+----
+'vis': U+XXXX ('orig') Character-Name
+
+Where:
+  vis  = The visualization symbol (e.g., ⏓)
+  XXXX = Unicode codepoint in hex
+  orig = The original character (shown only if different from visualization)
+  Character-Name = Human-readable name from character_map.yml
+----
+
+The legend is:
+
+* **Grouped by category**: Characters are organized under category headings (Whitespace, Line Endings, Zero-Width Characters, Directional Markers, Control Characters)
+* **Shows all three forms**: visualization symbol, Unicode codepoint, original character (when different)
+* **Only shows detected characters**: The legend only includes characters actually found in the diff
+
+
+=== Character map configuration and definition
+
+Canon's character visualization mappings are defined in a central YAML
+configuration file:
+
+* `lib/canon/diff_formatter/character_map.yml`
+
+This file can be overriden or extended to customize how specific characters are
+visualized.
+
+This file contains all character definitions organized by category.
+
+The character map definitions follow this format:
+
+[source,yaml]
+----
+characters:
+- character: " "            # Regular space (ASCII)
+  visualization: "░"        # Symbol shown in diffs
+  category: whitespace      # Category
+  name: "Space"             # Human-readable name
+----
+
+Each character entry includes:
+
+`character`:: (required unless `unicode`) The actual character (for ASCII chars
+or sequences like `"\n"`, `"\t"`, `"\r\n"`).
+
+`unicode`:: (required unless `character`) The Unicode hex code (e.g., `"2005"` for
+U+2005).
+
+`visualization`:: (required) The symbol used to represent this character in
+diffs. This should be a visible character.
+
+`category`:: (required) The category this character belongs to (whitespace,
+line_ending, zero_width, directional, control)
+
+`name`:: (required) Human-readable name of the character
+
+
+.Example character map entry
+[source,yaml]
+----
+- unicode: "2005"           # Four-Per-Em Space (U+2005)
+  visualization: "⏓"        # Symbol shown in diffs
+  category: whitespace
+  name: "Four-Per-Em Space"
+
+- character: "\n"           # Line feed (ASCII)
+  visualization: "↵"
+  category: line_ending
+  name: "Line Feed"
+----
+
+
+=== Customizing visualization
+
+==== General
+
+You can customize the character visualization map for your specific needs
+by providing your own definitions in one of three ways:
+
+* A complete override map using the `visualization_map` parameter (absolute
+highest priority - ignores all other customization)
+
+* A custom YAML character map file using the `character_map_file` parameter
+(merges with defaults)
+
+* Individual character overrides using the `character_definitions` parameter
+(merges with defaults and file, highest priority among merging methods)
+
+**Priority order**:
+
+. If `visualization_map` is provided → Complete replacement (ignores
+`character_map_file` and `character_definitions`)
+
+. Otherwise, start with Canon defaults, then:
+
+.. Apply `character_map_file` customizations (if provided)
+
+.. Apply `character_definitions` customizations (if provided)
+
+This means `character_definitions` overrides `character_map_file`, which in turn
+overrides Canon defaults.
+
+
+==== Map replacement
+
+Provide a complete visualization map that replaces all defaults.
+
+Each character entry must comply with the character definition provided above.
+
+[source,ruby]
+----
+# Define your own complete map
+my_map = [
+  { character: ' ', visualization: '·', category: 'whitespace', name: 'Space' },
+  { character: "\t", visualization: '→', category: 'whitespace', name: 'Tab' },
+  { unicode: "00A0", visualization: '␣', category: 'whitespace', name: 'Non-Breaking Space' },
+  { unicode: "200B", visualization: '⚠', category: 'zero_width', name: 'Zero-Width Space' },
+]
+
+formatter = Canon::DiffFormatter.new( visualization_map: my_map )
+----
+
+WARNING: If `visualization_map` parameter is provided, it completely replaces the
+defaults and ignores `character_map_file` and `character_definitions`.
+
+
+==== Individual overrides
+
+Override or add individual characters while keeping defaults:
+
+[source,ruby]
+----
+formatter = Canon::DiffFormatter.new(
+  character_definitions: [
+    { unicode: "2005", visualization: "★", category: "whitespace", name: "Four-Per-Em Space" },
+    { character: "\t", visualization: "→→", category: "whitespace", name: "Tab" },
+    { unicode: "3042", visualization: "あ", category: "control", name: "Hiragana Letter A" },
+  ]
+)
+----
+
+[source,ruby]
+----
+require 'canon/diff_formatter'
+
+# Create custom visualization map
+custom_map = Canon::DiffFormatter.merge_visualization_map([
+  { unicode: '0020', visualization: '·', category: 'whitespace', name: 'Space' },
+  { character: "\t", visualization: '→', category: 'whitespace', name: 'Tab' },
+  { unicode: "200B", visualization: '⚠', category: 'zero_width', name: 'Zero-Width Space' },
+])
+
+# Use custom map with formatter
+formatter = Canon::DiffFormatter.new( use_color: true, visualization_map: custom_map )
+
+# The custom map merges with defaults, so unspecified characters still use the
+# default visualization
+----
+
+==== Extending with a custom YAML file
+
+Provide a custom YAML file defining character visualizations.
+
+Notice that this file **extends** the default character map, allowing you to
+add or override specific characters without redefining the entire map.
+
+[source,ruby]
+----
+formatter = Canon::DiffFormatter.new(
+  character_map_file: "custom_map.yml",     # Merges with defaults
+  character_definitions: [                  # Overrides file + defaults
+    { unicode: "2005", visualization: "◆", category: "whitespace", name: "Four-Per-Em Space" }
+  ]
+)
+----
+
+NOTE: The `character_definitions` take precedence over `character_map_file`,
+which in turn takes precedence over Canon defaults. However, if you provide
+`visualization_map` directly, it completely replaces everything and ignores both
+`character_map_file` and `character_definitions`.
+
+
+==== For Canon developers
+
+The official character map can be extended by contributing to
+`character_map.yml`:
+
+[source,yaml]
+----
+characters:
+  # ... existing characters ...
+
+  # Add your custom character
+  - unicode: "XXXX"           # Replace with hex code
+    visualization: "symbol"   # Your chosen symbol
+    category: category_name   # One of: whitespace, line_ending, zero_width, directional, control
+    name: "Character Name"
+----
+
+
+=== Default character map
+
+Canon provides a comprehensive CJK-safe character mapping for common non-visible
+characters encountered in diffs.
+
+NOTE: These visualization symbols appear **only in diff lines** (additions,
+deletions, and changes), not in context lines (unchanged lines).
+
+.Common whitespace characters
+[cols="1,1,1,2"]
+|===
+|Character |Unicode |Symbol |Description
+
+|Regular space
+|U+0020
+|`░`
+|Light Shade (U+2591)
+
+|Tab
+|U+0009
+|`⇥`
+|Rightwards Arrow to Bar (U+21E5)
+
+|Non-breaking space
+|U+00A0
+|`␣`
+|Open Box (U+2423)
+|===
+
+.Line endings
+[cols="1,1,1,2"]
+|===
+|Character |Unicode |Symbol |Description
+
+|Line feed (LF)
+|U+000A
+|`↵`
+|Downwards Arrow with Corner Leftwards (U+21B5)
+
+|Carriage return (CR)
+|U+000D
+|`⏎`
+|Return Symbol (U+23CE)
+
+|Windows line ending (CRLF)
+|U+000D U+000A
+|`↵`
+|Downwards Arrow with Corner Leftwards (U+21B5)
+
+|Next line (NEL)
+|U+0085
+|`⏎`
+|Return Symbol (U+23CE)
+
+|Line separator
+|U+2028
+|`⤓`
+|Downwards Arrow to Bar (U+2913)
+
+|Paragraph separator
+|U+2029
+|`⤓`
+|Downwards Arrow to Bar (U+2913)
+|===
+
+.Unicode spaces (various widths)
+[cols="1,1,1,2"]
+|===
+|Character |Unicode |Symbol |Description
+
+|En space
+|U+2002
+|`▭`
+|White Rectangle (U+25AD)
+
+|Em space
+|U+2003
+|`▬`
+|Black Rectangle (U+25AC)
+
+|Four-per-em space
+|U+2005
+|`⏓`
+|Metrical Short Over Long (U+23D3)
+
+|Six-per-em space
+|U+2006
+|`⏕`
+|Metrical Two Shorts Over Long (U+23D5)
+
+|Thin space
+|U+2009
+|`▯`
+|White Vertical Rectangle (U+25AF)
+
+|Hair space
+|U+200A
+|`▮`
+|Black Vertical Rectangle (U+25AE)
+
+|Figure space
+|U+2007
+|`□`
+|White Square (U+25A1)
+
+|Narrow no-break space
+|U+202F
+|`▫`
+|White Small Square (U+25AB)
+
+|Medium mathematical space
+|U+205F
+|`▭`
+|White Rectangle (U+25AD)
+
+|Ideographic space
+|U+3000
+|`⎵`
+|Bottom Square Bracket (U+23B5)
+
+|Ideographic half space
+|U+303F
+|`⏑`
+|Metrical Breve (U+23D1)
+
+|===
+
+.Zero-width characters (invisible troublemakers)
+[cols="1,1,1,2"]
+|===
+|Character |Unicode |Symbol |Description
+
+|Zero-width space
+|U+200B
+|`→`
+|Rightwards Arrow (U+2192)
+
+|Zero-width non-joiner
+|U+200C
+|`↛`
+|Rightwards Arrow with Stroke (U+219B)
+
+|Zero-width joiner
+|U+200D
+|`⇢`
+|Rightwards Dashed Arrow (U+21E2)
+
+|Zero-width no-break space (BOM)
+|U+FEFF
+|`⇨`
+|Rightwards White Arrow (U+21E8)
+|===
+
+.Bidirectional/RTL markers
+[cols="1,1,1,2"]
+|===
+|Character |Unicode |Symbol |Description
+
+|Left-to-right mark
+|U+200E
+|`⟹`
+|Long Rightwards Double Arrow (U+27F9)
+
+|Right-to-left mark
+|U+200F
+|`⟸`
+|Long Leftwards Double Arrow (U+27F8)
+
+|LTR embedding
+|U+202A
+|`⇒`
+|Rightwards Double Arrow (U+21D2)
+
+|RTL embedding
+|U+202B
+|`⇐`
+|Leftwards Double Arrow (U+21D0)
+
+|Pop directional formatting
+|U+202C
+|`↔`
+|Left Right Arrow (U+2194)
+
+|LTR override
+|U+202D
+|`⇉`
+|Rightwards Paired Arrows (U+21C9)
+
+|RTL override
+|U+202E
+|`⇇`
+|Leftwards Paired Arrows (U+21C7)
+|===
+
+.Control characters
+[cols="1,1,1,2"]
+|===
+|Character |Unicode |Symbol |Description
+
+|Null
+|U+0000
+|`␀`
+|Symbol for Null (U+2400)
+
+|Soft hyphen
+|U+00AD
+|`­‐`
+|Hyphen (U+2010)
+
+|Backspace
+|U+0008
+|`␈`
+|Symbol for Backspace (U+2408)
+
+|Delete
+|U+007F
+|`␡`
+|Symbol for Delete (U+2421)
+|===
+
+[NOTE]
+====
+The default visualization characters are specifically chosen to avoid conflicts
+with CJK text:
+
+* **No middle dots** (`·`) - commonly used as separators in CJK
+* **No bullets** (`∙`) - used in CJK lists
+* **No circles** (`◌◍◎`) - look similar to CJK characters like ○ ●
+* **No small dots** (`⋅`) - conflict with CJK punctuation
+
+Instead, Canon uses:
+
+* Box characters (`□▭▬▯▮▫`) for various space types
+* Arrow symbols (`→↛⇢⇨⟹⟸⇒⇐`) for zero-width and directional characters
+* Control Pictures block symbols (`␀␈␡`) for control characters
+====

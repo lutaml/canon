@@ -1,0 +1,1155 @@
+= Flexible whitespace matching system
+
+==== General
+
+Canon provides a flexible whitespace matching system for XML, HTML, JSON, and YAML comparisons. This system allows precise control over how whitespace and formatting differences are handled during comparison.
+
+The system uses a two-phase architecture:
+
+* *Preprocessing phase*: What to compare (normalization, canonicalization, formatting)
+* *Matching phase*: How to compare (4 dimensions × 3 behaviors)
+
+==== Two-phase architecture
+
+=== Preprocessing phase
+
+The preprocessing phase determines what content is compared. Canon supports four preprocessing options:
+
+[cols="1,3"]
+|===
+| Option | Description
+
+| `:none`
+| No preprocessing - compare raw content as-is
+
+| `:c14n`
+| Apply XML Canonicalization (C14N) to normalize structure
+
+| `:normalize`
+| Apply whitespace normalization
+
+| `:format`
+| Apply format-specific pretty-printing
+|===
+
+The preprocessing option is controlled via the `preprocessing` parameter and defaults based on the format being compared.
+
+=== Matching phase
+
+The matching phase defines how content is compared across four independent dimensions. Each dimension can be configured with one of three mutually exclusive behaviors.
+
+==== Match dimensions
+
+The matching phase operates on four collectively exhaustive dimensions:
+
+[cols="1,3"]
+|===
+| Dimension | What it controls
+
+| `text_content`
+| Text content within elements/values
+
+| `structural_whitespace`
+| Whitespace between tags/elements (indentation, line breaks)
+
+| `attribute_whitespace`
+| Whitespace within attribute values
+
+| `comments`
+| How comments are handled
+|===
+
+These four dimensions are collectively exhaustive - they cover all aspects of whitespace and formatting in structured documents.
+
+==== Match behaviors
+
+For each dimension, you can specify one of three mutually exclusive behaviors:
+
+[cols="1,3"]
+|===
+| Behavior | Description
+
+| `:strict`
+| Exact character-for-character matching (including all whitespace)
+
+| `:normalize`
+| Collapse consecutive whitespace to single spaces, trim leading/trailing whitespace
+
+| `:ignore`
+| Don't compare this dimension at all
+|===
+
+==== Predefined match profiles
+
+Canon provides four predefined match profiles optimized for common use cases:
+
+=== Profile comparison table
+
+The following table shows how each predefined profile configures the four match dimensions:
+
+[cols="1,1,1,1,1"]
+|===
+|Profile |text_content |structural_whitespace |attribute_whitespace |comments
+
+|`strict`
+|`:strict`
+|`:strict`
+|`:strict`
+|`:strict`
+
+|`rendered`
+|`:normalize`
+|`:ignore`
+|`:normalize`
+|`:ignore`
+
+|`spec_friendly`
+|`:normalize`
+|`:ignore`
+|`:normalize`
+|`:ignore`
+
+|`content_only`
+|`:normalize`
+|`:ignore`
+|`:ignore`
+|`:ignore`
+|===
+
+**Key differences between profiles:**
+
+* **strict**: Exact matching on all dimensions - use for byte-for-byte comparison
+* **rendered**: Mimics browser rendering - collapses text, ignores formatting and comments
+* **spec_friendly**: Same as rendered - ideal for test specifications
+* **content_only**: Most permissive - only compares text content, ignores all formatting and attribute whitespace
+
+NOTE: The `rendered` and `spec_friendly` profiles have identical configurations but serve different semantic purposes in your codebase.
+
+=== Strict profile
+
+The `strict` profile is the default for XML and requires exact matching:
+
+[source,ruby]
+----
+{
+  text_content: :strict,
+  structural_whitespace: :strict,
+  attribute_whitespace: :strict,
+  comments: :strict
+}
+----
+
+Use this when:
+
+* You need exact byte-for-byte comparison
+* Whitespace is semantically significant
+* Working with canonicalized or pre-normalized content
+
+=== Rendered profile
+
+The `rendered` profile mimics how browsers render HTML/XML:
+
+[source,ruby]
+----
+{
+  text_content: :normalize,
+  structural_whitespace: :ignore,
+  attribute_whitespace: :normalize,
+  comments: :ignore
+}
+----
+
+Use this when:
+
+* Comparing HTML documents where rendering matters
+* Whitespace between tags doesn't affect output
+* Comments are documentation-only
+
+This is the default profile for HTML comparisons.
+
+=== Spec-friendly profile
+
+The `spec_friendly` profile ignores all formatting differences:
+
+[source,ruby]
+----
+{
+  text_content: :normalize,
+  structural_whitespace: :ignore,
+  attribute_whitespace: :normalize,
+  comments: :ignore
+}
+----
+
+Use this when:
+
+* Writing test specifications
+* Formatting/indentation style doesn't matter
+* Generated vs. hand-written content comparison
+* CI/CD environments with different formatters
+
+=== Content-only profile
+
+The `content_only` profile focuses solely on actual content:
+
+[source,ruby]
+----
+{
+  text_content: :normalize,
+  structural_whitespace: :ignore,
+  attribute_whitespace: :ignore,
+  comments: :ignore
+}
+----
+
+Use this when:
+
+* Only semantic content matters
+* All whitespace (including in attributes) is insignificant
+* Maximum tolerance for formatting differences
+
+==== Format-specific defaults
+
+Different formats have different default behaviors optimized for their typical use cases:
+
+=== XML defaults
+
+[source,ruby]
+----
+{
+  preprocessing: :none,
+  match_profile: :strict
+}
+----
+
+XML defaults to strict matching because:
+
+* XML whitespace can be semantically significant
+* XML is often machine-generated with consistent formatting
+* Canonicalization (C14N) is available for normalization when needed
+
+=== HTML defaults
+
+[source,ruby]
+----
+{
+  preprocessing: :none,
+  match_profile: :rendered
+}
+----
+
+HTML defaults to rendered-style matching because:
+
+* Browsers collapse whitespace when rendering
+* Indentation and formatting are for readability only
+* Comments are typically documentation
+
+=== JSON defaults
+
+[source,ruby]
+----
+{
+  preprocessing: :format,
+  match_profile: :rendered
+}
+----
+
+JSON applies pretty-printing before comparison because:
+
+* JSON whitespace is never semantically significant
+* Minified vs. formatted JSON should be equivalent
+* Pretty-printing ensures consistent structure
+
+=== YAML defaults
+
+[source,ruby]
+----
+{
+  preprocessing: :format,
+  match_profile: :rendered
+}
+----
+
+YAML applies pretty-printing because:
+
+* YAML formatting can vary significantly
+* Indentation styles differ between generators
+* Content equivalence is what matters
+
+==== Usage examples
+
+=== Using predefined profiles
+
+Use a profile for XML comparison:
+
+[source,ruby]
+----
+expect(actual_xml).to be_xml_equivalent_to(
+  expected_xml,
+  match_profile: :spec_friendly
+)
+----
+
+Use a profile for HTML comparison:
+
+[source,ruby]
+----
+expect(actual_html).to be_html_equivalent_to(
+  expected_html,
+  match_profile: :content_only
+)
+----
+
+=== Using explicit match options
+
+Override specific dimensions:
+
+[source,ruby]
+----
+expect(actual_xml).to be_xml_equivalent_to(
+  expected_xml,
+  match_options: {
+    text_content: :normalize,
+    structural_whitespace: :ignore,
+    attribute_whitespace: :strict,
+    comments: :ignore
+  }
+)
+----
+
+=== Combining profiles and explicit options
+
+Explicit options override profile settings:
+
+[source,ruby]
+----
+expect(actual_xml).to be_xml_equivalent_to(
+  expected_xml,
+  match_profile: :spec_friendly,
+  match_options: {
+    attribute_whitespace: :strict  # Override just this dimension
+  }
+)
+----
+
+=== Global configuration
+
+Set a global default profile for all tests:
+
+[source,ruby]
+----
+# In spec_helper.rb
+Canon::RSpecMatchers.configure do |config|
+  config.xml_match_profile = :spec_friendly
+  config.html_match_profile = :rendered
+end
+----
+
+Override global profile in specific tests:
+
+[source,ruby]
+----
+# This test uses strict matching despite global spec_friendly
+expect(actual_xml).to be_xml_equivalent_to(
+  expected_xml,
+  match_profile: :strict
+)
+----
+
+==== Dimension-specific examples
+
+=== Text content dimension
+
+The `text_content` dimension controls how text within elements is compared.
+
+==== Strict behavior (exact whitespace)
+
+When `text_content: :strict`, all whitespace in text content must match exactly.
+
+.XML examples with strict text_content
+[example]
+The following XML strings are **not** considered equal because whitespace differs:
+
+[source,xml]
+----
+<p>  text with  spaces  </p>
+<p>text with spaces</p>
+----
+
+[source,ruby]
+----
+actual = "<p>  text with  spaces  </p>"
+expected = "<p>text with spaces</p>"
+
+expect(actual).not_to be_xml_equivalent_to(
+  expected,
+  match_options: {
+    text_content: :strict,
+    structural_whitespace: :ignore,
+    attribute_whitespace: :strict,
+    comments: :ignore
+  }
+)
+# => true (documents are NOT equivalent)
+----
+
+Even differences in leading/trailing whitespace matter:
+
+[source,xml]
+----
+<item>   Value   </item>
+<item>Value</item>
+----
+
+[source,ruby]
+----
+xml1 = "<item>   Value   </item>"
+xml2 = "<item>Value</item>"
+
+expect(xml1).not_to be_xml_equivalent_to(
+  xml2,
+  match_options: { text_content: :strict, structural_whitespace: :ignore }
+)
+# => true (documents are NOT equivalent)
+----
+
+.HTML examples with strict text_content
+[example]
+[source,html]
+----
+<a href="/admin">   SOME TEXT   </a>
+<a href="/admin">SOME TEXT</a>
+----
+
+[source,ruby]
+----
+html1 = '<a href="/admin">   SOME TEXT   </a>'
+html2 = '<a href="/admin">SOME TEXT</a>'
+
+expect(html1).not_to be_html_equivalent_to(
+  html2,
+  match_options: { text_content: :strict, structural_whitespace: :ignore }
+)
+# => true (documents are NOT equivalent)
+----
+
+==== Normalize behavior (collapse whitespace)
+
+When `text_content: :normalize`, consecutive whitespace is collapsed to single spaces and leading/trailing whitespace is trimmed.
+
+.XML examples with normalized text_content
+[example]
+The following XML strings **are** considered equal:
+
+[source,xml]
+----
+<p>  text with  multiple   spaces  </p>
+<p>text with multiple spaces</p>
+----
+
+[source,ruby]
+----
+actual = "<p>  text with  multiple   spaces  </p>"
+expected = "<p>text with multiple spaces</p>"
+
+expect(actual).to be_xml_equivalent_to(
+  expected,
+  match_options: {
+    text_content: :normalize,
+    structural_whitespace: :ignore,
+    attribute_whitespace: :strict,
+    comments: :ignore
+  }
+)
+# => true (documents are equivalent)
+----
+
+Tabs and newlines are also normalized:
+
+[source,xml]
+----
+<description>
+  This is a
+  multi-line
+  description
+</description>
+
+<description>This is a multi-line description</description>
+----
+
+[source,ruby]
+----
+xml1 = <<~XML
+  <description>
+    This is a
+    multi-line
+    description
+  </description>
+XML
+
+xml2 = "<description>This is a multi-line description</description>"
+
+expect(xml1).to be_xml_equivalent_to(
+  xml2,
+  match_options: { text_content: :normalize, structural_whitespace: :ignore }
+)
+# => true (documents are equivalent)
+----
+
+.HTML examples with normalized text_content
+[example]
+[source,html]
+----
+<a href="/admin">   SOME   TEXT   CONTENT   </a>
+<a href="/admin">SOME TEXT CONTENT</a>
+----
+
+[source,ruby]
+----
+html1 = '<a href="/admin">   SOME   TEXT   CONTENT   </a>'
+html2 = '<a href="/admin">SOME TEXT CONTENT</a>'
+
+expect(html1).to be_html_equivalent_to(
+  html2,
+  match_options: { text_content: :normalize, structural_whitespace: :ignore }
+)
+# => true (documents are equivalent)
+----
+
+Multi-line HTML text:
+
+[source,html]
+----
+<p>
+  This is a paragraph
+  with multiple lines
+  of text.
+</p>
+
+<p>This is a paragraph with multiple lines of text.</p>
+----
+
+[source,ruby]
+----
+html1 = <<~HTML
+  <p>
+    This is a paragraph
+    with multiple lines
+    of text.
+  </p>
+HTML
+
+html2 = "<p>This is a paragraph with multiple lines of text.</p>"
+
+expect(html1).to be_html_equivalent_to(
+  html2,
+  match_options: { text_content: :normalize, structural_whitespace: :ignore }
+)
+# => true (documents are equivalent)
+----
+
+=== Structural whitespace dimension
+
+The `structural_whitespace` dimension controls whitespace between tags (indentation, line breaks, formatting).
+
+==== Strict behavior
+
+When `structural_whitespace: :strict`, all whitespace between tags must match exactly, including indentation and line breaks.
+
+.XML examples with strict structural_whitespace
+[example]
+These documents are **not** equivalent due to different indentation:
+
+[source,xml]
+----
+<root>
+  <item>Value</item>
+</root>
+
+<root>
+    <item>Value</item>
+</root>
+----
+
+[source,ruby]
+----
+xml1 = "<root>\n  <item>Value</item>\n</root>"
+xml2 = "<root>\n    <item>Value</item>\n</root>"
+
+expect(xml1).not_to be_xml_equivalent_to(
+  xml2,
+  match_options: {
+    text_content: :normalize,
+    structural_whitespace: :strict,
+    attribute_whitespace: :strict,
+    comments: :ignore
+  }
+)
+# => true (documents are NOT equivalent - indentation differs)
+----
+
+==== Ignore behavior (formatting doesn't matter)
+
+When `structural_whitespace: :ignore`, all whitespace between tags is ignored, making pretty-printed and compact formats equivalent.
+
+.XML examples with ignored structural_whitespace
+[example]
+Pretty-printed vs compact XML **are** considered equal:
+
+[source,xml]
+----
+<!-- Pretty-printed with indentation -->
+<root>
+  <a>
+    <b>text</b>
+  </a>
+</root>
+
+<!-- Compact on one line -->
+<root><a><b>text</b></a></root>
+----
+
+[source,ruby]
+----
+compact = "<root><a><b>text</b></a></root>"
+formatted = <<~XML
+  <root>
+    <a>
+      <b>text</b>
+    </a>
+  </root>
+XML
+
+expect(compact).to be_xml_equivalent_to(
+  formatted,
+  match_options: {
+    text_content: :normalize,
+    structural_whitespace: :ignore,
+    attribute_whitespace: :strict,
+    comments: :ignore
+  }
+)
+# => true (documents are equivalent)
+----
+
+Complex nested structures with different indentation:
+
+[source,xml]
+----
+<!-- 2-space indentation -->
+<document>
+  <metadata>
+    <title>My Document</title>
+    <author>
+      <name>John Doe</name>
+    </author>
+  </metadata>
+</document>
+
+<!-- 4-space indentation -->
+<document>
+    <metadata>
+        <title>My Document</title>
+        <author>
+            <name>John Doe</name>
+        </author>
+    </metadata>
+</document>
+
+<!-- Compact -->
+<document><metadata><title>My Document</title><author><name>John Doe</name></author></metadata></document>
+----
+
+[source,ruby]
+----
+two_spaces = <<~XML
+  <document>
+    <metadata>
+      <title>My Document</title>
+      <author>
+        <name>John Doe</name>
+      </author>
+    </metadata>
+  </document>
+XML
+
+four_spaces = "<document>\n    <metadata>\n        <title>My Document</title>\n        <author>\n            <name>John Doe</name>\n        </author>\n    </metadata>\n</document>"
+
+compact = "<document><metadata><title>My Document</title><author><name>John Doe</name></author></metadata></document>"
+
+expect(two_spaces).to be_xml_equivalent_to(
+  four_spaces,
+  match_options: { structural_whitespace: :ignore }
+)
+# => true
+
+expect(two_spaces).to be_xml_equivalent_to(
+  compact,
+  match_options: { structural_whitespace: :ignore }
+)
+# => true
+----
+
+.HTML examples with ignored structural_whitespace
+[example]
+[source,html]
+----
+<!-- Pretty-printed -->
+<div class="container">
+  <header>
+    <h1>Welcome</h1>
+    <p>Introduction text</p>
+  </header>
+</div>
+
+<!-- Compact -->
+<div class="container"><header><h1>Welcome</h1><p>Introduction text</p></header></div>
+----
+
+[source,ruby]
+----
+pretty_html = <<~HTML
+  <div class="container">
+    <header>
+      <h1>Welcome</h1>
+      <p>Introduction text</p>
+    </header>
+  </div>
+HTML
+
+compact_html = '<div class="container"><header><h1>Welcome</h1><p>Introduction text</p></header></div>'
+
+expect(pretty_html).to be_html_equivalent_to(
+  compact_html,
+  match_options: { structural_whitespace: :ignore }
+)
+# => true (documents are equivalent)
+----
+
+==== Normalize behavior
+
+When `structural_whitespace: :normalize`, whitespace between tags is collapsed to single spaces.
+
+.XML examples with normalized structural_whitespace
+[example]
+[source,xml]
+----
+<root>
+
+
+  <item>Value</item>
+
+
+</root>
+
+<root> <item>Value</item> </root>
+----
+
+[source,ruby]
+----
+xml1 = "<root>\n\n\n  <item>Value</item>\n\n\n</root>"
+xml2 = "<root> <item>Value</item> </root>"
+
+expect(xml1).to be_xml_equivalent_to(
+  xml2,
+  match_options: { structural_whitespace: :normalize }
+)
+# => true (documents are equivalent - whitespace normalized)
+----
+
+=== Attribute whitespace dimension
+
+The `attribute_whitespace` dimension controls whitespace within attribute values.
+
+==== Strict behavior (exact attribute whitespace)
+
+When `attribute_whitespace: :strict`, whitespace in attribute values must match exactly.
+
+.XML examples with strict attribute_whitespace
+[example]
+These documents are **not** equivalent due to attribute whitespace differences:
+
+[source,xml]
+----
+<div class=" foo  bar ">text</div>
+<div class="foo bar">text</div>
+----
+
+[source,ruby]
+----
+actual = '<div class=" foo  bar ">text</div>'
+expected = '<div class="foo bar">text</div>'
+
+expect(actual).not_to be_xml_equivalent_to(
+  expected,
+  match_options: {
+    text_content: :normalize,
+    structural_whitespace: :ignore,
+    attribute_whitespace: :strict,
+    comments: :ignore
+  }
+)
+# => true (documents are NOT equivalent)
+----
+
+Leading/trailing whitespace in attributes:
+
+[source,xml]
+----
+<item id=" 123 " name="  Widget  "/>
+<item id="123" name="Widget"/>
+----
+
+[source,ruby]
+----
+xml1 = '<item id=" 123 " name="  Widget  "/>'
+xml2 = '<item id="123" name="Widget"/>'
+
+expect(xml1).not_to be_xml_equivalent_to(
+  xml2,
+  match_options: { attribute_whitespace: :strict }
+)
+# => true (documents are NOT equivalent)
+----
+
+.HTML examples with strict attribute_whitespace
+[example]
+[source,html]
+----
+<a href="/admin" class=" button  primary ">Link</a>
+<a href="/admin" class="button primary">Link</a>
+----
+
+[source,ruby]
+----
+html1 = '<a href="/admin" class=" button  primary ">Link</a>'
+html2 = '<a href="/admin" class="button primary">Link</a>'
+
+expect(html1).not_to be_html_equivalent_to(
+  html2,
+  match_options: { attribute_whitespace: :strict }
+)
+# => true (documents are NOT equivalent)
+----
+
+==== Normalize behavior (collapse attribute whitespace)
+
+When `attribute_whitespace: :normalize`, whitespace in attribute values is collapsed and trimmed.
+
+.XML examples with normalized attribute_whitespace
+[example]
+These documents **are** considered equal:
+
+[source,xml]
+----
+<div class=" foo  bar ">text</div>
+<div class="foo bar">text</div>
+----
+
+[source,ruby]
+----
+actual = '<div class=" foo  bar ">text</div>'
+expected = '<div class="foo bar">text</div>'
+
+expect(actual).to be_xml_equivalent_to(
+  expected,
+  match_options: {
+    text_content: :normalize,
+    structural_whitespace: :ignore,
+    attribute_whitespace: :normalize,
+    comments: :ignore
+  }
+)
+# => true (documents are equivalent)
+----
+
+Multiple attributes with whitespace:
+
+[source,xml]
+----
+<item id=" 123 " name="  Widget  " category="  tools  "/>
+<item id="123" name="Widget" category="tools"/>
+----
+
+[source,ruby]
+----
+xml1 = '<item id=" 123 " name="  Widget  " category="  tools  "/>'
+xml2 = '<item id="123" name="Widget" category="tools"/>'
+
+expect(xml1).to be_xml_equivalent_to(
+  xml2,
+  match_options: { attribute_whitespace: :normalize }
+)
+# => true (documents are equivalent)
+----
+
+.HTML examples with normalized attribute_whitespace
+[example]
+[source,html]
+----
+<a href="/admin" class=" button  primary " id="  main-link  ">Link</a>
+<a href="/admin" class="button primary" id="main-link">Link</a>
+----
+
+[source,ruby]
+----
+html1 = '<a href="/admin" class=" button  primary " id="  main-link  ">Link</a>'
+html2 = '<a href="/admin" class="button primary" id="main-link">Link</a>'
+
+expect(html1).to be_html_equivalent_to(
+  html2,
+  match_options: { attribute_whitespace: :normalize }
+)
+# => true (documents are equivalent)
+----
+
+==== Ignore behavior
+
+When `attribute_whitespace: :ignore`, attribute values are not compared at all (only attribute names are checked).
+
+.Example with ignored attribute_whitespace
+[example]
+[source,ruby]
+----
+xml1 = '<item class="foo">text</item>'
+xml2 = '<item class="completely different">text</item>'
+
+expect(xml1).to be_xml_equivalent_to(
+  xml2,
+  match_options: { attribute_whitespace: :ignore }
+)
+# => true (attribute values are not compared)
+----
+
+=== Comments dimension
+
+The `comments` dimension controls how XML/HTML comments are compared.
+
+==== Strict behavior
+
+When `comments: :strict`, comments must match exactly, including their content and position.
+
+.XML examples with strict comments
+[example]
+These documents are **not** equivalent due to different comments:
+
+[source,xml]
+----
+<root><!-- First comment --><a>text</a></root>
+<root><!-- Different comment --><a>text</a></root>
+----
+
+[source,ruby]
+----
+xml1 = "<root><!-- First comment --><a>text</a></root>"
+xml2 = "<root><!-- Different comment --><a>text</a></root>"
+
+expect(xml1).not_to be_xml_equivalent_to(
+  xml2,
+  match_options: { comments: :strict }
+)
+# => true (documents are NOT equivalent - comments differ)
+----
+
+==== Ignore behavior (comments don't affect comparison)
+
+When `comments: :ignore`, comments are completely ignored during comparison.
+
+.XML examples with ignored comments
+[example]
+These documents **are** considered equal despite different comments:
+
+[source,xml]
+----
+<root><!-- comment --><a>text</a></root>
+<root><!-- different --><a>text</a></root>
+<root><a>text</a></root>
+----
+
+[source,ruby]
+----
+with_comment = "<root><!-- comment --><a>text</a></root>"
+different_comment = "<root><!-- different --><a>text</a></root>"
+no_comment = "<root><a>text</a></root>"
+
+expect(with_comment).to be_xml_equivalent_to(
+  different_comment,
+  match_options: {
+    text_content: :normalize,
+    structural_whitespace: :ignore,
+    attribute_whitespace: :strict,
+    comments: :ignore
+  }
+)
+# => true (documents are equivalent - comments ignored)
+
+expect(with_comment).to be_xml_equivalent_to(
+  no_comment,
+  match_options: {
+    text_content: :normalize,
+    structural_whitespace: :ignore,
+    attribute_whitespace: :strict,
+    comments: :ignore
+  }
+)
+# => true (documents are equivalent - comments ignored)
+----
+
+Complex document with multiple comments:
+
+[source,xml]
+----
+<!-- Document header -->
+<document>
+  <!-- Metadata section -->
+  <metadata>
+    <title>My Document</title>
+    <!-- Author information -->
+    <author>John Doe</author>
+  </metadata>
+  <!-- Main content -->
+  <content>
+    <p>Text</p>
+  </content>
+</document>
+
+<document>
+  <metadata>
+    <title>My Document</title>
+    <author>John Doe</author>
+  </metadata>
+  <content>
+    <p>Text</p>
+  </content>
+</document>
+----
+
+[source,ruby]
+----
+with_comments = <<~XML
+  <!-- Document header -->
+  <document>
+    <!-- Metadata section -->
+    <metadata>
+      <title>My Document</title>
+      <!-- Author information -->
+      <author>John Doe</author>
+    </metadata>
+    <!-- Main content -->
+    <content>
+      <p>Text</p>
+    </content>
+  </document>
+XML
+
+without_comments = <<~XML
+  <document>
+    <metadata>
+      <title>My Document</title>
+      <author>John Doe</author>
+    </metadata>
+    <content>
+      <p>Text</p>
+    </content>
+  </document>
+XML
+
+expect(with_comments).to be_xml_equivalent_to(
+  without_comments,
+  match_options: { comments: :ignore }
+)
+# => true (documents are equivalent)
+----
+
+.HTML examples with ignored comments
+[example]
+[source,html]
+----
+<!-- Navigation -->
+<nav>
+  <!-- Primary menu -->
+  <ul>
+    <li>Home</li>
+  </ul>
+</nav>
+
+<nav>
+  <ul>
+    <li>Home</li>
+  </ul>
+</nav>
+----
+
+[source,ruby]
+----
+html_with_comments = <<~HTML
+  <!-- Navigation -->
+  <nav>
+    <!-- Primary menu -->
+    <ul>
+      <li>Home</li>
+    </ul>
+  </nav>
+HTML
+
+html_without_comments = <<~HTML
+  <nav>
+    <ul>
+      <li>Home</li>
+    </ul>
+  </nav>
+HTML
+
+expect(html_with_comments).to be_html_equivalent_to(
+  html_without_comments,
+  match_options: { comments: :ignore }
+)
+# => true (documents are equivalent)
+----
+
+==== Normalize behavior
+
+When `comments: :normalize`, comment content is trimmed and whitespace is collapsed before comparison.
+
+.Example with normalized comments
+[example]
+[source,ruby]
+----
+xml1 = "<root><!--   comment   with   spaces   --><a>text</a></root>"
+xml2 = "<root><!-- comment with spaces --><a>text</a></root>"
+
+expect(xml1).to be_xml_equivalent_to(
+  xml2,
+  match_options: { comments: :normalize }
+)
+# => true (comments are normalized before comparison)
+----
+
+==== Precedence resolution
+
+When multiple configuration sources are present, Canon resolves them in this order (highest to lowest precedence):
+
+. Explicit `match_options` hash in the test
+. Named `match_profile` in the test
+. Global format-specific profile (e.g., `xml_match_profile`)
+. Format-specific defaults (e.g., XML → strict, HTML → rendered)
+
+.Example of precedence resolution
+====
+[source,ruby]
+----
+# Global configuration
+Canon::RSpecMatchers.configure do |config|
+  config.xml_match_profile = :spec_friendly
+end
+
+# This uses strict for attribute_whitespace (explicit option)
+# and spec_friendly for other dimensions (global profile)
+expect(actual).to be_xml_equivalent_to(
+  expected,
+  match_options: {
+    attribute_whitespace: :strict
+  }
+)
+----
+====

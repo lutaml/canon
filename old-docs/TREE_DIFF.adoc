@@ -1,0 +1,1080 @@
+= Semantic tree diff
+:toc:
+:toclevels: 3
+
+[WARNING]
+The semantic tree diff feature is currently **experimental** and under active
+development. While it is functional and tested, the API and behavior may change
+in future releases. Use with caution in production environments.
+
+== General
+
+Canon provides two complementary diff modes:
+
+* **DOM diff** (default): Line-based comparison that matches elements by
+  position and structure
+* **Semantic tree diff** (opt-in): Operation-based comparison that detects
+  high-level edit operations (INSERT, DELETE, UPDATE, MOVE, MERGE, SPLIT,
+  UPGRADE, DOWNGRADE)
+
+The semantic tree diff is based on research in XML diff algorithms (XDiff 2002,
+XyDiff/Cobena 2002, JATS-diff 2022) and provides operation-level analysis of
+changes between document trees.
+
+== Purpose
+
+The semantic tree diff enables:
+
+* **Operation detection**: Identify INSERT, DELETE, UPDATE, MOVE, MERGE, SPLIT,
+  UPGRADE, and DOWNGRADE operations
+* **Intelligent matching**: Match similar nodes even when positions change
+* **Format independence**: Works with XML, JSON, HTML, and YAML
+* **Statistical analysis**: Provides matching statistics and confidence scores
+
+Use semantic tree diff when you need to:
+
+* Understand what operations transformed one document into another
+* Track content that moved between positions
+* Analyze structural changes at a high level
+* Compare documents with significant rearrangement
+
+== Enabling semantic tree diff
+
+Enable semantic tree diff by setting `diff_algorithm: :semantic`:
+
+[source,ruby]
+----
+require 'canon/comparison'
+
+result = Canon::Comparison.equivalent?(doc1, doc2,
+  verbose: true,
+  diff_algorithm: :semantic
+)
+----
+
+The system will use tree diff instead of the default DOM diff. Both modes
+cannot be used simultaneously.
+
+== Detected operations
+
+The semantic tree diff detects these eight operations in three levels:
+
+* **Level 1**: Basic operations (INSERT, DELETE, UPDATE)
+* **Level 2**: Structural operations (MOVE)
+* **Level 3**: Semantic operations (MERGE, SPLIT, UPGRADE, DOWNGRADE)
+
+=== Detection algorithms
+
+The operation detector uses a pattern-based approach inspired by XDiff, XyDiff,
+and JATS-diff research:
+
+**Level 1 - Basic operations:**
+
+* **INSERT**: Detected by finding nodes in tree2 with no match in tree1
+* **DELETE**: Detected by finding nodes in tree1 with no match in tree2
+* **UPDATE**: Detected when matched nodes have different content, attributes, or labels
+
+**Level 2 - Structural operations:**
+
+* **MOVE**: Detected when a matched node has a different parent in tree2 than
+  its matched parent from tree1
+
+**Level 3 - Semantic operations:**
+
+These are detected by analyzing patterns in the basic operations:
+
+* **MERGE**: Pattern of (n-1) DELETE operations + 1 UPDATE operation where
+  deleted content appears in the updated node (80% text similarity threshold)
+
+* **SPLIT**: Pattern of 1 DELETE operation + n INSERT operations where the
+  deleted node's content is distributed across the inserted nodes (80% text
+  similarity threshold)
+
+* **UPGRADE**: Pattern of DELETE + INSERT where the inserted node is at a
+  shallower depth (promoted in hierarchy) with same label and similar content
+  (90% similarity threshold)
+
+* **DOWNGRADE**: Pattern of DELETE + INSERT where the inserted node is at a
+  deeper depth (demoted in hierarchy) with same label and similar content (90%
+  similarity threshold)
+
+When semantic operations are detected, the component basic operations are
+removed and replaced with the higher-level semantic operation.
+
+=== Operation types
+
+=== INSERT
+
+A new node was added to the tree.
+
+[example]
+====
+.Before
+[source,xml]
+----
+<root>
+  <a>1</a>
+</root>
+----
+
+.After
+[source,xml]
+----
+<root>
+  <a>1</a>
+  <b>2</b>
+</root>
+----
+
+Operation: INSERT `<b>2</b>`
+====
+
+=== DELETE
+
+A node was removed from the tree.
+
+[example]
+====
+.Before
+[source,xml]
+----
+<root>
+  <a>1</a>
+  <b>2</b>
+</root>
+----
+
+.After
+[source,xml]
+----
+<root>
+  <a>1</a>
+</root>
+----
+
+Operation: DELETE `<b>2</b>`
+====
+
+=== UPDATE
+
+A node's content or attributes changed.
+
+[example]
+====
+.Before
+[source,xml]
+----
+<root>
+  <a id="1">old text</a>
+</root>
+----
+
+.After
+[source,xml]
+----
+<root>
+  <a id="2">new text</a>
+</root>
+----
+
+Operation: UPDATE `<a>` (id and text changed)
+====
+
+=== MOVE
+
+A node was relocated to a different position in the tree.
+
+[example]
+====
+.Before
+[source,xml]
+----
+<root>
+  <section1>
+    <item>X</item>
+  </section1>
+  <section2>
+  </section2>
+</root>
+----
+
+.After
+[source,xml]
+----
+<root>
+  <section1>
+  </section1>
+  <section2>
+    <item>X</item>
+  </section2>
+</root>
+----
+
+Operation: MOVE `<item>X</item>` from section1 to section2
+====
+
+=== MERGE
+
+Multiple nodes were combined into a single node.
+
+[example]
+====
+.Before
+[source,xml]
+----
+<root>
+  <paragraph>First sentence.</paragraph>
+  <paragraph>Second sentence.</paragraph>
+  <paragraph>Third sentence.</paragraph>
+</root>
+----
+
+.After
+[source,xml]
+----
+<root>
+  <paragraph>First sentence. Second sentence. Third sentence.</paragraph>
+</root>
+----
+
+Operation: MERGE 3 `<paragraph>` nodes into one
+====
+
+=== SPLIT
+
+A single node was divided into multiple nodes.
+
+[example]
+====
+.Before
+[source,xml]
+----
+<root>
+  <section>
+    <title>Combined Content</title>
+    <paragraph>First part. Second part.</paragraph>
+  </section>
+</root>
+----
+
+.After
+[source,xml]
+----
+<root>
+  <section>
+    <title>First Content</title>
+    <paragraph>First part.</paragraph>
+  </section>
+  <section>
+    <title>Second Content</title>
+    <paragraph>Second part.</paragraph>
+  </section>
+</root>
+----
+
+Operation: SPLIT 1 `<section>` into 2 sections
+====
+
+=== UPGRADE
+
+A node was promoted to a higher level in the hierarchy (decreased depth).
+
+[example]
+====
+.Before
+[source,xml]
+----
+<root>
+  <chapter>
+    <section>
+      <subsection>
+        <title>Important Topic</title>
+        <content>This is important.</content>
+      </subsection>
+    </section>
+  </chapter>
+</root>
+----
+
+.After
+[source,xml]
+----
+<root>
+  <chapter>
+    <section>
+      <title>Important Topic</title>
+      <content>This is important.</content>
+    </section>
+  </chapter>
+</root>
+----
+
+Operation: UPGRADE `<subsection>` promoted to `<section>` level
+====
+
+=== DOWNGRADE
+
+A node was demoted to a lower level in the hierarchy (increased depth).
+
+[example]
+====
+.Before
+[source,json]
+----
+{
+  "items": [
+    { "id": 1, "name": "Item A", "type": "primary" }
+  ]
+}
+----
+
+.After
+[source,json]
+----
+{
+  "items": [
+    {
+      "id": 1,
+      "details": {
+        "name": "Item A",
+        "type": "primary"
+      }
+    }
+  ]
+}
+----
+
+Operation: DOWNGRADE `name` and `type` demoted into nested `details` object
+====
+
+== Matching algorithm
+
+The semantic tree diff uses a hybrid three-phase matching pipeline:
+
+=== Phase 1: Hash-based exact matching
+
+Matches nodes with identical structure and content using hash signatures.
+
+* Fast O(n) exact matching
+* Eliminates unchanged subtrees
+* Reduces problem size for subsequent phases
+
+=== Phase 2: Similarity-based matching
+
+Matches similar but not identical nodes using similarity scoring.
+
+* Compares node names, attributes, text content, and structure
+* Configurable similarity threshold (default: 0.95)
+* Uses weighted similarity metrics
+
+=== Phase 3: Structural propagation
+
+Propagates matches from parents and children to improve matching quality.
+
+* Top-down propagation from matched parents
+* Bottom-up propagation from matched children
+* Resolves ambiguous matches
+
+== Configuration options
+
+=== similarity_threshold
+
+Controls the minimum similarity score for matching nodes.
+
+[source,ruby]
+----
+result = Canon::Comparison.equivalent?(doc1, doc2,
+  verbose: true,
+  diff_algorithm: :semantic,
+  match: {
+    similarity_threshold: 0.90  # Default: 0.95
+  }
+)
+----
+
+Where,
+
+* Higher values (e.g., 0.99): More conservative, only very similar nodes match
+* Lower values (e.g., 0.80): More aggressive, allows less similar nodes to match
+* Default 0.95: Balanced approach suitable for most use cases
+
+=== hash_matching
+
+Enable or disable hash-based exact matching phase.
+
+[source,ruby]
+----
+result = Canon::Comparison.equivalent?(doc1, doc2,
+  verbose: true,
+  diff_algorithm: :semantic,
+  match: {
+    hash_matching: true  # Default: true
+  }
+)
+----
+
+Disable only if exact matching causes issues with your data.
+
+=== similarity_matching
+
+Enable or disable similarity-based matching phase.
+
+[source,ruby]
+----
+result = Canon::Comparison.equivalent?(doc1, doc2,
+  verbose: true,
+  diff_algorithm: :semantic,
+  match: {
+    similarity_matching: true  # Default: true
+  }
+)
+----
+
+Disable for faster but less accurate matching.
+
+=== propagation
+
+Enable or disable structural propagation phase.
+
+[source,ruby]
+----
+result = Canon::Comparison.equivalent?(doc1, doc2,
+  verbose: true,
+  diff_algorithm: :semantic,
+  match: {
+    propagation: true  # Default: true
+  }
+)
+----
+
+Disable for simpler but potentially less accurate results.
+
+== Result format
+
+When `verbose: true` is set, the result includes operation details:
+
+[source,ruby]
+----
+result = Canon::Comparison.equivalent?(doc1, doc2,
+  verbose: true,
+  diff_algorithm: :semantic
+)
+
+# Access operations
+result.operations.each do |op|
+  puts "#{op.type}: #{op.node1_path} -> #{op.node2_path}"
+end
+
+# Access matching statistics
+stats = result.match_options[:tree_diff_statistics]
+puts "Total nodes tree1: #{stats[:tree1_node_count]}"
+puts "Total nodes tree2: #{stats[:tree2_node_count]}"
+puts "Matched nodes: #{stats[:matched_count]}"
+puts "Match rate: #{stats[:match_rate]}"
+
+# Access matching details
+matching = result.match_options[:tree_diff_matching]
+matching.each_pair do |node1, node2|
+  puts "Matched: #{node1.path} <-> #{node2.path}"
+end
+----
+
+== Examples
+
+=== Basic comparison with operations
+
+[example]
+====
+[source,ruby]
+----
+require 'canon/comparison'
+
+xml1 = <<~XML
+  <article>
+    <title>Old Title</title>
+    <section id="1">
+      <p>Content A</p>
+    </section>
+  </article>
+XML
+
+xml2 = <<~XML
+  <article>
+    <title>New Title</title>
+    <section id="2">
+      <p>Content B</p>
+    </section>
+    <section id="1">
+      <p>Content A</p>
+    </section>
+  </article>
+XML
+
+result = Canon::Comparison.equivalent?(xml1, xml2,
+  verbose: true,
+  diff_algorithm: :semantic
+)
+
+result.operations.each do |op|
+  case op.type
+  when :insert
+    puts "Added: #{op.node2.name} at #{op.node2_path}"
+  when :update
+    puts "Changed: #{op.node1_path}"
+  when :move
+    puts "Moved: #{op.node1_path} -> #{op.node2_path}"
+  end
+end
+----
+
+Output:
+```
+Changed: /article/title
+Added: section at /article/section[1]
+```
+====
+
+=== Detecting moves
+
+[example]
+====
+[source,ruby]
+----
+json1 = <<~JSON
+  {
+    "sections": [
+      { "id": "intro", "content": "Introduction text" },
+      { "id": "body", "content": "Body text" }
+    ]
+  }
+JSON
+
+json2 = <<~JSON
+  {
+    "sections": [
+      { "id": "body", "content": "Body text" },
+      { "id": "intro", "content": "Introduction text" }
+    ]
+  }
+JSON
+
+result = Canon::Comparison.equivalent?(json1, json2,
+  verbose: true,
+  diff_algorithm: :semantic
+)
+
+moves = result.operations.select { |op| op.type == :move }
+puts "Detected #{moves.size} move operations"
+----
+====
+
+=== Adjusting similarity threshold
+
+[example]
+====
+[source,ruby]
+----
+# Strict matching - only very similar nodes match
+result_strict = Canon::Comparison.equivalent?(doc1, doc2,
+  verbose: true,
+  diff_algorithm: :semantic,
+  match: {
+    similarity_threshold: 0.99
+  }
+)
+
+# Lenient matching - allow more variation
+result_lenient = Canon::Comparison.equivalent?(doc1, doc2,
+  verbose: true,
+  diff_algorithm: :semantic,
+  match: {
+    similarity_threshold: 0.85
+  }
+)
+
+puts "Strict: #{result_strict.operations.size} operations"
+puts "Lenient: #{result_lenient.operations.size} operations"
+----
+====
+
+== Format support
+
+Semantic tree diff works with all Canon-supported formats:
+
+=== XML
+
+Full support including namespaces, attributes, and mixed content.
+
+[source,ruby]
+----
+result = Canon::Comparison.equivalent?(xml1, xml2,
+  verbose: true,
+  diff_algorithm: :semantic
+)
+----
+
+=== JSON
+
+Supports objects, arrays, and primitive values.
+
+[source,ruby]
+----
+result = Canon::Comparison.equivalent?(json1, json2,
+  verbose: true,
+  diff_algorithm: :semantic
+)
+----
+
+=== HTML
+
+Handles HTML 4/5 and XHTML documents.
+
+[source,ruby]
+----
+result = Canon::Comparison.equivalent?(html1, html2,
+  verbose: true,
+  diff_algorithm: :semantic
+)
+----
+
+=== YAML
+
+Processes YAML documents with nested structures.
+
+[source,ruby]
+----
+result = Canon::Comparison.equivalent?(yaml1, yaml2,
+  verbose: true,
+  diff_algorithm: :semantic
+)
+----
+
+== Interaction with other options
+
+=== Preprocessing
+
+Preprocessing applies before tree diff:
+
+[source,ruby]
+----
+result = Canon::Comparison.equivalent?(doc1, doc2,
+  verbose: true,
+  preprocessing: :c14n,  # Applied first
+  diff_algorithm: :semantic
+)
+----
+
+The preprocessing option normalizes documents before tree diff runs, ensuring
+consistent comparison.
+
+=== Match dimensions
+
+Match dimensions DO apply with semantic diff and control whether detected
+operations are classified as **normative** (must-fix) or **informative**
+(can-ignore) differences.
+
+When a match dimension is set to `:ignore`, operations related to that
+dimension are marked as informative. When set to `:strict` or `:normalize`,
+they are marked as normative.
+
+==== Dimension mapping to operations
+
+[cols="1,1,2"]
+|===
+|Match Dimension |Operation Types |Effect when `:ignore`
+
+|`text_content`
+|UPDATE (text changes)
+|Text content changes → informative
+
+|`attribute_values`
+|UPDATE (attribute changes)
+|Attribute value changes → informative
+
+|`attribute_order`
+|UPDATE (attribute reordering)
+|Attribute order changes → informative
+
+|`element_hierarchy`
+|UPGRADE, DOWNGRADE
+|Hierarchy depth changes → informative
+
+|`element_position`
+|MOVE
+|Element position changes → informative
+
+|`element_hierarchy`
+|MOVE (between parents)
+|Hierarchy changes → informative
+
+|`comments`
+|UPDATE, INSERT, DELETE (comments)
+|Comment changes → informative
+
+|`structural_whitespace`
+|UPDATE (whitespace)
+|Whitespace changes → informative
+|===
+
+==== Examples
+
+.Ignoring text content changes
+[example]
+====
+[source,ruby]
+----
+# Text UPDATE operations are marked as informative
+result = Canon::Comparison.equivalent?(doc1, doc2,
+  diff_algorithm: :semantic,
+  verbose: true,
+  match: {
+    text_content: :ignore  # Text changes → informative
+  }
+)
+
+# Check if there are any normative (structural) differences
+has_normative = result.differences.any?(&:normative?)
+----
+====
+
+.Ignoring element position changes
+[example]
+====
+[source,ruby]
+----
+# MOVE operations are marked as informative
+result = Canon::Comparison.equivalent?(doc1, doc2,
+  diff_algorithm: :semantic,
+  verbose: true,
+  match: {
+    element_position: :ignore  # Moves → informative
+  }
+)
+
+# Only structural changes are normative
+normative_ops = result.differences.select(&:normative?)
+puts "Normative changes: #{normative_ops.map(&:dimension).uniq}"
+----
+====
+
+.Combining multiple dimension settings
+[example]
+====
+[source,ruby]
+----
+# Complex filtering: care about structure but not formatting
+result = Canon::Comparison.equivalent?(doc1, doc2,
+  diff_algorithm: :semantic,
+  verbose: true,
+  match: {
+    # Normative dimensions (must match)
+    element_structure: :strict,
+    element_hierarchy: :strict,
+
+    # Informative dimensions (can differ)
+    text_content: :ignore,
+    attribute_order: :ignore,
+    structural_whitespace: :ignore,
+    comments: :ignore
+  }
+)
+
+# Report only normative differences
+if result.differences.any?(&:normative?)
+  puts "Structural differences found!"
+  result.differences.select(&:normative?).each do |diff|
+    puts "  #{diff.dimension}: #{diff.reason}"
+  end
+end
+----
+====
+
+==== Semantic-specific dimensions
+
+The three semantic-specific dimensions are only meaningful with semantic diff:
+
+* `element_hierarchy`: Controls UPGRADE/DOWNGRADE operations (depth changes)
+* `element_position`: Controls MOVE operations (position changes)
+* `element_hierarchy`: Controls MOVE operations (parent changes)
+
+With DOM diff, these dimensions have no effect since DOM diff doesn't detect
+these operation types.
+
+== Performance considerations
+
+=== Time complexity
+
+* Hash matching: O(n) where n is node count
+* Similarity matching: O(n²) worst case, O(n log n) typical
+* Propagation: O(n)
+
+For large documents (>10,000 nodes), consider:
+
+* Disabling similarity_matching if exact matches suffice
+* Increasing similarity_threshold to reduce candidate matches
+* Using preprocessing to reduce document size
+
+=== Memory usage
+
+The tree diff maintains:
+
+* Full tree representations of both documents
+* Hash signatures for all nodes
+* Matching state and operations
+
+For very large documents, monitor memory usage and consider processing in
+chunks if needed.
+
+== Troubleshooting
+
+=== Too many/too few matches
+
+Adjust `similarity_threshold`:
+
+[source,ruby]
+----
+# Too many false matches? Increase threshold
+Canon::Comparison.equivalent?(doc1, doc2,
+  diff_algorithm: :semantic,
+  match: { similarity_threshold: 0.98 }
+)
+
+# Too few matches? Decrease threshold
+Canon::Comparison.equivalent?(doc1, doc2,
+  diff_algorithm: :semantic,
+  match: { similarity_threshold: 0.90 }
+)
+----
+
+=== Incorrect move detection
+
+Moves are detected when nodes match but positions change. If move detection is
+incorrect:
+
+* Verify nodes are truly similar (check attributes and content)
+* Adjust similarity_threshold
+* Check if preprocessing is needed to normalize content
+
+=== Performance issues
+
+For slow comparisons:
+
+[source,ruby]
+----
+# Disable expensive phases
+Canon::Comparison.equivalent?(doc1, doc2,
+  diff_algorithm: :semantic,
+  match: {
+    similarity_matching: false,  # Skip if exact matches suffice
+    propagation: false            # Skip if not needed
+  }
+)
+----
+
+== Metadata Element Classification
+
+Metadata elements are presentation/formatting elements that don't affect semantic equivalence. The semantic tree diff automatically classifies operations on these elements as **informative** (non-normative).
+
+=== Metadata Elements
+
+The following elements are treated as metadata:
+
+* `semx` - Semantic markup
+* `fmt-concept` - Formatted concept
+* `fmt-name` - Formatted name
+* `fmt-title` - Formatted title
+* `fmt-xref` - Formatted cross-reference
+* `fmt-eref` - Formatted external reference
+* `fmt-termref` - Formatted term reference
+* `fmt-element-name` - Formatted element name
+* `fmt-link` - Formatted link
+* `autonum` - Automatic numbering
+
+=== Classification Rules
+
+When an operation involves a metadata element:
+
+* **INSERT of metadata element**: Marked as informative
+* **DELETE of metadata element**: Marked as informative
+* **UPDATE of metadata element**: Marked as informative
+* **MOVE of metadata element**: Marked as informative
+
+This ensures that presentation-layer changes don't cause false positives in semantic comparison.
+
+.Example: Metadata element changes are informative
+[example]
+====
+[source,xml]
+----
+<!-- Document 1 -->
+<section>
+  <title>Introduction</title>
+  <autonum>1.1</autonum>
+</section>
+
+<!-- Document 2 -->
+<section>
+  <title>Introduction</title>
+  <autonum>1.2</autonum>  <!-- Changed -->
+  <semx element="title">Introduction</semx>  <!-- Added -->
+</section>
+----
+
+Operations detected:
+
+* UPDATE `<autonum>` (1.1 → 1.2): **Informative** (metadata element)
+* INSERT `<semx>`: **Informative** (metadata element)
+
+The documents are considered semantically equivalent despite these presentation changes.
+====
+
+=== Configuring Metadata Elements
+
+The metadata element list is defined in [`OperationConverter::METADATA_ELEMENTS`](../lib/canon/tree_diff/operation_converter.rb:33).
+
+To treat additional elements as metadata, modify the `METADATA_ELEMENTS` constant. Alternatively, use match dimensions to ignore specific changes.
+
+== Whitespace-Sensitive Elements
+
+Certain elements preserve whitespace as semantically significant. For these elements, whitespace is **not normalized** even when `text_content: :normalize` is set.
+
+=== Whitespace-Sensitive Element List
+
+* `pre` - Preformatted text
+* `code` - Code blocks
+* `textarea` - Text input areas
+* `script` - JavaScript code
+* `style` - CSS styles
+
+=== Whitespace Handling
+
+For whitespace-sensitive elements:
+
+* Text content is preserved exactly as-is during tree conversion
+* Normalization does NOT apply to text content
+* Whitespace differences are **normative** (must match exactly)
+* Leading/trailing spaces are significant
+
+.Example: Whitespace in `<pre>` is significant
+[example]
+====
+[source,html]
+----
+<!-- Document 1 -->
+<pre>
+  Line 1
+  Line 2
+</pre>
+
+<!-- Document 2 -->
+<pre>
+Line 1
+Line 2
+</pre>
+----
+
+Operation detected:
+
+* UPDATE `<pre>` text content: **Normative** (whitespace differs)
+
+These documents are NOT equivalent because `<pre>` preserves whitespace. The leading spaces in Document 1 are semantically significant.
+====
+
+.Example: Whitespace in `<p>` is normalized
+[example]
+====
+[source,html]
+----
+<!-- Document 1 -->
+<p>
+  Line 1
+  Line 2
+</p>
+
+<!-- Document 2 -->
+<p>
+Line 1
+Line 2
+</p>
+----
+
+With `text_content: :normalize`:
+
+* No UPDATE detected (whitespace normalized in `<p>`)
+
+These documents ARE equivalent because `<p>` normalizes whitespace when `text_content: :normalize` is set.
+====
+
+=== Implementation
+
+Whitespace-sensitive elements are detected automatically based on element name in the format adapters:
+
+* [`XMLAdapter`](../lib/canon/tree_diff/adapters/xml_adapter.rb) - Preserves original text
+* [`HTMLAdapter`](../lib/canon/tree_diff/adapters/html_adapter.rb) - Preserves original text
+
+The normalization decision happens in [`OperationDetector`](../lib/canon/tree_diff/operations/operation_detector.rb) based on element name and match options.
+
+== Comparison with DOM diff
+
+[cols="1,2,2"]
+|===
+|Aspect |DOM diff (default) |Semantic tree diff
+
+|Matching
+|Position-based with DOM structure
+|Similarity-based with tree operations
+
+|Operations
+|Line-by-line changes
+|INSERT, DELETE, UPDATE, MOVE, MERGE, SPLIT, UPGRADE, DOWNGRADE
+
+|Use case
+|Traditional diff output
+|Operation-level analysis
+
+|Performance
+|Faster for large docs
+|Slower but more intelligent
+
+|Move detection
+|No
+|Yes
+
+|Rearrangement
+|Shows as delete + insert
+|Shows as MOVE
+
+|Format support
+|XML, HTML, JSON, YAML
+|XML, HTML, JSON, YAML
+
+|Output mode
+|Line-based or tree-based
+|Operation list
+
+|Verbose mode
+|Required for detailed output
+|Required for operations
+|===
+
+Both modes are first-class citizens in Canon. Choose based on your needs:
+
+* Use **DOM diff** for traditional comparison and readable output
+* Use **tree diff** for operation analysis and move detection
+
+== Research background
+
+The semantic tree diff implementation is based on:
+
+* **XDiff (2002)**: Minimum-cost edit distance with unordered tree model
+* **XyDiff/Cobena (2002)**: BULD algorithm with hash signatures and weights
+* **JATS-diff (2022)**: Semantic operations for text-centric XML
+
+Key innovations in Canon's implementation:
+
+* Hybrid matching pipeline combining hash, similarity, and propagation
+* Format adapters for XML, JSON, HTML, YAML
+* Integration with Canon's existing comparison architecture
+* Configurable similarity thresholds and matching phases
+
+See `xmldiff-resources.md` in the repository for research paper details.

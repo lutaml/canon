@@ -125,10 +125,32 @@ module Canon
 
           output.join("\n")
         rescue StandardError => e
-          # Safe fallback if formatting fails
-          colorize(
-            "🔍 DIFFERENCE ##{number}/#{total} [Error formatting: #{e.message}]", :red, use_color, bold: true
-          )
+          # Safe fallback if formatting fails - provide detailed context
+          location = begin
+            extract_location(diff)
+          rescue StandardError
+            "(unable to extract location)"
+          end
+
+          dimension = begin
+            diff.respond_to?(:dimension) ? diff.dimension : "unknown"
+          rescue StandardError
+            "unknown"
+          end
+
+          error_msg = [
+            "🔍 DIFFERENCE ##{number}/#{total} [Error formatting diff]",
+            "",
+            "Location: #{location}",
+            "Dimension: #{dimension}",
+            "",
+            "Error: #{e.message}",
+            "",
+            "This is likely a bug in the diff formatter. Please report this issue",
+            "with the above information.",
+          ].join("\n")
+
+          colorize(error_msg, :red, use_color, bold: true)
         end
 
         # Extract XPath or JSON path for the difference location
@@ -779,7 +801,16 @@ module Canon
         def get_attribute_names(node)
           # Handle Canon::Xml::Nodes::ElementNode (uses attribute_nodes array with AttributeNode objects)
           if node.is_a?(Canon::Xml::Nodes::ElementNode) && node.attribute_nodes.is_a?(Array)
-            return node.attribute_nodes.map(&:qname).sort
+            return node.attribute_nodes.map do |attr|
+              # Use safe qname extraction with fallback
+              if attr.respond_to?(:qname)
+                attr.qname
+              elsif attr.respond_to?(:name)
+                attr.name
+              else
+                attr.to_s
+              end
+            end.sort
           end
 
           # Handle Nokogiri nodes and others
@@ -829,7 +860,16 @@ module Canon
         def get_attribute_names_in_order(node)
           # Handle Canon::Xml::Nodes::ElementNode (uses attribute_nodes array with AttributeNode objects)
           if node.is_a?(Canon::Xml::Nodes::ElementNode) && node.attribute_nodes.is_a?(Array)
-            return node.attribute_nodes.map(&:qname)
+            return node.attribute_nodes.map do |attr|
+              # Use safe qname extraction with fallback
+              if attr.respond_to?(:qname)
+                attr.qname
+              elsif attr.respond_to?(:name)
+                attr.name
+              else
+                attr.to_s
+              end
+            end
           end
 
           return [] unless node.respond_to?(:attributes)
@@ -872,7 +912,16 @@ module Canon
           if node.is_a?(Canon::Xml::Nodes::ElementNode) && node.attribute_nodes.is_a?(Array)
             hash = {}
             node.attribute_nodes.each do |attr|
-              hash[attr.qname] = attr.value
+              # Use safe qname extraction with fallback
+              attr_name = if attr.respond_to?(:qname)
+                            attr.qname
+                          elsif attr.respond_to?(:name)
+                            attr.name
+                          else
+                            attr.to_s
+                          end
+              hash[attr_name] =
+                attr.respond_to?(:value) ? attr.value : attr.to_s
             end
             return hash
           end
