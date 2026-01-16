@@ -1,0 +1,250 @@
+= HTML Parser Selection Fix Design
+:doctype: article
+:date: 2025-01-17
+:status: Approved
+
+== Problem Statement
+
+When comparing HTML documents with `lang` and `xml:lang` attributes, users see false attribute differences:
+
+----
+⊖ Expected (File 1):
+  <span> with 1 attribute: xml:lang
+
+⊕ Actual (File 2):
+  <span> with 2 attributes: lang, xml:lang
+----
+
+Both HTML strings have identical attributes (`lang="EN-GB" xml:lang="EN-GB"`), but the comparison shows different attribute counts. This happens because:
+
+. *DOM path* uses `Nokogiri::XML.fragment` for all HTML, which treats `lang` and `xml:lang` as the same attribute (XML namespace behavior)
+. *Semantic path* uses `Nokogiri::HTML5.fragment` or `Nokogiri::HTML4.fragment`, which correctly treats them as distinct
+. *The `parse_html` method ignores the format parameter* and returns raw strings, causing inconsistent parsing
+
+== Root Cause
+
+In `lib/canon/comparison.rb`, the `parse_html` method at line 374:
+
+[source,ruby]
+----
+def parse_html(content, _format)  # format is IGNORED!
+  return content unless content.is_a?(String)
+  # ... returns raw string instead of parsing
+end
+----
+
+This causes HTML version information to be lost, and `HtmlComparator#parse_node` ends up using `XML.fragment` for all HTML content.
+
+== Solution
+
+=== Architecture
+
+Fix the 4-layer architecture to respect user's parser choice:
+
+----
+User specifies format: :html5
+         |
+         v
+Level 1: Preprocessing
+  parse_html(html, :html5) -> Nokogiri::HTML5.fragment ✓
+         |
+         v
+Level 2: Diff Algorithm (DiffNode creation)
+  Parsed nodes have accurate attributes ✓
+         |
+         v
+Level 3: Diff Report
+  Enriched metadata is correct ✓
+         |
+         v
+Level 4: Diff Rendering
+  Accurate attribute counts in output ✓
+----
+
+=== Component Changes
+
+==== 1. `parse_html` Method (`lib/canon/comparison.rb`)
+
+*Current behavior:* Ignores format parameter, returns raw string
+
+*New behavior:* Parse with correct Nokogiri parser based on format
+
+[source,ruby]
+----
+def parse_html(content, format)
+  return content unless content.is_a?(String)
+  return content if already_parsed?(content)
+
+  begin
+    case format
+    when :html5
+      Nokogiri::HTML5.fragment(content)
+    when :html4
+      Nokogiri::HTML4.fragment(content)
+    when :html
+      detect_and_parse_html(content)
+    else
+      content
+    end
+  rescue StandardError
+    content
+  end
+end
+
+private
+
+def already_parsed?(content)
+  content.is_a?(Nokogiri::HTML::Document) ||
+    content.is_a?(Nokogiri::HTML5::Document) ||
+    content.is_a?(Nokogiri::HTML::DocumentFragment) ||
+    content.is_a?(Nokogiri::HTML5::DocumentFragment) ||
+    content.is_a?(Nokogiri::XML::DocumentFragment)
+end
+
+def detect_and_parse_html(content)
+  version = detect_html_version(content)
+  version == :html5 ?
+    Nokogiri::HTML5.fragment(content) :
+    Nokogiri::HTML4.fragment(content)
+end
+
+def detect_html_version(content)
+  content.include?('<!DOCTYPE html>') ? :html5 : :html4
+end
+----
+
+==== 2. `dom_diff` Method (`lib/canon/comparison.rb`)
+
+*Current behavior:* Normalizes `html4`/`html5` to `:html` at line 320
+
+*New behavior:* Preserve format information
+
+Remove or modify line 320:
+
+[source,ruby]
+----
+# OLD: format1 = format2 = :html
+# NEW: Keep format1, format2 as html4 or html5
+----
+
+This ensures the format is passed through to `HtmlComparator` and used consistently.
+
+=== Error Handling
+
+. *Parse failures:* Fall back to raw string (maintains backward compatibility)
+. *Already-parsed documents:* Return as-is, don't re-parse
+. *Mixed input types:* Both documents parsed with consistent parser based on format parameter
+
+=== Testing Strategy
+
+==== Unit Tests (`spec/canon/comparison_spec.rb`)
+
+[source,ruby]
+----
+context "parse_html with format parameter" do
+  it "parses HTML5 with HTML5.fragment when format is :html5" do
+    html = '<span lang="en" xml:lang="en">text</span>'
+    result = Canon::Comparison.send(:parse_html, html, :html5)
+
+    expect(result).to be_a(Nokogiri::HTML5::DocumentFragment)
+    expect(result.at_css('span').attributes.keys).to eq(['lang', 'xml:lang'])
+  end
+
+  it "parses HTML4 with HTML4.fragment when format is :html4" do
+    html = '<span lang="en" xml:lang="en">text</span>'
+    result = Canon::Comparison.send(:parse_html, html, :html4)
+
+    expect(result).to be_a(Nokogiri::HTML4::DocumentFragment)
+  end
+
+  it "returns already-parsed documents as-is" do
+    frag = Nokogiri::HTML5.fragment('<span>text</span>')
+    result = Canon::Comparison.send(:parse_html, frag, :html5)
+
+    expect(result).to eq(frag)
+  end
+end
+----
+
+==== Integration Tests (`spec/canon/html_comparison_spec.rb`)
+
+[source,ruby]
+----
+context "HTML5 lang and xml:lang attributes" do
+  it "treats lang and xml:lang as distinct attributes in HTML5" do
+    html1 = '<span lang="EN-GB" xml:lang="EN-GB">text</span>'
+    html2 = '<span lang="EN-GB" xml:lang="EN-GB">text</span>'
+
+    result = Canon::Comparison.equivalent?(
+      html1, html2,
+      format: :html5,
+      verbose: true
+    )
+
+    expect(result).to be_equivalent
+  end
+
+  it "does NOT show false attribute differences" do
+    html1 = '<span lang="EN-GB" xml:lang="EN-GB">&#xA0;</span>'
+    html2 = '<span lang="EN-GB" xml:lang="EN-GB">␣</span>'
+
+    result = Canon::Comparison.equivalent?(
+      html1, html2,
+      format: :html5,
+      verbose: true
+    )
+
+    # Only difference should be the non-breaking space encoding
+    # No attribute differences should be reported
+    attr_diffs = result.differences.select { |d| d.dimension == :attribute_values }
+    expect(attr_diffs).to be_empty
+  end
+end
+----
+
+==== Backward Compatibility Tests
+
+[source,ruby]
+----
+context "backward compatibility" do
+  it "works when format is not specified (auto-detect)" do
+    html1 = '<span>text</span>'
+    html2 = '<span>text</span>'
+
+    expect(Canon::Comparison.equivalent?(html1, html2)).to be true
+  end
+
+  it "handles strings with :html format (legacy behavior)" do
+    html1 = '<span>text</span>'
+    html2 = '<span>text</span>'
+
+    expect(Canon::Comparison.equivalent?(html1, html2, format: :html)).to be true
+  end
+end
+----
+
+== Implementation Checklist
+
+* [ ] Modify `parse_html` in `lib/canon/comparison.rb`
+* [ ] Add helper methods: `already_parsed?`, `detect_and_parse_html`, `detect_html_version`
+* [ ] Update `dom_diff` to preserve format (line 320)
+* [ ] Add unit tests for `parse_html` method
+* [ ] Add integration tests for lang/xml:lang
+* [ ] Add backward compatibility tests
+* [ ] Run full test suite to ensure no regressions
+
+== Expected Outcomes
+
+After this fix:
+
+. *`lang` and `xml:lang` are treated as distinct attributes in HTML5/HTML4*
+. *No false attribute differences when both documents have identical attributes*
+. *User can explicitly control parser via `format: :html5` or `format: :html4`*
+. *Backward compatible with existing code (auto-detect still works)*
+. *Consistent parsing regardless of input format (string vs DocumentFragment)*
+
+== Notes
+
+. HTML entity normalization (`&#xa0;` vs `␣`) is intentionally NOT changed - these are semantically equivalent but different serializations, and the diff correctly shows this difference
+. XML comparison continues to use `XML.fragment` - this fix only affects HTML parsing
+. The semantic path already works correctly via `Canon::Html::DataModel.from_html`
