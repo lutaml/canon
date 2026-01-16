@@ -10,7 +10,7 @@ RSpec.describe Canon::Diff::NodeSerializer do
         doc = Nokogiri::HTML4.fragment(html)
         node = doc.children.first
 
-        serialized = Canon::Diff::NodeSerializer.serialize(node)
+        serialized = described_class.serialize(node)
 
         expect(serialized).to include("<span")
         expect(serialized).to include('id="test"')
@@ -21,7 +21,7 @@ RSpec.describe Canon::Diff::NodeSerializer do
         doc = Nokogiri::HTML4.fragment(html)
         text_node = doc.children.first.children.first
 
-        serialized = Canon::Diff::NodeSerializer.serialize(text_node)
+        serialized = described_class.serialize(text_node)
 
         expect(serialized).to eq("Text content")
       end
@@ -30,13 +30,13 @@ RSpec.describe Canon::Diff::NodeSerializer do
         html = "<html><body><div>Content</div></body></html>"
         doc = Nokogiri::HTML4.parse(html)
 
-        serialized = Canon::Diff::NodeSerializer.serialize(doc)
+        serialized = described_class.serialize(doc)
 
         expect(serialized).to include("<html")
       end
 
       it "handles nil node" do
-        serialized = Canon::Diff::NodeSerializer.serialize(nil)
+        serialized = described_class.serialize(nil)
         expect(serialized).to eq("")
       end
     end
@@ -47,7 +47,7 @@ RSpec.describe Canon::Diff::NodeSerializer do
         doc = Nokogiri::XML(xml)
         element = doc.at_css("element")
 
-        serialized = Canon::Diff::NodeSerializer.serialize(element)
+        serialized = described_class.serialize(element)
 
         expect(serialized).to include("<element")
         expect(serialized).to include('attr="value"')
@@ -57,7 +57,7 @@ RSpec.describe Canon::Diff::NodeSerializer do
         xml = "<?xml version='1.0'?><root><item>Text</item></root>"
         doc = Nokogiri::XML(xml)
 
-        serialized = Canon::Diff::NodeSerializer.serialize(doc)
+        serialized = described_class.serialize(doc)
 
         expect(serialized).to include("<root")
       end
@@ -71,7 +71,7 @@ RSpec.describe Canon::Diff::NodeSerializer do
           content
         end
 
-        serialized = Canon::Diff::NodeSerializer.serialize(node)
+        serialized = described_class.serialize(node)
 
         expect(serialized).to eq("<custom>Serialized</custom>")
       end
@@ -82,7 +82,7 @@ RSpec.describe Canon::Diff::NodeSerializer do
           content
         end
 
-        serialized = Canon::Diff::NodeSerializer.serialize(node)
+        serialized = described_class.serialize(node)
 
         expect(serialized).to eq("<custom>Serialized</custom>")
       end
@@ -93,7 +93,7 @@ RSpec.describe Canon::Diff::NodeSerializer do
           content
         end
 
-        serialized = Canon::Diff::NodeSerializer.serialize(node)
+        serialized = described_class.serialize(node)
 
         expect(serialized).to eq("plain text")
       end
@@ -107,7 +107,7 @@ RSpec.describe Canon::Diff::NodeSerializer do
         node = Canon::Xml::DataModel.from_xml(xml)
         element = node.children.first
 
-        attrs = Canon::Diff::NodeSerializer.extract_attributes(element)
+        attrs = described_class.extract_attributes(element)
 
         expect(attrs).to be_a(Hash)
         expect(attrs["lang"]).to eq("en")
@@ -120,7 +120,7 @@ RSpec.describe Canon::Diff::NodeSerializer do
         node = Canon::Xml::DataModel.from_xml(xml)
         element = node.children.first
 
-        attrs = Canon::Diff::NodeSerializer.extract_attributes(element)
+        attrs = described_class.extract_attributes(element)
 
         expect(attrs).to eq({})
       end
@@ -132,7 +132,7 @@ RSpec.describe Canon::Diff::NodeSerializer do
         doc = Nokogiri::HTML4.fragment(html)
         node = doc.children.first
 
-        attrs = Canon::Diff::NodeSerializer.extract_attributes(node)
+        attrs = described_class.extract_attributes(node)
 
         expect(attrs).to be_a(Hash)
         expect(attrs["lang"]).to eq("en-US")
@@ -144,7 +144,7 @@ RSpec.describe Canon::Diff::NodeSerializer do
         doc = Nokogiri::XML(xml)
         node = doc.root
 
-        attrs = Canon::Diff::NodeSerializer.extract_attributes(node)
+        attrs = described_class.extract_attributes(node)
 
         expect(attrs).to be_a(Hash)
         expect(attrs["attr1"]).to eq("value1")
@@ -152,7 +152,7 @@ RSpec.describe Canon::Diff::NodeSerializer do
       end
 
       it "handles nil node" do
-        attrs = Canon::Diff::NodeSerializer.extract_attributes(nil)
+        attrs = described_class.extract_attributes(nil)
         expect(attrs).to eq({})
       end
     end
@@ -163,7 +163,7 @@ RSpec.describe Canon::Diff::NodeSerializer do
         doc = Nokogiri::HTML4.fragment(html)
         node = doc.children.first
 
-        attrs = Canon::Diff::NodeSerializer.extract_attributes(node)
+        attrs = described_class.extract_attributes(node)
 
         expect(attrs["id"]).to be_a(String)
         expect(attrs["id"]).to eq("123")
@@ -174,7 +174,7 @@ RSpec.describe Canon::Diff::NodeSerializer do
         doc = Nokogiri::XML.parse(xml)
         node = doc.root
 
-        attrs = Canon::Diff::NodeSerializer.extract_attributes(node)
+        attrs = described_class.extract_attributes(node)
 
         expect(attrs["attr"]).to be_a(String)
         expect(attrs["attr"]).to include("value")

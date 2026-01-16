@@ -435,7 +435,9 @@ module Canon
             # INSERT operation - show content preview
             node2.respond_to?(:name) ? node2.name : "element"
             # Use serialized_after if available, otherwise extract from node
-            content_preview = serialized_after || extract_content_preview(node2, 50)
+            content_preview = serialized_after || extract_content_preview(
+              node2, 50
+            )
             detail1 = colorize("(not present)", :red, use_color)
             detail2 = content_preview
             changes = "Element inserted"
@@ -443,7 +445,9 @@ module Canon
             # DELETE operation - show content preview
             node1.respond_to?(:name) ? node1.name : "element"
             # Use serialized_before if available, otherwise extract from node
-            content_preview = serialized_before || extract_content_preview(node1, 50)
+            content_preview = serialized_before || extract_content_preview(
+              node1, 50
+            )
             detail1 = content_preview
             detail2 = colorize("(not present)", :green, use_color)
             changes = "Element deleted"
@@ -523,7 +527,9 @@ module Canon
           if attrs1_before && attrs2_after
             # Use enriched attributes
             all_keys = (attrs1_before.keys + attrs2_after.keys).uniq
-            differing_attrs = all_keys.reject { |key| attrs1_before[key] == attrs2_after[key] }
+            differing_attrs = all_keys.reject do |key|
+              attrs1_before[key] == attrs2_after[key]
+            end
           else
             # Fallback to extracting from nodes
             differing_attrs = find_all_differing_attributes(node1, node2)
@@ -532,12 +538,24 @@ module Canon
           if differing_attrs.any?
             # Show element name with all differing attributes
             attrs1_str = differing_attrs.map do |attr|
-              val1 = attrs1_before ? attrs1_before[attr] : get_attribute_value(node1, attr)
+              val1 = if attrs1_before
+                       attrs1_before[attr]
+                     else
+                       get_attribute_value(
+                         node1, attr
+                       )
+                     end
               "#{colorize(attr, :cyan, use_color)}=\"#{escape_quotes(val1)}\""
             end.join(" ")
 
             attrs2_str = differing_attrs.map do |attr|
-              val2 = attrs2_after ? attrs2_after[attr] : get_attribute_value(node2, attr)
+              val2 = if attrs2_after
+                       attrs2_after[attr]
+                     else
+                       get_attribute_value(
+                         node2, attr
+                       )
+                     end
               "#{colorize(attr, :cyan, use_color)}=\"#{escape_quotes(val2)}\""
             end.join(" ")
 
@@ -546,8 +564,20 @@ module Canon
 
             # List all attribute changes
             changes_parts = differing_attrs.map do |attr|
-              val1 = attrs1_before ? attrs1_before[attr] : get_attribute_value(node1, attr)
-              val2 = attrs2_after ? attrs2_after[attr] : get_attribute_value(node2, attr)
+              val1 = if attrs1_before
+                       attrs1_before[attr]
+                     else
+                       get_attribute_value(
+                         node1, attr
+                       )
+                     end
+              val2 = if attrs2_after
+                       attrs2_after[attr]
+                     else
+                       get_attribute_value(
+                         node2, attr
+                       )
+                     end
 
               if val1.empty? && !val2.empty?
                 "#{colorize(attr, :cyan,

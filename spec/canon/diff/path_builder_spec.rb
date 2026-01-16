@@ -19,7 +19,7 @@ RSpec.describe Canon::Diff::PathBuilder do
         allow(p1).to receive(:children).and_return([])
         allow(p2).to receive(:children).and_return([])
 
-        path = Canon::Diff::PathBuilder.build(p1)
+        path = described_class.build(p1)
 
         expect(path).to include("/div[0]/p[0]")
       end
@@ -35,9 +35,9 @@ RSpec.describe Canon::Diff::PathBuilder do
         allow(span2).to receive(:children).and_return([])
         allow(span3).to receive(:children).and_return([])
 
-        path1 = Canon::Diff::PathBuilder.build(span1)
-        path2 = Canon::Diff::PathBuilder.build(span2)
-        path3 = Canon::Diff::PathBuilder.build(span3)
+        path1 = described_class.build(span1)
+        path2 = described_class.build(span2)
+        path3 = described_class.build(span3)
 
         expect(path1).to include("/span[0]")
         expect(path2).to include("/span[1]")
@@ -45,7 +45,7 @@ RSpec.describe Canon::Diff::PathBuilder do
       end
 
       it "handles nil node" do
-        path = Canon::Diff::PathBuilder.build(nil)
+        path = described_class.build(nil)
         expect(path).to eq("")
       end
     end
@@ -56,7 +56,7 @@ RSpec.describe Canon::Diff::PathBuilder do
         doc = Nokogiri::HTML4.fragment(html)
         p_tag = doc.at_css("p:last")
 
-        path = Canon::Diff::PathBuilder.build(p_tag)
+        path = described_class.build(p_tag)
 
         expect(path).to include("/p[1]")
       end
@@ -66,7 +66,7 @@ RSpec.describe Canon::Diff::PathBuilder do
         doc = Nokogiri::HTML4.fragment(html)
         span = doc.at_css("span")
 
-        path = Canon::Diff::PathBuilder.build(span)
+        path = described_class.build(span)
 
         expect(path).to include("/div[0]/p[0]/span[0]")
       end
@@ -75,7 +75,7 @@ RSpec.describe Canon::Diff::PathBuilder do
         html = "<html><body><div></div></body></html>"
         doc = Nokogiri::HTML4.parse(html)
 
-        path = Canon::Diff::PathBuilder.build(doc)
+        path = described_class.build(doc)
 
         # Nokogiri document node's name is "document" not "#document"
         expect(path).to eq("/document[0]")
@@ -88,7 +88,7 @@ RSpec.describe Canon::Diff::PathBuilder do
         doc = Nokogiri::XML(xml)
         p_node = doc.at_css("p")
 
-        path = Canon::Diff::PathBuilder.build(p_node)
+        path = described_class.build(p_node)
 
         expect(path).to include("/root[0]/div[0]/p[0]")
       end
@@ -100,7 +100,7 @@ RSpec.describe Canon::Diff::PathBuilder do
         doc = Nokogiri::HTML4.fragment(html)
         p_tag = doc.at_css("p")
 
-        path = Canon::Diff::PathBuilder.build(p_tag, format: :document)
+        path = described_class.build(p_tag, format: :document)
 
         # Document format includes document root
         expect(path).to match(%r{^/#document})
@@ -117,7 +117,7 @@ RSpec.describe Canon::Diff::PathBuilder do
 
       allow(parent).to receive(:children).and_return([child1, child2, child3])
 
-      segment = Canon::Diff::PathBuilder.segment_for_node(child2)
+      segment = described_class.segment_for_node(child2)
 
       expect(segment).to eq("span[1]")
     end
@@ -125,7 +125,7 @@ RSpec.describe Canon::Diff::PathBuilder do
     it "handles node without parent" do
       node = double("TreeNode", label: "root", parent: nil)
 
-      segment = Canon::Diff::PathBuilder.segment_for_node(node)
+      segment = described_class.segment_for_node(node)
 
       expect(segment).to eq("root[0]")
     end
@@ -140,19 +140,20 @@ RSpec.describe Canon::Diff::PathBuilder do
       child4 = double("TreeNode", label: "span", parent: parent)
       child5 = double("TreeNode", label: "div", parent: parent)
 
-      allow(parent).to receive(:children).and_return([child1, child2, child3, child4, child5])
+      allow(parent).to receive(:children).and_return([child1, child2, child3,
+                                                      child4, child5])
 
-      expect(Canon::Diff::PathBuilder.ordinal_index(child1)).to eq(0)
-      expect(Canon::Diff::PathBuilder.ordinal_index(child2)).to eq(0)
-      expect(Canon::Diff::PathBuilder.ordinal_index(child3)).to eq(1)
-      expect(Canon::Diff::PathBuilder.ordinal_index(child4)).to eq(2)
-      expect(Canon::Diff::PathBuilder.ordinal_index(child5)).to eq(1)
+      expect(described_class.ordinal_index(child1)).to eq(0)
+      expect(described_class.ordinal_index(child2)).to eq(0)
+      expect(described_class.ordinal_index(child3)).to eq(1)
+      expect(described_class.ordinal_index(child4)).to eq(2)
+      expect(described_class.ordinal_index(child5)).to eq(1)
     end
 
     it "returns 0 for node without parent" do
       node = double("TreeNode", parent: nil)
 
-      index = Canon::Diff::PathBuilder.ordinal_index(node)
+      index = described_class.ordinal_index(node)
 
       expect(index).to eq(0)
     end
@@ -163,7 +164,7 @@ RSpec.describe Canon::Diff::PathBuilder do
 
       allow(parent).to receive(:children).and_return(nil)
 
-      index = Canon::Diff::PathBuilder.ordinal_index(node)
+      index = described_class.ordinal_index(node)
 
       expect(index).to eq(0)
     end
@@ -179,7 +180,7 @@ RSpec.describe Canon::Diff::PathBuilder do
       allow(div).to receive(:children).and_return([p])
       allow(p).to receive(:children).and_return([])
 
-      human = Canon::Diff::PathBuilder.human_path(p)
+      human = described_class.human_path(p)
 
       expect(human).to eq("#document[0] → div[0] → p[0]")
     end

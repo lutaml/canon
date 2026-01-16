@@ -184,7 +184,7 @@ module Canon
 
         attributes.sort.map do |name, value|
           " #{name}=\"#{value}\""
-        end.join("")
+        end.join
       end
     end
   end

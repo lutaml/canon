@@ -453,7 +453,8 @@ module Canon
       def build_path_for_node(tree_node)
         return nil if tree_node.nil?
 
-        Canon::Diff::PathBuilder.build(tree_node, format: @format == :xml ? :document : :fragment)
+        Canon::Diff::PathBuilder.build(tree_node,
+                                       format: @format == :xml ? :document : :fragment)
       end
 
       # Serialize a TreeNode's source node to string
