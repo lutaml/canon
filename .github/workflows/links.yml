@@ -54,13 +54,13 @@ jobs:
       uses: lycheeverse/lychee-action@v2
       with:
         # Check the built HTML site for rendered links
-        # Set base URL to _site directory for Jekyll baseurl resolution
+        # Only check https and http schemes, exclude file:// due to path resolution issues
         args: >-
           --verbose
           --no-progress
           --config lychee.toml
           --root-dir "$(pwd)/_site"
-          --base-url file://${{ github.workspace }}/docs/_site
+          --scheme https,http
           '_site/**/*.html'
         fail: true
         output: link-check-results.md
