@@ -33,16 +33,6 @@ module Canon
             .gsub("\n", "¬")
         end
 
-        # Escape quotes for display
-        #
-        # @param text [String] Text to escape
-        # @return [String] Escaped text
-        def self.escape_quotes(text)
-          return "" if text.nil?
-
-          text.gsub('"', '\\"')
-        end
-
         # Extract a content preview from a node
         #
         # @param node [Object] Node to extract from
