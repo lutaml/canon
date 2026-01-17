@@ -1,6 +1,9 @@
 # frozen_string_literal: true
 
 require_relative "match_options/base_resolver"
+require_relative "match_options/xml_resolver"
+require_relative "match_options/json_resolver"
+require_relative "match_options/yaml_resolver"
 
 module Canon
   module Comparison
@@ -131,256 +134,36 @@ module Canon
           comments
         ].freeze
 
-        # Class methods for the module
-        module ClassMethods
-          # Get format-specific default options
-          #
-          # @param format [Symbol] Format type
-          # @return [Hash] Default options for the format
-          def format_defaults(format)
-            FORMAT_DEFAULTS[format]&.dup || FORMAT_DEFAULTS[:xml].dup
+        # Expose FORMAT_DEFAULTS from XmlResolver (for backward compatibility)
+        FORMAT_DEFAULTS = MatchOptions::XmlResolver.const_get(:FORMAT_DEFAULTS)
+
+        # Expose MATCH_PROFILES from XmlResolver (for backward compatibility)
+        MATCH_PROFILES = MatchOptions::XmlResolver.const_get(:MATCH_PROFILES)
+
+        class << self
+          # Delegate to XmlResolver
+          def resolve(**kwargs)
+            MatchOptions::XmlResolver.resolve(**kwargs)
           end
 
-          # Get options for a named profile
-          #
-          # @param profile [Symbol] Profile name
-          # @return [Hash] Profile options
-          # @raise [Canon::Error] If profile is unknown
+          # Delegate to XmlResolver
           def get_profile_options(profile)
-            unless MATCH_PROFILES.key?(profile)
-              raise Canon::Error,
-                    "Unknown match profile: #{profile}. " \
-                    "Valid profiles: #{MATCH_PROFILES.keys.join(', ')}"
-            end
-            MATCH_PROFILES[profile].dup
+            MatchOptions::XmlResolver.get_profile_options(profile)
           end
 
           # Get valid match dimensions for XML/HTML
           #
           # @return [Array<Symbol>] Valid dimensions
           def match_dimensions
-            MATCH_DIMENSIONS
+            MatchOptions::XmlResolver.match_dimensions
           end
-        end
 
-        # Extend the module with class methods
-        extend ClassMethods
-
-        # Format-specific defaults
-        FORMAT_DEFAULTS = {
-          html: {
-            preprocessing: :rendered,
-            text_content: :normalize,
-            structural_whitespace: :normalize,
-            attribute_presence: :strict,
-            attribute_order: :ignore,
-            attribute_values: :strict,
-            element_position: :ignore,
-            comments: :ignore,
-          },
-          xml: {
-            preprocessing: :none,
-            text_content: :strict,
-            structural_whitespace: :strict,
-            attribute_presence: :strict,
-            attribute_order: :ignore,
-            attribute_values: :strict,
-            element_position: :strict,
-            comments: :strict,
-          },
-        }.freeze
-
-        # Predefined match profiles for XML/HTML
-        MATCH_PROFILES = {
-          # Strict: Match exactly as written in source (XML default)
-          strict: {
-            preprocessing: :none,
-            text_content: :strict,
-            structural_whitespace: :strict,
-            attribute_presence: :strict,
-            attribute_order: :strict,
-            attribute_values: :strict,
-            element_position: :strict,
-            comments: :strict,
-          },
-
-          # Rendered: Match rendered output (HTML default)
-          # Mimics CSS whitespace collapsing
-          rendered: {
-            preprocessing: :none,
-            text_content: :normalize,
-            structural_whitespace: :normalize,
-            attribute_presence: :strict,
-            attribute_order: :strict,
-            attribute_values: :strict,
-            element_position: :strict,
-            comments: :ignore,
-          },
-
-          # HTML4: Match HTML4 rendered output
-          # HTML4 rendering normalizes attribute whitespace
-          html4: {
-            preprocessing: :rendered,
-            text_content: :normalize,
-            structural_whitespace: :normalize,
-            attribute_presence: :strict,
-            attribute_order: :strict,
-            attribute_values: :normalize,
-            element_position: :ignore,
-            comments: :ignore,
-          },
-
-          # HTML5: Match HTML5 rendered output (same as rendered)
-          html5: {
-            preprocessing: :rendered,
-            text_content: :normalize,
-            structural_whitespace: :normalize,
-            attribute_presence: :strict,
-            attribute_order: :strict,
-            attribute_values: :strict,
-            element_position: :ignore,
-            comments: :ignore,
-          },
-
-          # Spec-friendly: Formatting doesn't matter
-          # Uses :rendered preprocessing for HTML which normalizes via to_html
-          spec_friendly: {
-            preprocessing: :rendered,
-            text_content: :normalize,
-            structural_whitespace: :ignore,
-            attribute_presence: :strict,
-            attribute_order: :ignore,
-            attribute_values: :normalize,
-            element_position: :ignore,
-            comments: :ignore,
-          },
-
-          # Content-only: Only content matters
-          content_only: {
-            preprocessing: :c14n,
-            text_content: :normalize,
-            structural_whitespace: :ignore,
-            attribute_presence: :strict,
-            attribute_order: :ignore,
-            attribute_values: :normalize,
-            element_position: :ignore,
-            comments: :ignore,
-          },
-        }.freeze
-
-        class << self
-          # Resolve match options with precedence handling
+          # Get format-specific default options
           #
-          # Precedence order (highest to lowest):
-          # 1. Explicit match parameter
-          # 2. Profile from match_profile parameter
-          # 3. Global configuration
-          # 4. Format-specific defaults
-          #
-          # @param format [Symbol] Format type (:xml or :html)
-          # @param match_profile [Symbol, nil] Profile name
-          # @param match [Hash, nil] Explicit options per dimension
-          # @param preprocessing [Symbol, nil] Preprocessing option
-          # @param global_profile [Symbol, nil] Global configured profile
-          # @param global_options [Hash, nil] Global configured options
-          # @return [Hash] Resolved options for all dimensions
-          def resolve(
-            format:,
-            match_profile: nil,
-            match: nil,
-            preprocessing: nil,
-            global_profile: nil,
-            global_options: nil
-          )
-            # Start with format-specific defaults
-            options = FORMAT_DEFAULTS[format]&.dup || FORMAT_DEFAULTS[:xml].dup
-
-            # Apply global profile if specified
-            if global_profile
-              profile_opts = get_profile_options(global_profile)
-              options.merge!(profile_opts)
-            end
-
-            # Apply global options if specified
-            if global_options
-              validate_match_options!(global_options)
-              options.merge!(global_options)
-            end
-
-            # Apply per-call profile if specified (overrides global)
-            if match_profile
-              profile_opts = get_profile_options(match_profile)
-              options.merge!(profile_opts)
-            end
-
-            # Apply per-call preprocessing if specified (overrides profile)
-            if preprocessing
-              validate_preprocessing!(preprocessing)
-              options[:preprocessing] = preprocessing
-            end
-
-            # Apply per-call explicit options if specified (highest priority)
-            if match
-              validate_match_options!(match)
-              options.merge!(match)
-            end
-
-            options
-          end
-
-          # Get options for a named profile
-          #
-          # @param profile [Symbol] Profile name
-          # @return [Hash] Profile options
-          # @raise [Canon::Error] If profile is unknown
-          def get_profile_options(profile)
-            unless MATCH_PROFILES.key?(profile)
-              raise Canon::Error,
-                    "Unknown match profile: #{profile}. " \
-                    "Valid profiles: #{MATCH_PROFILES.keys.join(', ')}"
-            end
-            MATCH_PROFILES[profile].dup
-          end
-
-          private
-
-          # Validate preprocessing option
-          def validate_preprocessing!(preprocessing)
-            unless MatchOptions::PREPROCESSING_OPTIONS.include?(preprocessing)
-              raise Canon::Error,
-                    "Unknown preprocessing option: #{preprocessing}. " \
-                    "Valid options: #{MatchOptions::PREPROCESSING_OPTIONS.join(', ')}"
-            end
-          end
-
-          # Validate match options
-          def validate_match_options!(match_options)
-            # Special options that don't need validation as dimensions
-            special_options = %i[
-              preprocessing
-              semantic_diff
-              similarity_threshold
-              hash_matching
-              similarity_matching
-              propagation
-            ]
-
-            match_options.each do |dimension, behavior|
-              # Skip special options (validated elsewhere or passed through)
-              next if special_options.include?(dimension)
-
-              unless MATCH_DIMENSIONS.include?(dimension)
-                raise Canon::Error,
-                      "Unknown match dimension: #{dimension}. " \
-                      "Valid dimensions: #{MATCH_DIMENSIONS.join(', ')}"
-              end
-
-              unless MatchOptions::MATCH_BEHAVIORS.include?(behavior)
-                raise Canon::Error,
-                      "Unknown match behavior: #{behavior} for #{dimension}. " \
-                      "Valid behaviors: #{MatchOptions::MATCH_BEHAVIORS.join(', ')}"
-              end
-            end
+          # @param format [Symbol] Format type
+          # @return [Hash] Default options for the format
+          def format_defaults(format)
+            MatchOptions::XmlResolver.format_defaults(format)
           end
         end
       end
@@ -394,140 +177,36 @@ module Canon
           key_order
         ].freeze
 
-        # Format defaults for JSON
-        FORMAT_DEFAULTS = {
-          json: {
-            preprocessing: :none,
-            text_content: :strict,
-            structural_whitespace: :ignore,
-            key_order: :ignore,
-          },
-        }.freeze
+        # Expose FORMAT_DEFAULTS from JsonResolver (for backward compatibility)
+        FORMAT_DEFAULTS = MatchOptions::JsonResolver.const_get(:FORMAT_DEFAULTS)
 
-        # Predefined match profiles for JSON
-        MATCH_PROFILES = {
-          # Strict: Match exactly
-          strict: {
-            preprocessing: :none,
-            text_content: :strict,
-            structural_whitespace: :strict,
-            key_order: :strict,
-          },
-
-          # Spec-friendly: Formatting and order don't matter
-          spec_friendly: {
-            preprocessing: :normalize,
-            text_content: :strict,
-            structural_whitespace: :ignore,
-            key_order: :ignore,
-          },
-
-          # Content-only: Only values matter
-          content_only: {
-            preprocessing: :normalize,
-            text_content: :normalize,
-            structural_whitespace: :ignore,
-            key_order: :ignore,
-          },
-        }.freeze
+        # Expose MATCH_PROFILES from JsonResolver (for backward compatibility)
+        MATCH_PROFILES = MatchOptions::JsonResolver.const_get(:MATCH_PROFILES)
 
         class << self
-          # Resolve match options with precedence handling
-          #
-          # @param format [Symbol] Format type (:json)
-          # @param match_profile [Symbol, nil] Profile name
-          # @param match [Hash, nil] Explicit options per dimension
-          # @param preprocessing [Symbol, nil] Preprocessing option
-          # @param global_profile [Symbol, nil] Global configured profile
-          # @param global_options [Hash, nil] Global configured options
-          # @return [Hash] Resolved options for all dimensions
-          def resolve(
-            format:,
-            match_profile: nil,
-            match: nil,
-            preprocessing: nil,
-            global_profile: nil,
-            global_options: nil
-          )
-            # Start with format-specific defaults
-            options = FORMAT_DEFAULTS[:json].dup
-
-            # Apply global profile if specified
-            if global_profile
-              profile_opts = get_profile_options(global_profile)
-              options.merge!(profile_opts)
-            end
-
-            # Apply global options if specified
-            if global_options
-              validate_match_options!(global_options)
-              options.merge!(global_options)
-            end
-
-            # Apply per-call profile if specified (overrides global)
-            if match_profile
-              profile_opts = get_profile_options(match_profile)
-              options.merge!(profile_opts)
-            end
-
-            # Apply per-call preprocessing if specified (overrides profile)
-            if preprocessing
-              validate_preprocessing!(preprocessing)
-              options[:preprocessing] = preprocessing
-            end
-
-            # Apply per-call explicit options if specified (highest priority)
-            if match
-              validate_match_options!(match)
-              options.merge!(match)
-            end
-
-            options
+          # Delegate to JsonResolver
+          def resolve(**kwargs)
+            MatchOptions::JsonResolver.resolve(**kwargs)
           end
 
-          # Get options for a named profile
-          #
-          # @param profile [Symbol] Profile name
-          # @return [Hash] Profile options
-          # @raise [Canon::Error] If profile is unknown
+          # Delegate to JsonResolver
           def get_profile_options(profile)
-            unless MATCH_PROFILES.key?(profile)
-              raise Canon::Error,
-                    "Unknown match profile: #{profile}. " \
-                    "Valid profiles: #{MATCH_PROFILES.keys.join(', ')}"
-            end
-            MATCH_PROFILES[profile].dup
+            MatchOptions::JsonResolver.get_profile_options(profile)
           end
 
-          private
-
-          # Validate preprocessing option
-          def validate_preprocessing!(preprocessing)
-            unless MatchOptions::PREPROCESSING_OPTIONS.include?(preprocessing)
-              raise Canon::Error,
-                    "Unknown preprocessing option: #{preprocessing}. " \
-                    "Valid options: #{MatchOptions::PREPROCESSING_OPTIONS.join(', ')}"
-            end
+          # Get valid match dimensions for JSON
+          #
+          # @return [Array<Symbol>] Valid dimensions
+          def match_dimensions
+            MatchOptions::JsonResolver.match_dimensions
           end
 
-          # Validate match options
-          def validate_match_options!(match_options)
-            match_options.each do |dimension, behavior|
-              # Skip preprocessing as it's validated separately
-              next if dimension == :preprocessing
-
-              unless MATCH_DIMENSIONS.include?(dimension)
-                raise Canon::Error,
-                      "Unknown match dimension: #{dimension}. " \
-                      "Valid dimensions: #{MATCH_DIMENSIONS.join(', ')}"
-              end
-
-              unless MatchOptions::MATCH_BEHAVIORS.include?(behavior)
-                raise Canon::Error,
-                      "Unknown match behavior: #{behavior} for #{dimension}. " \
-                      "Valid behaviors: #{MatchOptions::MATCH_BEHAVIORS.join(', ')}"
-              end
-            end
+          # Get format-specific default options
+          #
+          # @param format [Symbol] Format type
+          # @return [Hash] Default options for the format
+          def format_defaults(format)
+            MatchOptions::JsonResolver.format_defaults(format)
           end
         end
       end
@@ -542,144 +221,36 @@ module Canon
           comments
         ].freeze
 
-        # Format defaults for YAML
-        FORMAT_DEFAULTS = {
-          yaml: {
-            preprocessing: :none,
-            text_content: :strict,
-            structural_whitespace: :ignore,
-            key_order: :ignore,
-            comments: :ignore,
-          },
-        }.freeze
+        # Expose FORMAT_DEFAULTS from YamlResolver (for backward compatibility)
+        FORMAT_DEFAULTS = MatchOptions::YamlResolver.const_get(:FORMAT_DEFAULTS)
 
-        # Predefined match profiles for YAML
-        MATCH_PROFILES = {
-          # Strict: Match exactly
-          strict: {
-            preprocessing: :none,
-            text_content: :strict,
-            structural_whitespace: :strict,
-            key_order: :strict,
-            comments: :strict,
-          },
-
-          # Spec-friendly: Formatting and order don't matter
-          spec_friendly: {
-            preprocessing: :normalize,
-            text_content: :strict,
-            structural_whitespace: :ignore,
-            key_order: :ignore,
-            comments: :ignore,
-          },
-
-          # Content-only: Only values matter
-          content_only: {
-            preprocessing: :normalize,
-            text_content: :normalize,
-            structural_whitespace: :ignore,
-            key_order: :ignore,
-            comments: :ignore,
-          },
-        }.freeze
+        # Expose MATCH_PROFILES from YamlResolver (for backward compatibility)
+        MATCH_PROFILES = MatchOptions::YamlResolver.const_get(:MATCH_PROFILES)
 
         class << self
-          # Resolve match options with precedence handling
-          #
-          # @param format [Symbol] Format type (:yaml)
-          # @param match_profile [Symbol, nil] Profile name
-          # @param match [Hash, nil] Explicit options per dimension
-          # @param preprocessing [Symbol, nil] Preprocessing option
-          # @param global_profile [Symbol, nil] Global configured profile
-          # @param global_options [Hash, nil] Global configured options
-          # @return [Hash] Resolved options for all dimensions
-          def resolve(
-            format:,
-            match_profile: nil,
-            match: nil,
-            preprocessing: nil,
-            global_profile: nil,
-            global_options: nil
-          )
-            # Start with format-specific defaults
-            options = FORMAT_DEFAULTS[:yaml].dup
-
-            # Apply global profile if specified
-            if global_profile
-              profile_opts = get_profile_options(global_profile)
-              options.merge!(profile_opts)
-            end
-
-            # Apply global options if specified
-            if global_options
-              validate_match_options!(global_options)
-              options.merge!(global_options)
-            end
-
-            # Apply per-call profile if specified (overrides global)
-            if match_profile
-              profile_opts = get_profile_options(match_profile)
-              options.merge!(profile_opts)
-            end
-
-            # Apply per-call preprocessing if specified (overrides profile)
-            if preprocessing
-              validate_preprocessing!(preprocessing)
-              options[:preprocessing] = preprocessing
-            end
-
-            # Apply per-call explicit options if specified (highest priority)
-            if match
-              validate_match_options!(match)
-              options.merge!(match)
-            end
-
-            options
+          # Delegate to YamlResolver
+          def resolve(**kwargs)
+            MatchOptions::YamlResolver.resolve(**kwargs)
           end
 
-          # Get options for a named profile
-          #
-          # @param profile [Symbol] Profile name
-          # @return [Hash] Profile options
-          # @raise [Canon::Error] If profile is unknown
+          # Delegate to YamlResolver
           def get_profile_options(profile)
-            unless MATCH_PROFILES.key?(profile)
-              raise Canon::Error,
-                    "Unknown match profile: #{profile}. " \
-                    "Valid profiles: #{MATCH_PROFILES.keys.join(', ')}"
-            end
-            MATCH_PROFILES[profile].dup
+            MatchOptions::YamlResolver.get_profile_options(profile)
           end
 
-          private
-
-          # Validate preprocessing option
-          def validate_preprocessing!(preprocessing)
-            unless MatchOptions::PREPROCESSING_OPTIONS.include?(preprocessing)
-              raise Canon::Error,
-                    "Unknown preprocessing option: #{preprocessing}. " \
-                    "Valid options: #{MatchOptions::PREPROCESSING_OPTIONS.join(', ')}"
-            end
+          # Get valid match dimensions for YAML
+          #
+          # @return [Array<Symbol>] Valid dimensions
+          def match_dimensions
+            MatchOptions::YamlResolver.match_dimensions
           end
 
-          # Validate match options
-          def validate_match_options!(match_options)
-            match_options.each do |dimension, behavior|
-              # Skip preprocessing as it's validated separately
-              next if dimension == :preprocessing
-
-              unless MATCH_DIMENSIONS.include?(dimension)
-                raise Canon::Error,
-                      "Unknown match dimension: #{dimension}. " \
-                      "Valid dimensions: #{MATCH_DIMENSIONS.join(', ')}"
-              end
-
-              unless MatchOptions::MATCH_BEHAVIORS.include?(behavior)
-                raise Canon::Error,
-                      "Unknown match behavior: #{behavior} for #{dimension}. " \
-                      "Valid behaviors: #{MatchOptions::MATCH_BEHAVIORS.join(', ')}"
-              end
-            end
+          # Get format-specific default options
+          #
+          # @param format [Symbol] Format type
+          # @return [Hash] Default options for the format
+          def format_defaults(format)
+            MatchOptions::YamlResolver.format_defaults(format)
           end
         end
       end

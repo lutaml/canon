@@ -130,7 +130,7 @@ module Canon
         else
           # Fall back to detection only if format not provided
           begin
-            detected_format = Canon::Comparison.send(:detect_format, @expected)
+            detected_format = Canon::Comparison::FormatDetector.detect(@expected)
             detected_format.to_s.upcase
           rescue StandardError
             "CONTENT"

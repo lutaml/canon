@@ -15,6 +15,8 @@ require_relative "xml_comparator/node_parser"
 require_relative "xml_comparator/attribute_filter"
 require_relative "xml_comparator/attribute_comparator"
 require_relative "xml_comparator/namespace_comparator"
+require_relative "xml_comparator/node_type_comparator"
+require_relative "xml_comparator/child_comparison"
 require_relative "xml_comparator/diff_node_builder"
 
 module Canon
@@ -256,49 +258,10 @@ module Canon
             return Comparison::UNEQUAL_NODES_TYPES
           end
 
-          # Dispatch based on node type
-          # Canon::Xml::Node types use .node_type method that returns symbols
-          # Nokogiri also has .node_type but returns integers, so check for Symbol
-          if n1.respond_to?(:node_type) && n2.respond_to?(:node_type) &&
-              n1.node_type.is_a?(Symbol) && n2.node_type.is_a?(Symbol)
-            case n1.node_type
-            when :root
-              compare_children(n1, n2, opts, child_opts, diff_children,
-                               differences)
-            when :element
-              compare_element_nodes(n1, n2, opts, child_opts, diff_children,
-                                    differences)
-            when :text
-              compare_text_nodes(n1, n2, opts, differences)
-            when :comment
-              compare_comment_nodes(n1, n2, opts, differences)
-            when :cdata
-              compare_text_nodes(n1, n2, opts, differences)
-            when :processing_instruction
-              compare_processing_instruction_nodes(n1, n2, opts, differences)
-            else
-              Comparison::EQUIVALENT
-            end
-          # Moxml/Nokogiri types use .element?, .text?, etc. methods
-          elsif n1.respond_to?(:element?) && n1.element?
-            compare_element_nodes(n1, n2, opts, child_opts, diff_children,
-                                  differences)
-          elsif n1.respond_to?(:text?) && n1.text?
-            compare_text_nodes(n1, n2, opts, differences)
-          elsif n1.respond_to?(:comment?) && n1.comment?
-            compare_comment_nodes(n1, n2, opts, differences)
-          elsif n1.respond_to?(:cdata?) && n1.cdata?
-            compare_text_nodes(n1, n2, opts, differences)
-          elsif n1.respond_to?(:processing_instruction?) &&
-              n1.processing_instruction?
-            compare_processing_instruction_nodes(n1, n2, opts, differences)
-          elsif n1.respond_to?(:root)
-            # Document node (Moxml/Nokogiri - legacy path)
-            compare_document_nodes(n1, n2, opts, child_opts, diff_children,
-                                   differences)
-          else
-            Comparison::EQUIVALENT
-          end
+          # Dispatch based on node type using NodeTypeComparator strategy
+          XmlComparatorHelpers::NodeTypeComparator.compare(
+            n1, n2, self, opts, child_opts, diff_children, differences
+          )
         end
 
         # Public comparison methods - exposed for XmlNodeComparison module
@@ -504,153 +467,12 @@ module Canon
 
         # Compare children of two nodes using semantic matching
         #
-        # Uses ElementMatcher to pair children semantically (by identity attributes
-        # or position), then compares matched pairs and detects position changes.
-        def compare_children(n1, n2, opts, child_opts, diff_children,
-                             differences)
-          children1 = filter_children(n1.children, opts)
-          children2 = filter_children(n2.children, opts)
-
-          # Quick check: if both have no children, they're equivalent
-          return Comparison::EQUIVALENT if children1.empty? && children2.empty?
-
-          # Check if we can use ElementMatcher (requires Canon::Xml::DataModel nodes)
-          # ElementMatcher expects nodes with .node_type method that returns symbols
-          # and only works with element nodes (filters out text, comment, etc.)
-          can_use_matcher = children1.all? do |c|
-            c.is_a?(Canon::Xml::Node) && c.node_type == :element
-          end &&
-            children2.all? { |c| c.is_a?(Canon::Xml::Node) && c.node_type == :element }
-
-          if can_use_matcher && !children1.empty? && !children2.empty?
-            # Use ElementMatcher for semantic matching with position tracking
-            use_element_matcher_comparison(children1, children2, n1, opts,
-                                           child_opts, diff_children, differences)
-          else
-            # Fall back to simple positional comparison for Moxml/Nokogiri nodes
-            # Length check
-            unless children1.length == children2.length
-              # Determine dimension based on type of first differing child
-              # When lengths differ, find which child is missing/extra
-              dimension = :text_content # default
-
-              # Compare position by position to find first difference
-              max_len = [children1.length, children2.length].max
-              (0...max_len).each do |i|
-                if i >= children1.length
-                  # Extra child in children2
-                  dimension = determine_node_dimension(children2[i])
-                  break
-                elsif i >= children2.length
-                  # Extra child in children1
-                  dimension = determine_node_dimension(children1[i])
-                  break
-                elsif !same_node_type?(children1[i], children2[i])
-                  # Different node types at same position
-                  dimension = determine_node_dimension(children1[i])
-                  break
-                end
-              end
-
-              add_difference(n1, n2, Comparison::MISSING_NODE,
-                             Comparison::MISSING_NODE, dimension, opts,
-                             differences)
-              return Comparison::MISSING_NODE
-            end
-
-            # Compare children pairwise by position
-            result = Comparison::EQUIVALENT
-            children1.zip(children2).each do |child1, child2|
-              child_result = compare_nodes(child1, child2, child_opts, child_opts,
-                                           diff_children, differences)
-              result = child_result unless child_result == Comparison::EQUIVALENT
-            end
-
-            result
-          end
-        end
-
-        # Use ElementMatcher for semantic comparison (Canon::Xml::DataModel nodes)
-        def use_element_matcher_comparison(children1, children2, parent_node,
-                                          opts, child_opts, diff_children,
-                                          differences)
-          require_relative "../xml/element_matcher"
-
-          # Create temporary RootNode wrappers to use ElementMatcher
-          # Don't modify parent pointers - just set @children directly
-          require_relative "../xml/nodes/root_node"
-
-          temp_root1 = Canon::Xml::Nodes::RootNode.new
-          temp_root1.instance_variable_set(:@children, children1.dup)
-
-          temp_root2 = Canon::Xml::Nodes::RootNode.new
-          temp_root2.instance_variable_set(:@children, children2.dup)
-
-          matcher = Canon::Xml::ElementMatcher.new
-          matches = matcher.match_trees(temp_root1, temp_root2)
-
-          # Filter matches to only include direct children
-          # match_trees returns ALL descendants, but we only want direct children
-          matches = matches.select do |m|
-            (m.elem1.nil? || children1.include?(m.elem1)) &&
-              (m.elem2.nil? || children2.include?(m.elem2))
-          end
-
-          # If no matches and children exist, they're all different
-          if matches.empty? && (!children1.empty? || !children2.empty?)
-            add_difference(parent_node, parent_node, Comparison::MISSING_NODE,
-                           Comparison::MISSING_NODE, :text_content, opts,
-                           differences)
-            return Comparison::UNEQUAL_ELEMENTS
-          end
-
-          all_equivalent = true
-
-          matches.each do |match|
-            case match.status
-            when :matched
-              # Check if element position changed
-              if match.position_changed?
-                match_opts = opts[:match_opts]
-                position_behavior = match_opts[:element_position] || :strict
-
-                # Only create DiffNode if element_position is not :ignore
-                if position_behavior != :ignore
-                  add_difference(
-                    match.elem1,
-                    match.elem2,
-                    "position #{match.pos1}",
-                    "position #{match.pos2}",
-                    :element_position,
-                    opts,
-                    differences,
-                  )
-                  all_equivalent = false if position_behavior == :strict
-                end
-              end
-
-              # Compare the matched elements for content/attribute differences
-              result = compare_nodes(match.elem1, match.elem2, child_opts,
-                                     child_opts, diff_children, differences)
-              all_equivalent = false unless result == Comparison::EQUIVALENT
-
-            when :deleted
-              # Element present in first tree but not second
-              add_difference(match.elem1, nil, Comparison::MISSING_NODE,
-                             Comparison::MISSING_NODE, :element_structure, opts,
-                             differences)
-              all_equivalent = false
-
-            when :inserted
-              # Element present in second tree but not first
-              add_difference(nil, match.elem2, Comparison::MISSING_NODE,
-                             Comparison::MISSING_NODE, :element_structure, opts,
-                             differences)
-              all_equivalent = false
-            end
-          end
-
-          all_equivalent ? Comparison::EQUIVALENT : Comparison::UNEQUAL_ELEMENTS
+        # Delegates to ChildComparison module which handles both ElementMatcher
+        # (semantic matching) and simple positional comparison.
+        def compare_children(n1, n2, opts, child_opts, diff_children, differences)
+          XmlComparatorHelpers::ChildComparison.compare(
+            n1, n2, self, opts, child_opts, diff_children, differences
+          )
         end
 
         # Extract element path for context (best effort)
