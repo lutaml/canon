@@ -8,6 +8,8 @@ require_relative "comparison/html_comparator"
 require_relative "comparison/json_comparator"
 require_relative "comparison/yaml_comparator"
 require_relative "comparison/profile_definition"
+require_relative "comparison/format_detector"
+require_relative "comparison/html_parser"
 require_relative "diff/diff_node_mapper"
 require_relative "diff/diff_line"
 require_relative "diff/diff_block_builder"
@@ -186,8 +188,8 @@ module Canon
         require_relative "tree_diff"
 
         # Detect format for both objects
-        format1 = opts[:format] || detect_format(obj1)
-        format2 = opts[:format] || detect_format(obj2)
+        format1 = opts[:format] || FormatDetector.detect(obj1)
+        format2 = opts[:format] || FormatDetector.detect(obj2)
 
         # Handle string format (plain text comparison) - semantic tree doesn't support it
         if format1 == :string
@@ -516,14 +518,14 @@ module Canon
           format1 = format2 = opts[:format]
           # Parse HTML strings if format is html/html4/html5
           if %i[html html4 html5].include?(opts[:format])
-            obj1 = parse_html(obj1, opts[:format]) if obj1.is_a?(String)
-            obj2 = parse_html(obj2, opts[:format]) if obj2.is_a?(String)
+            obj1 = HtmlParser.parse(obj1, opts[:format]) if obj1.is_a?(String)
+            obj2 = HtmlParser.parse(obj2, opts[:format]) if obj2.is_a?(String)
             # Note: We preserve html4/html5 format instead of normalizing to :html
             # This allows HtmlComparator to use the correct parsing behavior
           end
         else
-          format1 = detect_format(obj1)
-          format2 = detect_format(obj2)
+          format1 = FormatDetector.detect(obj1)
+          format2 = FormatDetector.detect(obj2)
         end
 
         # Handle string format (plain text comparison)
@@ -568,127 +570,29 @@ module Canon
         end
       end
 
-      # Parse HTML string into Nokogiri document with the correct parser
-      #
-      # @param content [String, Object] Content to parse (returns as-is if not a string)
-      # @param format [Symbol] HTML format (:html, :html4, :html5)
-      # @return [Nokogiri::HTML::Document, Nokogiri::HTML5::Document, Nokogiri::HTML::DocumentFragment, Object]
-      def parse_html(content, format)
-        return content unless content.is_a?(String)
-        return content if already_parsed_html?(content)
-
-        begin
-          case format
-          when :html5
-            Nokogiri::HTML5.fragment(content)
-          when :html4
-            Nokogiri::HTML4.fragment(content)
-          when :html
-            detect_and_parse_html(content)
-          else
-            content
-          end
-        rescue StandardError
-          # Fallback to raw string if parsing fails (maintains backward compatibility)
-          content
-        end
-      end
-
-      # Check if content is already a parsed HTML document/fragment
-      #
-      # @param content [Object] Content to check
-      # @return [Boolean] true if already parsed
-      def already_parsed_html?(content)
-        content.is_a?(Nokogiri::HTML::Document) ||
-          content.is_a?(Nokogiri::HTML5::Document) ||
-          content.is_a?(Nokogiri::HTML::DocumentFragment) ||
-          content.is_a?(Nokogiri::HTML5::DocumentFragment)
-      end
-
-      # Detect HTML version from content and parse with appropriate parser
-      #
-      # @param content [String] HTML content to parse
-      # @return [Nokogiri::HTML::DocumentFragment] Parsed fragment
-      def detect_and_parse_html(content)
-        version = detect_html_version(content)
-        if version == :html5
-          Nokogiri::HTML5.fragment(content)
-        else
-          Nokogiri::HTML4.fragment(content)
-        end
-      end
-
-      # Detect HTML version from content string
-      #
-      # @param content [String] HTML content
-      # @return [Symbol] :html5 or :html4
-      def detect_html_version(content)
-        # Check for HTML5 DOCTYPE (case-insensitive)
-        content.include?("<!DOCTYPE html>") ? :html5 : :html4
-      end
-
-      # Detect the format of an object
+      # Detect the format of an object (delegates to FormatDetector)
       #
       # @param obj [Object] Object to detect format of
       # @return [Symbol] Format type
       def detect_format(obj)
-        case obj
-        when Moxml::Node, Moxml::Document
-          :xml
-        when Nokogiri::HTML::DocumentFragment, Nokogiri::HTML5::DocumentFragment
-          # HTML DocumentFragments
-          :html
-        when Nokogiri::XML::DocumentFragment
-          # XML DocumentFragments - check if it's actually HTML
-          obj.document&.html? ? :html : :xml
-        when Nokogiri::XML::Document, Nokogiri::XML::Node
-          # Check if it's HTML by looking at the document type
-          obj.html? ? :html : :xml
-        when Nokogiri::HTML::Document, Nokogiri::HTML5::Document
-          :html
-        when String
-          detect_string_format(obj)
-        when Hash, Array
-          # Raw Ruby objects (from parsed JSON/YAML)
-          :ruby_object
-        else
-          raise Canon::Error, "Unknown format for object: #{obj.class}"
-        end
+        FormatDetector.detect(obj)
       end
 
-      # Detect the format of a string
+      # Detect the format of a string (delegates to FormatDetector)
       #
       # @param str [String] String to detect format of
       # @return [Symbol] Format type
       def detect_string_format(str)
-        # Use cache for format detection
-        Cache.fetch(:format_detect, Cache.key_for_format_detection(str)) do
-          detect_string_format_uncached(str)
-        end
+        FormatDetector.detect_string(str)
       end
 
-      # Internal format detection without caching
+      # Parse HTML string into Nokogiri document (delegates to HtmlParser)
       #
-      # @param str [String] String to detect format of
-      # @return [Symbol] Format type
-      def detect_string_format_uncached(str)
-        trimmed = str.strip
-
-        # YAML indicators
-        return :yaml if trimmed.start_with?("---")
-        return :yaml if trimmed.match?(/^[a-zA-Z_]\w*:\s/)
-
-        # JSON indicators
-        return :json if trimmed.start_with?("{", "[")
-
-        # HTML indicators
-        return :html if trimmed.start_with?("<!DOCTYPE html", "<html", "<HTML")
-
-        # XML indicators - must start with < and end with >
-        return :xml if trimmed.start_with?("<") && trimmed.end_with?(">")
-
-        # Default to plain string for everything else
-        :string
+      # @param content [String, Object] Content to parse
+      # @param format [Symbol] HTML format (:html, :html4, :html5)
+      # @return [Object] Parsed document
+      def parse_html(content, format)
+        HtmlParser.parse(content, format)
       end
     end
   end
