@@ -4,6 +4,7 @@ require "yaml"
 require_relative "json_comparator"
 require_relative "match_options"
 require_relative "comparison_result"
+require_relative "ruby_object_comparison"
 
 module Canon
   module Comparison
@@ -60,8 +61,8 @@ module Canon
           obj2 = parse_yaml(yaml2)
 
           differences = []
-          result = JsonComparator.send(:compare_ruby_objects, obj1, obj2, opts,
-                                       differences, "")
+          result = RubyObjectComparison.compare_objects(obj1, obj2, opts,
+                                                        differences, "")
 
           if opts[:verbose]
             # Format YAML for display

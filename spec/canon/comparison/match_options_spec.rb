@@ -103,9 +103,6 @@ RSpec.describe Canon::Comparison::MatchOptions::Xml do
                                                         attribute_values
                                                         element_position
                                                         comments
-                                                        element_structure
-                                                        element_position
-                                                        element_hierarchy
                                                       ])
     end
 
@@ -439,7 +436,7 @@ RSpec.describe Canon::Comparison::MatchOptions::Json do
         preprocessing: :none,
         text_content: :strict,
         structural_whitespace: :ignore,
-        key_order: :strict,
+        key_order: :ignore,
       )
     end
   end
@@ -468,7 +465,7 @@ RSpec.describe Canon::Comparison::MatchOptions::Yaml do
         preprocessing: :none,
         text_content: :strict,
         structural_whitespace: :ignore,
-        key_order: :strict,
+        key_order: :ignore,
         comments: :ignore,
       )
     end

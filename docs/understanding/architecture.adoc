@@ -194,19 +194,69 @@ See link:algorithms/[Algorithm documentation] for details.
 
 === Purpose
 
-Configure what to compare and how strictly. **This layer is algorithm-specific** - each algorithm interprets match options differently.
+Configure what to compare and how strictly. **Match options are format-specific** - each format (XML, HTML, JSON, YAML) has its own set of dimensions based on its structure.
 
-=== Match dimensions
+=== Key architectural principle
 
-Match dimensions are orthogonal aspects of documents that can be compared independently:
+**Dimensions are format-specific, NOT algorithm-specific.**
 
-`text_content`:: Text within elements/values
+The comparison architecture works as follows:
+
+[cols="2,4,3"]
+|===
+|**Aspect** |**Description** |**Examples**
+
+|**Format**
+|Determines which dimensions exist
+|XML has attributes, JSON has keys
+
+|**Dimensions**
+|WHAT to compare (format-specific)
+|`text_content`, `attribute_values`, `key_order`
+
+|**Profile**
+|Configures dimension behaviors for a format
+|`text_content: :normalize`, `comments: :ignore`
+
+|**Algorithm**
+|HOW nodes are matched (format-independent)
+|DOM: position-based, Semantic: signature-based
+|===
+
+**Critical distinction:**
+
+* **Format → Dimensions**: XML has `attribute_values`, JSON has `key_order`
+* **Profile → Behaviors**: Configures HOW dimensions are compared (`:strict`, `:normalize`, `:ignore`)
+* **Algorithm → Matching Strategy**: DOM (position) vs Semantic (signature) - works with ANY format
+
+=== Format-specific dimensions
+
+Different formats have different dimensions based on their structure:
+
+**XML/HTML dimensions:**
+
+`text_content`:: Text within elements
 `structural_whitespace`:: Whitespace between elements
-`attribute_whitespace`:: Whitespace in attribute values (XML/HTML)
-`attribute_order`:: Order of attributes (XML/HTML)
-`attribute_values`:: Attribute value content (XML/HTML)
-`key_order`:: Order of object keys (JSON/YAML)
-`comments`:: Comment content and placement
+`attribute_presence`:: Which attributes exist
+`attribute_order`:: Order of attributes
+`attribute_values`:: Attribute value content
+`element_position`:: Position in tree
+`comments`:: Comment nodes
+
+**JSON dimensions:**
+
+`text_content`:: Value text
+`structural_whitespace`:: Whitespace
+`key_order`:: Order of object keys
+
+**YAML dimensions:**
+
+`text_content`:: Value text
+`structural_whitespace`:: Whitespace
+`key_order`:: Order of keys
+`comments`:: Comments
+
+=== Dimension behaviors
 
 Each dimension supports behaviors:
 
@@ -216,25 +266,498 @@ Each dimension supports behaviors:
 
 === Match profiles
 
-Profiles are predefined combinations of dimension settings for common scenarios:
+Profiles are predefined combinations of dimension settings for common scenarios.
 
-`:strict`:: Exact matching - all dimensions use `:strict` behavior
-`:rendered`:: Browser rendering - ignores formatting that doesn't affect display
-`:spec_friendly`:: Test-friendly - ignores formatting, focuses on content
-`:content_only`:: Maximum tolerance - only semantic content matters
+**Important**: Profiles are **format-specific**. Each format (Xml, Html, Json, Yaml) has its own set of profiles configured for its dimensions.
 
-=== Algorithm-specific behavior
+See link:#available-preset-profiles[Available Preset Profiles] for complete profile reference.
 
-**Critical**: The same match options behave differently with each algorithm!
+=== Available preset profiles
 
-* **DOM algorithm**: Uses options for positional element comparison
-* **Semantic algorithm**: Uses options during signature calculation
+Canon provides preset profiles optimized for different comparison scenarios. Each format has its own set of profiles with appropriate dimension configurations.
 
-See link:../features/match-options/algorithm-specific-behavior.adoc[Algorithm-Specific Behavior] for detailed comparison.
+==== XML/HTML profiles
+
+**Profile: `:strict`**
+
+Exact matching - all dimensions use `:strict` behavior (XML default).
+
+[cols="2,2,4"]
+|===
+|Dimension |Behavior |Description
+
+|preprocessing
+|`:none`
+|No preprocessing - compare as-is
+
+|text_content
+|`:strict`
+|Must match exactly
+
+|structural_whitespace
+|`:strict`
+|Whitespace must match exactly
+
+|attribute_presence
+|`:strict`
+|All attributes must be present
+
+|attribute_order
+|`:strict`
+|Attribute order must match
+
+|attribute_values
+|`:strict`
+|Attribute values must match exactly
+
+|element_position
+|`:strict`
+|Element positions must match
+
+|comments
+|`:strict`
+|Comments must match exactly
+|===
+
+**Use when**: You need exact byte-for-byte matching (e.g., validating serialization).
+
+**Profile: `:rendered`**
+
+Browser rendering - ignores formatting that doesn't affect display (HTML default).
+
+[cols="2,2,4"]
+|===
+|Dimension |Behavior |Description
+
+|preprocessing
+|`:none`
+|No preprocessing
+
+|text_content
+|`:normalize`
+|Normalize text (collapse whitespace)
+
+|structural_whitespace
+|`:normalize`
+|Normalize whitespace
+
+|attribute_presence
+|`:strict`
+|All attributes must be present
+
+|attribute_order
+|`:strict`
+|Attribute order must match
+
+|attribute_values
+|`:strict`
+|Attribute values must match exactly
+
+|element_position
+|`:strict`
+|Element positions must match
+
+|comments
+|`:ignore`
+|Comments are ignored
+|===
+
+**Use when**: You care about what the browser displays, not source formatting.
+
+**Profile: `:html4`**
+
+HTML4 rendered output - HTML4 normalizes attribute whitespace.
+
+[cols="2,2,4"]
+|===
+|Dimension |Behavior |Description
+
+|preprocessing
+|`:rendered`
+|Rendered HTML preprocessing
+
+|text_content
+|`:normalize`
+|Normalize text
+
+|structural_whitespace
+|`:normalize`
+|Normalize whitespace
+
+|attribute_presence
+|`:strict`
+|All attributes must be present
+
+|attribute_order
+|`:strict`
+|Attribute order must match
+
+|attribute_values
+|`:normalize`
+|Normalize attribute values
+
+|element_position
+|`:ignore`
+|Element position doesn't matter
+
+|comments
+|`:ignore`
+|Comments are ignored
+|===
+
+**Use when**: Testing HTML4 output where attribute whitespace may vary.
+
+**Profile: `:html5`**
+
+HTML5 rendered output - same as `:rendered`.
+
+[cols="2,2,4"]
+|===
+|Dimension |Behavior |Description
+
+|preprocessing
+|`:rendered`
+|Rendered HTML preprocessing
+
+|text_content
+|`:normalize`
+|Normalize text
+
+|structural_whitespace
+|`:normalize`
+|Normalize whitespace
+
+|attribute_presence
+|`:strict`
+|All attributes must be present
+
+|attribute_order
+|`:strict`
+|Attribute order must match
+
+|attribute_values
+|`:strict`
+|Attribute values must match exactly
+
+|element_position
+|`:ignore`
+|Element position doesn't matter
+
+|comments
+|`:ignore`
+|Comments are ignored
+|===
+
+**Use when**: Testing HTML5 output.
+
+**Profile: `:spec_friendly`**
+
+Test-friendly - ignores formatting, focuses on content.
+
+[cols="2,2,4"]
+|===
+|Dimension |Behavior |Description
+
+|preprocessing
+|`:rendered`
+|Rendered HTML preprocessing
+
+|text_content
+|`:normalize`
+|Normalize text
+
+|structural_whitespace
+|`:ignore`
+|Whitespace ignored
+
+|attribute_presence
+|`:strict`
+|All attributes must be present
+
+|attribute_order
+|`:ignore`
+|Attribute order ignored
+
+|attribute_values
+|`:normalize`
+|Normalize attribute values
+
+|element_position
+|`:ignore`
+|Element position ignored
+
+|comments
+|`:ignore`
+|Comments ignored
+|===
+
+**Use when**: Writing tests where formatting changes are acceptable.
+
+**Profile: `:content_only`**
+
+Maximum tolerance - only semantic content matters.
+
+[cols="2,2,4"]
+|===
+|Dimension |Behavior |Description
+
+|preprocessing
+|`:c14n`
+|Canonical XML preprocessing
+
+|text_content
+|`:normalize`
+|Normalize text
+
+|structural_whitespace
+|`:ignore`
+|Whitespace ignored
+
+|attribute_presence
+|`:strict`
+|All attributes must be present
+
+|attribute_order
+|`:ignore`
+|Attribute order ignored
+
+|attribute_values
+|`:normalize`
+|Normalize attribute values
+
+|element_position
+|`:ignore`
+|Element position ignored
+
+|comments
+|`:ignore`
+|Comments ignored
+|===
+
+**Use when**: You only care about semantic content, not structure or formatting.
+
+==== JSON profiles
+
+JSON has 3 preset profiles: `:strict`, `:spec_friendly`, and `:content_only`.
+
+[cols="2,2,2,2"]
+|===
+|Dimension |`:strict` |`:spec_friendly` |`:content_only`
+
+|preprocessing
+|`:none`
+|`:normalize`
+|`:normalize`
+
+|text_content
+|`:strict`
+|`:strict`
+|`:normalize`
+
+|structural_whitespace
+|`:strict`
+|`:ignore`
+|`:ignore`
+
+|key_order
+|`:strict`
+|`:ignore`
+|`:ignore`
+|===
+
+**Use cases**:
+
+* `:strict` - Exact JSON matching (order-sensitive)
+* `:spec_friendly` - Order-independent JSON comparison
+* `:content_only` - Normalized values, order and formatting ignored
+
+==== YAML profiles
+
+YAML has 3 preset profiles: `:strict`, `:spec_friendly`, and `:content_only`.
+
+[cols="2,2,2,2"]
+|===
+|Dimension |`:strict` |`:spec_friendly` |`:content_only`
+
+|preprocessing
+|`:none`
+|`:normalize`
+|`:normalize`
+
+|text_content
+|`:strict`
+|`:strict`
+|`:normalize`
+
+|structural_whitespace
+|`:strict`
+|`:ignore`
+|`:ignore`
+
+|key_order
+|`:strict`
+|`:ignore`
+|`:ignore`
+
+|comments
+|`:strict`
+|`:ignore`
+|`:ignore`
+|===
+
+**Use cases**:
+
+* `:strict` - Exact YAML matching (order and comments matter)
+* `:spec_friendly` - Order-independent, comments ignored
+* `:content_only` - Maximum tolerance, only values matter
+
+=== Customizing profiles
+
+Canon provides two ways to customize comparison behavior: inline custom profiles and named custom profiles.
+
+==== Inline custom profiles
+
+For one-off comparisons, pass a Hash directly to the `profile` parameter:
+
+[source,ruby]
+----
+Canon::Comparison.equivalent?(html1, html2,
+  profile: {
+    text_content: :normalize,
+    structural_whitespace: :ignore,
+    comments: :ignore
+  }
+)
+----
+
+**Validation**: Inline profiles are validated at comparison time. Invalid dimensions or behaviors will raise a `Canon::Error`.
+
+[source,ruby]
+----
+# This raises Canon::Error
+Canon::Comparison.equivalent?(html1, html2,
+  profile: {
+    unknown_dimension: :strict  # => Error: Unknown dimension: unknown_dimension
+  }
+)
+----
+
+==== Named custom profiles (Profile DSL)
+
+For reusable custom profiles, define them using the Profile DSL:
+
+[source,ruby]
+----
+# Define a custom profile
+Canon::Comparison.define_profile(:content_focused) do
+  text_content :normalize
+  comments :ignore
+  structural_whitespace :ignore
+  attribute_values :normalize
+  preprocessing :rendered
+end
+
+# Use the custom profile
+Canon::Comparison.equivalent?(html1, html2, profile: :content_focused)
+
+# List all available profiles (includes custom profiles)
+Canon::Comparison.available_profiles
+# => [:strict, :rendered, :html4, :html5, :spec_friendly, :content_only, :content_focused]
+----
+
+**Available DSL methods**:
+
+* `text_content` - Text within elements
+* `structural_whitespace` - Whitespace between elements
+* `attribute_presence` - Which attributes exist
+* `attribute_order` - Order of attributes
+* `attribute_values` - Attribute value content
+* `element_position` - Position of elements
+* `comments` - Comment content and placement
+* `preprocessing` - Preprocessing option (`:none`, `:c14n`, `:normalize`, `:format`, `:rendered`)
+
+**Behaviors for each dimension**:
+
+* `:strict` - Must match exactly
+* `:normalize` - Match after normalization
+* `:ignore` - Don't compare
+* `:strip` - (attribute_values only) Strip leading/trailing whitespace
+* `:compact` - (attribute_values only) Collapse internal whitespace
+
+**Validation at definition time**:
+
+The Profile DSL validates immediately when you define the profile:
+
+[source,ruby]
+----
+# This raises Canon::Error at definition time
+Canon::Comparison.define_profile(:invalid) do
+  unknown_dimension :strict  # => Error: Unknown dimension: unknown_dimension
+  text_content :invalid_behavior  # => Error: Invalid behavior 'invalid_behavior'
+end
+----
+
+This prevents invalid profiles from ever being used in comparisons.
+
+**Removing custom profiles**:
+
+[source,ruby]
+----
+# Remove a custom profile
+Canon::Comparison.remove_profile(:content_focused)
+----
+
+**Profile best practices**:
+
+* Use preset profiles when possible - they're well-tested and documented
+* Name custom profiles descriptively (e.g., `:content_focused`, `:seo_test`)
+* Define profiles at application startup, not during request handling
+* Document why a custom profile is needed in comments
+
+=== Algorithm interaction with match options
+
+Both algorithms (DOM and Semantic) work with ALL formats. The algorithm determines **HOW nodes are matched**, not **WHAT is compared**:
+
+* **DOM algorithm**: Position-based matching (element at position 0 matches element at position 0)
+* **Semantic algorithm**: Signature-based matching (nodes with similar signatures match)
+
+Once nodes are matched, both algorithms use the **same dimension comparisons** configured by the profile.
 
 === Usage
 
-.With dimensions
+.Using the new unified `profile` parameter
+[example]
+====
+[source,ruby]
+----
+# Using a preset profile
+Canon::Comparison.equivalent?(doc1, doc2,
+  profile: :spec_friendly
+)
+
+# Using an inline custom profile
+Canon::Comparison.equivalent?(doc1, doc2,
+  profile: {
+    text_content: :normalize,
+    structural_whitespace: :ignore,
+    comments: :ignore
+  }
+)
+
+# Defining and using a custom profile
+Canon::Comparison.define_profile(:my_custom) do
+  text_content :normalize
+  comments :ignore
+  preprocessing :rendered
+end
+
+Canon::Comparison.equivalent?(doc1, doc2,
+  profile: :my_custom
+)
+----
+====
+
+.Using dimensions (deprecated - use profile instead)
 [example]
 ====
 [source,ruby]
@@ -244,31 +767,6 @@ Canon::Comparison.equivalent?(doc1, doc2,
     text_content: :normalize,
     structural_whitespace: :ignore,
     comments: :ignore
-  }
-)
-----
-====
-
-.With profile
-[example]
-====
-[source,ruby]
-----
-Canon::Comparison.equivalent?(doc1, doc2,
-  match_profile: :spec_friendly
-)
-----
-====
-
-.Profile with dimension overrides
-[example]
-====
-[source,ruby]
-----
-Canon::Comparison.equivalent?(doc1, doc2,
-  match_profile: :spec_friendly,
-  match: {
-    comments: :strict  # Override profile setting
   }
 )
 ----
@@ -356,8 +854,8 @@ result = Canon::Comparison.equivalent?(doc1, doc2,
   # Layer 2: Algorithm
   diff_algorithm: :semantic,
 
-  # Layer 3: Match Options
-  match_profile: :spec_friendly,
+  # Layer 3: Match Options (new unified profile API)
+  profile: :spec_friendly,
 
   # Layer 4: Diff Formatting
   verbose: true,
@@ -546,6 +1044,107 @@ expect(actual).to be_xml_equivalent_to(expected)
 **Clarity**:: Clear data flow from input to output
 
 **Extensibility**:: Easy to add new preprocessing, algorithms, dimensions, or rendering modes
+
+== Profile DSL and Dimension System
+
+=== Overview
+
+Canon 2.0 introduces a Profile DSL and Dimension system for cleaner, more maintainable comparison configuration:
+
+* **Profile DSL** - Define custom comparison profiles with validation
+* **Dimension Classes** - Object-oriented dimension handling with reusable behaviors
+
+=== Profile DSL
+
+The Profile DSL provides a clean, validated way to define custom comparison profiles:
+
+[source,ruby]
+----
+# Define a custom profile
+Canon::Comparison.define_profile(:content_focused) do
+  text_content :normalize
+  comments :ignore
+  structural_whitespace :ignore
+  attribute_values :normalize
+  preprocessing :rendered
+end
+
+# Use the custom profile
+Canon::Comparison.equivalent?(html1, html2, profile: :content_focused)
+
+# List all available profiles
+Canon::Comparison.available_profiles
+# => [:strict, :rendered, :html4, :html5, :spec_friendly, :content_only, :content_focused]
+----
+
+**Available dimensions**:
+
+* `text_content` - Text within elements/values
+* `structural_whitespace` - Whitespace between elements
+* `attribute_presence` - Which attributes exist
+* `attribute_order` - Order of attributes
+* `attribute_values` - Attribute value content
+* `element_position` - Position of elements
+* `comments` - Comment content and placement
+
+**Behaviors for each dimension**:
+
+* `:strict` - Must match exactly
+* `:normalize` - Match after normalization
+* `:ignore` - Don't compare
+
+**Validation**:
+
+The Profile DSL validates at definition time:
+
+[source,ruby]
+----
+# This raises an error at definition time
+Canon::Comparison.define_profile(:invalid) do
+  unknown_dimension :strict  # => Error: Unknown dimension: unknown_dimension
+  text_content :invalid_behavior  # => Error: Invalid behavior 'invalid_behavior'
+end
+----
+
+=== Dimension Classes
+
+Behind the scenes, Canon uses dimension classes that encapsulate comparison logic:
+
+[source,ruby]
+----
+# Each dimension knows how to extract and compare data
+dimension = Canon::Comparison::Dimensions::Registry.get(:text_content)
+
+# Extract data from a node
+text = dimension.extract_data(node)
+
+# Compare according to behavior
+dimension.equivalent?(node1, node2, :normalize)
+----
+
+**Available dimension classes**:
+
+* `TextContentDimension` - Text content comparison
+* `CommentsDimension` - Comment comparison
+* `AttributeValuesDimension` - Attribute values comparison
+* `AttributePresenceDimension` - Attribute presence comparison
+* `AttributeOrderDimension` - Attribute order comparison
+* `ElementPositionDimension` - Element position comparison
+* `StructuralWhitespaceDimension` - Structural whitespace comparison
+
+=== Refactored Module Structure
+
+Canon's internal modules have been reorganized for better separation of concerns:
+
+* **XmlComparatorHelpers** - Node parsing, attribute comparison, namespace comparison
+* **DiffDetailFormatterHelpers** - Location extraction, node utilities, text utilities, dimension formatting
+* **Dimensions** - Reusable dimension classes for comparison
+
+This refactoring improves:
+- **Maintainability** - Each module has a single responsibility
+- **Testability** - Modules can be tested independently
+- **Extensibility** - New dimensions/formatters can be added easily
+- **Code organization** - Related functionality is grouped together
 
 == See also
 

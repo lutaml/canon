@@ -13,6 +13,14 @@ require_relative "canon/formatters/html4_formatter"
 require_relative "canon/formatters/html5_formatter"
 require_relative "canon/comparison"
 
+# New comparison class hierarchy
+require_relative "canon/comparison/comparers/markup_comparer"
+require_relative "canon/comparison/comparers/xml_comparer"
+require_relative "canon/comparison/comparers/html_comparer"
+require_relative "canon/comparison/comparers/structure_comparer"
+require_relative "canon/comparison/comparers/json_comparer"
+require_relative "canon/comparison/comparers/yaml_comparer"
+
 require_relative "canon/rspec_matchers" if defined?(::RSpec)
 
 module Canon

@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative "../xml/c14n"
+require_relative "markup_comparator"
 require_relative "match_options"
 require_relative "../diff/diff_node"
 require_relative "../diff/diff_classifier"
@@ -9,12 +10,20 @@ require_relative "../diff/node_serializer"
 require_relative "comparison_result"
 require_relative "../tree_diff"
 require_relative "strategies/match_strategy_factory"
+# XmlComparator modules
+require_relative "xml_comparator/node_parser"
+require_relative "xml_comparator/attribute_filter"
+require_relative "xml_comparator/attribute_comparator"
+require_relative "xml_comparator/namespace_comparator"
+require_relative "xml_comparator/diff_node_builder"
 
 module Canon
   module Comparison
     # XML comparison class
     # Handles comparison of XML nodes with various options
-    class XmlComparator
+    #
+    # Inherits shared comparison functionality from MarkupComparator.
+    class XmlComparator < MarkupComparator
       # Default comparison options for XML
       DEFAULT_OPTS = {
         # Structural filtering options
@@ -113,8 +122,8 @@ module Canon
             # Serialize parsed nodes for consistent formatting
             # This ensures both sides formatted identically, showing only real differences
             preprocessed = [
-              serialize_node_to_xml(node1).gsub(/></, ">\n<"),
-              serialize_node_to_xml(node2).gsub(/></, ">\n<"),
+              serialize_node(node1).gsub(/></, ">\n<"),
+              serialize_node(node2).gsub(/></, ">\n<"),
             ]
 
             ComparisonResult.new(
@@ -197,43 +206,9 @@ module Canon
 
         # Parse a node from string or return as-is
         # Applies preprocessing transformation before parsing if specified
+        # Delegates to NodeParser module
         def parse_node(node, preprocessing = :none)
-          # If already a Canon::Xml::Node, return as-is
-          return node if node.is_a?(Canon::Xml::Node)
-
-          # If it's a Nokogiri or Moxml node, convert to DataModel
-          unless node.is_a?(String)
-            # Convert to XML string then parse through DataModel
-            xml_str = if node.respond_to?(:to_xml)
-                        node.to_xml
-                      elsif node.respond_to?(:to_s)
-                        node.to_s
-                      else
-                        raise Canon::Error,
-                              "Unable to convert node to string: #{node.class}"
-                      end
-            return Canon::Xml::DataModel.from_xml(xml_str)
-          end
-
-          # Apply preprocessing to XML string before parsing
-          xml_string = case preprocessing
-                       when :normalize
-                         # Normalize whitespace: collapse runs, trim lines
-                         node.lines.map(&:strip).reject(&:empty?).join("\n")
-                       when :c14n
-                         # Canonicalize the XML
-                         Canon::Xml::C14n.canonicalize(node,
-                                                       with_comments: false)
-                       when :format
-                         # Pretty format the XML
-                         Canon.format(node, :xml)
-                       else
-                         # :none or unrecognized - use as-is
-                         node
-                       end
-
-          # Use Canon::Xml::DataModel for parsing to get Canon::Xml::Node instances
-          Canon::Xml::DataModel.from_xml(xml_string)
+          XmlComparatorHelpers::NodeParser.parse(node, preprocessing)
         end
 
         # Main comparison dispatcher
@@ -326,6 +301,9 @@ module Canon
           end
         end
 
+        # Public comparison methods - exposed for XmlNodeComparison module
+        public
+
         # Compare two element nodes
         def compare_element_nodes(n1, n2, opts, child_opts, diff_children,
                                   differences)
@@ -371,153 +349,9 @@ module Canon
         end
 
         # Compare attribute sets
+        # Delegates to XmlComparatorHelpers::AttributeComparator
         def compare_attribute_sets(n1, n2, opts, differences)
-          # Get attributes using the appropriate method for each node type
-          raw_attrs1 = n1.respond_to?(:attribute_nodes) ? n1.attribute_nodes : n1.attributes
-          raw_attrs2 = n2.respond_to?(:attribute_nodes) ? n2.attribute_nodes : n2.attributes
-
-          attrs1 = filter_attributes(raw_attrs1, opts)
-          attrs2 = filter_attributes(raw_attrs2, opts)
-
-          match_opts = opts[:match_opts]
-          attribute_order_behavior = match_opts[:attribute_order] || :strict
-
-          # Check attribute order if not ignored
-          keys1 = attrs1.keys.map(&:to_s)
-          keys2 = attrs2.keys.map(&:to_s)
-          if attribute_order_behavior == :strict
-            # Strict mode: attribute order matters
-            # Check if keys are in same order
-
-            if keys1 != keys2
-              # Keys are different or in different order
-              # First check if it's just ordering (same keys, different order)
-              if keys1.sort == keys2.sort
-                # Same keys, different order - this is an attribute_order difference
-                add_difference(n1, n2, Comparison::UNEQUAL_ATTRIBUTES,
-                               Comparison::UNEQUAL_ATTRIBUTES,
-                               :attribute_order, opts, differences)
-                return Comparison::UNEQUAL_ATTRIBUTES
-              else
-                # Different keys - this is attribute_presence difference
-                add_difference(n1, n2, Comparison::MISSING_ATTRIBUTE,
-                               Comparison::MISSING_ATTRIBUTE,
-                               :attribute_presence, opts, differences)
-                return Comparison::MISSING_ATTRIBUTE
-              end
-            end
-
-          # Order matches, now check values in order
-          else
-            # Ignore/normalize mode: attribute order doesn't affect equivalence
-            # But in verbose mode, we should still track order differences as informative
-
-            # Check if order differs (but keys are the same)
-            if keys1 != keys2 && keys1.sort == keys2.sort && opts[:verbose]
-              # Same keys, different order - create informative DiffNode
-              # This allows line diffs to be properly classified as informative
-              add_difference(n1, n2, Comparison::UNEQUAL_ATTRIBUTES,
-                             Comparison::UNEQUAL_ATTRIBUTES,
-                             :attribute_order, opts, differences)
-            end
-
-            # Sort attributes so order doesn't matter for comparison
-            attrs1 = attrs1.sort_by { |k, _v| k.to_s }.to_h
-            attrs2 = attrs2.sort_by { |k, _v| k.to_s }.to_h
-
-            unless attrs1.keys.map(&:to_s).sort == attrs2.keys.map(&:to_s).sort
-              add_difference(n1, n2, Comparison::MISSING_ATTRIBUTE,
-                             Comparison::MISSING_ATTRIBUTE,
-                             :attribute_presence, opts, differences)
-              return Comparison::MISSING_ATTRIBUTE
-            end
-
-          end
-          attrs1.each do |name, value|
-            unless attrs2[name] == value
-              add_difference(n1, n2, Comparison::UNEQUAL_ATTRIBUTES,
-                             Comparison::UNEQUAL_ATTRIBUTES,
-                             :attribute_values, opts, differences)
-              return Comparison::UNEQUAL_ATTRIBUTES
-            end
-          end
-
-          Comparison::EQUIVALENT
-        end
-
-        # Filter attributes based on options
-        def filter_attributes(attributes, opts)
-          filtered = {}
-          match_opts = opts[:match_opts]
-
-          # Handle Canon::Xml::Node attribute format (array of AttributeNode)
-          if attributes.is_a?(Array)
-            attributes.each do |attr|
-              name = attr.name
-              value = attr.value
-
-              # Skip namespace declarations - they're handled separately
-              next if is_namespace_declaration?(name)
-
-              # Skip if attribute name should be ignored
-              next if should_ignore_attr_by_name?(name, opts)
-
-              # Skip if attribute content should be ignored
-              next if should_ignore_attr_content?(value, opts)
-
-              # Apply match options for attribute values
-              behavior = match_opts[:attribute_values] || :strict
-              value = MatchOptions.process_attribute_value(value, behavior)
-
-              filtered[name] = value
-            end
-          else
-            # Handle Nokogiri and Moxml attribute formats (Hash-like):
-            # - Nokogiri: key is String name, val is Nokogiri::XML::Attr object
-            # - Moxml: key is Moxml::Attribute object, val is nil
-            attributes.each do |key, val|
-              if key.is_a?(String)
-                # Nokogiri format: key=name (String), val=attr object
-                name = key
-                value = val.respond_to?(:value) ? val.value : val.to_s
-              else
-                # Moxml format: key=attr object, val=nil
-                name = key.respond_to?(:name) ? key.name : key.to_s
-                value = key.respond_to?(:value) ? key.value : key.to_s
-              end
-
-              # Skip namespace declarations - they're handled separately
-              next if is_namespace_declaration?(name)
-
-              # Skip if attribute name should be ignored
-              next if should_ignore_attr_by_name?(name, opts)
-
-              # Skip if attribute content should be ignored
-              next if should_ignore_attr_content?(value, opts)
-
-              # Apply match options for attribute values
-              behavior = match_opts[:attribute_values] || :strict
-              value = MatchOptions.process_attribute_value(value, behavior)
-
-              filtered[name] = value
-            end
-          end
-
-          filtered
-        end
-
-        # Check if attribute should be ignored by name
-        def should_ignore_attr_by_name?(name, opts)
-          opts[:ignore_attrs_by_name].any? do |pattern|
-            name.include?(pattern)
-          end
-        end
-
-        # Check if attribute should be ignored by content
-        def should_ignore_attr_content?(value, opts)
-          opts[:ignore_attr_content].any? do |pattern|
-            value.to_s.include?(pattern)
-          end
+          XmlComparatorHelpers::AttributeComparator.compare(n1, n2, opts, differences)
         end
 
         # Compare text nodes
@@ -566,19 +400,6 @@ module Canon
 
           # Return based on whether behavior makes difference acceptable
           matches_per_behavior ? Comparison::EQUIVALENT : Comparison::UNEQUAL_TEXT_CONTENTS
-        end
-
-        # Check if the difference between two texts is only whitespace-related
-        # @param text1 [String] First text
-        # @param text2 [String] Second text
-        # @return [Boolean] true if difference is only in whitespace
-        def whitespace_only_difference?(text1, text2)
-          # Normalize both texts (collapse/trim whitespace)
-          norm1 = MatchOptions.normalize_text(text1)
-          norm2 = MatchOptions.normalize_text(text2)
-
-          # If normalized texts are the same, the difference was only whitespace
-          norm1 == norm2
         end
 
         # Check if whitespace should be preserved strictly for these text nodes
@@ -831,111 +652,6 @@ module Canon
           all_equivalent ? Comparison::EQUIVALENT : Comparison::UNEQUAL_ELEMENTS
         end
 
-        # Filter children based on options
-        def filter_children(children, opts)
-          children.reject do |child|
-            node_excluded?(child, opts)
-          end
-        end
-
-        # Check if node should be excluded
-        def node_excluded?(node, opts)
-          match_opts = opts[:match_opts]
-
-          # Determine node type
-          # Canon::Xml::Node uses node_type that returns Symbol
-          # Nokogiri uses node_type that returns Integer, so check for Symbol first
-          if node.respond_to?(:node_type) && node.node_type.is_a?(Symbol)
-            node.node_type == :comment
-          else
-            node.respond_to?(:comment?) && node.comment?
-          end
-
-          is_text = if node.respond_to?(:node_type) && node.node_type.is_a?(Symbol)
-                      node.node_type == :text
-                    else
-                      node.respond_to?(:text?) && node.text?
-                    end
-
-          # Ignore text nodes if specified
-          return true if opts[:ignore_text_nodes] && is_text
-
-          # Ignore whitespace-only text nodes based on structural_whitespace
-          # Both :ignore and :normalize should filter out whitespace-only nodes
-          if %i[ignore
-                normalize].include?(match_opts[:structural_whitespace]) && is_text
-            text = node_text(node)
-            return true if MatchOptions.normalize_text(text).empty?
-          end
-
-          false
-        end
-
-        # Determine the appropriate dimension for a node type
-        # @param node [Object] The node to check
-        # @return [Symbol] The dimension symbol
-        def determine_node_dimension(node)
-          # Canon::Xml::Node types
-          if node.respond_to?(:node_type) && node.node_type.is_a?(Symbol)
-            case node.node_type
-            when :comment then :comments
-            when :text, :cdata then :text_content
-            when :processing_instruction then :processing_instructions
-            else :text_content
-            end
-          # Moxml/Nokogiri types
-          elsif node.respond_to?(:comment?) && node.comment?
-            :comments
-          elsif node.respond_to?(:text?) && node.text?
-            :text_content
-          elsif node.respond_to?(:cdata?) && node.cdata?
-            :text_content
-          elsif node.respond_to?(:processing_instruction?) && node.processing_instruction?
-            :processing_instructions
-          else
-            :text_content
-          end
-        end
-
-        # Check if two nodes are the same type
-        def same_node_type?(n1, n2)
-          # Canon::Xml::Node types - check node_type method
-          if n1.respond_to?(:node_type) && n2.respond_to?(:node_type)
-            return n1.node_type == n2.node_type
-          end
-
-          # Moxml/Nokogiri types - check individual type methods
-          return true if n1.respond_to?(:element?) && n1.element? &&
-            n2.respond_to?(:element?) && n2.element?
-          return true if n1.respond_to?(:text?) && n1.text? &&
-            n2.respond_to?(:text?) && n2.text?
-          return true if n1.respond_to?(:comment?) && n1.comment? &&
-            n2.respond_to?(:comment?) && n2.comment?
-          return true if n1.respond_to?(:cdata?) && n1.cdata? &&
-            n2.respond_to?(:cdata?) && n2.cdata?
-          return true if n1.respond_to?(:processing_instruction?) &&
-            n1.processing_instruction? &&
-            n2.respond_to?(:processing_instruction?) &&
-            n2.processing_instruction?
-          return true if n1.respond_to?(:root) && n2.respond_to?(:root)
-
-          false
-        end
-
-        # Get text content from a node
-        def node_text(node)
-          # Canon::Xml::Node TextNode uses .value
-          if node.respond_to?(:value)
-            node.value.to_s
-          elsif node.respond_to?(:content)
-            node.content.to_s
-          elsif node.respond_to?(:text)
-            node.text.to_s
-          else
-            ""
-          end
-        end
-
         # Extract element path for context (best effort)
         # @param node [Object] Node to extract path from
         # @return [Array<String>] Path components
@@ -960,101 +676,6 @@ module Canon
           end
 
           path
-        end
-
-        # Serialize a node to XML string
-        # @param node [Canon::Xml::Node, Object] Node to serialize
-        # @return [String] XML string representation
-        def serialize_node_to_xml(node)
-          if node.is_a?(Canon::Xml::Nodes::RootNode)
-            # Serialize all children of root
-            node.children.map { |child| serialize_node_to_xml(child) }.join
-          elsif node.is_a?(Canon::Xml::Nodes::ElementNode)
-            # Serialize element with attributes and children
-            attrs = node.attribute_nodes.map do |a|
-              " #{a.name}=\"#{a.value}\""
-            end.join
-            children_xml = node.children.map do |c|
-              serialize_node_to_xml(c)
-            end.join
-
-            if children_xml.empty?
-              "<#{node.name}#{attrs}/>"
-            else
-              "<#{node.name}#{attrs}>#{children_xml}</#{node.name}>"
-            end
-          elsif node.is_a?(Canon::Xml::Nodes::TextNode)
-            node.value
-          elsif node.is_a?(Canon::Xml::Nodes::CommentNode)
-            "<!--#{node.value}-->"
-          elsif node.is_a?(Canon::Xml::Nodes::ProcessingInstructionNode)
-            "<?#{node.target} #{node.data}?>"
-          elsif node.respond_to?(:to_xml)
-            node.to_xml
-          else
-            node.to_s
-          end
-        end
-
-        # Add a difference to the differences array
-        # Enriches DiffNode with path, serialized content, and attributes for Stage 4 rendering
-        #
-        # @param node1 [Object] First node
-        # @param node2 [Object] Second node
-        # @param diff1 [String] Difference type for node1
-        # @param diff2 [String] Difference type for node2
-        # @param dimension [Symbol] The match dimension causing this difference
-        # @param opts [Hash] Options
-        # @param differences [Array] Array to append difference to
-        def add_difference(node1, node2, diff1, diff2, dimension, _opts,
-                           differences)
-          # All differences must be DiffNode objects (OO architecture)
-          if dimension.nil?
-            raise ArgumentError,
-                  "dimension required for DiffNode"
-          end
-
-          # Build informative reason message
-          reason = build_difference_reason(node1, node2, diff1, diff2,
-                                           dimension)
-
-          # Enrich with path, serialized content, and attributes for Stage 4 rendering
-          metadata = enrich_diff_metadata(node1, node2)
-
-          diff_node = Canon::Diff::DiffNode.new(
-            node1: node1,
-            node2: node2,
-            dimension: dimension,
-            reason: reason,
-            **metadata,
-          )
-          differences << diff_node
-        end
-
-        # Enrich DiffNode with canonical path, serialized content, and attributes
-        # This extracts presentation-ready metadata from nodes for Stage 4 rendering
-        #
-        # @param node1 [Object, nil] First node
-        # @param node2 [Object, nil] Second node
-        # @return [Hash] Enriched metadata hash
-        def enrich_diff_metadata(node1, node2)
-          {
-            path: build_path_for_node(node1 || node2),
-            serialized_before: serialize_node(node1),
-            serialized_after: serialize_node(node2),
-            attributes_before: extract_attributes(node1),
-            attributes_after: extract_attributes(node2),
-          }
-        end
-
-        # Build canonical path for a node
-        #
-        # @param node [Object] Node to build path for
-        # @return [String, nil] Canonical path with ordinal indices
-        def build_path_for_node(node)
-          return nil if node.nil?
-
-          Canon::Diff::PathBuilder.build(node, format: :document)
         end
 
         # Serialize a node to string for display
@@ -1103,120 +724,9 @@ module Canon
         end
 
         # Compare namespace declarations (xmlns and xmlns:* attributes)
-        # @param n1 [Object] First node
-        # @param n2 [Object] Second node
-        # @param opts [Hash] Options
-        # @param differences [Array] Array to append differences to
-        # @return [Symbol] Comparison result
+        # Delegates to XmlComparatorHelpers::NamespaceComparator
         def compare_namespace_declarations(n1, n2, opts, differences)
-          ns_decls1 = extract_namespace_declarations(n1)
-          ns_decls2 = extract_namespace_declarations(n2)
-
-          # Find missing, extra, and changed namespace declarations
-          missing = ns_decls1.keys - ns_decls2.keys  # In n1 but not n2
-          extra = ns_decls2.keys - ns_decls1.keys    # In n2 but not n1
-          changed = ns_decls1.select do |prefix, uri|
-            ns_decls2[prefix] && ns_decls2[prefix] != uri
-          end.keys
-
-          # If there are any differences, create a DiffNode
-          if missing.any? || extra.any? || changed.any?
-            # Build a descriptive reason
-            reasons = []
-            if missing.any?
-              reasons << "removed: #{missing.map do |p|
-                p.empty? ? 'xmlns' : "xmlns:#{p}"
-              end.join(', ')}"
-            end
-            if extra.any?
-              reasons << "added: #{extra.map do |p|
-                p.empty? ? 'xmlns' : "xmlns:#{p}"
-              end.join(', ')}"
-            end
-            if changed.any?
-              reasons << "changed: #{changed.map do |p|
-                p.empty? ? 'xmlns' : "xmlns:#{p}"
-              end.join(', ')}"
-            end
-
-            add_difference(
-              n1,
-              n2,
-              Comparison::UNEQUAL_ATTRIBUTES,
-              Comparison::UNEQUAL_ATTRIBUTES,
-              :namespace_declarations,
-              opts,
-              differences,
-            )
-            return Comparison::UNEQUAL_ATTRIBUTES
-          end
-
-          Comparison::EQUIVALENT
-        end
-
-        # Extract namespace declarations from a node
-        # @param node [Object] Node to extract namespace declarations from
-        # @return [Hash] Hash of prefix => URI mappings
-        def extract_namespace_declarations(node)
-          declarations = {}
-
-          # Handle Canon::Xml::Node (uses namespace_nodes)
-          if node.respond_to?(:namespace_nodes)
-            node.namespace_nodes.each do |ns|
-              # Skip the implicit xml namespace (always present)
-              next if ns.prefix == "xml" && ns.uri == "http://www.w3.org/XML/1998/namespace"
-
-              prefix = ns.prefix || ""
-              declarations[prefix] = ns.uri
-            end
-            return declarations
-          end
-
-          # Handle Nokogiri/Moxml nodes (use attributes)
-          # Get raw attributes
-          raw_attrs = node.respond_to?(:attribute_nodes) ? node.attribute_nodes : node.attributes
-
-          # Handle Canon::Xml::Node attribute format (array of AttributeNode)
-          if raw_attrs.is_a?(Array)
-            raw_attrs.each do |attr|
-              name = attr.name
-              value = attr.value
-
-              if is_namespace_declaration?(name)
-                # Extract prefix: "xmlns" -> "", "xmlns:xmi" -> "xmi"
-                prefix = name == "xmlns" ? "" : name.split(":", 2)[1]
-                declarations[prefix] = value
-              end
-            end
-          else
-            # Handle Nokogiri and Moxml attribute formats (Hash-like)
-            raw_attrs.each do |key, val|
-              if key.is_a?(String)
-                # Nokogiri format: key=name (String), val=attr object
-                name = key
-                value = val.respond_to?(:value) ? val.value : val.to_s
-              else
-                # Moxml format: key=attr object, val=nil
-                name = key.respond_to?(:name) ? key.name : key.to_s
-                value = key.respond_to?(:value) ? key.value : key.to_s
-              end
-
-              if is_namespace_declaration?(name)
-                # Extract prefix: "xmlns" -> "", "xmlns:xmi" -> "xmi"
-                prefix = name == "xmlns" ? "" : name.split(":", 2)[1]
-                declarations[prefix] = value
-              end
-            end
-          end
-
-          declarations
-        end
-
-        # Check if an attribute name is a namespace declaration
-        # @param attr_name [String] Attribute name
-        # @return [Boolean] true if it's a namespace declaration
-        def is_namespace_declaration?(attr_name)
-          attr_name == "xmlns" || attr_name.start_with?("xmlns:")
+          XmlComparatorHelpers::NamespaceComparator.compare(n1, n2, opts, differences)
         end
       end
     end

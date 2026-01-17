@@ -83,6 +83,128 @@ graph TD
 
 **Documentation**: See link:../features/diff-formatting/[Diff Formatting] and link:../features/diff-formatting/algorithm-specific-output.adoc[Algorithm-Specific Output]
 
+== DiffNode Data Flow
+
+=== How differences flow through the layers
+
+DiffNode objects are created in Layer 2, enriched with metadata, and flow through to Layer 4 for rendering:
+
+[mermaid]
+----
+graph LR
+    A[Layer 2: Algorithm] --> B[Create DiffNode]
+    B --> C[Enrich Metadata]
+    C --> D[Layer 3: Classification]
+    D --> E[Layer 4: Rendering]
+    E --> F[Formatted Output]
+
+    C --> C1[PathBuilder]
+    C --> C2[NodeSerializer]
+    C1 --> G[path]
+    C2 --> H[serialized_before/after]
+    C2 --> I[attributes_before/after]
+
+    style A fill:#fff4e1
+    style C fill:#e1f5ff
+    style E fill:#e1ffe1
+----
+
+=== Layer 2: DiffNode creation
+
+Each algorithm creates DiffNode objects when it finds differences:
+
+[source,ruby]
+----
+# DOM algorithm: Creates DiffNode during element-by-element comparison
+diff_node = Canon::Diff::DiffNode.new(
+  node1: element1,
+  node2: element2,
+  dimension: :text_content,
+  reason: "Text content differs"
+)
+
+# Semantic algorithm: Creates DiffNode from tree operations
+diff_node = Canon::Diff::DiffNode.new(
+  node1: nil,
+  node2: inserted_node,
+  dimension: :element_structure,
+  reason: "Element inserted"
+)
+----
+
+=== Metadata enrichment
+
+After creation, DiffNodes are enriched with metadata for Layer 4 rendering:
+
+[source,ruby]
+----
+# Enriched with:
+{
+  path: "/#document/div[0]/p[1]/span[2]",      # Canonical location
+  serialized_before: "<span>Old text</span>",  # Captured state
+  serialized_after: "<span>New text</span>",   # Captured state
+  attributes_before: {"id" => "old"},          # Normalized attrs
+  attributes_after: {"id" => "new"}            # Normalized attrs
+}
+----
+
+**Enrichment utilities**:
+
+* **PathBuilder**: Generates canonical paths with ordinal indices
+* **NodeSerializer**: Library-agnostic serialization of node content
+* **Attribute extraction**: Normalized attribute hashes
+
+See link:../internals/diffnode-enrichment.adoc[DiffNode Enrichment] for implementation details.
+
+=== Layer 3: Classification
+
+DiffNodes are classified to determine their impact:
+
+[source,ruby]
+----
+diff_node.normative = true   # Affects semantic equivalence
+diff_node.formatting = true  # Purely cosmetic difference
+----
+
+This classification affects whether differences cause `equivalent?` to return false.
+
+=== Layer 4: Rendering
+
+Layer 4 formatters use enriched metadata to display differences:
+
+[source,text]
+----
+🔍 DIFFERENCE #1/3 [NORMATIVE]
+════════════════════════════════════════════════════════════════════════
+Dimension: text_content
+Location:  /#document/div[0]/p[1]/span[2]
+
+⊖ Expected (File 1):
+   <span>Old text</span>
+
+⊕ Actual (File 2):
+   <span>New text</span>
+
+✨ Changes:
+   Text content changed from "Old text" to "New text"
+----
+
+* The `Location` field uses the enriched `path`
+* The before/after content uses `serialized_before/after`
+* Attribute differences use `attributes_before/after`
+
+This ensures accurate display regardless of which parsing library was used.
+
+=== Benefits of enriched DiffNodes
+
+**Library flexibility**: Layer 4 works with any parsing library through enriched metadata
+
+**Performance**: Metadata captured once at diff creation, not recomputed during rendering
+
+**Accuracy**: Shows actual node state when difference was found, not current state
+
+**Debuggability**: Ordinal indices in paths make it easy to locate specific elements
+
 == Complete Example
 
 Here's a full 4-layer configuration showing all layers working together:

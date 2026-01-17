@@ -7,6 +7,7 @@ require_relative "comparison/xml_comparator"
 require_relative "comparison/html_comparator"
 require_relative "comparison/json_comparator"
 require_relative "comparison/yaml_comparator"
+require_relative "comparison/profile_definition"
 require_relative "diff/diff_node_mapper"
 require_relative "diff/diff_line"
 require_relative "diff/diff_block_builder"
@@ -36,25 +37,36 @@ module Canon
   # == Comparison Options
   #
   # Common options across all formats:
-  # - collapse_whitespace: Normalize whitespace in text (default: true)
-  # - ignore_attr_order: Ignore attribute/key ordering (default: true)
-  # - ignore_comments: Skip comment nodes (default: true)
-  # - ignore_text_nodes: Skip all text content (default: false)
-  # - ignore_children: Skip child nodes (default: false)
+  # - profile: Comparison profile (Symbol for preset, Hash for custom)
+  #   * Presets: :strict, :rendered, :html4, :html5, :spec_friendly, :content_only
+  #   * Custom: { text_content: :normalize, comments: :ignore, ... }
+  # - diff_algorithm: Algorithm to use (:dom or :semantic, default: :dom)
   # - verbose: Return detailed diff array (default: false)
   #
   # == Usage Examples
   #
-  #   # XML comparison
+  #   # XML comparison with default profile
   #   Canon::Comparison.equivalent?(xml1, xml2)
-  #   Canon::Comparison.equivalent?(xml1, xml2, verbose: true)
   #
-  #   # HTML comparison
-  #   Canon::Comparison.equivalent?(html1, html2, ignore_comments: true)
+  #   # XML comparison with preset profile
+  #   Canon::Comparison.equivalent?(xml1, xml2, profile: :strict)
+  #   Canon::Comparison.equivalent?(xml1, xml2, profile: :spec_friendly)
   #
-  #   # JSON comparison
-  #   Canon::Comparison.equivalent?(json1, json2)
-  #   Canon::Comparison.equivalent?(hash1, hash2)  # Pre-parsed objects
+  #   # HTML comparison with custom inline profile
+  #   Canon::Comparison.equivalent?(html1, html2,
+  #     profile: { text_content: :normalize, comments: :ignore })
+  #
+  #   # Define and use a custom profile
+  #   Canon::Comparison.define_profile(:my_custom) do
+  #     text_content :normalize
+  #     comments :ignore
+  #     preprocessing :rendered
+  #   end
+  #   Canon::Comparison.equivalent?(doc1, doc2, profile: :my_custom)
+  #
+  #   # JSON comparison with semantic tree diff
+  #   Canon::Comparison.equivalent?(json1, json2,
+  #     diff_algorithm: :semantic, profile: :spec_friendly)
   #
   #   # With detailed output
   #   diffs = Canon::Comparison.equivalent?(doc1, doc2, verbose: true)
@@ -88,10 +100,11 @@ module Canon
     UNEQUAL_TEXT_CONTENTS = 9
     MISSING_HASH_KEY = 10
     UNEQUAL_HASH_VALUES = 11
-    UNEQUAL_ARRAY_LENGTHS = 12
-    UNEQUAL_ARRAY_ELEMENTS = 13
-    UNEQUAL_TYPES = 14
-    UNEQUAL_PRIMITIVES = 15
+    UNEQUAL_HASH_KEY_ORDER = 12
+    UNEQUAL_ARRAY_LENGTHS = 13
+    UNEQUAL_ARRAY_ELEMENTS = 14
+    UNEQUAL_TYPES = 15
+    UNEQUAL_PRIMITIVES = 16
 
     class << self
       # Auto-detect format and compare two objects
@@ -99,8 +112,10 @@ module Canon
       # @param obj1 [Object] First object to compare
       # @param obj2 [Object] Second object to compare
       # @param opts [Hash] Comparison options
+      #   - :profile - Profile to use (Symbol for preset, Hash for custom)
       #   - :format - Format hint (:xml, :html, :html4, :html5, :json, :yaml, :string)
       #   - :diff_algorithm - Algorithm to use (:dom or :semantic)
+      #   - :verbose - Return detailed diff array (default: false)
       # @return [Boolean, Array] true if equivalent, or array of diffs if verbose
       def equivalent?(obj1, obj2, opts = {})
         # Check if semantic tree diff is requested
@@ -111,6 +126,56 @@ module Canon
 
         # Otherwise use DOM-based comparison (default)
         dom_diff(obj1, obj2, opts)
+      end
+
+      # Define a custom comparison profile with DSL syntax
+      #
+      # @param name [Symbol] Profile name
+      # @yield [ProfileDefinition] DSL block for defining profile
+      # @return [Symbol] Profile name
+      # @raise [ProfileError] if profile definition is invalid
+      #
+      # @example Define a custom profile
+      #   Canon::Comparison.define_profile(:my_custom) do
+      #     text_content :normalize
+      #     comments :ignore
+      #     preprocessing :rendered
+      #   end
+      def define_profile(name, &block)
+        definition = ProfileDefinition.define(name, &block)
+
+        @custom_profiles ||= {}
+        @custom_profiles[name] = definition
+
+        name
+      end
+
+      # Load a profile (custom or preset)
+      #
+      # @param name [Symbol] Profile name
+      # @return [Hash] Profile settings
+      def load_profile(name)
+        # Check custom profiles first
+        if @custom_profiles&.key?(name)
+          return @custom_profiles[name].dup
+        end
+
+        # Fall back to presets - try Xml first (most common)
+        begin
+          MatchOptions::Xml.get_profile_options(name)
+        rescue Error
+          # Try other formats
+          MatchOptions::Json.get_profile_options(name)
+        end
+      end
+
+      # List all available profiles (custom + presets)
+      #
+      # @return [Array<Symbol>] Available profile names
+      def available_profiles
+        custom = @custom_profiles&.keys || []
+        presets = MatchOptions::Xml::MATCH_PROFILES.keys
+        (custom + presets).sort.uniq
       end
 
       private
@@ -203,37 +268,139 @@ module Canon
       # @param opts [Hash] User options
       # @return [Hash] Resolved match options
       def resolve_match_options(format, opts)
+        # Process unified profile parameter first
+        processed_opts = process_profile_parameter(opts)
+
         case format
         when :xml, :html, :html4, :html5
           MatchOptions::Xml.resolve(
             format: format,
-            match_profile: opts[:match_profile],
-            match: opts[:match],
-            preprocessing: opts[:preprocessing],
-            global_profile: opts[:global_profile],
-            global_options: opts[:global_options],
+            match_profile: processed_opts[:match_profile],
+            match: processed_opts[:match],
+            preprocessing: processed_opts[:preprocessing],
+            global_profile: processed_opts[:global_profile],
+            global_options: processed_opts[:global_options],
           )
         when :json
           MatchOptions::Json.resolve(
             format: format,
-            match_profile: opts[:match_profile],
-            match: opts[:match],
-            preprocessing: opts[:preprocessing],
-            global_profile: opts[:global_profile],
-            global_options: opts[:global_options],
+            match_profile: processed_opts[:match_profile],
+            match: processed_opts[:match],
+            preprocessing: processed_opts[:preprocessing],
+            global_profile: processed_opts[:global_profile],
+            global_options: processed_opts[:global_options],
           )
         when :yaml
           MatchOptions::Yaml.resolve(
             format: format,
-            match_profile: opts[:match_profile],
-            match: opts[:match],
-            preprocessing: opts[:preprocessing],
-            global_profile: opts[:global_profile],
-            global_options: opts[:global_options],
+            match_profile: processed_opts[:match_profile],
+            match: processed_opts[:match],
+            preprocessing: processed_opts[:preprocessing],
+            global_profile: processed_opts[:global_profile],
+            global_options: processed_opts[:global_options],
           )
         else
-          opts[:match] || {}
+          processed_opts[:match] || {}
         end
+      end
+
+      # Process unified profile parameter
+      #
+      # Converts the new :profile parameter into the legacy format expected
+      # by MatchOptions resolvers. Handles:
+      # - Symbol → preset profile (uses :match_profile)
+      # - Hash → custom profile (validates and uses :match)
+      #
+      # @param opts [Hash] Original user options
+      # @return [Hash] Processed options with legacy format
+      def process_profile_parameter(opts)
+        processed = opts.dup
+
+        # Handle unified :profile parameter
+        if opts.key?(:profile)
+          profile = opts[:profile]
+
+          case profile
+          when Symbol
+            # Preset profile name
+            processed[:match_profile] = profile
+          when Hash
+            # Inline custom profile - validate and use as :match
+            validate_custom_profile!(profile, format_from_opts(opts))
+            processed[:match] = profile
+          else
+            raise Canon::Error,
+                  "Invalid profile type: #{profile.class}. " \
+                  "Expected Symbol (preset name) or Hash (custom profile)."
+          end
+        end
+
+        processed
+      end
+
+      # Validate custom profile hash
+      #
+      # Ensures all dimensions and behaviors in a custom profile are valid.
+      # Uses ProfileDefinition validation logic.
+      #
+      # @param profile [Hash] Custom profile hash
+      # @param format [Symbol] Format type for validation context
+      # @raise [Canon::Error] if profile contains invalid dimensions or behaviors
+      def validate_custom_profile!(profile, format)
+        profile.each do |dimension, behavior|
+          # Skip preprocessing and special options
+          next if dimension == :preprocessing
+          next if dimension == :semantic_diff
+          next if dimension == :similarity_threshold
+
+          # Validate dimension is known
+          valid_dimensions = valid_dimensions_for_format(format)
+          unless valid_dimensions.include?(dimension)
+            raise Canon::Error,
+                  "Unknown dimension: #{dimension}. " \
+                  "Valid dimensions for #{format}: #{valid_dimensions.join(', ')}"
+          end
+
+          # Validate behavior is allowed for this dimension
+          valid_behaviors = ProfileDefinition::DIMENSION_BEHAVIORS[dimension]
+          if valid_behaviors && !valid_behaviors.include?(behavior)
+            raise Canon::Error,
+                  "Invalid behavior '#{behavior}' for dimension '#{dimension}'. " \
+                  "Valid behaviors: #{valid_behaviors.join(', ')}"
+          end
+
+          # Validate behavior is in general MATCH_BEHAVIORS
+          unless MatchOptions::MATCH_BEHAVIORS.include?(behavior)
+            raise Canon::Error,
+                  "Unknown match behavior: #{behavior}. " \
+                  "Valid behaviors: #{MatchOptions::MATCH_BEHAVIORS.join(', ')}"
+          end
+        end
+      end
+
+      # Get valid dimensions for a format
+      #
+      # @param format [Symbol] Format type
+      # @return [Array<Symbol>] Valid dimensions for the format
+      def valid_dimensions_for_format(format)
+        case format
+        when :xml, :html, :html4, :html5
+          MatchOptions::Xml::MATCH_DIMENSIONS
+        when :json
+          MatchOptions::Json::MATCH_DIMENSIONS
+        when :yaml
+          MatchOptions::Yaml::MATCH_DIMENSIONS
+        else
+          []
+        end
+      end
+
+      # Helper to extract format from opts for validation
+      #
+      # @param opts [Hash] User options
+      # @return [Symbol] Format type or :xml as default
+      def format_from_opts(opts)
+        opts[:format] || :xml
       end
 
       # Parse documents using comparator's parse logic (reuses preprocessing)

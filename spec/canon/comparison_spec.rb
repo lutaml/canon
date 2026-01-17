@@ -457,21 +457,21 @@ RSpec.describe Canon::Comparison do
         end
 
         it "returns already-parsed documents as-is" do
-          frag = Nokogiri::HTML5.fragment('<span>text</span>')
+          frag = Nokogiri::HTML5.fragment("<span>text</span>")
           result = described_class.send(:parse_html, frag, :html5)
 
           expect(result).to eq(frag)
         end
 
         it "auto-detects HTML5 from DOCTYPE when format is :html" do
-          html = '<!DOCTYPE html><span>text</span>'
+          html = "<!DOCTYPE html><span>text</span>"
           result = described_class.send(:parse_html, html, :html)
 
           expect(result).to be_a(Nokogiri::HTML5::DocumentFragment)
         end
 
         it "defaults to HTML4 when format is :html and no DOCTYPE" do
-          html = '<span>text</span>'
+          html = "<span>text</span>"
           result = described_class.send(:parse_html, html, :html)
 
           expect(result).to be_a(Nokogiri::HTML4::DocumentFragment)
@@ -507,11 +507,15 @@ RSpec.describe Canon::Comparison do
         expect(result).not_to be_equivalent
 
         # Only difference should be text content, not attributes
-        attr_diffs = result.differences.select { |d| d.dimension == :attribute_values }
+        attr_diffs = result.differences.select do |d|
+          d.dimension == :attribute_values
+        end
         expect(attr_diffs).to be_empty
 
         # Should have exactly one text_content difference
-        text_diffs = result.differences.select { |d| d.dimension == :text_content }
+        text_diffs = result.differences.select do |d|
+          d.dimension == :text_content
+        end
         expect(text_diffs.length).to eq(1)
       end
 
@@ -531,31 +535,34 @@ RSpec.describe Canon::Comparison do
 
     context "backward compatibility" do
       it "works when format is not specified (auto-detect)" do
-        html1 = '<span>text</span>'
-        html2 = '<span>text</span>'
+        html1 = "<span>text</span>"
+        html2 = "<span>text</span>"
 
         expect(described_class.equivalent?(html1, html2)).to be true
       end
 
       it "handles strings with :html format (legacy behavior)" do
-        html1 = '<span>text</span>'
-        html2 = '<span>text</span>'
+        html1 = "<span>text</span>"
+        html2 = "<span>text</span>"
 
-        expect(described_class.equivalent?(html1, html2, format: :html)).to be true
+        expect(described_class.equivalent?(html1, html2,
+                                           format: :html)).to be true
       end
 
       it "handles strings with :html5 format (new behavior)" do
-        html1 = '<span>text</span>'
-        html2 = '<span>text</span>'
+        html1 = "<span>text</span>"
+        html2 = "<span>text</span>"
 
-        expect(described_class.equivalent?(html1, html2, format: :html5)).to be true
+        expect(described_class.equivalent?(html1, html2,
+                                           format: :html5)).to be true
       end
 
       it "handles strings with :html4 format (new behavior)" do
-        html1 = '<span>text</span>'
-        html2 = '<span>text</span>'
+        html1 = "<span>text</span>"
+        html2 = "<span>text</span>"
 
-        expect(described_class.equivalent?(html1, html2, format: :html4)).to be true
+        expect(described_class.equivalent?(html1, html2,
+                                           format: :html4)).to be true
       end
     end
   end

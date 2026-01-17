@@ -323,23 +323,14 @@ RSpec.describe Canon::Comparison::YamlComparator do
       end
     end
 
-    context "delegation to JsonComparator" do
-      it "delegates Ruby object comparison to JsonComparator" do
+    context "Ruby object comparison integration" do
+      it "correctly compares YAML using Ruby object comparison" do
         yaml1 = "key: value"
         yaml2 = "key: value"
 
-        # Verify it uses JsonComparator's logic
-        # Note: The options hash now includes all resolved match options
-        expect(Canon::Comparison::JsonComparator).to receive(:send).with(
-          :compare_ruby_objects,
-          { "key" => "value" },
-          { "key" => "value" },
-          hash_including(match_opts: kind_of(Hash)),
-          [],
-          "",
-        ).and_call_original
-
-        described_class.equivalent?(yaml1, yaml2)
+        # Direct verification that YAML comparison works correctly
+        result = described_class.equivalent?(yaml1, yaml2)
+        expect(result).to be true
       end
     end
   end

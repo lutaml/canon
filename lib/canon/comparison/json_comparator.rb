@@ -125,6 +125,18 @@ module Canon
           if match_opts[:key_order] != :strict
             keys1 = keys1.sort_by(&:to_s)
             keys2 = keys2.sort_by(&:to_s)
+          elsif keys1 != keys2
+            # Strict mode: key order matters
+            # Check if keys are in same order
+            # Keys are different or in different order
+            # First check if it's just ordering (same keys, different order)
+            if keys1.sort_by(&:to_s) == keys2.sort_by(&:to_s)
+              # Same keys, different order - this is a key_order difference
+              key_path = path.empty? ? "(key order)" : "#{path}.(key order)"
+              add_ruby_difference(key_path, keys1, keys2,
+                                  Comparison::UNEQUAL_HASH_KEY_ORDER, opts, differences)
+              return Comparison::UNEQUAL_HASH_KEY_ORDER
+            end
           end
 
           # Check for missing keys
