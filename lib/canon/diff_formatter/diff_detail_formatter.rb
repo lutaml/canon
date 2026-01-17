@@ -162,7 +162,8 @@ module Canon
 
         # Helper: Colorize text
         def colorize(text, color, use_color, bold: false)
-          DiffDetailFormatterHelpers::ColorHelper.colorize(text, color, use_color, bold: bold)
+          DiffDetailFormatterHelpers::ColorHelper.colorize(text, color,
+                                                           use_color, bold: bold)
         end
       end
     end
