@@ -5,10 +5,53 @@
 # Asciidoc/Jekyll creates directories with index.html files
 _site/.*/
 
-# Ignore asciidoc source file links without extensions
-# These are resolved by the asciidoc processor, not the file system
-.*/extending-canon
-.*/verbose-mode-architecture
+# Ignore asciidoc source file links (these resolve to HTML in the built site)
+.*/.*\.adoc$
+.*/.*/docs/.*\.adoc$
+.*/canon/docs/.*\.adoc$
+.*/interfaces/.*/.*\.adoc$
+
+# Ignore directory links without trailing slashes (web servers handle these)
+.*/interfaces/$
+.*/reference/$
+.*/understanding/$
+.*/features/$
+.*/guides/$
+.*/getting-started/$
+.*/advanced/$
+.*/plans/$
+
+# Ignore asciidoc-style directory links without .html extension
+.*/extending-canon$
+.*/verbose-mode-architecture$
+.*/cli/diff-command$
+.*/cli/format-command$
+.*/rspec/matchers$
+.*/ruby-api/comparison$
+.*/ruby-api/formatting$
+.*/docs/core-concepts$
+.*/docs/installation$
+.*/docs/quick-start$
+.*/docs/profiles$
+.*/docs/comparison-pipeline$
+.*/docs/migrating-from-xmldiff$
+.*/docs/performance-optimization$
+.*/docs/testing-xml-generation$
+.*/docs/guides/debugging-test-failures$
+.*/docs/guides/testing-xml-generation$
+.*/docs/guides/choosing-configuration$
+.*/docs/environment-configuration/size-limits$
+.*/docs/environment-configuration/override-system$
+.*/docs/environment-configuration/input-validation$
+.*/docs/features/environment-configuration/size-limits$
+.*/docs/input-validation/$
+.*/docs/match-options/$
+.*/docs/preprocessing/$
+.*/docs/features/match-options/$
+.*/docs/understanding/algorithms/$
+.*/docs/understanding/formats/$
+.*/docs/understanding/diff-modes/$
+.*/docs/understanding/comparison-pipeline$
 
 # Ignore GitHub-specific links
 https://github\.com/[^/]+/[^/]+/edit/.*
