@@ -61,6 +61,7 @@ jobs:
           --config lychee.toml
           --root-dir "$(pwd)/_site"
           --base-url file://${{ github.workspace }}/docs/_site
+          --exclude "file://"
           '_site/**/*.html'
         fail: true
         output: link-check-results.md
