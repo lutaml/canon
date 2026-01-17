@@ -1,65 +1,74 @@
-# Lychee ignore patterns (regex syntax)
+# Lychee ignore patterns (glob-style wildcards)
 # These link types are valid but lychee can't verify them
 
 # Ignore directory links (handled by web servers with index.html)
 # Asciidoc/Jekyll creates directories with index.html files
-_site/.*/
+_site/**/
 
 # Ignore all .adoc source file links (these resolve to HTML in the built site)
-.*\.adoc$
+**/*.adoc
+**/docs/*.adoc
+**/interfaces/**/*.adoc
 
 # Ignore directory links without trailing slashes (web servers handle these)
-/canon/interfaces/$
-/canon/reference/$
-/canon/understanding/$
-/canon/features/$
-/canon/guides/$
-/canon/getting-started/$
-/canon/advanced/$
-/canon/plans/$
-/canon/features/match-options/$
-/canon/docs/algorithms/$
-/canon/docs/formats/$
-/canon/diff-modes/$
-/canon/input-validation/$
-/canon/match-options/$
-/canon/preprocessing/$
-/canon/understanding/algorithms/$
+**/interfaces/
+**/reference/
+**/understanding/
+**/features/
+**/guides/
+**/getting-started/
+**/advanced/
+**/plans/
+**/docs/algorithms/
+**/docs/formats/
+**/diff-modes/
+**/input-validation/
+**/match-options/
+**/preprocessing/
 
 # Ignore asciidoc-style directory links without .html extension
-/canon/extending-canon$
-/canon/verbose-mode-architecture$
-/canon/cli/diff-command$
-/canon/cli/format-command$
-/canon/rspec/matchers$
-/canon/ruby-api/comparison$
-/canon/ruby-api/formatting$
-/canon/core-concepts$
-/canon/installation$
-/canon/quick-start$
-/canon/profiles$
-/canon/comparison-pipeline$
-/canon/migrating-from-xmldiff$
-/canon/performance-optimization$
-/canon/testing-xml-generation$
-/canon/debugging-test-failures$
-/canon/choosing-configuration$
-/canon/environment-configuration/size-limits$
-/canon/environment-configuration/override-system$
-/canon/environment-configuration/input-validation$
-/canon/architecture$
+**/extending-canon
+**/verbose-mode-architecture
+**/cli/diff-command
+**/cli/format-command
+**/rspec/matchers
+**/ruby-api/comparison
+**/ruby-api/formatting
+**/core-concepts
+**/installation
+**/quick-start
+**/profiles
+**/comparison-pipeline
+**/migrating-from-xmldiff
+**/performance-optimization
+**/testing-xml-generation
+**/debugging-test-failures
+**/choosing-configuration
+**/environment-configuration/size-limits
+**/environment-configuration/override-system
+**/environment-configuration/input-validation
+**/architecture
 
 # Ignore GitHub-specific links
-https://github\.com/[^/]+/[^/]+/edit/.*
-https://github\.com/[^/]+/[^/]+/blob/.*
+https://github.com/*/*/edit/*
+https://github.com/*/*/blob/*
+
+# Ignore example domain links (these don't exist)
+http://a.com/*
+http://b.com/*
+http://c.com/*
+http://example.com/*
+http://ns.com/*
+http://shop.com/*
+http://z.com/*
 
 # Ignore anchor-only links (same-page navigation)
 #*
 
 # Ignore mailto links
-mailto:.*
+mailto:*
 
 # Ignore localhost links for development
-http://localhost:.*
-http://127\.0\.0\.1:.*
-http://0\.0\.0\.0:.*
+http://localhost:*
+http://127.0.0.1:*
+http://0.0.0.0:*
