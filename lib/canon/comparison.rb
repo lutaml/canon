@@ -13,6 +13,7 @@ require_relative "diff/diff_line"
 require_relative "diff/diff_block_builder"
 require_relative "diff/diff_context_builder"
 require_relative "diff/diff_report_builder"
+require_relative "cache"
 
 module Canon
   # Comparison module for XML, HTML, JSON, and YAML documents
@@ -417,29 +418,63 @@ module Canon
         when :xml
           # Delegate to XmlComparator's parse_node - returns Canon::Xml::Node
           # Adapter now handles Canon::Xml::Node directly
-          doc1 = XmlComparator.send(:parse_node, obj1, preprocessing)
-          doc2 = XmlComparator.send(:parse_node, obj2, preprocessing)
+          doc1 = parse_with_cache(obj1, format, preprocessing) do |doc|
+            XmlComparator.send(:parse_node, doc, preprocessing)
+          end
+          doc2 = parse_with_cache(obj2, format, preprocessing) do |doc|
+            XmlComparator.send(:parse_node, doc, preprocessing)
+          end
           [doc1, doc2]
         when :html, :html4, :html5
           # Delegate to HtmlComparator's parse_node_for_semantic for Canon::Xml::Node
           [
-            HtmlComparator.send(:parse_node_for_semantic, obj1, preprocessing),
-            HtmlComparator.send(:parse_node_for_semantic, obj2, preprocessing),
+            parse_with_cache(obj1, format, preprocessing) do |doc|
+              HtmlComparator.send(:parse_node_for_semantic, doc, preprocessing)
+            end,
+            parse_with_cache(obj2, format, preprocessing) do |doc|
+              HtmlComparator.send(:parse_node_for_semantic, doc, preprocessing)
+            end,
           ]
         when :json
           # Delegate to JsonComparator's parse_json
           [
-            JsonComparator.send(:parse_json, obj1),
-            JsonComparator.send(:parse_json, obj2),
+            parse_with_cache(obj1, format, :none) do |doc|
+              JsonComparator.send(:parse_json, doc)
+            end,
+            parse_with_cache(obj2, format, :none) do |doc|
+              JsonComparator.send(:parse_json, doc)
+            end,
           ]
         when :yaml
           # Delegate to YamlComparator's parse_yaml
           [
-            YamlComparator.send(:parse_yaml, obj1),
-            YamlComparator.send(:parse_yaml, obj2),
+            parse_with_cache(obj1, format, :none) do |doc|
+              YamlComparator.send(:parse_yaml, doc)
+            end,
+            parse_with_cache(obj2, format, :none) do |doc|
+              YamlComparator.send(:parse_yaml, doc)
+            end,
           ]
         else
           [obj1, obj2]
+        end
+      end
+
+      # Parse a document with caching
+      #
+      # @param doc [Object] Document to parse (string or already parsed)
+      # @param format [Symbol] Document format
+      # @param preprocessing [Symbol] Preprocessing option
+      # @yield Block to parse the document if not cached
+      # @return [Object] Parsed document
+      def parse_with_cache(doc, format, preprocessing)
+        # If already a parsed node, return as-is
+        return doc unless doc.is_a?(String)
+
+        # Use cache for string documents
+        Cache.fetch(:document_parse,
+                    Cache.key_for_document(doc, format, preprocessing)) do
+          yield doc
         end
       end
 
@@ -626,6 +661,17 @@ module Canon
       # @param str [String] String to detect format of
       # @return [Symbol] Format type
       def detect_string_format(str)
+        # Use cache for format detection
+        Cache.fetch(:format_detect, Cache.key_for_format_detection(str)) do
+          detect_string_format_uncached(str)
+        end
+      end
+
+      # Internal format detection without caching
+      #
+      # @param str [String] String to detect format of
+      # @return [Symbol] Format type
+      def detect_string_format_uncached(str)
         trimmed = str.strip
 
         # YAML indicators
