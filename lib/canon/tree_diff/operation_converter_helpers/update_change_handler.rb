@@ -75,7 +75,8 @@ module Canon
         # @param is_metadata [Boolean] Whether nodes are metadata elements
         # @param normative_determiner [#call] Proc to determine normative status
         # @return [DiffNode] Diff node for attribute value differences
-        def self.create_attribute_value_diff(node1, node2, changes, metadata, is_metadata, normative_determiner)
+        def self.create_attribute_value_diff(node1, node2, changes, metadata,
+is_metadata, normative_determiner)
           diff_details = ReasonBuilder.build_attribute_value_reason(changes)
 
           diff_node = Canon::Diff::DiffNode.new(
@@ -98,7 +99,8 @@ module Canon
         # @param is_metadata [Boolean] Whether nodes are metadata elements
         # @param normative_determiner [#call] Proc to determine normative status
         # @return [DiffNode] Diff node for attribute order differences
-        def self.create_attribute_order_diff(node1, node2, changes, metadata, is_metadata, normative_determiner)
+        def self.create_attribute_order_diff(node1, node2, changes, metadata,
+is_metadata, normative_determiner)
           reason = ReasonBuilder.build_attribute_order_reason(changes)
 
           diff_node = Canon::Diff::DiffNode.new(
@@ -121,7 +123,8 @@ module Canon
         # @param is_metadata [Boolean] Whether nodes are metadata elements
         # @param normative_determiner [#call] Proc to determine normative status
         # @return [DiffNode] Diff node for text content differences
-        def self.create_text_content_diff(node1, node2, changes, metadata, is_metadata, normative_determiner)
+        def self.create_text_content_diff(node1, node2, changes, metadata,
+is_metadata, normative_determiner)
           reason = ReasonBuilder.build_text_content_reason(changes)
 
           diff_node = Canon::Diff::DiffNode.new(
@@ -144,7 +147,8 @@ module Canon
         # @param is_metadata [Boolean] Whether nodes are metadata elements
         # @param normative_determiner [#call] Proc to determine normative status
         # @return [DiffNode] Diff node for element name differences
-        def self.create_element_name_diff(node1, node2, changes, metadata, is_metadata, normative_determiner)
+        def self.create_element_name_diff(node1, node2, changes, metadata,
+is_metadata, normative_determiner)
           reason = ReasonBuilder.build_element_name_reason(changes)
 
           diff_node = Canon::Diff::DiffNode.new(
@@ -166,7 +170,8 @@ module Canon
         # @param is_metadata [Boolean] Whether nodes are metadata elements
         # @param normative_determiner [#call] Proc to determine normative status
         # @return [DiffNode] Generic update diff node
-        def self.create_generic_update_diff(node1, node2, metadata, is_metadata, normative_determiner)
+        def self.create_generic_update_diff(node1, node2, metadata,
+is_metadata, normative_determiner)
           diff_node = Canon::Diff::DiffNode.new(
             node1: node1,
             node2: node2,

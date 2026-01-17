@@ -84,7 +84,8 @@ module Canon
           parts << "Extra: #{extra.to_a.join(', ')}" if extra.any?
           if changed.any?
             parts << "Changed: #{changed.map do |k|
-              "#{k}=\"#{truncate(old_attrs[k], 20)}\" → \"#{truncate(new_attrs[k], 20)}\""
+              "#{k}=\"#{truncate(old_attrs[k],
+                                 20)}\" → \"#{truncate(new_attrs[k], 20)}\""
             end.join(', ')}"
           end
 

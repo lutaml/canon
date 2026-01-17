@@ -63,10 +63,13 @@ module Canon
 
           element_name = NodeUtils.get_element_name_for_display(node1) || "element"
 
-          detail1 = "<#{element_name}> #{ColorHelper.colorize(ns1_display, :cyan, use_color)}"
-          detail2 = "<#{element_name}> #{ColorHelper.colorize(ns2_display, :cyan, use_color)}"
+          detail1 = "<#{element_name}> #{ColorHelper.colorize(ns1_display,
+                                                              :cyan, use_color)}"
+          detail2 = "<#{element_name}> #{ColorHelper.colorize(ns2_display,
+                                                              :cyan, use_color)}"
 
-          changes = "Namespace differs: #{ColorHelper.colorize(ns1_display, :red, use_color)} → " \
+          changes = "Namespace differs: #{ColorHelper.colorize(ns1_display,
+                                                               :red, use_color)} → " \
                     "#{ColorHelper.colorize(ns2_display, :green, use_color)}"
 
           [detail1, detail2, changes]
@@ -119,21 +122,25 @@ module Canon
           # Analyze changes
           missing = ns_decls1.keys - ns_decls2.keys
           extra = ns_decls2.keys - ns_decls1.keys
-          changed = ns_decls1.select { |k, v| ns_decls2[k] && ns_decls2[k] != v }.keys
+          changed = ns_decls1.select do |k, v|
+            ns_decls2[k] && ns_decls2[k] != v
+          end.keys
 
           # Format changes
           changes_parts = []
           if missing.any?
             missing_str = missing.map do |prefix|
               attr_name = prefix.empty? ? "xmlns" : "xmlns:#{prefix}"
-              ColorHelper.colorize("-#{attr_name}=\"#{ns_decls1[prefix]}\"", :red, use_color)
+              ColorHelper.colorize("-#{attr_name}=\"#{ns_decls1[prefix]}\"",
+                                   :red, use_color)
             end.join(", ")
             changes_parts << "Removed: #{missing_str}"
           end
           if extra.any?
             extra_str = extra.map do |prefix|
               attr_name = prefix.empty? ? "xmlns" : "xmlns:#{prefix}"
-              ColorHelper.colorize("+#{attr_name}=\"#{ns_decls2[prefix]}\"", :green, use_color)
+              ColorHelper.colorize("+#{attr_name}=\"#{ns_decls2[prefix]}\"",
+                                   :green, use_color)
             end.join(", ")
             changes_parts << "Added: #{extra_str}"
           end
@@ -169,7 +176,8 @@ module Canon
           detail1 = "<#{ColorHelper.colorize(name1, :red, use_color)}>"
           detail2 = "<#{ColorHelper.colorize(name2, :green, use_color)}>"
 
-          changes = "Element differs: #{ColorHelper.colorize(name1, :red, use_color)} → " \
+          changes = "Element differs: #{ColorHelper.colorize(name1, :red,
+                                                             use_color)} → " \
                     "#{ColorHelper.colorize(name2, :green, use_color)}"
 
           [detail1, detail2, changes]
@@ -197,23 +205,31 @@ module Canon
           detail1 = if attrs1.empty?
                       ColorHelper.colorize("(no attributes)", :red, use_color)
                     else
-                      attrs1.map { |a| ColorHelper.colorize(a, :red, use_color) }.join(", ")
+                      attrs1.map do |a|
+                        ColorHelper.colorize(a, :red, use_color)
+                      end.join(", ")
                     end
 
           detail2 = if attrs2.empty?
                       ColorHelper.colorize("(no attributes)", :green, use_color)
                     else
-                      attrs2.map { |a| ColorHelper.colorize(a, :green, use_color) }.join(", ")
+                      attrs2.map do |a|
+                        ColorHelper.colorize(a, :green, use_color)
+                      end.join(", ")
                     end
 
           # Build changes description
           changes_parts = []
           if missing.any?
-            missing_str = missing.map { |a| ColorHelper.colorize("-#{a}", :red, use_color) }.join(", ")
+            missing_str = missing.map do |a|
+              ColorHelper.colorize("-#{a}", :red, use_color)
+            end.join(", ")
             changes_parts << "Missing: #{missing_str}"
           end
           if extra.any?
-            extra_str = extra.map { |a| ColorHelper.colorize("+#{a}", :green, use_color) }.join(", ")
+            extra_str = extra.map do |a|
+              ColorHelper.colorize("+#{a}", :green, use_color)
+            end.join(", ")
             changes_parts << "Extra: #{extra_str}"
           end
 
@@ -247,8 +263,11 @@ module Canon
 
             attrs1_parts << "#{attr_name}=#{format_json_value(val1)}"
             attrs2_parts << "#{attr_name}=#{format_json_value(val2)}"
-            changes_parts << "#{attr_name}: #{ColorHelper.colorize(format_json_value(val1), :red, use_color)} → " \
-                             "#{ColorHelper.colorize(format_json_value(val2), :green, use_color)}"
+            changes_parts << "#{attr_name}: #{ColorHelper.colorize(
+              format_json_value(val1), :red, use_color
+            )} → " \
+                             "#{ColorHelper.colorize(format_json_value(val2),
+                                                     :green, use_color)}"
           end
 
           detail1 = attrs1_parts.join(", ")
@@ -273,11 +292,17 @@ module Canon
           order1 = NodeUtils.get_attribute_names_in_order(node1)
           order2 = NodeUtils.get_attribute_names_in_order(node2)
 
-          detail1 = order1.map { |a| ColorHelper.colorize(a, :red, use_color) }.join(", ")
-          detail2 = order2.map { |a| ColorHelper.colorize(a, :green, use_color) }.join(", ")
+          detail1 = order1.map do |a|
+            ColorHelper.colorize(a, :red, use_color)
+          end.join(", ")
+          detail2 = order2.map do |a|
+            ColorHelper.colorize(a, :green, use_color)
+          end.join(", ")
 
-          changes = "Order differs: #{ColorHelper.colorize(order1.join(', '), :red, use_color)} → " \
-                    "#{ColorHelper.colorize(order2.join(', '), :green, use_color)}"
+          changes = "Order differs: #{ColorHelper.colorize(order1.join(', '),
+                                                           :red, use_color)} → " \
+                    "#{ColorHelper.colorize(order2.join(', '), :green,
+                                            use_color)}"
 
           [detail1, detail2, changes]
         end
@@ -299,11 +324,17 @@ module Canon
           text2 = NodeUtils.get_node_text(node2)
 
           if NodeUtils.inside_preserve_element?(node1) || NodeUtils.inside_preserve_element?(node2)
-            detail1 = ColorHelper.colorize(TextUtils.visualize_whitespace(text1), :red, use_color)
-            detail2 = ColorHelper.colorize(TextUtils.visualize_whitespace(text2), :green, use_color)
+            detail1 = ColorHelper.colorize(
+              TextUtils.visualize_whitespace(text1), :red, use_color
+            )
+            detail2 = ColorHelper.colorize(
+              TextUtils.visualize_whitespace(text2), :green, use_color
+            )
           else
-            detail1 = ColorHelper.colorize(format_json_value(text1), :red, use_color)
-            detail2 = ColorHelper.colorize(format_json_value(text2), :green, use_color)
+            detail1 = ColorHelper.colorize(format_json_value(text1), :red,
+                                           use_color)
+            detail2 = ColorHelper.colorize(format_json_value(text2), :green,
+                                           use_color)
           end
 
           changes = "Content differs: #{detail1} → #{detail2}"
@@ -327,8 +358,10 @@ module Canon
           text1 = NodeUtils.get_node_text(node1)
           text2 = NodeUtils.get_node_text(node2)
 
-          detail1 = ColorHelper.colorize(TextUtils.visualize_whitespace(text1), :red, use_color)
-          detail2 = ColorHelper.colorize(TextUtils.visualize_whitespace(text2), :green, use_color)
+          detail1 = ColorHelper.colorize(TextUtils.visualize_whitespace(text1),
+                                         :red, use_color)
+          detail2 = ColorHelper.colorize(TextUtils.visualize_whitespace(text2),
+                                         :green, use_color)
 
           changes = "Whitespace differs: #{detail1} → #{detail2}"
 
@@ -350,8 +383,10 @@ module Canon
           text1 = NodeUtils.get_node_text(node1)
           text2 = NodeUtils.get_node_text(node2)
 
-          detail1 = ColorHelper.colorize(format_json_value(text1), :red, use_color)
-          detail2 = ColorHelper.colorize(format_json_value(text2), :green, use_color)
+          detail1 = ColorHelper.colorize(format_json_value(text1), :red,
+                                         use_color)
+          detail2 = ColorHelper.colorize(format_json_value(text2), :green,
+                                         use_color)
 
           changes = "Comment differs: #{detail1} → #{detail2}"
 
@@ -367,13 +402,15 @@ module Canon
           require_relative "color_helper"
 
           detail1 = if diff.is_a?(Hash) && diff[:value1]
-                      ColorHelper.colorize(format_json_value(diff[:value1]), :red, use_color)
+                      ColorHelper.colorize(format_json_value(diff[:value1]),
+                                           :red, use_color)
                     else
                       ColorHelper.colorize("(no value)", :red, use_color)
                     end
 
           detail2 = if diff.is_a?(Hash) && diff[:value2]
-                      ColorHelper.colorize(format_json_value(diff[:value2]), :green, use_color)
+                      ColorHelper.colorize(format_json_value(diff[:value2]),
+                                           :green, use_color)
                     else
                       ColorHelper.colorize("(no value)", :green, use_color)
                     end
@@ -401,8 +438,10 @@ module Canon
           node1 = extract_node1(diff)
           node2 = extract_node2(diff)
 
-          detail1 = ColorHelper.colorize(NodeUtils.format_node_brief(node1), :red, use_color)
-          detail2 = ColorHelper.colorize(NodeUtils.format_node_brief(node2), :green, use_color)
+          detail1 = ColorHelper.colorize(NodeUtils.format_node_brief(node1),
+                                         :red, use_color)
+          detail2 = ColorHelper.colorize(NodeUtils.format_node_brief(node2),
+                                         :green, use_color)
 
           dimension = extract_dimension(diff)
           changes = "#{dimension.to_s.capitalize} differs: #{detail1} → #{detail2}"

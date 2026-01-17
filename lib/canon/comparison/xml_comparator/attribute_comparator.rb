@@ -18,8 +18,10 @@ module Canon
           raw_attrs1 = node1.respond_to?(:attribute_nodes) ? node1.attribute_nodes : node1.attributes
           raw_attrs2 = node2.respond_to?(:attribute_nodes) ? node2.attribute_nodes : node2.attributes
 
-          attrs1 = XmlComparatorHelpers::AttributeFilter.filter(raw_attrs1, opts)
-          attrs2 = XmlComparatorHelpers::AttributeFilter.filter(raw_attrs2, opts)
+          attrs1 = XmlComparatorHelpers::AttributeFilter.filter(raw_attrs1,
+                                                                opts)
+          attrs2 = XmlComparatorHelpers::AttributeFilter.filter(raw_attrs2,
+                                                                opts)
 
           match_opts = opts[:match_opts]
           attribute_order_behavior = match_opts[:attribute_order] || :strict
@@ -74,7 +76,8 @@ differences)
           end
 
           # Order matches, check values
-          compare_attribute_values(node1, node2, attrs1, attrs2, opts, differences)
+          compare_attribute_values(node1, node2, attrs1, attrs2, opts,
+                                   differences)
         end
 
         # Compare with flexible attribute ordering
@@ -114,7 +117,8 @@ differences)
             return Comparison::MISSING_ATTRIBUTE
           end
 
-          compare_attribute_values(node1, node2, attrs1, attrs2, opts, differences)
+          compare_attribute_values(node1, node2, attrs1, attrs2, opts,
+                                   differences)
         end
 
         # Compare attribute values
@@ -126,7 +130,8 @@ differences)
         # @param opts [Hash] Comparison options
         # @param differences [Array] Array to append differences to
         # @return [Symbol] Comparison result
-        def self.compare_attribute_values(node1, node2, attrs1, attrs2, opts, differences)
+        def self.compare_attribute_values(node1, node2, attrs1, attrs2, opts,
+differences)
           attrs1.each do |name, value|
             unless attrs2[name] == value
               add_attribute_difference(n1: node1, n2: node2,

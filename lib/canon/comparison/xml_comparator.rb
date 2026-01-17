@@ -351,7 +351,8 @@ module Canon
         # Compare attribute sets
         # Delegates to XmlComparatorHelpers::AttributeComparator
         def compare_attribute_sets(n1, n2, opts, differences)
-          XmlComparatorHelpers::AttributeComparator.compare(n1, n2, opts, differences)
+          XmlComparatorHelpers::AttributeComparator.compare(n1, n2, opts,
+                                                            differences)
         end
 
         # Compare text nodes
@@ -726,7 +727,8 @@ module Canon
         # Compare namespace declarations (xmlns and xmlns:* attributes)
         # Delegates to XmlComparatorHelpers::NamespaceComparator
         def compare_namespace_declarations(n1, n2, opts, differences)
-          XmlComparatorHelpers::NamespaceComparator.compare(n1, n2, opts, differences)
+          XmlComparatorHelpers::NamespaceComparator.compare(n1, n2, opts,
+                                                            differences)
         end
       end
     end

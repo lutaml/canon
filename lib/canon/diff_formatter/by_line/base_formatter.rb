@@ -622,7 +622,8 @@ module Canon
         # @param lines1 [Array<String>] Lines from doc1
         # @param lines2 [Array<String>] Lines from doc2
         # @return [Hash, nil] Metadata hash or nil
-        def format_matched_element_with_metadata(match, map1, map2, lines1, lines2)
+        def format_matched_element_with_metadata(match, map1, map2, lines1,
+lines2)
           range1 = map1[match.elem1]
           range2 = map2[match.elem2]
           return nil unless range1 && range2

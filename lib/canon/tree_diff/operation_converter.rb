@@ -91,7 +91,7 @@ module Canon
         # Post-process to detect attribute-order-only differences
         OperationConverterHelpers::PostProcessor.detect_attribute_order_diffs(
           diff_nodes,
-          ->(dimension) { determine_normative(dimension) }
+          ->(dimension) { determine_normative(dimension) },
         )
       end
 
@@ -133,7 +133,8 @@ module Canon
         node2 = extract_source_node(tree_node2)
 
         # Enrich with path and serialized content
-        metadata = OperationConverterHelpers::MetadataEnricher.enrich(nil, tree_node2, @format)
+        metadata = OperationConverterHelpers::MetadataEnricher.enrich(nil,
+                                                                      tree_node2, @format)
 
         diff_node = Canon::Diff::DiffNode.new(
           node1: nil,
@@ -156,7 +157,9 @@ module Canon
         node1 = extract_source_node(tree_node1)
 
         # Enrich with path and serialized content
-        metadata = OperationConverterHelpers::MetadataEnricher.enrich(tree_node1, nil, @format)
+        metadata = OperationConverterHelpers::MetadataEnricher.enrich(
+          tree_node1, nil, @format
+        )
 
         diff_node = Canon::Diff::DiffNode.new(
           node1: node1,
@@ -181,7 +184,9 @@ module Canon
         tree_node2 = operation[:node2] # TreeNode from adapter
 
         # Enrich with path and serialized content (shared by all DiffNodes from this operation)
-        metadata = OperationConverterHelpers::MetadataEnricher.enrich(tree_node1, tree_node2, @format)
+        metadata = OperationConverterHelpers::MetadataEnricher.enrich(
+          tree_node1, tree_node2, @format
+        )
 
         # Check if nodes are metadata elements
         node1 = extract_source_node(tree_node1)
@@ -189,14 +194,12 @@ module Canon
         is_metadata = metadata_element?(node1) || metadata_element?(node2)
 
         # Use UpdateChangeHandler to process different change types
-        diff_nodes = OperationConverterHelpers::UpdateChangeHandler.convert(
+        OperationConverterHelpers::UpdateChangeHandler.convert(
           operation,
           metadata,
           is_metadata,
-          ->(dimension) { determine_normative(dimension) }
+          ->(dimension) { determine_normative(dimension) },
         )
-
-        diff_nodes
       end
 
       # Convert MOVE operation to DiffNode
@@ -210,7 +213,9 @@ module Canon
         node2 = extract_source_node(tree_node2)
 
         # Enrich with path and serialized content
-        metadata = OperationConverterHelpers::MetadataEnricher.enrich(tree_node1, tree_node2, @format)
+        metadata = OperationConverterHelpers::MetadataEnricher.enrich(
+          tree_node1, tree_node2, @format
+        )
 
         diff_node = Canon::Diff::DiffNode.new(
           node1: node1,
@@ -238,7 +243,9 @@ module Canon
         node2 = extract_source_node(tree_node2)
 
         # Enrich with path and serialized content
-        metadata = OperationConverterHelpers::MetadataEnricher.enrich(tree_node1, tree_node2, @format)
+        metadata = OperationConverterHelpers::MetadataEnricher.enrich(
+          tree_node1, tree_node2, @format
+        )
 
         diff_node = Canon::Diff::DiffNode.new(
           node1: node1,
@@ -264,7 +271,9 @@ module Canon
         node2 = extract_source_node(tree_node2)
 
         # Enrich with path and serialized content
-        metadata = OperationConverterHelpers::MetadataEnricher.enrich(tree_node1, tree_node2, @format)
+        metadata = OperationConverterHelpers::MetadataEnricher.enrich(
+          tree_node1, tree_node2, @format
+        )
 
         diff_node = Canon::Diff::DiffNode.new(
           node1: node1,
@@ -288,7 +297,9 @@ module Canon
         node2 = extract_source_node(tree_node2)
 
         # Enrich with path and serialized content
-        metadata = OperationConverterHelpers::MetadataEnricher.enrich(tree_node1, tree_node2, @format)
+        metadata = OperationConverterHelpers::MetadataEnricher.enrich(
+          tree_node1, tree_node2, @format
+        )
 
         diff_node = Canon::Diff::DiffNode.new(
           node1: node1,
@@ -312,7 +323,9 @@ module Canon
         node2 = extract_source_node(tree_node2)
 
         # Enrich with path and serialized content
-        metadata = OperationConverterHelpers::MetadataEnricher.enrich(tree_node1, tree_node2, @format)
+        metadata = OperationConverterHelpers::MetadataEnricher.enrich(
+          tree_node1, tree_node2, @format
+        )
 
         diff_node = Canon::Diff::DiffNode.new(
           node1: node1,
