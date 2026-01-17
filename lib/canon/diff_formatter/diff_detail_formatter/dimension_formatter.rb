@@ -458,10 +458,8 @@ module Canon
 
           case value
           when String
-            # Escape for display
-            escaped = value.gsub("\\", "\\\\").gsub("\"", "\\\"").gsub("\n",
-                                                                       "\\n")
-            "\"#{escaped}\""
+            # Use JSON.generate for proper, well-tested escaping
+            JSON.generate(value)
           when Numeric, TrueClass, FalseClass, NilClass
             value.to_s
           else
