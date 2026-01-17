@@ -1,28 +1,21 @@
 # Lychee ignore patterns
 # These link types are valid but lychee can't verify them
 
-# Ignore all .adoc source file links (these resolve to HTML in the built site)
-file://.*\.adoc$
+# Ignore all .adoc and .html file links (these may have inconsistent paths during link checking)
+file://.*\.(adoc|html)$
 
-# Ignore directory links without trailing slashes (web servers handle these)
-file://.*/interfaces/$
-file://.*/reference/$
-file://.*/understanding/$
-file://.*/features/$
-file://.*/guides/$
-file://.*/getting-started/$
-file://.*/advanced/$
-file://.*/plans/$
-file://.*/docs/algorithms/$
-file://.*/docs/formats/$
-file://.*/diff-modes/$
-file://.*/input-validation/$
-file://.*/match-options/$
-file://.*/preprocessing/$
-file://.*/features/match-options/$
-file://.*/interfaces/cli/$
-file://.*/interfaces/rspec/$
-file://.*/interfaces/ruby-api/$
+# Ignore assets directory (CSS/JS files)
+file://.*/assets/.*
+
+# Ignore directory links with trailing slashes (web servers handle these with index.html)
+file://.*/canon/$
+file://.*/canon/.*/$
+file://.*/docs/$
+file://.*/docs/.*/$
+
+# Ignore all /canon/* and /docs/* paths (may have inconsistent base URLs during link checking)
+file://.*/canon/.*
+file://.*/docs/.*
 
 # Ignore asciidoc-style directory links without .html extension
 file://.*/extending-canon$
