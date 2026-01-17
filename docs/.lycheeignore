@@ -1,74 +1,70 @@
-# Lychee ignore patterns (glob-style wildcards)
+# Lychee ignore patterns
 # These link types are valid but lychee can't verify them
 
-# Ignore directory links (handled by web servers with index.html)
-# Asciidoc/Jekyll creates directories with index.html files
-_site/**/
-
 # Ignore all .adoc source file links (these resolve to HTML in the built site)
-**/*.adoc
-**/docs/*.adoc
-**/interfaces/**/*.adoc
+file://.*\.adoc$
 
 # Ignore directory links without trailing slashes (web servers handle these)
-**/interfaces/
-**/reference/
-**/understanding/
-**/features/
-**/guides/
-**/getting-started/
-**/advanced/
-**/plans/
-**/docs/algorithms/
-**/docs/formats/
-**/diff-modes/
-**/input-validation/
-**/match-options/
-**/preprocessing/
+file://.*/interfaces/$
+file://.*/reference/$
+file://.*/understanding/$
+file://.*/features/$
+file://.*/guides/$
+file://.*/getting-started/$
+file://.*/advanced/$
+file://.*/plans/$
+file://.*/docs/algorithms/$
+file://.*/docs/formats/$
+file://.*/diff-modes/$
+file://.*/input-validation/$
+file://.*/match-options/$
+file://.*/preprocessing/$
+file://.*/features/match-options/$
+file://.*/interfaces/cli/$
+file://.*/interfaces/rspec/$
+file://.*/interfaces/ruby-api/$
 
 # Ignore asciidoc-style directory links without .html extension
-**/extending-canon
-**/verbose-mode-architecture
-**/cli/diff-command
-**/cli/format-command
-**/rspec/matchers
-**/ruby-api/comparison
-**/ruby-api/formatting
-**/core-concepts
-**/installation
-**/quick-start
-**/profiles
-**/comparison-pipeline
-**/migrating-from-xmldiff
-**/performance-optimization
-**/testing-xml-generation
-**/debugging-test-failures
-**/choosing-configuration
-**/environment-configuration/size-limits
-**/environment-configuration/override-system
-**/environment-configuration/input-validation
-**/architecture
-
-# Ignore GitHub-specific links
-https://github.com/*/*/edit/*
-https://github.com/*/*/blob/*
+file://.*/extending-canon$
+file://.*/verbose-mode-architecture$
+file://.*/cli/diff-command$
+file://.*/cli/format-command$
+file://.*/rspec/matchers$
+file://.*/ruby-api/comparison$
+file://.*/ruby-api/formatting$
+file://.*/core-concepts$
+file://.*/installation$
+file://.*/quick-start$
+file://.*/profiles$
+file://.*/comparison-pipeline$
+file://.*/migrating-from-xmldiff$
+file://.*/performance-optimization$
+file://.*/testing-xml-generation$
+file://.*/debugging-test-failures$
+file://.*/choosing-configuration$
+file://.*/guides/choosing-configuration$
+file://.*/environment-configuration/size-limits$
+file://.*/environment-configuration/override-system$
+file://.*/environment-configuration/input-validation$
+file://.*/architecture$
 
 # Ignore example domain links (these don't exist)
-http://a.com/*
-http://b.com/*
-http://c.com/*
-http://example.com/*
-http://ns.com/*
-http://shop.com/*
-http://z.com/*
+http://a\.com/.*
+http://b\.com/.*
+http://c\.com/.*
+http://example\.com/.*
+http://ns\.com/.*
+http://shop\.com/.*
+http://z\.com/.*
 
-# Ignore anchor-only links (same-page navigation)
-#*
+# Ignore GitHub-specific links
+https://github\.com/[^/]+/[^/]+/edit/.*
+https://github\.com/[^/]+/[^/]+/blob/.*
 
 # Ignore mailto links
-mailto:*
+mailto:.*
 
 # Ignore localhost links for development
-http://localhost:*
-http://127.0.0.1:*
-http://0.0.0.0:*
+http://localhost:.*
+http://127\.0\.0\.1:.*
+http://0\.0\.0\.0:.*
