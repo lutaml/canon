@@ -78,22 +78,8 @@ module Canon
             lines1 = pretty1.split("\n")
             lines2 = pretty2.split("\n")
 
-            # DEBUG
-            warn "DEBUG: HTML Formatter - lines1.length=#{lines1.length}, lines2.length=#{lines2.length}"
-            warn "DEBUG: HTML Formatter - matches.length=#{matches.length}"
-            warn "DEBUG: HTML Formatter - map1.size=#{map1.size}, map2.size=#{map2.size}"
-            warn "DEBUG: Mapped elements in map1: #{map1.keys.map(&:name).join(', ')}"
-            warn "DEBUG: Match types: matched=#{matches.count do |m|
-              m.status == :matched
-            end}, deleted=#{matches.count do |m|
-              m.status == :deleted
-            end}, inserted=#{matches.count do |m|
-                             m.status == :inserted
-                           end}"
-
             # Display diffs based on element matches
             result = format_element_matches(matches, map1, map2, lines1, lines2)
-            warn "DEBUG: HTML Formatter - result.length=#{result.length}"
             output << result
           rescue StandardError => e
             # Fall back to simple diff on error
@@ -297,11 +283,6 @@ module Canon
                                                 lines2, elements_to_skip,
                                                 children_of_matched_parents)
 
-          # DEBUG
-          warn "DEBUG: format_element_matches - diff_sections.length=#{diff_sections.length}"
-          warn "DEBUG: format_element_matches - elements_to_skip.size=#{elements_to_skip.size}"
-          warn "DEBUG: format_element_matches - children_of_matched_parents.size=#{children_of_matched_parents.size}"
-
           # Sort by line number
           diff_sections.sort_by! do |section|
             section[:start_line1] || section[:start_line2] || 0
@@ -318,7 +299,6 @@ module Canon
                               end.compact.join("\n\n")
                             end
 
-          warn "DEBUG: format_element_matches - formatted_diffs.length=#{formatted_diffs.length}"
           output << formatted_diffs
           output.join("\n")
         end
@@ -398,7 +378,6 @@ module Canon
               range2 = map2[match.elem2]
               if !range1 || !range2
                 no_range_count += 1
-                warn "DEBUG: No range for #{match.elem1.name} (path: #{match.path.join('/')})" if no_range_count <= 5
               end
 
               section = format_matched_element_with_metadata(match, map1,
@@ -406,7 +385,6 @@ module Canon
                                                              lines2)
               if range1 && range2 && !section
                 no_diff_count += 1
-                warn "DEBUG: No diff for #{match.elem1.name} (path: #{match.path.join('/')})" if no_diff_count <= 5
               end
               diff_sections << section if section
             when :deleted
@@ -422,7 +400,6 @@ module Canon
             end
           end
 
-          warn "DEBUG: collect_diff_sections - no_range_count=#{no_range_count}, no_diff_count=#{no_diff_count}"
           diff_sections
         end
 
