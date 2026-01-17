@@ -1,8 +1,11 @@
 # Lychee ignore patterns
 # These link types are valid but lychee can't verify them
 
-# Ignore all .adoc and .html file links (these may have inconsistent paths during link checking)
-file://.*\.(adoc|html)$
+# Ignore all .adoc files (these are source files that don't exist in built site)
+\.adoc$
+
+# Ignore all .html files (may have inconsistent paths during link checking)
+\.html$
 
 # Ignore assets directory (CSS/JS files)
 file://.*/assets/.*
