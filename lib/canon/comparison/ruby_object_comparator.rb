@@ -7,7 +7,7 @@ module Canon
     # Provides public comparison methods for Ruby objects (Hash, Array, primitives).
     # This module extracts shared comparison logic that was previously
     # accessed via send() from YamlComparator.
-    module RubyObjectComparison
+    module RubyObjectComparator
       # Compare Ruby objects (Hash, Array, primitives) for JSON/YAML
       #
       # @param obj1 [Object] First object

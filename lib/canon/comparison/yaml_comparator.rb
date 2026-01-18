@@ -1,10 +1,9 @@
 # frozen_string_literal: true
 
 require "yaml"
-require_relative "json_comparator"
 require_relative "match_options"
 require_relative "comparison_result"
-require_relative "ruby_object_comparison"
+require_relative "ruby_object_comparator"
 
 module Canon
   module Comparison
@@ -61,7 +60,7 @@ module Canon
           obj2 = parse_yaml(yaml2)
 
           differences = []
-          result = RubyObjectComparison.compare_objects(obj1, obj2, opts,
+          result = RubyObjectComparator.compare_objects(obj1, obj2, opts,
                                                         differences, "")
 
           if opts[:verbose]
