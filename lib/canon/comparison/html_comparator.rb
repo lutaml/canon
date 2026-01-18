@@ -294,7 +294,16 @@ module Canon
                         end
 
           # Strip DOCTYPE for consistent parsing
-          html_string = html_string.gsub(/<!DOCTYPE[^>]*>/i, "").strip
+          # Use non-regex approach to avoid ReDoS vulnerability
+          # DOCTYPE declarations end with first > character
+          doctype_start = html_string =~ /<!DOCTYPE/i
+          if doctype_start
+            doctype_end = html_string.index('>', doctype_start)
+            html_string = html_string[0...doctype_start] + html_string[(doctype_end + 1)..] if doctype_end
+            html_string.strip!
+          else
+            html_string = html_string.strip
+          end
 
           # Apply preprocessing to HTML string before parsing
           processed_html = case preprocessing
@@ -371,7 +380,15 @@ module Canon
 
           # Strip DOCTYPE declarations from HTML strings
           # This normalizes parsed HTML (which includes DOCTYPE) with raw HTML strings
-          node = node.gsub(/<!DOCTYPE[^>]*>/i, "").strip
+          # Use non-regex approach to avoid ReDoS vulnerability
+          doctype_start = node =~ /<!DOCTYPE/i
+          if doctype_start
+            doctype_end = node.index('>', doctype_start)
+            node = node[0...doctype_start] + node[(doctype_end + 1)..] if doctype_end
+            node.strip!
+          else
+            node = node.strip
+          end
 
           # Apply preprocessing to HTML string before parsing
           html_string = case preprocessing
