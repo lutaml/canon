@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require_relative "match_options/base_resolver"
+
 module Canon
   module Comparison
     # Matching Options for Canon Comparison
@@ -127,10 +129,42 @@ module Canon
           attribute_values
           element_position
           comments
-          element_structure
-          element_position
-          element_hierarchy
         ].freeze
+
+        # Class methods for the module
+        module ClassMethods
+          # Get format-specific default options
+          #
+          # @param format [Symbol] Format type
+          # @return [Hash] Default options for the format
+          def format_defaults(format)
+            FORMAT_DEFAULTS[format]&.dup || FORMAT_DEFAULTS[:xml].dup
+          end
+
+          # Get options for a named profile
+          #
+          # @param profile [Symbol] Profile name
+          # @return [Hash] Profile options
+          # @raise [Canon::Error] If profile is unknown
+          def get_profile_options(profile)
+            unless MATCH_PROFILES.key?(profile)
+              raise Canon::Error,
+                    "Unknown match profile: #{profile}. " \
+                    "Valid profiles: #{MATCH_PROFILES.keys.join(', ')}"
+            end
+            MATCH_PROFILES[profile].dup
+          end
+
+          # Get valid match dimensions for XML/HTML
+          #
+          # @return [Array<Symbol>] Valid dimensions
+          def match_dimensions
+            MATCH_DIMENSIONS
+          end
+        end
+
+        # Extend the module with class methods
+        extend ClassMethods
 
         # Format-specific defaults
         FORMAT_DEFAULTS = {
@@ -366,7 +400,7 @@ module Canon
             preprocessing: :none,
             text_content: :strict,
             structural_whitespace: :ignore,
-            key_order: :strict,
+            key_order: :ignore,
           },
         }.freeze
 
@@ -514,7 +548,7 @@ module Canon
             preprocessing: :none,
             text_content: :strict,
             structural_whitespace: :ignore,
-            key_order: :strict,
+            key_order: :ignore,
             comments: :ignore,
           },
         }.freeze

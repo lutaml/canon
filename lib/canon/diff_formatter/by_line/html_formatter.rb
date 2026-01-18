@@ -271,30 +271,6 @@ module Canon
 
         private
 
-        # Check if diff display should be skipped
-        # Returns true when:
-        # 1. show_diffs is :normative AND there are no normative differences
-        # 2. show_diffs is :informative AND there are no informative differences
-        def should_skip_diff_display?
-          return false if @differences.nil? || @differences.empty?
-
-          case @show_diffs
-          when :normative
-            # Skip if no normative diffs
-            @differences.none? do |diff|
-              diff.is_a?(Canon::Diff::DiffNode) && diff.normative?
-            end
-          when :informative
-            # Skip if no informative diffs
-            @differences.none? do |diff|
-              diff.is_a?(Canon::Diff::DiffNode) && diff.informative?
-            end
-          else
-            # :all or other - never skip
-            false
-          end
-        end
-
         # Format element matches for display
         def format_element_matches(matches, map1, map2, lines1, lines2)
           output = []
@@ -335,7 +311,7 @@ module Canon
           formatted_diffs = if @diff_grouping_lines
                               groups = group_diff_sections(diff_sections,
                                                            @diff_grouping_lines)
-                              format_diff_groups(groups, lines1, lines2)
+                              format_diff_groups(groups)
                             else
                               diff_sections.map do |s|
                                 s[:formatted]
@@ -389,57 +365,6 @@ module Canon
           end
 
           elements_to_skip
-        end
-
-        # Check if an element or its children have semantic diffs
-        def has_semantic_diff_in_subtree?(element, elements_with_semantic_diffs)
-          # Check the element itself
-          return true if elements_with_semantic_diffs.include?(element)
-
-          # Check all descendants
-          if element.respond_to?(:children)
-            element.children.any? do |child|
-              has_semantic_diff_in_subtree?(child, elements_with_semantic_diffs)
-            end
-          else
-            false
-          end
-        end
-
-        # Build set of individual elements (not pairs) that have semantic diffs
-        def build_elements_with_semantic_diffs_set
-          elements = Set.new
-
-          return elements if @differences.nil? || @differences.empty?
-
-          @differences.each do |diff|
-            next unless diff.is_a?(Canon::Diff::DiffNode)
-
-            # Add both nodes if they exist
-            elements.add(diff.node1) if diff.node1
-            elements.add(diff.node2) if diff.node2
-          end
-
-          elements
-        end
-
-        # Build set of children of matched parents
-        def build_children_set(matches)
-          children = Set.new
-
-          matches.each do |match|
-            next unless match.status == :matched
-
-            [match.elem1, match.elem2].compact.each do |elem|
-              next unless elem.respond_to?(:children)
-
-              elem.children.each do |child|
-                children.add(child) if child.respond_to?(:name)
-              end
-            end
-          end
-
-          children
         end
 
         # Collect diff sections with metadata
@@ -499,63 +424,6 @@ module Canon
 
           warn "DEBUG: collect_diff_sections - no_range_count=#{no_range_count}, no_diff_count=#{no_diff_count}"
           diff_sections
-        end
-
-        # Format matched element with metadata
-        def format_matched_element_with_metadata(match, map1, map2, lines1,
-                                                  lines2)
-          range1 = map1[match.elem1]
-          range2 = map2[match.elem2]
-          return nil unless range1 && range2
-
-          formatted = format_matched_element(match, map1, map2, lines1,
-                                             lines2)
-          return nil unless formatted
-
-          {
-            formatted: formatted,
-            start_line1: range1.start_line,
-            end_line1: range1.end_line,
-            start_line2: range2.start_line,
-            end_line2: range2.end_line,
-            path: match.path.join("/"),
-          }
-        end
-
-        # Format deleted element with metadata
-        def format_deleted_element_with_metadata(match, map1, lines1)
-          range1 = map1[match.elem1]
-          return nil unless range1
-
-          formatted = format_deleted_element(match, map1, lines1)
-          return nil unless formatted
-
-          {
-            formatted: formatted,
-            start_line1: range1.start_line,
-            end_line1: range1.end_line,
-            start_line2: nil,
-            end_line2: nil,
-            path: match.path.join("/"),
-          }
-        end
-
-        # Format inserted element with metadata
-        def format_inserted_element_with_metadata(match, map2, lines2)
-          range2 = map2[match.elem2]
-          return nil unless range2
-
-          formatted = format_inserted_element(match, map2, lines2)
-          return nil unless formatted
-
-          {
-            formatted: formatted,
-            start_line1: nil,
-            end_line1: nil,
-            start_line2: range2.start_line,
-            end_line2: range2.end_line,
-            path: match.path.join("/"),
-          }
         end
 
         # Format a matched element showing differences
@@ -630,93 +498,6 @@ module Canon
           end
 
           output.join("\n")
-        end
-
-        # Group diff sections by proximity
-        def group_diff_sections(sections, grouping_lines)
-          return [] if sections.empty?
-
-          groups = []
-          current_group = [sections[0]]
-
-          sections[1..].each do |section|
-            last_section = current_group.last
-
-            # Calculate gap
-            gap1 = if last_section[:end_line1] && section[:start_line1]
-                     section[:start_line1] - last_section[:end_line1] - 1
-                   else
-                     Float::INFINITY
-                   end
-
-            gap2 = if last_section[:end_line2] && section[:start_line2]
-                     section[:start_line2] - last_section[:end_line2] - 1
-                   else
-                     Float::INFINITY
-                   end
-
-            max_gap = [gap1, gap2].max
-
-            if max_gap <= grouping_lines
-              current_group << section
-            else
-              groups << current_group
-              current_group = [section]
-            end
-          end
-
-          groups << current_group unless current_group.empty?
-          groups
-        end
-
-        # Format groups of diffs
-        def format_diff_groups(groups, _lines1, _lines2)
-          output = []
-
-          groups.each_with_index do |group, group_idx|
-            output << "" if group_idx.positive?
-
-            if group.length > 1
-              output << colorize("Context block has #{group.length} diffs",
-                                 :yellow, :bold)
-              output << ""
-              group.each do |section|
-                output << section[:formatted] if section[:formatted]
-              end
-            elsif group[0][:formatted]
-              output << group[0][:formatted]
-            end
-          end
-
-          output.join("\n")
-        end
-
-        # Check if an element or its children have semantic diffs
-        def has_semantic_diff_in_subtree?(element, elements_with_semantic_diffs)
-          return true if elements_with_semantic_diffs.include?(element)
-
-          if element.respond_to?(:children)
-            element.children.any? do |child|
-              has_semantic_diff_in_subtree?(child, elements_with_semantic_diffs)
-            end
-          else
-            false
-          end
-        end
-
-        # Build set of individual elements that have semantic diffs
-        def build_elements_with_semantic_diffs_set
-          elements = Set.new
-          return elements if @differences.nil? || @differences.empty?
-
-          @differences.each do |diff|
-            next unless diff.is_a?(Canon::Diff::DiffNode)
-
-            elements.add(diff.node1) if diff.node1
-            elements.add(diff.node2) if diff.node2
-          end
-
-          elements
         end
       end
     end

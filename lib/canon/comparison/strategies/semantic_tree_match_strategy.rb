@@ -3,6 +3,7 @@
 require_relative "base_match_strategy"
 require_relative "../../tree_diff/tree_diff_integrator"
 require_relative "../../tree_diff/operation_converter"
+require_relative "../xml_node_comparison"
 
 module Canon
   module Comparison
@@ -125,10 +126,9 @@ module Canon
         # @return [Array<String>] Preprocessed strings
         def preprocess_xml(doc1, doc2)
           # Serialize XML to string
-          # Use XmlComparator's serializer for Canon::Xml::Node
+          # Use XmlNodeComparison's serializer for Canon::Xml::Node
           xml1 = if doc1.is_a?(Canon::Xml::Node)
-                   require_relative "../xml_comparator"
-                   XmlComparator.send(:serialize_node_to_xml, doc1)
+                   XmlNodeComparison.serialize_node_to_xml(doc1)
                  elsif doc1.respond_to?(:to_xml)
                    doc1.to_xml
                  else
@@ -136,8 +136,7 @@ module Canon
                  end
 
           xml2 = if doc2.is_a?(Canon::Xml::Node)
-                   require_relative "../xml_comparator"
-                   XmlComparator.send(:serialize_node_to_xml, doc2)
+                   XmlNodeComparison.serialize_node_to_xml(doc2)
                  elsif doc2.respond_to?(:to_xml)
                    doc2.to_xml
                  else
@@ -161,12 +160,11 @@ module Canon
         # @param doc2 [Object] Second HTML document
         # @return [Array<String>] Preprocessed strings
         def preprocess_html(doc1, doc2)
-          # For Canon::Xml::Node, use XmlComparator's serializer
+          # For Canon::Xml::Node, use XmlNodeComparison's serializer
           # For XML::DocumentFragment (from parse_node_as_fragment), use to_s
           # to avoid Nokogiri auto-inserting meta tags during to_html serialization
           html1 = if doc1.is_a?(Canon::Xml::Node)
-                    require_relative "../xml_comparator"
-                    XmlComparator.send(:serialize_node_to_xml, doc1)
+                    XmlNodeComparison.serialize_node_to_xml(doc1)
                   elsif doc1.is_a?(Nokogiri::XML::DocumentFragment)
                     doc1.to_s
                   elsif doc1.respond_to?(:to_html)
@@ -176,8 +174,7 @@ module Canon
                   end
 
           html2 = if doc2.is_a?(Canon::Xml::Node)
-                    require_relative "../xml_comparator"
-                    XmlComparator.send(:serialize_node_to_xml, doc2)
+                    XmlNodeComparison.serialize_node_to_xml(doc2)
                   elsif doc2.is_a?(Nokogiri::XML::DocumentFragment)
                     doc2.to_s
                   elsif doc2.respond_to?(:to_html)

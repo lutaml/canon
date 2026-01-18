@@ -2,6 +2,7 @@
 
 require "nokogiri"
 require_relative "../comparison" # Load base module with constants first
+require_relative "markup_comparator"
 require_relative "xml_comparator"
 require_relative "match_options"
 require_relative "comparison_result"
@@ -11,12 +12,15 @@ require_relative "../diff/diff_node"
 require_relative "../diff/diff_classifier"
 require_relative "strategies/match_strategy_factory"
 require_relative "../html/data_model"
+require_relative "xml_node_comparison"
 
 module Canon
   module Comparison
     # HTML comparison class
     # Handles comparison of HTML nodes with various options
-    class HtmlComparator
+    #
+    # Inherits shared comparison functionality from MarkupComparator.
+    class HtmlComparator < MarkupComparator
       # Default comparison options for HTML
       DEFAULT_OPTS = {
         # Structural filtering options
@@ -120,10 +124,8 @@ module Canon
             all_children2 = node2.children.to_a
 
             # Filter children based on match options (e.g., ignore comments)
-            children1 = XmlComparator.send(:filter_children, all_children1,
-                                           opts)
-            children2 = XmlComparator.send(:filter_children, all_children2,
-                                           opts)
+            children1 = XmlNodeComparison.filter_children(all_children1, opts)
+            children2 = XmlNodeComparison.filter_children(all_children2, opts)
 
             if children1.length != children2.length
               result = Comparison::UNEQUAL_ELEMENTS
@@ -133,9 +135,10 @@ module Canon
               # Compare each pair of children
               result = Comparison::EQUIVALENT
               children1.zip(children2).each do |child1, child2|
-                child_result = XmlComparator.send(:compare_nodes, child1, child2,
-                                                  opts, child_opts, diff_children,
-                                                  differences)
+                child_result = XmlNodeComparison.compare_nodes(child1, child2,
+                                                               opts, child_opts,
+                                                               diff_children,
+                                                               differences)
                 if child_result != Comparison::EQUIVALENT
                   result = child_result
                   break
@@ -143,8 +146,9 @@ module Canon
               end
             end
           else
-            result = XmlComparator.send(:compare_nodes, node1, node2, opts,
-                                        child_opts, diff_children, differences)
+            result = XmlNodeComparison.compare_nodes(node1, node2, opts,
+                                                     child_opts, diff_children,
+                                                     differences)
           end
 
           # Classify DiffNodes as normative/informative if we have verbose output
@@ -390,10 +394,12 @@ module Canon
           # Use XML fragment parser to avoid auto-inserted meta tags
           frag = Nokogiri::XML.fragment(html_string)
 
-          # Apply :rendered preprocessing if needed
-          if preprocessing == :rendered
+          # Apply post-parsing filtering for :normalize, :format, and :rendered preprocessing
+          if %i[normalize format rendered].include?(preprocessing)
             normalize_html_style_script_comments(frag)
-            normalize_rendered_whitespace(frag, match_opts)
+            if preprocessing == :rendered
+              normalize_rendered_whitespace(frag, match_opts)
+            end
             remove_whitespace_only_text_nodes(frag)
           end
 
@@ -471,9 +477,9 @@ module Canon
         # @param node [Canon::Xml::Node, Nokogiri::HTML::Document] Parsed node
         # @return [String] Serialized HTML string
         def serialize_for_display(node)
-          # Use XmlComparator's serializer for Canon::Xml::Node
+          # Use XmlNodeComparison's serializer for Canon::Xml::Node
           if node.is_a?(Canon::Xml::Node)
-            XmlComparator.send(:serialize_node_to_xml, node)
+            XmlNodeComparison.serialize_node_to_xml(node)
           elsif node.respond_to?(:to_html)
             node.to_html
           elsif node.respond_to?(:to_xml)
