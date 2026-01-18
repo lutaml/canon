@@ -298,7 +298,7 @@ module Canon
           # DOCTYPE declarations end with first > character
           doctype_start = html_string =~ /<!DOCTYPE/i
           if doctype_start
-            doctype_end = html_string.index('>', doctype_start)
+            doctype_end = html_string.index(">", doctype_start)
             html_string = html_string[0...doctype_start] + html_string[(doctype_end + 1)..] if doctype_end
             html_string.strip!
           else
@@ -383,7 +383,7 @@ module Canon
           # Use non-regex approach to avoid ReDoS vulnerability
           doctype_start = node =~ /<!DOCTYPE/i
           if doctype_start
-            doctype_end = node.index('>', doctype_start)
+            doctype_end = node.index(">", doctype_start)
             node = node[0...doctype_start] + node[(doctype_end + 1)..] if doctype_end
             node.strip!
           else
