@@ -18,6 +18,8 @@ require_relative "xml_comparator/namespace_comparator"
 require_relative "xml_comparator/node_type_comparator"
 require_relative "xml_comparator/child_comparison"
 require_relative "xml_comparator/diff_node_builder"
+# Whitespace sensitivity module
+require_relative "whitespace_sensitivity"
 
 module Canon
   module Comparison
@@ -90,9 +92,15 @@ module Canon
           # Create child_opts with resolved options
           child_opts = opts.merge(child_opts)
 
+          # Determine if we should preserve whitespace during parsing
+          # When structural_whitespace is :strict, preserve all whitespace-only text nodes
+          preserve_whitespace = match_opts_hash[:structural_whitespace] == :strict
+
           # Parse nodes if they are strings, applying preprocessing if needed
-          node1 = parse_node(n1, match_opts_hash[:preprocessing])
-          node2 = parse_node(n2, match_opts_hash[:preprocessing])
+          node1 = parse_node(n1, match_opts_hash[:preprocessing],
+                             preserve_whitespace: preserve_whitespace)
+          node2 = parse_node(n2, match_opts_hash[:preprocessing],
+                             preserve_whitespace: preserve_whitespace)
 
           # Store original strings for line diff display (before preprocessing)
           original1 = if n1.is_a?(String)
@@ -209,8 +217,9 @@ module Canon
         # Parse a node from string or return as-is
         # Applies preprocessing transformation before parsing if specified
         # Delegates to NodeParser module
-        def parse_node(node, preprocessing = :none)
-          XmlComparatorHelpers::NodeParser.parse(node, preprocessing)
+        def parse_node(node, preprocessing = :none, preserve_whitespace: false)
+          XmlComparatorHelpers::NodeParser.parse(node, preprocessing,
+                                                 preserve_whitespace: preserve_whitespace)
         end
 
         # Main comparison dispatcher
@@ -331,7 +340,8 @@ module Canon
 
           # For HTML, check if text node is inside whitespace-preserving element
           # If so, always use strict comparison regardless of text_content setting
-          if should_preserve_whitespace_strictly?(n1, n2)
+          sensitive_element = should_preserve_whitespace_strictly?(n1, n2, opts)
+          if sensitive_element
             behavior = :strict
           end
 
@@ -346,13 +356,18 @@ module Canon
           # - If text_content is :strict, ALL differences use :text_content dimension
           # - If text_content is :normalize, whitespace-only diffs use :structural_whitespace
           # - Otherwise use :text_content
-          dimension = if behavior == :normalize && whitespace_only_difference?(
+          # However, if element is whitespace-sensitive (like <pre> in HTML),
+          # always use :text_content dimension regardless of behavior
+          if sensitive_element
+            # Whitespace-sensitive element: always use :text_content dimension
+            dimension = :text_content
+          elsif behavior == :normalize && whitespace_only_difference?(
             text1, text2
           )
-                        :structural_whitespace
-                      else
-                        :text_content
-                      end
+            dimension = :structural_whitespace
+          else
+            dimension = :text_content
+          end
 
           # Create DiffNode in verbose mode when raw content differs
           # This ensures informative diffs are created even for :ignore/:normalize
@@ -368,17 +383,21 @@ module Canon
 
         # Check if whitespace should be preserved strictly for these text nodes
         # This applies to HTML elements like pre, code, textarea, script, style
-        def should_preserve_whitespace_strictly?(n1, n2)
-          # Only applies to Nokogiri nodes (HTML)
-          return false unless n1.respond_to?(:parent) && n2.respond_to?(:parent)
-          return false unless n1.parent.respond_to?(:name) && n2.parent.respond_to?(:name)
+        # and elements with xml:space="preserve" or in user-configured whitelist
+        def should_preserve_whitespace_strictly?(n1, n2, opts)
+          # Use WhitespaceSensitivity module to check if element is sensitive
+          # Check both n1 and n2 - if either is in a sensitive element, preserve strictly
+          if n1.respond_to?(:parent)
+            sensitivity_opts = { match_opts: opts[:match_opts] }
+            return true if WhitespaceSensitivity.element_sensitive?(n1, sensitivity_opts)
+          end
 
-          # Elements where whitespace must be preserved in HTML
-          preserve_elements = %w[pre code textarea script style]
+          if n2.respond_to?(:parent)
+            sensitivity_opts = { match_opts: opts[:match_opts] }
+            return true if WhitespaceSensitivity.element_sensitive?(n2, sensitivity_opts)
+          end
 
-          # Check if either node is inside a whitespace-preserving element
-          in_preserve_element?(n1, preserve_elements) ||
-            in_preserve_element?(n2, preserve_elements)
+          false
         end
 
         # Check if a node is inside a whitespace-preserving element
@@ -469,7 +488,8 @@ module Canon
         #
         # Delegates to ChildComparison module which handles both ElementMatcher
         # (semantic matching) and simple positional comparison.
-        def compare_children(n1, n2, opts, child_opts, diff_children, differences)
+        def compare_children(n1, n2, opts, child_opts, diff_children,
+differences)
           XmlComparatorHelpers::ChildComparison.compare(
             n1, n2, self, opts, child_opts, diff_children, differences
           )

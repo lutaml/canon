@@ -23,7 +23,8 @@ module Canon
           # @param diff_children [Boolean] Whether to diff children
           # @param differences [Array] Array to collect differences
           # @return [Integer] Comparison result code
-          def compare(node1, node2, comparator, opts, child_opts, diff_children, differences)
+          def compare(node1, node2, comparator, opts, child_opts,
+diff_children, differences)
             # Dispatch based on node type
             # Canon::Xml::Node types use .node_type method that returns symbols
             # Nokogiri also has .node_type but returns integers, so check for Symbol
@@ -51,11 +52,14 @@ module Canon
               comparator.send(:compare_element_nodes, node1, node2, opts, child_opts,
                               diff_children, differences)
             when :text
-              comparator.send(:compare_text_nodes, node1, node2, opts, differences)
+              comparator.send(:compare_text_nodes, node1, node2, opts,
+                              differences)
             when :comment
-              comparator.send(:compare_comment_nodes, node1, node2, opts, differences)
+              comparator.send(:compare_comment_nodes, node1, node2, opts,
+                              differences)
             when :cdata
-              comparator.send(:compare_text_nodes, node1, node2, opts, differences)
+              comparator.send(:compare_text_nodes, node1, node2, opts,
+                              differences)
             when :processing_instruction
               comparator.send(:compare_processing_instruction_nodes, node1, node2, opts,
                               differences)
@@ -71,11 +75,14 @@ module Canon
               comparator.send(:compare_element_nodes, node1, node2, opts, child_opts,
                               diff_children, differences)
             elsif node1.respond_to?(:text?) && node1.text?
-              comparator.send(:compare_text_nodes, node1, node2, opts, differences)
+              comparator.send(:compare_text_nodes, node1, node2, opts,
+                              differences)
             elsif node1.respond_to?(:comment?) && node1.comment?
-              comparator.send(:compare_comment_nodes, node1, node2, opts, differences)
+              comparator.send(:compare_comment_nodes, node1, node2, opts,
+                              differences)
             elsif node1.respond_to?(:cdata?) && node1.cdata?
-              comparator.send(:compare_text_nodes, node1, node2, opts, differences)
+              comparator.send(:compare_text_nodes, node1, node2, opts,
+                              differences)
             elsif node1.respond_to?(:processing_instruction?) &&
                 node1.processing_instruction?
               comparator.send(:compare_processing_instruction_nodes, node1, node2, opts,

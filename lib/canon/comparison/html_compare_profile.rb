@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 
 require_relative "compare_profile"
+# Whitespace sensitivity module (single source of truth for sensitive elements)
+require_relative "whitespace_sensitivity"
 
 module Canon
   module Comparison
@@ -82,9 +84,13 @@ module Canon
       private
 
       # Elements where whitespace is semantically significant in HTML
-      # @return [Array<String>] List of element names
+      #
+      # SINGLE SOURCE OF TRUTH: Delegates to WhitespaceSensitivity.format_default_sensitive_elements
+      # This ensures consistency across the codebase.
+      #
+      # @return [Array<String>] List of element names (as strings)
       def whitespace_sensitive_elements
-        %w[pre code textarea script style]
+        WhitespaceSensitivity.format_default_sensitive_elements(format: @html_version).map(&:to_s)
       end
 
       # Check if a dimension is explicitly set to :strict

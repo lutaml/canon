@@ -13,21 +13,24 @@ module Canon
         #
         # @param node [String, Object] Node to parse
         # @param preprocessing [Symbol] Preprocessing mode (:none, :normalize, :c14n, :format)
+        # @param preserve_whitespace [Boolean] Whether to preserve whitespace-only text nodes
         # @return [Canon::Xml::Node] Parsed node
-        def self.parse(node, preprocessing = :none)
+        def self.parse(node, preprocessing = :none, preserve_whitespace: false)
           # If already a Canon::Xml::Node, return as-is
           return node if node.is_a?(Canon::Xml::Node)
 
           # If it's a Nokogiri or Moxml node, convert to DataModel
           unless node.is_a?(String)
-            return convert_from_node(node)
+            return convert_from_node(node,
+                                     preserve_whitespace: preserve_whitespace)
           end
 
           # Apply preprocessing to XML string before parsing
           xml_string = apply_preprocessing(node, preprocessing)
 
           # Use Canon::Xml::DataModel for parsing to get Canon::Xml::Node instances
-          Canon::Xml::DataModel.from_xml(xml_string)
+          Canon::Xml::DataModel.from_xml(xml_string,
+                                         preserve_whitespace: preserve_whitespace)
         end
 
         # Apply preprocessing transformation to XML string
@@ -55,8 +58,9 @@ module Canon
         # Convert from Nokogiri/Moxml node to Canon::Xml::Node
         #
         # @param node [Object] Nokogiri or Moxml node
+        # @param preserve_whitespace [Boolean] Whether to preserve whitespace-only text nodes
         # @return [Canon::Xml::Node] Converted node
-        def self.convert_from_node(node)
+        def self.convert_from_node(node, preserve_whitespace: false)
           # Convert to XML string then parse through DataModel
           xml_str = if node.respond_to?(:to_xml)
                       node.to_xml
@@ -66,7 +70,8 @@ module Canon
                       raise Canon::Error,
                             "Unable to convert node to string: #{node.class}"
                     end
-          Canon::Xml::DataModel.from_xml(xml_str)
+          Canon::Xml::DataModel.from_xml(xml_str,
+                                         preserve_whitespace: preserve_whitespace)
         end
       end
     end

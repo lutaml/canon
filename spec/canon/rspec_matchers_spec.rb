@@ -1095,7 +1095,9 @@ RSpec.describe Canon::RSpecMatchers do
       let(:xml2) { "<root><a>text</a></root>" }
 
       it "matches XML despite whitespace differences" do
+        # Use :normalize to ignore whitespace differences
         expect(xml1).to be_xml_equivalent_to(xml2)
+          .with_match(structural_whitespace: :normalize)
       end
     end
 

@@ -13,6 +13,8 @@ require_relative "../diff/diff_classifier"
 require_relative "strategies/match_strategy_factory"
 require_relative "../html/data_model"
 require_relative "xml_node_comparison"
+# Whitespace sensitivity module (single source of truth for sensitive elements)
+require_relative "whitespace_sensitivity"
 
 module Canon
   module Comparison
@@ -542,16 +544,17 @@ compare_profile = nil)
           return if match_opts[:text_content] == :strict
 
           # Elements where whitespace is significant - don't normalize
-          # Use profile if available, otherwise use default list
+          # SINGLE SOURCE OF TRUTH: WhitespaceSensitivity.format_default_sensitive_elements
+          # This ensures consistency between preprocessing and comparison logic
           preserve_whitespace = if compare_profile.is_a?(HtmlCompareProfile)
                                   # Profile handles HTML-specific whitespace rules
-                                  %w[pre code textarea script
-                                     style].select do |elem|
-                                    compare_profile.preserve_whitespace?(elem)
-                                  end
+                                  # Get default list and filter by profile
+                                  WhitespaceSensitivity.format_default_sensitive_elements(match_opts)
+                                    .select { |elem| compare_profile.preserve_whitespace?(elem.to_s) }
+                                    .map(&:to_s)
                                 else
-                                  # Fallback to default list
-                                  %w[pre code textarea script style]
+                                  # Use default list from WhitespaceSensitivity (single source of truth)
+                                  WhitespaceSensitivity.format_default_sensitive_elements(match_opts).map(&:to_s)
                                 end
 
           # Walk all text nodes
@@ -607,9 +610,12 @@ compare_profile = nil)
         #
         # CRITICAL: Do NOT remove whitespace-only text nodes from whitespace-sensitive
         # elements like <pre>, <code>, <textarea>, <script>, <style>
+        #
+        # SINGLE SOURCE OF TRUTH: Uses WhitespaceSensitivity.format_default_sensitive_elements
         def remove_whitespace_only_text_nodes(doc)
           # Elements where whitespace is significant - don't remove whitespace-only nodes
-          preserve_whitespace = %w[pre code textarea script style]
+          # SINGLE SOURCE OF TRUTH: WhitespaceSensitivity.format_default_sensitive_elements
+          preserve_whitespace = WhitespaceSensitivity.format_default_sensitive_elements(format: :html).map(&:to_s)
 
           doc.xpath(".//text()").each do |text_node|
             # CRITICAL: Skip if this text node is inside a whitespace-preserving element

@@ -27,6 +27,9 @@ module Canon
             # Start with format-specific defaults
             options = format_defaults(format).dup
 
+            # Store format for later use (e.g., WhitespaceSensitivity needs it)
+            options[:format] = format
+
             # Apply global profile if specified
             if global_profile
               profile_opts = get_profile_options(global_profile)
@@ -111,12 +114,16 @@ module Canon
           def validate_match_options!(match_options)
             # Special options that don't need validation as dimensions
             special_options = %i[
+              format
               preprocessing
               semantic_diff
               similarity_threshold
               hash_matching
               similarity_matching
               propagation
+              whitespace_sensitive_elements
+              whitespace_insensitive_elements
+              respect_xml_space
             ]
 
             match_options.each do |dimension, behavior|
