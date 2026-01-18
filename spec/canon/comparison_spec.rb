@@ -47,10 +47,12 @@ RSpec.describe Canon::Comparison do
         expect(described_class.equivalent?(xml, xml)).to be true
       end
 
-      it "returns true when whitespace differs" do
+      it "returns true when whitespace differs (when using :ignore)" do
         xml1 = "<root><item>Test</item></root>"
         xml2 = "<root>\n  <item>Test</item>\n</root>"
-        expect(described_class.equivalent?(xml1, xml2)).to be true
+        # rubocop:disable Layout/LineLength
+        expect(described_class.equivalent?(xml1, xml2, match: { structural_whitespace: :ignore })).to be true
+        # rubocop:enable Layout/LineLength
       end
 
       it "returns false when element structure differs" do
@@ -312,8 +314,11 @@ RSpec.describe Canon::Comparison do
 
         it "compares Nokogiri::XML::Document with string" do
           doc = Nokogiri::XML::Document.parse(xml_string)
-          expect(described_class.equivalent?(doc, xml_string)).to be true
-          expect(described_class.equivalent?(xml_string, doc)).to be true
+          # Nokogiri adds XML declaration and formatting, use :normalize to ignore
+          # rubocop:disable Layout/LineLength
+          expect(described_class.equivalent?(doc, xml_string, match: { structural_whitespace: :normalize })).to be true
+          expect(described_class.equivalent?(xml_string, doc, match: { structural_whitespace: :normalize })).to be true
+          # rubocop:enable Layout/LineLength
         end
       end
 
@@ -340,8 +345,11 @@ RSpec.describe Canon::Comparison do
 
         it "compares Moxml::Document with string" do
           doc = Moxml.new.parse(xml_string)
-          expect(described_class.equivalent?(doc, xml_string)).to be true
-          expect(described_class.equivalent?(xml_string, doc)).to be true
+          # Moxml adds formatting, use :normalize to ignore formatting differences
+          # rubocop:disable Layout/LineLength
+          expect(described_class.equivalent?(doc, xml_string, match: { structural_whitespace: :normalize })).to be true
+          expect(described_class.equivalent?(xml_string, doc, match: { structural_whitespace: :normalize })).to be true
+          # rubocop:enable Layout/LineLength
         end
 
         it "detects differences in Moxml documents" do
@@ -563,6 +571,190 @@ RSpec.describe Canon::Comparison do
 
         expect(described_class.equivalent?(html1, html2,
                                            format: :html4)).to be true
+      end
+    end
+
+    context "element-level whitespace sensitivity" do
+      context "with xml:space attribute" do
+        it "respects xml:space='preserve' for XML" do
+          xml1 = "<root><code xml:space='preserve'>  text  </code></root>"
+          xml2 = "<root><code xml:space='preserve'>text</code></root>"
+
+          # Should NOT be equivalent - whitespace matters in xml:space='preserve'
+          result = described_class.equivalent?(
+            xml1, xml2,
+            format: :xml,
+            match: { text_content: :strict },
+          )
+          expect(result).to be false
+        end
+
+        it "respects xml:space='default' for XML" do
+          xml1 = "<root><code xml:space='default'>  text  </code></root>"
+          xml2 = "<root><code xml:space='default'>text</code></root>"
+
+          # With text_content: :normalize, these should be equivalent
+          result = described_class.equivalent?(
+            xml1, xml2,
+            format: :xml,
+            match: { text_content: :normalize },
+          )
+          expect(result).to be true
+        end
+      end
+
+      context "with whitespace_sensitive_elements option" do
+        it "treats whitelisted elements as whitespace-sensitive" do
+          xml1 = "<root><code>  text  </code></root>"
+          xml2 = "<root><code>text</code></root>"
+
+          # With code in whitelist and text_content: :normalize,
+          # whitespace differences should still matter (strict mode for sensitive elements)
+          result = described_class.equivalent?(
+            xml1, xml2,
+            format: :xml,
+            match: {
+              text_content: :normalize,
+              whitespace_sensitive_elements: [:code],
+            },
+          )
+          expect(result).to be false
+        end
+
+        it "does not affect elements not in whitelist" do
+          xml1 = "<root><p>  text  </p></root>"
+          xml2 = "<root><p>text</p></root>"
+
+          # With text_content: :normalize and p not in whitelist, should be equivalent
+          result = described_class.equivalent?(
+            xml1, xml2,
+            format: :xml,
+            match: {
+              text_content: :normalize,
+              whitespace_sensitive_elements: [:code],
+            },
+          )
+          expect(result).to be true
+        end
+      end
+
+      context "with whitespace_insensitive_elements option" do
+        it "treats blacklisted elements as whitespace-insensitive" do
+          xml1 = "<root><pre>  text  </pre></root>"
+          xml2 = "<root><pre>text</pre></root>"
+
+          # With pre in blacklist and text_content: :normalize,
+          # whitespace differences should be ignored
+          result = described_class.equivalent?(
+            xml1, xml2,
+            format: :html,
+            match: {
+              text_content: :normalize,
+              whitespace_insensitive_elements: [:pre],
+            },
+          )
+          expect(result).to be true
+        end
+      end
+
+      context "with respect_xml_space option" do
+        it "ignores xml:space when respect_xml_space is false" do
+          xml1 = "<root><code xml:space='preserve'>  text  </code></root>"
+          xml2 = "<root><code xml:space='preserve'>text</code></root>"
+
+          # With respect_xml_space: false, xml:space is ignored
+          # and text_content: :normalize makes them equivalent
+          result = described_class.equivalent?(
+            xml1, xml2,
+            format: :xml,
+            match: {
+              text_content: :normalize,
+              respect_xml_space: false,
+            },
+          )
+          expect(result).to be true
+        end
+
+        it "respects xml:space when respect_xml_space is true (default)" do
+          xml1 = "<root><code xml:space='preserve'>  text  </code></root>"
+          xml2 = "<root><code xml:space='preserve'>text</code></root>"
+
+          # With respect_xml_space: true (default), xml:space is respected
+          result = described_class.equivalent?(
+            xml1, xml2,
+            format: :xml,
+            match: {
+              text_content: :strict,
+              respect_xml_space: true,
+            },
+          )
+          expect(result).to be false
+        end
+      end
+
+      context "format-specific defaults" do
+        it "HTML has default whitespace-sensitive elements" do
+          html1 = "<root><pre>  text  </pre></root>"
+          html2 = "<root><pre>text</pre></root>"
+
+          # HTML's <pre> element is whitespace-sensitive by default
+          # With text_content: :normalize, <pre> should still be strict
+          result = described_class.equivalent?(
+            html1, html2,
+            format: :html,
+            match: { text_content: :normalize },
+          )
+          expect(result).to be false
+        end
+
+        it "XML has no default whitespace-sensitive elements" do
+          xml1 = "<root><pre>  text  </pre></root>"
+          xml2 = "<root><pre>text</pre></root>"
+
+          # XML has no defaults, so with text_content: :normalize, they're equivalent
+          result = described_class.equivalent?(
+            xml1, xml2,
+            format: :xml,
+            match: { text_content: :normalize },
+          )
+          expect(result).to be true
+        end
+
+        it "HTML default <script> element is whitespace-sensitive" do
+          html1 = "<root><script>  var x = 1;  </script></root>"
+          html2 = "<root><script>var x = 1;</script></root>"
+
+          result = described_class.equivalent?(
+            html1, html2,
+            format: :html,
+            match: { text_content: :normalize, preprocessing: :none },
+          )
+          expect(result).to be false
+        end
+
+        it "HTML default <style> element is whitespace-sensitive" do
+          html1 = "<root><style>  .cls { color: red; }  </style></root>"
+          html2 = "<root><style>.cls { color: red; }</style></root>"
+
+          result = described_class.equivalent?(
+            html1, html2,
+            format: :html,
+            match: { text_content: :normalize, preprocessing: :none },
+          )
+          expect(result).to be false
+        end
+
+        it "HTML default <textarea> element is whitespace-sensitive" do
+          html1 = "<root><textarea>  some text  </textarea></root>"
+          html2 = "<root><textarea>some text</textarea></root>"
+
+          result = described_class.equivalent?(
+            html1, html2,
+            format: :html,
+            match: { text_content: :normalize },
+          )
+          expect(result).to be false
+        end
       end
     end
   end

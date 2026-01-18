@@ -139,9 +139,13 @@ diff_children, differences)
 
         # Check structural_whitespace match option
         match_opts = opts[:match_opts]
-        # Filter out whitespace-only text nodes
-        if match_opts && %i[ignore
-                            normalize].include?(match_opts[:structural_whitespace]) && text_node?(node)
+        return false unless match_opts
+
+        # Filter out whitespace-only text nodes based on structural_whitespace setting
+        # - :ignore or :normalize: Filter all whitespace-only text nodes
+        # - :strict: Preserve all whitespace-only text nodes (don't filter any)
+        if text_node?(node) && %i[ignore
+                                  normalize].include?(match_opts[:structural_whitespace])
           text = node_text(node)
           return true if MatchOptions.normalize_text(text).empty?
         end
@@ -182,6 +186,24 @@ diff_children, differences)
         node.respond_to?(:text?) && node.text? &&
           !node.respond_to?(:element?) ||
           node.respond_to?(:node_type) && node.node_type == :text
+      end
+
+      # Extract text content from a node
+      #
+      # @param node [Object] Node to extract text from
+      # @return [String] Text content
+      def self.node_text(node)
+        return "" unless node
+
+        if node.respond_to?(:content)
+          node.content.to_s
+        elsif node.respond_to?(:text)
+          node.text.to_s
+        elsif node.respond_to?(:value)
+          node.value.to_s
+        else
+          ""
+        end
       end
 
       # Dispatch by Canon::Xml::Node type

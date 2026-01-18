@@ -18,8 +18,9 @@ module Canon
       # Build XPath data model from XML string
       #
       # @param xml_string [String] XML content to parse
+      # @param preserve_whitespace [Boolean] Whether to preserve whitespace-only text nodes
       # @return [Nodes::RootNode] Root of the data model tree
-      def self.from_xml(xml_string)
+      def self.from_xml(xml_string, preserve_whitespace: false)
         # Parse with Nokogiri
         doc = Nokogiri::XML(xml_string) do |config|
           config.nonet     # Disable network access
@@ -30,7 +31,7 @@ module Canon
         check_for_relative_namespace_uris(doc)
 
         # Convert to XPath data model
-        build_from_nokogiri(doc)
+        build_from_nokogiri(doc, preserve_whitespace: preserve_whitespace)
       end
 
       # Alias for compatibility with base class interface
@@ -74,19 +75,21 @@ module Canon
 
       # Build XPath data model from Nokogiri document or fragment
       # rubocop:disable Metrics/MethodLength
-      def self.build_from_nokogiri(nokogiri_doc)
+      def self.build_from_nokogiri(nokogiri_doc, preserve_whitespace: false)
         root = Nodes::RootNode.new
 
         if nokogiri_doc.respond_to?(:root) && nokogiri_doc.root
           # For Documents (XML, HTML4, HTML5, Moxml): process the root element
-          root.add_child(build_element_node(nokogiri_doc.root))
+          root.add_child(build_element_node(nokogiri_doc.root,
+                                            preserve_whitespace: preserve_whitespace))
 
           # Process PIs and comments outside doc element
           nokogiri_doc.children.each do |child|
             next if child == nokogiri_doc.root
             next if child.is_a?(Nokogiri::XML::DTD)
 
-            node = build_node_from_nokogiri(child)
+            node = build_node_from_nokogiri(child,
+                                            preserve_whitespace: preserve_whitespace)
             root.add_child(node) if node
           end
         else
@@ -95,7 +98,8 @@ module Canon
           nokogiri_doc.children.each do |child|
             next if child.is_a?(Nokogiri::XML::DTD)
 
-            node = build_node_from_nokogiri(child)
+            node = build_node_from_nokogiri(child,
+                                            preserve_whitespace: preserve_whitespace)
             root.add_child(node) if node
           end
         end
@@ -104,12 +108,15 @@ module Canon
       end
 
       # Build node from Nokogiri node
-      def self.build_node_from_nokogiri(nokogiri_node)
+      def self.build_node_from_nokogiri(nokogiri_node,
+preserve_whitespace: false)
         case nokogiri_node
         when Nokogiri::XML::Element
-          build_element_node(nokogiri_node)
+          build_element_node(nokogiri_node,
+                             preserve_whitespace: preserve_whitespace)
         when Nokogiri::XML::Text
-          build_text_node(nokogiri_node)
+          build_text_node(nokogiri_node,
+                          preserve_whitespace: preserve_whitespace)
         when Nokogiri::XML::Comment
           build_comment_node(nokogiri_node)
         when Nokogiri::XML::ProcessingInstruction
@@ -119,7 +126,7 @@ module Canon
 
       # Build element node from Nokogiri element
       # rubocop:disable Metrics/MethodLength
-      def self.build_element_node(nokogiri_element)
+      def self.build_element_node(nokogiri_element, preserve_whitespace: false)
         element = Nodes::ElementNode.new(
           name: nokogiri_element.name,
           namespace_uri: nokogiri_element.namespace&.href,
@@ -134,7 +141,8 @@ module Canon
 
         # Build child nodes
         nokogiri_element.children.each do |child|
-          node = build_node_from_nokogiri(child)
+          node = build_node_from_nokogiri(child,
+                                          preserve_whitespace: preserve_whitespace)
           element.add_child(node) if node
         end
 
@@ -195,13 +203,16 @@ module Canon
       end
 
       # Build text node from Nokogiri text node
-      def self.build_text_node(nokogiri_text)
+      def self.build_text_node(nokogiri_text, preserve_whitespace: false)
         # XML text nodes: preserve all content including whitespace
         # Unlike HTML, XML treats all whitespace as significant
         content = nokogiri_text.content
 
         # Skip empty text nodes between elements (common formatting whitespace)
-        return nil if content.strip.empty? && nokogiri_text.parent.is_a?(Nokogiri::XML::Element)
+        # UNLESS preserve_whitespace is true (for structural_whitespace: :strict)
+        if !preserve_whitespace && content.strip.empty? && nokogiri_text.parent.is_a?(Nokogiri::XML::Element)
+          return nil
+        end
 
         # Nokogiri already handles CDATA conversion and entity resolution
         Nodes::TextNode.new(value: content)

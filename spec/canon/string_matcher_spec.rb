@@ -9,7 +9,10 @@ RSpec.describe "String matcher", type: :matcher do
         xml1 = "<root><child>value</child></root>"
         xml2 = "<root>\n  <child>value</child>\n</root>"
 
-        expect(xml1).to be_equivalent_to(xml2)
+        # Use :normalize to ignore whitespace differences
+        # rubocop:disable Layout/LineLength
+        expect(xml1).to be_equivalent_to(xml2, match: { structural_whitespace: :normalize })
+        # rubocop:enable Layout/LineLength
       end
 
       it "shows XML mode in diff when failing" do

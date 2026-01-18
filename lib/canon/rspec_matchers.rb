@@ -63,6 +63,15 @@ module Canon
         self
       end
 
+      # Chain method for setting match options
+      # @param match_opts [Hash] match options
+      # @return [SerializationMatcher] self for chaining
+      def with_match(**match_opts)
+        @match ||= {}
+        @match = @match.merge(match_opts)
+        self
+      end
+
       def matches?(target)
         @target = target
 
@@ -252,12 +261,22 @@ module Canon
                                diff_algorithm: diff_algorithm)
     end
 
-    def be_yaml_equivalent_to(expected)
-      SerializationMatcher.new(expected, :yaml)
+    def be_yaml_equivalent_to(expected, match_profile: nil, match: nil,
+                              preprocessing: nil, diff_algorithm: nil)
+      SerializationMatcher.new(expected, :yaml,
+                               match_profile: match_profile,
+                               match: match,
+                               preprocessing: preprocessing,
+                               diff_algorithm: diff_algorithm)
     end
 
-    def be_json_equivalent_to(expected)
-      SerializationMatcher.new(expected, :json)
+    def be_json_equivalent_to(expected, match_profile: nil, match: nil,
+                              preprocessing: nil, diff_algorithm: nil)
+      SerializationMatcher.new(expected, :json,
+                               match_profile: match_profile,
+                               match: match,
+                               preprocessing: preprocessing,
+                               diff_algorithm: diff_algorithm)
     end
 
     def be_html_equivalent_to(expected, match_profile: nil, match: nil,
@@ -287,12 +306,22 @@ module Canon
                                diff_algorithm: diff_algorithm)
     end
 
-    def be_equivalent_to(expected)
-      SerializationMatcher.new(expected, nil)
+    def be_equivalent_to(expected, match_profile: nil, match: nil,
+                         preprocessing: nil, diff_algorithm: nil)
+      SerializationMatcher.new(expected, nil,
+                               match_profile: match_profile,
+                               match: match,
+                               preprocessing: preprocessing,
+                               diff_algorithm: diff_algorithm)
     end
 
-    def be_string_equivalent_to(expected)
-      SerializationMatcher.new(expected, :string)
+    def be_string_equivalent_to(expected, match_profile: nil, match: nil,
+                                 preprocessing: nil, diff_algorithm: nil)
+      SerializationMatcher.new(expected, :string,
+                               match_profile: match_profile,
+                               match: match,
+                               preprocessing: preprocessing,
+                               diff_algorithm: diff_algorithm)
     end
 
     if defined?(::RSpec) && ::RSpec.respond_to?(:configure)

@@ -169,10 +169,13 @@ RSpec.describe "Formatting diff visualization" do
       xml1 = "<root><a>1</a><b>2</b></root>"
       xml2 = "<root>  <a>1</a>  <b>2</b>  </root>"
 
+      # rubocop:disable Layout/LineLength
       result = Canon::Comparison.equivalent?(xml1, xml2, verbose: true,
-                                                         use_color: false)
+                                                         use_color: false,
+                                                         match: { structural_whitespace: :ignore })
+      # rubocop:enable Layout/LineLength
 
-      # Should be equivalent
+      # Should be equivalent when ignoring structural whitespace
       expect(result.equivalent?).to be true
 
       # Diff should show formatting markers if any

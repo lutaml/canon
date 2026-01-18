@@ -206,6 +206,7 @@ RSpec.describe Canon::Comparison::MatchOptions::Xml do
       it "returns HTML defaults when no other options specified" do
         result = described_class.resolve(format: :html)
         expect(result).to eq(
+          format: :html,
           preprocessing: :rendered,
           text_content: :normalize,
           structural_whitespace: :normalize,
@@ -220,6 +221,7 @@ RSpec.describe Canon::Comparison::MatchOptions::Xml do
       it "returns XML defaults when no other options specified" do
         result = described_class.resolve(format: :xml)
         expect(result).to eq(
+          format: :xml,
           preprocessing: :none,
           text_content: :strict,
           structural_whitespace: :strict,
@@ -234,6 +236,7 @@ RSpec.describe Canon::Comparison::MatchOptions::Xml do
       it "falls back to XML defaults for unknown format" do
         result = described_class.resolve(format: :unknown)
         expect(result).to eq(
+          format: :unknown,
           preprocessing: :none,
           text_content: :strict,
           structural_whitespace: :strict,
@@ -254,6 +257,7 @@ RSpec.describe Canon::Comparison::MatchOptions::Xml do
         )
 
         expect(result).to eq(
+          format: :html,
           preprocessing: :rendered,
           text_content: :normalize,
           structural_whitespace: :ignore,
@@ -285,6 +289,7 @@ RSpec.describe Canon::Comparison::MatchOptions::Xml do
           match_profile: :rendered,
         )
         expect(result).to eq(
+          format: :xml,
           preprocessing: :none,
           text_content: :normalize,
           structural_whitespace: :normalize,
@@ -433,6 +438,7 @@ RSpec.describe Canon::Comparison::MatchOptions::Json do
     it "returns JSON defaults when no other options specified" do
       result = described_class.resolve(format: :json)
       expect(result).to eq(
+        format: :json,
         preprocessing: :none,
         text_content: :strict,
         structural_whitespace: :ignore,
@@ -462,6 +468,7 @@ RSpec.describe Canon::Comparison::MatchOptions::Yaml do
     it "returns YAML defaults when no other options specified" do
       result = described_class.resolve(format: :yaml)
       expect(result).to eq(
+        format: :yaml,
         preprocessing: :none,
         text_content: :strict,
         structural_whitespace: :ignore,

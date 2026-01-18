@@ -63,6 +63,135 @@ Match dimensions are orthogonal aspects that can be configured independently.
 
 `:ignore`:: Structural whitespace is completely ignored
 
+==== Advanced: Element-level whitespace sensitivity
+
+When using `structural_whitespace: :strict`, you can control whitespace sensitivity at the element level using:
+
+* **xml:space attribute** - XML standard for declaring whitespace sensitivity in documents
+* **whitelist/blacklist options** - User-specified element lists
+* **Format defaults** - HTML has built-in sensitive elements
+* **respect_xml_space option** - Control whether xml:space is honored
+
+===== xml:space attribute support
+
+The `xml:space` attribute is the XML standard way to declare whitespace sensitivity:
+
+[source,xml]
+----
+<!-- Preserve whitespace in this element -->
+<code xml:space="preserve">
+  Indentation and newlines matter here
+</code>
+
+<!-- Use default behavior -->
+<text xml:space="default">
+  Whitespace handling follows configured behavior
+</text>
+----
+
+===== Whitelist and blacklist options
+
+You can explicitly specify which elements are whitespace-sensitive:
+
+[source,ruby]
+----
+# Specify elements that preserve whitespace
+Canon::Comparison.equivalent?(xml1, xml2,
+  match: {
+    structural_whitespace: :strict,
+    whitespace_sensitive_elements: [:pre, :code, :sample],
+    whitespace_insensitive_elements: [:p, :div]  # Override defaults/whitelist
+  }
+)
+----
+
+===== respect_xml_space option
+
+Control whether xml:space attributes in the document are honored:
+
+[source,ruby]
+----
+# Honor xml:space (default)
+Canon::Comparison.equivalent?(xml1, xml2,
+  match: {
+    structural_whitespace: :strict,
+    respect_xml_space: true  # Use xml:space attributes in document
+  }
+)
+
+# Ignore xml:space, use only user configuration
+Canon::Comparison.equivalent?(xml1, xml2,
+  match: {
+    structural_whitespace: :strict,
+    respect_xml_space: false  # Override document declarations
+  }
+)
+----
+
+===== Priority order
+
+When determining if an element is whitespace-sensitive, Canon uses this priority:
+
+[source]
+----
+1. respect_xml_space: false → User config only (ignore xml:space)
+   ↓
+2. User whitelist → Use whitelist (user explicitly declared)
+   ↓
+3. Format defaults → HTML: [:pre, :textarea, :script, :style], XML: []
+   ↓
+4. User blacklist → Remove from defaults/whitelist
+   ↓
+5. xml:space="preserve" → Element is sensitive
+   ↓
+6. xml:space="default" → Use steps 1-4
+----
+
+===== Format-specific defaults
+
+**HTML**:: `[:pre, :textarea, :script, :style]` - These elements preserve whitespace by HTML specification
+**XML**:: `[]` - No default whitespace-sensitive elements, purely user-controlled
+
+===== Examples
+
+.Using xml:space attribute
+[source,ruby]
+----
+xml1 = '<root><code xml:space="preserve">  indented  </code></root>'
+xml2 = '<root><code xml:space="preserve">indented</code></root>'
+
+# These are NOT equivalent (whitespace matters in xml:space="preserve")
+Canon::Comparison.equivalent?(xml1, xml2,
+  match: { structural_whitespace: :strict }
+)
+# => false
+----
+
+.Using whitelist
+[source,ruby]
+----
+# Make <p> elements whitespace-sensitive
+Canon::Comparison.equivalent?(xml1, xml2,
+  match: {
+    structural_whitespace: :strict,
+    whitespace_sensitive_elements: [:p, :pre]
+  }
+)
+----
+
+.Overriding HTML defaults
+[source,ruby]
+----
+# Make <script> NOT whitespace-sensitive (override HTML default)
+Canon::Comparison.equivalent?(html1, html2,
+  format: :html,
+  match: {
+    structural_whitespace: :strict,
+    whitespace_insensitive_elements: [:script]
+  }
+)
+----
+
 === attribute_whitespace
 
 **Applies to**: XML, HTML only

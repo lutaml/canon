@@ -26,7 +26,8 @@ module Canon
           # @param diff_children [Boolean] Whether to diff children
           # @param differences [Array] Array to collect differences
           # @return [Integer] Comparison result code
-          def compare(node1, node2, comparator, opts, child_opts, diff_children, differences)
+          def compare(node1, node2, comparator, opts, child_opts,
+diff_children, differences)
             children1 = comparator.send(:filter_children, node1.children, opts)
             children2 = comparator.send(:filter_children, node2.children, opts)
 
@@ -51,7 +52,9 @@ module Canon
           # method that returns symbols, and only works with element nodes.
           def can_use_element_matcher?(children1, children2)
             !children1.empty? && !children2.empty? &&
-              children1.all? { |c| c.is_a?(Canon::Xml::Node) && c.node_type == :element } &&
+              children1.all? do |c|
+                c.is_a?(Canon::Xml::Node) && c.node_type == :element
+              end &&
               children2.all? { |c| c.is_a?(Canon::Xml::Node) && c.node_type == :element }
           end
 
@@ -140,7 +143,8 @@ module Canon
                                         opts, child_opts, diff_children, differences)
             # Length check
             unless children1.length == children2.length
-              dimension = determine_dimension_for_mismatch(children1, children2, comparator)
+              dimension = determine_dimension_for_mismatch(children1,
+                                                           children2, comparator)
               comparator.send(:add_difference, parent_node, parent_node,
                               Comparison::MISSING_NODE, Comparison::MISSING_NODE,
                               dimension, opts, differences)
@@ -167,15 +171,19 @@ module Canon
             (0...max_len).each do |i|
               if i >= children1.length
                 # Extra child in children2
-                dimension = comparator.send(:determine_node_dimension, children2[i])
+                dimension = comparator.send(:determine_node_dimension,
+                                            children2[i])
                 break
               elsif i >= children2.length
                 # Extra child in children1
-                dimension = comparator.send(:determine_node_dimension, children1[i])
+                dimension = comparator.send(:determine_node_dimension,
+                                            children1[i])
                 break
-              elsif !comparator.send(:same_node_type?, children1[i], children2[i])
+              elsif !comparator.send(:same_node_type?, children1[i],
+                                     children2[i])
                 # Different node types at same position
-                dimension = comparator.send(:determine_node_dimension, children1[i])
+                dimension = comparator.send(:determine_node_dimension,
+                                            children1[i])
                 break
               end
             end

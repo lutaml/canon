@@ -20,8 +20,10 @@ RSpec.describe "Fixture Files Integrity" do
           # Format with c14n mode
           formatted_content = Canon.format(original_content, :xml)
 
-          # Use Canon's own XML comparison (C14N-based)
-          expect(formatted_content).to be_xml_equivalent_to(original_content)
+          # Use Canon's own XML comparison with :normalize to ignore formatting differences
+          # rubocop:disable Layout/LineLength
+          expect(formatted_content).to be_xml_equivalent_to(original_content).with_match(structural_whitespace: :normalize)
+          # rubocop:enable Layout/LineLength
         end
       end
     end
@@ -35,8 +37,10 @@ RSpec.describe "Fixture Files Integrity" do
           pretty_printer = Canon::PrettyPrinter::Xml.new(indent: 2)
           formatted_content = pretty_printer.format(original_content)
 
-          # Use Canon's own XML comparison (C14N-based)
-          expect(formatted_content).to be_xml_equivalent_to(original_content)
+          # Use Canon's own XML comparison with :normalize to ignore formatting differences
+          # rubocop:disable Layout/LineLength
+          expect(formatted_content).to be_xml_equivalent_to(original_content).with_match(structural_whitespace: :normalize)
+          # rubocop:enable Layout/LineLength
         end
       end
     end

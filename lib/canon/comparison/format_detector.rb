@@ -72,7 +72,8 @@ module Canon
           return :json if trimmed.start_with?("{", "[")
 
           # HTML indicators
-          return :html if trimmed.start_with?("<!DOCTYPE html", "<html", "<HTML")
+          return :html if trimmed.start_with?("<!DOCTYPE html", "<html",
+                                              "<HTML")
 
           # XML indicators - must start with < and end with >
           return :xml if trimmed.start_with?("<") && trimmed.end_with?(">")
