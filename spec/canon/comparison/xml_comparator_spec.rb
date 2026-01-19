@@ -56,7 +56,8 @@ RSpec.describe Canon::Comparison::XmlComparator do
         expect(result.equivalent?).to be true
       end
 
-      it "returns ComparisonResult with differences for different element names" do
+      it "returns ComparisonResult with differences " \
+         "for different element names" do
         xml1 = "<root><item>Test</item></root>"
         xml2 = "<root><other>Test</other></root>"
 
@@ -67,7 +68,8 @@ RSpec.describe Canon::Comparison::XmlComparator do
         expect(result.differences.first.dimension).to eq(:element_structure)
       end
 
-      it "returns ComparisonResult with differences for different text content" do
+      it "returns ComparisonResult with differences " \
+         "for different text content" do
         xml1 = "<root><item>Test 1</item></root>"
         xml2 = "<root><item>Test 2</item></root>"
 
@@ -104,7 +106,8 @@ RSpec.describe Canon::Comparison::XmlComparator do
 
         # With ignore comments, should be true
         expect(described_class.equivalent?(xml1, xml2,
-                                           { match: { comments: :ignore } })).to be true
+                                           { match: { comments: :ignore } }))
+          .to be true
       end
 
       it "respects text_content match option" do
@@ -115,8 +118,10 @@ RSpec.describe Canon::Comparison::XmlComparator do
         expect(described_class.equivalent?(xml1, xml2)).to be false
 
         # With normalize text_content, should be true
-        expect(described_class.equivalent?(xml1, xml2,
-                                           { match: { text_content: :normalize } })).to be true
+        expect(
+          described_class.equivalent?(xml1, xml2,
+                                      { match: { text_content: :normalize } }),
+        ).to be true
       end
     end
 
@@ -153,8 +158,10 @@ RSpec.describe Canon::Comparison::XmlComparator do
         expect(described_class.equivalent?(xml1, xml2)).to be false
       end
 
-      it "reports namespace differences as deleted/inserted via ElementMatcher" do
-        # ElementMatcher treats elements with different namespaces as separate elements
+      it "reports namespace differences as deleted/inserted " \
+         "via ElementMatcher" do
+        # ElementMatcher treats elements with different namespaces
+        # as separate elements
         xml1 = <<~XML
           <root>
             <child xmlns="http://example.org/ns1">content</child>

@@ -546,11 +546,16 @@ compare_profile = nil)
           # Elements where whitespace is significant - don't normalize
           # SINGLE SOURCE OF TRUTH: WhitespaceSensitivity.format_default_sensitive_elements
           # This ensures consistency between preprocessing and comparison logic
+          # SINGLE SOURCE OF TRUTH: WhitespaceSensitivity.format_default_sensitive_elements
+          # This ensures consistency between preprocessing and comparison logic
           preserve_whitespace = if compare_profile.is_a?(HtmlCompareProfile)
                                   # Profile handles HTML-specific whitespace rules
                                   # Get default list and filter by profile
-                                  WhitespaceSensitivity.format_default_sensitive_elements(match_opts)
-                                    .select { |elem| compare_profile.preserve_whitespace?(elem.to_s) }
+                                  WhitespaceSensitivity
+                                    .format_default_sensitive_elements(match_opts)
+                                    .select do |elem|
+                                      compare_profile.preserve_whitespace?(elem.to_s)
+                                    end
                                     .map(&:to_s)
                                 else
                                   # Use default list from WhitespaceSensitivity (single source of truth)

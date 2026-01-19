@@ -37,8 +37,8 @@ RSpec.describe "Fixture Files Integrity" do
           pretty_printer = Canon::PrettyPrinter::Xml.new(indent: 2)
           formatted_content = pretty_printer.format(original_content)
 
-          # Use Canon's own XML comparison with :normalize to ignore formatting differences
           # rubocop:disable Layout/LineLength
+          # Use Canon's own XML comparison with :normalize to ignore formatting differences
           expect(formatted_content).to be_xml_equivalent_to(original_content).with_match(structural_whitespace: :normalize)
           # rubocop:enable Layout/LineLength
         end
@@ -161,7 +161,8 @@ RSpec.describe "Fixture Files Integrity" do
   describe "Round-trip idempotency" do
     context "XML files" do
       Dir.glob("spec/fixtures/xml/*.xml").take(3).each do |fixture_file|
-        it "produces identical output on second format for #{File.basename(fixture_file)}" do
+        it "produces identical output on second format " \
+           "for #{File.basename(fixture_file)}" do
           original_content = File.read(fixture_file)
 
           # First format
@@ -178,7 +179,8 @@ RSpec.describe "Fixture Files Integrity" do
 
     context "HTML files" do
       Dir.glob("spec/fixtures/html/*.html").take(2).each do |fixture_file|
-        it "produces stable output on second format for #{File.basename(fixture_file)}" do
+        it "produces stable output on second format " \
+           "for #{File.basename(fixture_file)}" do
           original_content = File.read(fixture_file)
 
           # First format
