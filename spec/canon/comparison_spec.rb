@@ -72,7 +72,8 @@ RSpec.describe Canon::Comparison do
 
         # With strict comments matching, should be false
         expect(described_class.equivalent?(html1, html2,
-                                           { match: { comments: :strict } })).to be false
+                                           { match: { comments: :strict } }))
+          .to be false
       end
 
       it "respects text_content match option" do
@@ -96,7 +97,8 @@ RSpec.describe Canon::Comparison do
         expect(result.equivalent?).to be true
       end
 
-      it "returns ComparisonResult with differences for different element names" do
+      it "returns ComparisonResult with differences " \
+         "for different element names" do
         html1 = "<html><body><p>Test</p></body></html>"
         html2 = "<html><body><div>Test</div></body></html>"
 
@@ -113,7 +115,8 @@ RSpec.describe Canon::Comparison do
         end).to be true
       end
 
-      it "returns ComparisonResult with differences for different text content" do
+      it "returns ComparisonResult with differences " \
+         "for different text content" do
         html1 = "<html><body><p>Test 1</p></body></html>"
         html2 = "<html><body><p>Test 2</p></body></html>"
 
@@ -175,8 +178,10 @@ RSpec.describe Canon::Comparison do
         expect(diff.dimension).to eq(:attribute_presence)
       end
 
-      it "returns ComparisonResult with multiple differences when multiple things differ" do
-        html1 = '<html><body><p class="foo">Test 1</p><div>Extra</div></body></html>'
+      it "returns ComparisonResult with multiple differences " \
+         "when multiple things differ" do
+        html1 = '<html><body><p class="foo">Test 1</p>' \
+                 "<div>Extra</div></body></html>"
         html2 = '<html><body><p class="bar">Test 2</p></body></html>'
 
         result = described_class.equivalent?(html1, html2,
@@ -197,7 +202,8 @@ RSpec.describe Canon::Comparison do
         expect(result.equivalent?).to be true
       end
 
-      it "returns ComparisonResult with differences for different XML elements" do
+      it "returns ComparisonResult with differences " \
+         "for different XML elements" do
         xml1 = "<root><item>Test</item></root>"
         xml2 = "<root><other>Test</other></root>"
 
@@ -213,7 +219,8 @@ RSpec.describe Canon::Comparison do
         html1 = "<html><body><!-- comment --><p>Test</p></body></html>"
         html2 = "<html><body><p>Test</p></body></html>"
 
-        # HTML defaults: comments are ignored, should create informative DiffNodes
+        # HTML defaults: comments are ignored, should create
+        # informative DiffNodes
         result = described_class.equivalent?(html1, html2,
                                              { verbose: true })
         expect(result).to be_a(Canon::Comparison::ComparisonResult)
@@ -226,7 +233,8 @@ RSpec.describe Canon::Comparison do
 
         # With strict comments matching, should return normative differences
         result = described_class.equivalent?(html1, html2,
-                                             { verbose: true, match: { comments: :strict } })
+                                             { verbose: true,
+                                               match: { comments: :strict } })
         expect(result).to be_a(Canon::Comparison::ComparisonResult)
         expect(result.differences).not_to be_empty
         expect(result.differences.first.normative?).to be true
@@ -283,7 +291,8 @@ RSpec.describe Canon::Comparison do
         it "compares DocumentFragment with string using format hint" do
           frag = Nokogiri::HTML::DocumentFragment.parse("<p>Test content</p>")
           string = "<p>Test content</p>"
-          # Comparing fragments works directly without needing format hint for detection
+          # Comparing fragments works directly without needing format hint
+          # for detection
           expect(described_class.equivalent?(frag, frag)).to be true
           # String comparison with format hint also works
           frag2 = Nokogiri::HTML::DocumentFragment.parse(string)
@@ -314,18 +323,28 @@ RSpec.describe Canon::Comparison do
 
         it "compares Nokogiri::XML::Document with string" do
           doc = Nokogiri::XML::Document.parse(xml_string)
-          # Nokogiri adds XML declaration and formatting, use :normalize to ignore
+          # Nokogiri adds XML declaration and formatting, use :normalize
+          # to ignore
           # rubocop:disable Layout/LineLength
-          expect(described_class.equivalent?(doc, xml_string, match: { structural_whitespace: :normalize })).to be true
-          expect(described_class.equivalent?(xml_string, doc, match: { structural_whitespace: :normalize })).to be true
+          expect(described_class.equivalent?(doc, xml_string,
+                                             match: { structural_whitespace: :normalize }))
+            .to be true
+          expect(described_class.equivalent?(xml_string, doc,
+                                             match: { structural_whitespace: :normalize }))
+            .to be true
           # rubocop:enable Layout/LineLength
         end
       end
 
       context "Nokogiri::XML::DocumentFragment" do
-        it "accepts and compares Nokogiri::XML::DocumentFragment objects" do
-          frag1 = Nokogiri::XML::DocumentFragment.parse("<item>Test content</item>")
-          frag2 = Nokogiri::XML::DocumentFragment.parse("<item>Test content</item>")
+        it "accepts and compares Nokogiri::XML::DocumentFragment " \
+           "objects" do
+          frag1 = Nokogiri::XML::DocumentFragment.parse(
+            "<item>Test content</item>",
+          )
+          frag2 = Nokogiri::XML::DocumentFragment.parse(
+            "<item>Test content</item>",
+          )
           expect(described_class.equivalent?(frag1, frag2)).to be true
         end
 
@@ -345,10 +364,15 @@ RSpec.describe Canon::Comparison do
 
         it "compares Moxml::Document with string" do
           doc = Moxml.new.parse(xml_string)
-          # Moxml adds formatting, use :normalize to ignore formatting differences
+          # Moxml adds formatting, use :normalize to ignore formatting
+          # differences
           # rubocop:disable Layout/LineLength
-          expect(described_class.equivalent?(doc, xml_string, match: { structural_whitespace: :normalize })).to be true
-          expect(described_class.equivalent?(xml_string, doc, match: { structural_whitespace: :normalize })).to be true
+          expect(described_class.equivalent?(doc, xml_string,
+                                             match: { structural_whitespace: :normalize }))
+            .to be true
+          expect(described_class.equivalent?(xml_string, doc,
+                                             match: { structural_whitespace: :normalize }))
+            .to be true
           # rubocop:enable Layout/LineLength
         end
 
@@ -360,13 +384,19 @@ RSpec.describe Canon::Comparison do
       end
 
       context "mixed input types" do
-        it "compares HTML Document with HTML DocumentFragment using format hint" do
-          # Documents and Fragments have different structures (Document adds html/head/body wrappers)
+        it "compares HTML Document with HTML DocumentFragment " \
+           "using format hint" do
+          # Documents and Fragments have different structures
+          # (Document adds html/head/body wrappers)
           # So we compare fragment content with the body content of the document
-          doc = Nokogiri::HTML::Document.parse("<html><body><p>Test content</p></body></html>")
+          doc = Nokogiri::HTML::Document.parse(
+            "<html><body><p>Test content</p></body></html>",
+          )
           frag = Nokogiri::HTML::DocumentFragment.parse("<p>Test content</p>")
           # This should work because the body content matches the fragment
-          body_frag = Nokogiri::HTML::DocumentFragment.parse(doc.at_css("body").inner_html)
+          body_frag = Nokogiri::HTML::DocumentFragment.parse(
+            doc.at_css("body").inner_html,
+          )
           expect(described_class.equivalent?(body_frag, frag,
                                              { format: :html })).to be true
         end
@@ -424,7 +454,9 @@ RSpec.describe Canon::Comparison do
       context "with preprocessing option" do
         it "applies preprocessing to DocumentFragments" do
           # DocumentFragment with extra whitespace
-          frag1 = Nokogiri::HTML::DocumentFragment.parse("<p>  Test   content  </p>")
+          frag1 = Nokogiri::HTML::DocumentFragment.parse(
+            "<p>  Test   content  </p>",
+          )
           frag2 = Nokogiri::HTML::DocumentFragment.parse("<p>Test content</p>")
 
           # Should match with default HTML preprocessing (:rendered)
@@ -434,15 +466,21 @@ RSpec.describe Canon::Comparison do
         it "respects preprocessing option for pre-parsed nodes" do
           # Use a difference that DataModel doesn't normalize away
           # (DataModel strips whitespace-only text nodes, which is correct)
-          doc1 = Nokogiri::XML::Document.parse("<root><item>Test   content</item></root>")
-          doc2 = Nokogiri::XML::Document.parse("<root><item>Test content</item></root>")
+          doc1 = Nokogiri::XML::Document.parse(
+            "<root><item>Test   content</item></root>",
+          )
+          doc2 = Nokogiri::XML::Document.parse(
+            "<root><item>Test content</item></root>",
+          )
 
           # XML defaults are strict for text_content, so these should NOT match
           expect(described_class.equivalent?(doc1, doc2)).to be false
 
-          # But with spec_friendly profile (text_content: :normalize), they should match
+          # But with spec_friendly profile (text_content: :normalize),
+          # they should match
           expect(described_class.equivalent?(doc1, doc2,
-                                             { match_profile: :spec_friendly })).to be true
+                                             { match_profile: :spec_friendly }))
+            .to be true
         end
       end
     end
@@ -501,7 +539,8 @@ RSpec.describe Canon::Comparison do
         expect(result).to be_equivalent
       end
 
-      it "does NOT show false attribute differences when attributes are identical" do
+      it "does NOT show false attribute differences " \
+         "when attributes are identical" do
         html1 = '<span lang="EN-GB" xml:lang="EN-GB">&#xA0;</span>'
         html2 = '<span lang="EN-GB" xml:lang="EN-GB">␣</span>'
 
@@ -580,11 +619,12 @@ RSpec.describe Canon::Comparison do
           xml1 = "<root><code xml:space='preserve'>  text  </code></root>"
           xml2 = "<root><code xml:space='preserve'>text</code></root>"
 
-          # Should NOT be equivalent - whitespace matters in xml:space='preserve'
+          # Should NOT be equivalent - whitespace matters in
+          # xml:space='preserve'
           result = described_class.equivalent?(
             xml1, xml2,
             format: :xml,
-            match: { text_content: :strict },
+            match: { text_content: :strict }
           )
           expect(result).to be false
         end
@@ -597,7 +637,7 @@ RSpec.describe Canon::Comparison do
           result = described_class.equivalent?(
             xml1, xml2,
             format: :xml,
-            match: { text_content: :normalize },
+            match: { text_content: :normalize }
           )
           expect(result).to be true
         end
@@ -609,14 +649,15 @@ RSpec.describe Canon::Comparison do
           xml2 = "<root><code>text</code></root>"
 
           # With code in whitelist and text_content: :normalize,
-          # whitespace differences should still matter (strict mode for sensitive elements)
+          # whitespace differences should still matter (strict mode
+          # for sensitive elements)
           result = described_class.equivalent?(
             xml1, xml2,
             format: :xml,
             match: {
               text_content: :normalize,
               whitespace_sensitive_elements: [:code],
-            },
+            }
           )
           expect(result).to be false
         end
@@ -625,14 +666,15 @@ RSpec.describe Canon::Comparison do
           xml1 = "<root><p>  text  </p></root>"
           xml2 = "<root><p>text</p></root>"
 
-          # With text_content: :normalize and p not in whitelist, should be equivalent
+          # With text_content: :normalize and p not in whitelist,
+          # should be equivalent
           result = described_class.equivalent?(
             xml1, xml2,
             format: :xml,
             match: {
               text_content: :normalize,
               whitespace_sensitive_elements: [:code],
-            },
+            }
           )
           expect(result).to be true
         end
@@ -651,7 +693,7 @@ RSpec.describe Canon::Comparison do
             match: {
               text_content: :normalize,
               whitespace_insensitive_elements: [:pre],
-            },
+            }
           )
           expect(result).to be true
         end
@@ -670,7 +712,7 @@ RSpec.describe Canon::Comparison do
             match: {
               text_content: :normalize,
               respect_xml_space: false,
-            },
+            }
           )
           expect(result).to be true
         end
@@ -686,7 +728,7 @@ RSpec.describe Canon::Comparison do
             match: {
               text_content: :strict,
               respect_xml_space: true,
-            },
+            }
           )
           expect(result).to be false
         end
@@ -702,7 +744,7 @@ RSpec.describe Canon::Comparison do
           result = described_class.equivalent?(
             html1, html2,
             format: :html,
-            match: { text_content: :normalize },
+            match: { text_content: :normalize }
           )
           expect(result).to be false
         end
@@ -711,11 +753,12 @@ RSpec.describe Canon::Comparison do
           xml1 = "<root><pre>  text  </pre></root>"
           xml2 = "<root><pre>text</pre></root>"
 
-          # XML has no defaults, so with text_content: :normalize, they're equivalent
+          # XML has no defaults, so with text_content: :normalize,
+          # they're equivalent
           result = described_class.equivalent?(
             xml1, xml2,
             format: :xml,
-            match: { text_content: :normalize },
+            match: { text_content: :normalize }
           )
           expect(result).to be true
         end
@@ -727,7 +770,7 @@ RSpec.describe Canon::Comparison do
           result = described_class.equivalent?(
             html1, html2,
             format: :html,
-            match: { text_content: :normalize, preprocessing: :none },
+            match: { text_content: :normalize, preprocessing: :none }
           )
           expect(result).to be false
         end
@@ -739,7 +782,7 @@ RSpec.describe Canon::Comparison do
           result = described_class.equivalent?(
             html1, html2,
             format: :html,
-            match: { text_content: :normalize, preprocessing: :none },
+            match: { text_content: :normalize, preprocessing: :none }
           )
           expect(result).to be false
         end
@@ -751,7 +794,7 @@ RSpec.describe Canon::Comparison do
           result = described_class.equivalent?(
             html1, html2,
             format: :html,
-            match: { text_content: :normalize },
+            match: { text_content: :normalize }
           )
           expect(result).to be false
         end

@@ -358,16 +358,16 @@ module Canon
           # - Otherwise use :text_content
           # However, if element is whitespace-sensitive (like <pre> in HTML),
           # always use :text_content dimension regardless of behavior
-          if sensitive_element
-            # Whitespace-sensitive element: always use :text_content dimension
-            dimension = :text_content
-          elsif behavior == :normalize && whitespace_only_difference?(
-            text1, text2
-          )
-            dimension = :structural_whitespace
-          else
-            dimension = :text_content
-          end
+          dimension = if sensitive_element
+                        # Whitespace-sensitive element: always use :text_content dimension
+                        :text_content
+                      elsif behavior == :normalize && whitespace_only_difference?(
+                        text1, text2
+                      )
+                        :structural_whitespace
+                      else
+                        :text_content
+                      end
 
           # Create DiffNode in verbose mode when raw content differs
           # This ensures informative diffs are created even for :ignore/:normalize
@@ -389,12 +389,14 @@ module Canon
           # Check both n1 and n2 - if either is in a sensitive element, preserve strictly
           if n1.respond_to?(:parent)
             sensitivity_opts = { match_opts: opts[:match_opts] }
-            return true if WhitespaceSensitivity.element_sensitive?(n1, sensitivity_opts)
+            return true if WhitespaceSensitivity.element_sensitive?(n1,
+                                                                    sensitivity_opts)
           end
 
           if n2.respond_to?(:parent)
             sensitivity_opts = { match_opts: opts[:match_opts] }
-            return true if WhitespaceSensitivity.element_sensitive?(n2, sensitivity_opts)
+            return true if WhitespaceSensitivity.element_sensitive?(n2,
+                                                                    sensitivity_opts)
           end
 
           false

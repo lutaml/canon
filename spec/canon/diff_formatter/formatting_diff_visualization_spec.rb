@@ -219,7 +219,8 @@ RSpec.describe "Formatting diff visualization" do
         match: { comments: :ignore }
       )
 
-      # Formatting (lowest priority) - use text content with line break differences
+      # Formatting (lowest priority) - use text content with
+      # line break differences
       # Use normalize mode to allow formatting-only detection
       xml_fmt1 = "<root><p>Hello world</p></root>"
       xml_fmt2 = "<root><p>Hello\nworld</p></root>"
