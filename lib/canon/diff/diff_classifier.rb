@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative "formatting_detector"
+require_relative "xml_serialization_formatter"
 require_relative "../comparison/compare_profile"
 require_relative "../comparison/whitespace_sensitivity"
 
@@ -8,6 +9,11 @@ module Canon
   module Diff
     # Classifies DiffNodes as normative (affects equivalence) or informative (doesn't affect equivalence)
     # based on the match options in effect
+    #
+    # Classification hierarchy (three distinct kinds of differences):
+    # 1. Serialization formatting: XML syntax differences (always non-normative)
+    # 2. Content formatting: Whitespace differences in content (non-normative when normalized)
+    # 3. Normative: Semantic content differences (affect equivalence)
     class DiffClassifier
       attr_reader :match_options, :profile
 
@@ -25,11 +31,20 @@ module Canon
 
       # Classify a single DiffNode as normative or informative
       # Hierarchy: formatting-only < informative < normative
-      # CompareProfile determines base classification, FormattingDetector refines informative differences
+      # CompareProfile determines base classification, XmlSerializationFormatter handles serialization formatting
       # @param diff_node [DiffNode] The diff node to classify
       # @return [DiffNode] The same diff node with normative/formatting attributes set
       def classify(diff_node)
-        # SPECIAL CASE: text_content with :normalize behavior
+        # FIRST: Check for XML serialization-level formatting differences
+        # These are ALWAYS non-normative (formatting-only) regardless of match options
+        # Examples: self-closing tags (<tag/>) vs explicit closing tags (<tag></tag>)
+        if XmlSerializationFormatter.serialization_formatting?(diff_node)
+          diff_node.formatting = true
+          diff_node.normative = false
+          return diff_node
+        end
+
+        # SECOND: Handle content-level formatting for text_content with :normalize behavior
         # When text_content is :normalize and the difference is formatting-only,
         # it should be marked as non-normative (informative)
         # This ensures that verbose and non-verbose modes give consistent results
@@ -38,7 +53,7 @@ module Canon
         # (like <pre>, <code>, <textarea> in HTML), don't apply formatting detection
         # because whitespace should be preserved in these elements
         #
-        # This check must come FIRST, before normative_dimension? is called,
+        # This check must come BEFORE normative_dimension? is called,
         # because normative_dimension? returns true for text_content: :normalize
         # (since the dimension affects equivalence), which would prevent formatting
         # detection from being applied.
@@ -51,11 +66,11 @@ module Canon
           return diff_node
         end
 
-        # FIRST: Determine if this dimension is normative based on CompareProfile
+        # THIRD: Determine if this dimension is normative based on CompareProfile
         # This respects the policy settings (strict/normalize/ignore)
         is_normative = profile.normative_dimension?(diff_node.dimension)
 
-        # SECOND: Check if FormattingDetector should be consulted
+        # FOURTH: Check if FormattingDetector should be consulted for non-normative dimensions
         # Only check for formatting-only when dimension is NOT normative
         # This ensures strict mode differences remain normative
         should_check_formatting = !is_normative &&
@@ -68,7 +83,7 @@ module Canon
           return diff_node
         end
 
-        # THIRD: Apply the normative determination from CompareProfile
+        # FIFTH: Apply the normative determination from CompareProfile
         diff_node.formatting = false
         diff_node.normative = is_normative
 
@@ -127,33 +142,6 @@ module Canon
         normalized1 == normalized2 && text1 != text2
       end
 
-      # Check if a node is a text node
-      # @param node [Object] The node to check
-      # @return [Boolean] true if the node is a text node
-      def text_node?(node)
-        return false if node.nil?
-
-        # Canon::Xml::Nodes::TextNode
-        return true if node.is_a?(Canon::Xml::Nodes::TextNode)
-
-        # Nokogiri text nodes (node_type returns integer constant like 3)
-        return true if node.respond_to?(:node_type) &&
-                       node.node_type.is_a?(Integer) &&
-                       node.node_type == Nokogiri::XML::Node::TEXT_NODE
-
-        # Moxml text nodes (node_type returns symbol)
-        return true if node.respond_to?(:node_type) && node.node_type == :text
-
-        # String
-        return true if node.is_a?(String)
-
-        # Test doubles or objects with text node-like interface
-        # Check if it has a value method (contains text content)
-        return true if node.respond_to?(:value)
-
-        false
-      end
-
       # Check if the text node is inside a whitespace-sensitive element
       # @param diff_node [DiffNode] The diff node to check
       # @return [Boolean] true if inside a whitespace-sensitive element
@@ -199,6 +187,33 @@ module Canon
       rescue StandardError
         # If extraction fails, return nil (not formatting-only)
         nil
+      end
+
+      # Check if a node is a text node
+      # @param node [Object] The node to check
+      # @return [Boolean] true if the node is a text node
+      def text_node?(node)
+        return false if node.nil?
+
+        # Canon::Xml::Nodes::TextNode
+        return true if node.is_a?(Canon::Xml::Nodes::TextNode)
+
+        # Nokogiri text nodes (node_type returns integer constant like 3)
+        return true if node.respond_to?(:node_type) &&
+                       node.node_type.is_a?(Integer) &&
+                       node.node_type == Nokogiri::XML::Node::TEXT_NODE
+
+        # Moxml text nodes (node_type returns symbol)
+        return true if node.respond_to?(:node_type) && node.node_type == :text
+
+        # String
+        return true if node.is_a?(String)
+
+        # Test doubles or objects with text node-like interface
+        # Check if it has a value method (contains text content)
+        return true if node.respond_to?(:value)
+
+        false
       end
     end
   end

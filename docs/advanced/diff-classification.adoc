@@ -80,14 +80,20 @@ Classification depends on `attribute_order` setting:
 │                                                                   │
 │ DiffClassifier examines each DiffNode:                           │
 │                                                                   │
-│ For each dimension:                                               │
-│   behavior = match_options.behavior_for(dimension)                │
+│ 1. Serialization-level formatting (XmlSerializationFormatter)    │
+│    → XML syntax differences: <tag/> vs <tag></tag>               │
+│    → ALWAYS formatting-only (non-normative)                      │
 │                                                                   │
-│   if behavior == :ignore                                          │
-│     → INFORMATIVE (difference doesn't matter)                     │
-│   else  # :strict or :normalize                                   │
-│     → NORMATIVE (difference matters)                              │
+│ 2. Content-level formatting (text_content: :normalize)           │
+│    → Whitespace differences in content                           │
+│    → Formatting-only when normalized content matches             │
 │                                                                   │
+│ 3. CompareProfile policy (normative vs informative)              │
+│    → behavior == :ignore → INFORMATIVE                           │
+│    → behavior == :strict → NORMATIVE                             │
+│    → behavior == :normalize → Check content normalization        │
+│                                                                   │
+│ Sets diff_node.formatting = true/false                           │
 │ Sets diff_node.normative = true/false                            │
 └───────────────────────────────────┬───────────────────────────────┘
                                     ↓
@@ -101,6 +107,27 @@ Classification depends on `attribute_order` setting:
 │  Red/Green markers      Cyan markers                              │
 └──────────────────────────────────────────────────────────────────┘
 ----
+
+=== Three-Level Classification System
+
+Canon distinguishes between **three distinct kinds of differences**:
+
+| Kind | `formatting:` | `normative:` | Meaning | Examples |
+|------|---------------|--------------|---------|----------|
+| **Serialization formatting** | `true` | `false` | XML syntax differences | `<tag/>` vs `<tag></tag>` |
+| **Content formatting** | `true` | `false` | Whitespace in content | `Hello  world` vs `Hello world` |
+| **Informative** | `false` | `false` | Tracked but doesn't affect equivalence | Attribute order (when `:ignore`) |
+| **Normative** | `false` | `true` | Affects equivalence | Different words, missing elements |
+
+**Key distinction**:
+
+* **Serialization-level formatting**: XML syntax differences that are ALWAYS non-normative regardless of match options, because they represent different valid serializations of the same semantic content. Detected by `XmlSerializationFormatter`.
+
+* **Content-level formatting**: Whitespace differences in document content. These are formatting-only (non-normative) when normalized content matches (using `text_content: :normalize`).
+
+* **Informative**: Differences tracked for reference but don't affect equivalence (when behavior is `:ignore`).
+
+* **Normative**: Semantic content differences that affect equivalence (when behavior is `:strict` or when normalized content differs).
 
 == CompareProfile-Based Classification
 
@@ -120,22 +147,42 @@ DiffNode → DiffClassifier → CompareProfile → normative?
 
 === Classification Hierarchy
 
-Canon uses a three-level hierarchy for classifying differences:
+Canon uses a **multi-level hierarchy** for classifying differences:
 
-1. **Formatting-only** (lowest priority)
-   - Pure whitespace/formatting differences
-   - Normalized content is identical
-   - Markers: `[` and `]` in diff output
+[source]
+----
+DiffNode → DiffClassifier → XmlSerializationFormatter → serialization formatting?
+                                       ↓
+                                  CompareProfile → normative dimension?
+                                       ↓
+                                  FormattingDetector → formatting-only?
+                                       ↓
+                                  Final classification
+----
 
-2. **Informative** (medium priority)
+**Classification priority (from highest to lowest specificity)**:
+
+1. **Serialization-level formatting** (highest priority)
+   - XML syntax differences: `<tag/>` vs `<tag></tag>`
+   - Detected by `XmlSerializationFormatter`
+   - **ALWAYS** `formatting: true, normative: false`
+   - Bypasses all other classification logic
+
+2. **Content-level formatting**
+   - Whitespace differences in document content
+   - Detected by `FormattingDetector` when `text_content: :normalize`
+   - `formatting: true, normative: false` when normalized content matches
+   - Respects element-level whitespace sensitivity
+
+3. **Informative** (based on `:ignore` behavior)
    - Tracked but doesn't affect equivalence
-   - Based on behavior `:ignore`
-   - Markers: `<` and `>` in diff output
+   - `formatting: false, normative: false`
+   - Example: Attribute order when `attribute_order: :ignore`
 
-3. **Normative** (highest priority)
+4. **Normative** (based on `:strict` behavior or content mismatch)
    - Affects equivalence
-   - Based on behavior `:strict`
-   - Markers: `-` and `+` in diff output
+   - `formatting: false, normative: true`
+   - Example: Different words, missing elements
 
 === Format-Specific Policies
 
@@ -292,6 +339,34 @@ Canon::Comparison.equivalent?(html1, html2, format: :html)
 ----
 ====
 
+.Self-closing vs explicit closing tags
+====
+Per XML standards, `<tag/>` and `<tag></tag>` are semantically equivalent (both represent empty elements). Canon classifies differences in serialisation format as **formatting-only** (non-normative):
+
+[source,ruby]
+----
+# Self-closing vs explicit closing - always equivalent
+xml1 = '<svg><rect x="10" y="10"/></svg>'
+xml2 = '<svg><rect x="10" y="10"></rect></svg>'
+
+Canon::Comparison.equivalent?(xml1, xml2, format: :xml)
+# => true
+
+# Empty/whitespace-only text nodes from serialisation are formatting-only
+result = Canon::Comparison.equivalent?(xml1, xml2, format: :xml, verbose: true)
+result.differences.each do |diff|
+  if diff.dimension == :text_content
+    puts "Normative: #{diff.normative?}"  # => false
+    puts "Formatting: #{diff.formatting?}"  # => true
+  end
+end
+----
+
+This applies regardless of `text_content` behavior setting, as these differences are purely serialisation format variations (similar to attribute order).
+
+The key insight: empty or whitespace-only text nodes created by different serialisation styles (`<tag/>` vs `<tag></tag>`) are always classified as **formatting-only**, not normative.
+====
+
 === FormattingDetector Integration
 
 For dimensions that support it (`:text_content`, `:structural_whitespace`),
@@ -319,19 +394,35 @@ With `:normalize` mode:
 
 === Implementation Details
 
-The [`CompareProfile`](../../lib/canon/comparison/compare_profile.rb) class provides:
+The classification system uses three main classes:
 
-* `normative_dimension?(dimension)` - Is this dimension normative?
-* `affects_equivalence?(dimension)` - Does this dimension affect equivalence?
-* `supports_formatting_detection?(dimension)` - Can this dimension have formatting-only diffs?
+* **`XmlSerializationFormatter`** - Detects XML serialization-level formatting differences
+  - Self-closing vs explicit closing tags: `<tag/>` vs `<tag></tag>`
+  - Always returns `formatting: true, normative: false`
+  - These differences are ALWAYS non-normative regardless of match options
 
-The [`DiffClassifier`](../../lib/canon/diff/diff_classifier.rb) uses CompareProfile to classify differences, with special handling for `text_content: :normalize`:
+* **`CompareProfile`** - Determines dimension behavior and policy
+  - `normative_dimension?(dimension)` - Is this dimension normative?
+  - `affects_equivalence?(dimension)` - Does this dimension affect equivalence?
+  - `supports_formatting_detection?(dimension)` - Can this dimension have formatting-only diffs?
+
+* **`DiffClassifier`** - Orchestrates classification using the above
+  - First checks `XmlSerializationFormatter` for serialization formatting
+  - Then handles content-level formatting (text_content: :normalize)
+  - Finally applies `CompareProfile` policy for normative vs informative
 
 [source,ruby]
 ----
 def classify(diff_node)
-  # SPECIAL CASE: text_content with :normalize behavior
-  # Formatting-only differences (whitespace-only) are marked as non-normative
+  # FIRST: Check for XML serialization-level formatting differences
+  # These are ALWAYS non-normative (formatting-only) regardless of match options
+  if XmlSerializationFormatter.serialization_formatting?(diff_node)
+    diff_node.formatting = true
+    diff_node.normative = false
+    return diff_node
+  end
+
+  # SECOND: Handle content-level formatting for text_content with :normalize
   if diff_node.dimension == :text_content &&
       profile.send(:behavior_for, :text_content) == :normalize &&
       !inside_whitespace_sensitive_element?(diff_node) &&
@@ -341,10 +432,10 @@ def classify(diff_node)
     return diff_node
   end
 
-  # Standard classification flow
+  # THIRD: Apply CompareProfile policy
   is_normative = profile.normative_dimension?(diff_node.dimension)
 
-  # Only check formatting for non-normative dimensions
+  # FOURTH: Check FormattingDetector for non-normative dimensions
   if !is_normative && profile.supports_formatting_detection?(diff_node.dimension)
     if formatting_only_diff?(diff_node)
       diff_node.formatting = true
@@ -353,6 +444,7 @@ def classify(diff_node)
     end
   end
 
+  # FIFTH: Apply normative determination
   diff_node.normative = is_normative
   diff_node
 end
