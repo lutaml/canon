@@ -354,20 +354,23 @@ module Canon
 
           # Determine the correct dimension for this difference
           # - If text_content is :strict, ALL differences use :text_content dimension
-          # - If text_content is :normalize, whitespace-only diffs use :structural_whitespace
+          # - If text_content is :normalize, whitespace-only diffs could use :structural_whitespace
+          #   but we keep :text_content to ensure correct classification behavior
           # - Otherwise use :text_content
           # However, if element is whitespace-sensitive (like <pre> in HTML),
           # always use :text_content dimension regardless of behavior
-          dimension = if sensitive_element
-                        # Whitespace-sensitive element: always use :text_content dimension
-                        :text_content
-                      elsif behavior == :normalize && whitespace_only_difference?(
-                        text1, text2
-                      )
-                        :structural_whitespace
-                      else
-                        :text_content
-                      end
+          #
+          # NOTE: We keep the dimension as :text_content even for whitespace-only diffs
+          # when text_content: :normalize. This ensures that the classification uses
+          # the text_content behavior (:normalize) instead of structural_whitespace
+          # behavior (:strict for XML), which would incorrectly mark the diff as normative.
+          if sensitive_element
+          # Whitespace-sensitive element: always use :text_content dimension
+          else
+            # Always use :text_content for text differences
+            # This ensures correct classification based on text_content behavior
+          end
+          dimension = :text_content
 
           # Create DiffNode in verbose mode when raw content differs
           # This ensures informative diffs are created even for :ignore/:normalize

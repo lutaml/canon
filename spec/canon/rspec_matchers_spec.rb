@@ -1109,6 +1109,80 @@ RSpec.describe Canon::RSpecMatchers do
         expect(xml1).to be_xml_equivalent_to(xml2)
       end
     end
+
+    context "with element-level whitespace sensitivity" do
+      let(:xml_with_preserve) do
+        '<root><code xml:space="preserve">  indented  </code></root>'
+      end
+      let(:xml_compact) do
+        '<root><code xml:space="preserve">indented</code></root>'
+      end
+
+      it "respects xml:space attribute when respect_xml_space is true" do
+        expect(xml_with_preserve).not_to be_xml_equivalent_to(
+          xml_compact,
+          match: { text_content: :strict, respect_xml_space: true },
+        )
+      end
+
+      it "ignores xml:space attribute when respect_xml_space is false" do
+        # When respect_xml_space is false, xml:space is ignored
+        # and format defaults apply (XML has none, so whitespace is normalized)
+        expect(xml_with_preserve).to be_xml_equivalent_to(
+          xml_compact,
+          match: { text_content: :normalize, respect_xml_space: false },
+        )
+      end
+
+      context "with whitespace_sensitive_elements option" do
+        let(:xml1) { "<root><code>  indented  </code><p>  text  </p></root>" }
+        let(:xml2) { "<root><code>indented</code><p>text</p></root>" }
+
+        it "treats whitelisted elements as whitespace-sensitive" do
+          expect(xml1).not_to be_xml_equivalent_to(
+            xml2,
+            match: {
+              text_content: :strict,
+              whitespace_sensitive_elements: [:code],
+            },
+          )
+        end
+
+        it "normalizes whitespace for non-sensitive elements" do
+          # With text_content: :normalize, non-sensitive elements normalize
+          # Only test p elements (not in whitelist) to verify normalization works
+          xml3 = "<root><code>  indented  </code><p>text</p></root>"
+          xml4 = "<root><code>  indented  </code><p>  text  </p></root>"
+
+          expect(xml3).to be_xml_equivalent_to(
+            xml4,
+            match: {
+              text_content: :normalize,
+              whitespace_sensitive_elements: [:code],
+            },
+          )
+        end
+      end
+
+      context "with whitespace_insensitive_elements option" do
+        let(:html1) do
+          "<root><pre>  indented  </pre><code>  code  </code></root>"
+        end
+        let(:html2) { "<root><pre>  indented  </pre><code>code</code></root>" }
+
+        it "excludes blacklisted elements from default sensitive list for HTML" do
+          # HTML defaults: [:pre, :code, :textarea, :script, :style]
+          # Excluding :code means it's no longer whitespace-sensitive
+          # HTML defaults text_content to :normalize, so non-sensitive elements normalize
+          expect(html1).to be_html_equivalent_to(
+            html2,
+            match: {
+              whitespace_insensitive_elements: [:code],
+            },
+          )
+        end
+      end
+    end
   end
 
   describe "show_diffs filtering" do
