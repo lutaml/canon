@@ -543,6 +543,23 @@ expect(actual).to be_xml_equivalent_to(expected,
     element_position: :ignore,
     element_hierarchy: :ignore
   )
+
+# Element-level whitespace sensitivity
+expect(actual).to be_xml_equivalent_to(expected,
+  match: { structural_whitespace: :strict }
+)
+  .with_options(
+    whitespace_sensitive_elements: [:pre, :code, :sample],
+    respect_xml_space: true
+  )
+
+# Override HTML default whitespace-sensitive elements
+expect(html).to be_html_equivalent_to(expected,
+  match: { structural_whitespace: :strict }
+)
+  .with_options(
+    whitespace_insensitive_elements: [:script, :style]
+  )
 ====
 
 == Comments dimension
