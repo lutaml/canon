@@ -229,6 +229,69 @@ result = Canon::Comparison.equivalent?(
 ----
 ====
 
+==== Text Content
+
+* **`:strict` behavior** → Normative
+  - Text must match exactly, including all whitespace
+  - Any text difference causes non-equivalence
+
+* **`:normalize` behavior** → Normative (after normalization) or Informative (if formatting-only)
+  - Whitespace is normalized (collapsed/trimmed) before comparison
+  - If normalized texts match but originals differ, classified as formatting-only (informative)
+  - This ensures that whitespace-only differences don't affect equivalence
+  - Element-level sensitivity is respected (e.g., `<pre>`, `<code>` preserve whitespace)
+
+* **`:ignore` behavior** → Informative
+  - Text content differences tracked but don't affect equivalence
+
+.Example: Text content with normalize behavior
+====
+[source,ruby]
+----
+# Formatting-only difference - normalized texts match
+xml1 = '<p>Hello  world</p>'
+xml2 = '<p>Hello world</p>'
+
+result = Canon::Comparison.equivalent?(
+  xml1, xml2,
+  match: { text_content: :normalize }
+)
+# => true (extra space is formatting-only, classified as informative)
+
+# Shows as informative in verbose output
+result.differences.first.normative?
+# => false
+result.differences.first.formatting?
+# => true
+----
+
+.Using text_content: :normalize with element-level sensitivity
+====
+[source,ruby]
+----
+# HTML defaults: <code> is whitespace-sensitive
+html1 = '<code>  indented  </code><p>  text  </p>'
+html2 = '<code>indented</code><p>text</p>'
+
+# With <code> blacklisted from sensitive elements
+Canon::Comparison.equivalent?(html1, html2,
+  format: :html,
+  match: {
+    whitespace_insensitive_elements: [:code],
+  }
+)
+# => true
+# - <code> whitespace: formatting-only (informative)
+# - <p> whitespace: formatting-only (informative)
+
+# Without blacklisting (default HTML behavior)
+Canon::Comparison.equivalent?(html1, html2, format: :html)
+# => false
+# - <code> whitespace: normative (sensitive element)
+# - <p> whitespace: formatting-only (informative)
+----
+====
+
 === FormattingDetector Integration
 
 For dimensions that support it (`:text_content`, `:structural_whitespace`),
@@ -262,12 +325,23 @@ The [`CompareProfile`](../../lib/canon/comparison/compare_profile.rb) class prov
 * `affects_equivalence?(dimension)` - Does this dimension affect equivalence?
 * `supports_formatting_detection?(dimension)` - Can this dimension have formatting-only diffs?
 
-The [`DiffClassifier`](../../lib/canon/diff/diff_classifier.rb) uses CompareProfile to classify:
+The [`DiffClassifier`](../../lib/canon/diff/diff_classifier.rb) uses CompareProfile to classify differences, with special handling for `text_content: :normalize`:
 
 [source,ruby]
 ----
 def classify(diff_node)
-  # Check normative status based on policy
+  # SPECIAL CASE: text_content with :normalize behavior
+  # Formatting-only differences (whitespace-only) are marked as non-normative
+  if diff_node.dimension == :text_content &&
+      profile.send(:behavior_for, :text_content) == :normalize &&
+      !inside_whitespace_sensitive_element?(diff_node) &&
+      formatting_only_diff?(diff_node)
+    diff_node.formatting = true
+    diff_node.normative = false
+    return diff_node
+  end
+
+  # Standard classification flow
   is_normative = profile.normative_dimension?(diff_node.dimension)
 
   # Only check formatting for non-normative dimensions
@@ -283,6 +357,12 @@ def classify(diff_node)
   diff_node
 end
 ----
+
+The key distinction for `text_content: :normalize`:
+
+* **Formatting-only detection**: Uses `normalized_equivalent?` method to compare normalized texts
+* **Element sensitivity**: Respects element-level whitespace sensitivity (`<pre>`, `<code>`, etc.)
+* **Result**: Whitespace-only differences are classified as *informative* (non-normative) when using `:normalize`
 
 == Visual Indicators
 

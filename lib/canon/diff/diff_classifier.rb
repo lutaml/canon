@@ -2,6 +2,7 @@
 
 require_relative "formatting_detector"
 require_relative "../comparison/compare_profile"
+require_relative "../comparison/whitespace_sensitivity"
 
 module Canon
   module Diff
@@ -28,6 +29,28 @@ module Canon
       # @param diff_node [DiffNode] The diff node to classify
       # @return [DiffNode] The same diff node with normative/formatting attributes set
       def classify(diff_node)
+        # SPECIAL CASE: text_content with :normalize behavior
+        # When text_content is :normalize and the difference is formatting-only,
+        # it should be marked as non-normative (informative)
+        # This ensures that verbose and non-verbose modes give consistent results
+        #
+        # EXCEPTION: If the text node is inside a whitespace-sensitive element
+        # (like <pre>, <code>, <textarea> in HTML), don't apply formatting detection
+        # because whitespace should be preserved in these elements
+        #
+        # This check must come FIRST, before normative_dimension? is called,
+        # because normative_dimension? returns true for text_content: :normalize
+        # (since the dimension affects equivalence), which would prevent formatting
+        # detection from being applied.
+        if diff_node.dimension == :text_content &&
+            profile.send(:behavior_for, :text_content) == :normalize &&
+            !inside_whitespace_sensitive_element?(diff_node) &&
+            formatting_only_diff?(diff_node)
+          diff_node.formatting = true
+          diff_node.normative = false
+          return diff_node
+        end
+
         # FIRST: Determine if this dimension is normative based on CompareProfile
         # This respects the policy settings (strict/normalize/ignore)
         is_normative = profile.normative_dimension?(diff_node.dimension)
@@ -45,7 +68,7 @@ module Canon
           return diff_node
         end
 
-        # Otherwise, use the normative determination from CompareProfile
+        # THIRD: Apply the normative determination from CompareProfile
         diff_node.formatting = false
         diff_node.normative = is_normative
 
@@ -65,10 +88,86 @@ module Canon
       # @param diff_node [DiffNode] The diff node to check
       # @return [Boolean] true if formatting-only
       def formatting_only_diff?(diff_node)
+        # Only apply formatting detection to actual text content differences
+        # If the nodes are not text nodes (e.g., element nodes), don't apply formatting detection
+        node1 = diff_node.node1
+        node2 = diff_node.node2
+
+        # Check if both nodes are text nodes
+        # If not, this is not a formatting-only difference
+        return false unless text_node?(node1) && text_node?(node2)
+
         text1 = extract_text_content(diff_node.node1)
         text2 = extract_text_content(diff_node.node2)
 
-        FormattingDetector.formatting_only?(text1, text2)
+        # For text_content dimension, use normalized text comparison
+        # This handles cases like "" vs "   " (both normalize to "")
+        if diff_node.dimension == :text_content
+          normalized_equivalent?(text1, text2)
+        else
+          FormattingDetector.formatting_only?(text1, text2)
+        end
+      end
+
+      # Check if two texts are equivalent after normalization
+      # This detects formatting-only differences where normalized texts match
+      # @param text1 [String, nil] First text
+      # @param text2 [String, nil] Second text
+      # @return [Boolean] true if normalized texts are equivalent
+      def normalized_equivalent?(text1, text2)
+        return false if text1.nil? && text2.nil?
+        return false if text1.nil? || text2.nil?
+
+        # Use MatchOptions.normalize_text for consistency
+        normalized1 = Canon::Comparison::MatchOptions.normalize_text(text1)
+        normalized2 = Canon::Comparison::MatchOptions.normalize_text(text2)
+
+        # If normalized texts are equivalent but originals are different,
+        # it's a formatting-only difference
+        normalized1 == normalized2 && text1 != text2
+      end
+
+      # Check if a node is a text node
+      # @param node [Object] The node to check
+      # @return [Boolean] true if the node is a text node
+      def text_node?(node)
+        return false if node.nil?
+
+        # Canon::Xml::Nodes::TextNode
+        return true if node.is_a?(Canon::Xml::Nodes::TextNode)
+
+        # Nokogiri text nodes (node_type returns integer constant like 3)
+        return true if node.respond_to?(:node_type) &&
+                       node.node_type.is_a?(Integer) &&
+                       node.node_type == Nokogiri::XML::Node::TEXT_NODE
+
+        # Moxml text nodes (node_type returns symbol)
+        return true if node.respond_to?(:node_type) && node.node_type == :text
+
+        # String
+        return true if node.is_a?(String)
+
+        # Test doubles or objects with text node-like interface
+        # Check if it has a value method (contains text content)
+        return true if node.respond_to?(:value)
+
+        false
+      end
+
+      # Check if the text node is inside a whitespace-sensitive element
+      # @param diff_node [DiffNode] The diff node to check
+      # @return [Boolean] true if inside a whitespace-sensitive element
+      def inside_whitespace_sensitive_element?(diff_node)
+        # Get the text node (not the parent element)
+        node = diff_node.node1 || diff_node.node2
+        return false unless node
+
+        # WhitespaceSensitivity.element_sensitive? expects a text node
+        # and checks its parent element
+        # We need to pass the full options structure with :match_opts key
+        opts = { match_opts: @match_options.options }
+
+        Canon::Comparison::WhitespaceSensitivity.element_sensitive?(node, opts)
       end
 
       # Extract text content from a node for formatting comparison

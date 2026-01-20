@@ -45,9 +45,36 @@ Match dimensions are orthogonal aspects that can be configured independently.
 
 `:strict`:: Text must match exactly, character-for-character including all whitespace
 
-`:normalize`:: Whitespace is normalized (collapsed/trimmed) before comparison
+`:normalize`:: Whitespace is normalized (collapsed/trimmed) before comparison.
+Formatting-only differences (e.g., extra spaces around text) are classified as
+*informative* rather than normative. This means documents with only whitespace
+differences in text content are considered equivalent.
 
 `:ignore`:: Text content is completely ignored in comparison
+
+.Using text_content: :normalize
+[example]
+====
+[source,ruby]
+----
+# These are equivalent with :normalize
+# Whitespace differences are formatting-only (informative)
+Canon.equivalent?(
+  '<p>  text  </p>',
+  '<p>text</p>',
+  match: { text_content: :normalize }
+)
+# => true
+
+# These differ in :strict mode
+Canon.equivalent?(
+  '<p>  text  </p>',
+  '<p>text</p>',
+  match: { text_content: :strict }
+)
+# => false
+----
+====
 
 === structural_whitespace
 
@@ -63,18 +90,53 @@ Match dimensions are orthogonal aspects that can be configured independently.
 
 `:ignore`:: Structural whitespace is completely ignored
 
-==== Advanced: Element-level whitespace sensitivity
 
-When using `structural_whitespace: :strict`, you can control whitespace sensitivity at the element level using:
+=== Whitespace sensitivity at element level
+
+==== General
+
+In XML, whitespace sensitivity can vary by schema and element:
+
+* Elements that apply `xml:space="preserve"` are whitespace-sensitive.
+
+* Other elements may be defined as sensitive by schema (e.g.
+`xs:space="preserve"` in XML Schema) or unannounced conventions, such as
+for mixed content.
+
+In HTML, elements like `<pre>` and `<code>` preserve whitespace, while others
+like `<div>` and `<p>` do not.
+
+In the unannounced cases, the developer must indicate which elements are
+whitespace-sensitive.
+
+In Canon, you can control whitespace sensitivity at the element level using
+`structural_whitespace: :strict` or `text_content: :normalize`.
+
+Element-level sensitivity controls both:
+
+* `structural_whitespace`: Whether whitespace between elements in the element is
+preserved
+
+* `text_content`: Whether whitespace within text nodes of the element is
+normalized
+
+Options for controlling element-level sensitivity include:
 
 * **xml:space attribute** - XML standard for declaring whitespace sensitivity in documents
 * **whitelist/blacklist options** - User-specified element lists
 * **Format defaults** - HTML has built-in sensitive elements
 * **respect_xml_space option** - Control whether xml:space is honored
 
-===== xml:space attribute support
+For elements marked as sensitive, whitespace differences are always normative.
 
-The `xml:space` attribute is the XML standard way to declare whitespace sensitivity:
+For non-sensitive elements using `text_content: :normalize`, whitespace
+differences are classified as formatting-only (informative).
+
+
+==== xml:space attribute support
+
+The `xml:space` attribute is the XML standard way to declare whitespace
+sensitivity in XML instance documents:
 
 [source,xml]
 ----
@@ -89,7 +151,7 @@ The `xml:space` attribute is the XML standard way to declare whitespace sensitiv
 </text>
 ----
 
-===== Whitelist and blacklist options
+==== Whitelist and blacklist options
 
 You can explicitly specify which elements are whitespace-sensitive:
 
@@ -105,7 +167,7 @@ Canon::Comparison.equivalent?(xml1, xml2,
 )
 ----
 
-===== respect_xml_space option
+==== respect_xml_space option
 
 Control whether xml:space attributes in the document are honored:
 
@@ -128,7 +190,7 @@ Canon::Comparison.equivalent?(xml1, xml2,
 )
 ----
 
-===== Priority order
+==== Priority order
 
 When determining if an element is whitespace-sensitive, Canon uses this priority:
 
@@ -147,12 +209,12 @@ When determining if an element is whitespace-sensitive, Canon uses this priority
 6. xml:space="default" → Use steps 1-4
 ----
 
-===== Format-specific defaults
+==== Format-specific defaults
 
 **HTML**:: `[:pre, :textarea, :script, :style]` - These elements preserve whitespace by HTML specification
 **XML**:: `[]` - No default whitespace-sensitive elements, purely user-controlled
 
-===== Examples
+==== Examples
 
 .Using xml:space attribute
 [source,ruby]
@@ -191,6 +253,36 @@ Canon::Comparison.equivalent?(html1, html2,
   }
 )
 ----
+
+.Using text_content: :normalize with whitespace_insensitive_elements
+[source,ruby]
+----
+# HTML defaults: [:pre, :code, :textarea, :script, :style]
+# Excluding :code means it's no longer whitespace-sensitive
+html1 = '<root><pre>  indented  </pre><code>  code  </code></root>'
+html2 = '<root><pre>  indented  </pre><code>code</code></root>'
+
+# With :code blacklisted, whitespace in <code> is normalized (formatting-only)
+# HTML uses text_content: :normalize by default
+Canon::Comparison.equivalent?(html1, html2,
+  format: :html,
+  match: {
+    whitespace_insensitive_elements: [:code],
+  }
+)
+# => true (whitespace differences in <code> are formatting-only)
+
+# Without blacklisting, <code> is sensitive (whitespace matters)
+Canon::Comparison.equivalent?(html1, html2,
+  format: :html,
+  match: {
+    structural_whitespace: :strict,
+  }
+)
+# => false (whitespace in <code> is normative)
+----
+
+
 
 === attribute_whitespace
 

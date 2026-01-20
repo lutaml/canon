@@ -3,9 +3,13 @@ name: docs
 on:
   push:
     branches: [main]
+    paths:
+    - 'docs/**'
   pull_request:
-    repository_dispatch:
-    workflow_dispatch:
+    paths:
+    - 'docs/**'
+  repository_dispatch:
+  workflow_dispatch:
 
 permissions:
   contents: read

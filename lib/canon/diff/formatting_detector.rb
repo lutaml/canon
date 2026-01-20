@@ -11,7 +11,7 @@ module Canon
       # @param line2 [String, nil] Second line to compare
       # @return [Boolean] true if lines differ only in formatting
       def self.formatting_only?(line1, line2)
-        # If both are nil or empty, not a formatting diff
+        # If both are nil or empty, not a formatting diff (no difference)
         return false if blank?(line1) && blank?(line2)
 
         # If only one is blank, it's not just formatting
