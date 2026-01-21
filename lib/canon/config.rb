@@ -221,6 +221,30 @@ module Canon
         @resolver.set_programmatic(:verbose_diff, value)
       end
 
+      def show_raw_inputs
+        @resolver.resolve(:show_raw_inputs)
+      end
+
+      def show_raw_inputs=(value)
+        @resolver.set_programmatic(:show_raw_inputs, value)
+      end
+
+      def show_preprocessed_inputs
+        @resolver.resolve(:show_preprocessed_inputs)
+      end
+
+      def show_preprocessed_inputs=(value)
+        @resolver.set_programmatic(:show_preprocessed_inputs, value)
+      end
+
+      def show_line_numbered_inputs
+        @resolver.resolve(:show_line_numbered_inputs)
+      end
+
+      def show_line_numbered_inputs=(value)
+        @resolver.set_programmatic(:show_line_numbered_inputs, value)
+      end
+
       def algorithm
         @resolver.resolve(:algorithm)
       end
@@ -266,6 +290,9 @@ module Canon
           show_diffs: show_diffs,
           verbose_diff: verbose_diff,
           diff_algorithm: algorithm,
+          show_raw_inputs: show_raw_inputs,
+          show_preprocessed_inputs: show_preprocessed_inputs,
+          show_line_numbered_inputs: show_line_numbered_inputs,
           max_file_size: max_file_size,
           max_node_count: max_node_count,
           max_diff_lines: max_diff_lines,
@@ -283,6 +310,9 @@ module Canon
           show_diffs: :all,
           verbose_diff: false,
           algorithm: :dom,
+          show_raw_inputs: false,
+          show_preprocessed_inputs: false,
+          show_line_numbered_inputs: false,
           max_file_size: 5_242_880, # 5MB in bytes
           max_node_count: 10_000,   # Maximum nodes in tree
           max_diff_lines: 10_000,   # Maximum diff output lines

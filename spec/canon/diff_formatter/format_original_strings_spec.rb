@@ -40,9 +40,9 @@ RSpec.describe Canon::DiffFormatter, "#format_original_strings" do
         output = formatter.format_comparison_result(comparison_result, original_xml,
                                                     modified_xml)
 
-        expect(output).to include("ORIGINAL INPUT STRINGS")
-        expect(output).to include("Expected (as string):")
-        expect(output).to include("Actual (as string):")
+        expect(output).to include("ORIGINAL INPUTS (with line numbers)")
+        expect(output).to include("Expected:")
+        expect(output).to include("Received:")
         expect(output).to include("<root>")
         expect(output).to include("<element>value1</element>")
         expect(output).to include("<element>value2</element>")
@@ -90,9 +90,9 @@ RSpec.describe Canon::DiffFormatter, "#format_original_strings" do
         output = formatter.format_comparison_result(comparison_result, original_xml,
                                                     modified_xml)
 
-        expect(output).not_to include("ORIGINAL INPUT STRINGS")
-        expect(output).not_to include("Expected (as string):")
-        expect(output).not_to include("Actual (as string):")
+        expect(output).not_to include("ORIGINAL INPUTS")
+        expect(output).not_to include("Expected:")
+        expect(output).not_to include("Received:")
       end
     end
 
@@ -132,7 +132,7 @@ RSpec.describe Canon::DiffFormatter, "#format_original_strings" do
         output = formatter.format_comparison_result(comparison_result, original_json,
                                                     modified_json)
 
-        expect(output).to include("ORIGINAL INPUT STRINGS")
+        expect(output).to include("ORIGINAL INPUTS (with line numbers)")
         expect(output).to include('"key1": "value1"')
         expect(output).to include('"key2": "value2"')
         expect(output).to include('"key2": "different"')

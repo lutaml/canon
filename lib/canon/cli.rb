@@ -126,6 +126,24 @@ module Canon
 
         # Disable color output
         $ canon diff file1.xml file2.xml --no-color
+
+        # Show raw file contents (for copying to specs)
+        $ canon diff file1.xml file2.xml --show-raw-inputs
+
+        # Show preprocessed contents (what was actually compared)
+        $ canon diff file1.xml file2.xml --show-preprocessed-inputs
+
+        # Show both raw and preprocessed (full trace)
+        $ canon diff file1.xml file2.xml --show-raw-inputs --show-preprocessed-inputs
+
+        # Preprocess with normalization and show what was compared
+        $ canon diff file1.xml file2.xml --preprocessing normalize --show-preprocessed-inputs
+
+        # Show raw inputs with line numbers (RSpec-style)
+        $ canon diff file1.xml file2.xml --show-line-numbered-inputs
+
+        # Verbose mode (shows all three input displays)
+        $ canon diff file1.xml file2.xml --verbose
     DESC
     method_option :format,
                   aliases: "-f",
@@ -213,6 +231,18 @@ module Canon
     method_option :diff_grouping_lines,
                   type: :numeric,
                   desc: "Group diffs within N lines into context blocks (default: no grouping)"
+    method_option :show_raw_inputs,
+                  type: :boolean,
+                  default: false,
+                  desc: "Show raw/original file contents before diff"
+    method_option :show_preprocessed_inputs,
+                  type: :boolean,
+                  default: false,
+                  desc: "Show preprocessed contents (what was actually compared)"
+    method_option :show_line_numbered_inputs,
+                  type: :boolean,
+                  default: false,
+                  desc: "Show raw inputs with line numbers (RSpec-style)"
     def diff(file1, file2)
       Commands::DiffCommand.new(options).run(file1, file2)
     end

@@ -29,6 +29,21 @@ RSpec.describe Canon::DiffFormatter do
       formatter = described_class.new(visualization_map: custom_map)
       expect(formatter).to be_a(described_class)
     end
+
+    it "accepts show_raw_inputs option" do
+      formatter = described_class.new(show_raw_inputs: true)
+      expect(formatter).to be_a(described_class)
+    end
+
+    it "accepts show_preprocessed_inputs option" do
+      formatter = described_class.new(show_preprocessed_inputs: true)
+      expect(formatter).to be_a(described_class)
+    end
+
+    it "accepts show_line_numbered_inputs option" do
+      formatter = described_class.new(show_line_numbered_inputs: true)
+      expect(formatter).to be_a(described_class)
+    end
   end
 
   describe "#format" do
@@ -159,6 +174,86 @@ RSpec.describe Canon::DiffFormatter do
 
       result = formatter.format(differences, :json)
       expect(result).not_to match(/\e\[/)
+    end
+  end
+
+  describe "input display methods" do
+    let(:formatter) { described_class.new(use_color: false) }
+
+    describe "#format_raw_inputs" do
+      it "formats raw inputs with EXPECTED and RECEIVED labels" do
+        raw1 = "<root>hello</root>"
+        raw2 = "<root>goodbye</root>"
+
+        result = formatter.send(:format_raw_inputs, raw1, raw2)
+
+        expect(result).to include("=== ORIGINAL INPUTS (Raw) ===")
+        expect(result).to include("EXPECTED:")
+        expect(result).to include("RECEIVED:")
+        expect(result).to include(raw1)
+        expect(result).to include(raw2)
+      end
+
+      it "returns empty string for nil inputs" do
+        result = formatter.send(:format_raw_inputs, nil, nil)
+        expect(result).to eq("")
+      end
+    end
+
+    describe "#format_preprocessed_inputs" do
+      it "formats preprocessed inputs with preprocessing info" do
+        preprocessed1 = "<root> hello </root>"
+        preprocessed2 = "<root>hello</root>"
+
+        result = formatter.send(:format_preprocessed_inputs, preprocessed1,
+                                preprocessed2, :normalize)
+
+        expect(result).to include("=== PREPROCESSED INPUTS (Compared) ===")
+        expect(result).to include("Preprocessing: normalize")
+        expect(result).to include("EXPECTED:")
+        expect(result).to include("RECEIVED:")
+        expect(result).to include(preprocessed1)
+        expect(result).to include(preprocessed2)
+      end
+
+      it "formats preprocessed inputs without preprocessing info" do
+        preprocessed1 = "<root>hello</root>"
+        preprocessed2 = "<root>hello</root>"
+
+        result = formatter.send(:format_preprocessed_inputs, preprocessed1,
+                                preprocessed2, nil)
+
+        expect(result).to include("=== PREPROCESSED INPUTS (Compared) ===")
+        expect(result).not_to include("Preprocessing:")
+        expect(result).to include("EXPECTED:")
+        expect(result).to include("RECEIVED:")
+      end
+
+      it "returns empty string for nil inputs" do
+        result = formatter.send(:format_preprocessed_inputs, nil, nil, nil)
+        expect(result).to eq("")
+      end
+    end
+
+    describe "#format_line_numbered_inputs" do
+      it "formats inputs with line numbers (RSpec-style)" do
+        raw1 = "<root>\n  hello\n</root>"
+        raw2 = "<root>goodbye</root>"
+
+        result = formatter.send(:format_line_numbered_inputs, raw1, raw2)
+
+        # The header uses ==== (equals signs for borders)
+        expect(result).to include("ORIGINAL INPUTS (with line numbers)")
+        expect(result).to include("Expected:")
+        expect(result).to include("Received:")
+        expect(result).to include("    1 | <root>")
+        expect(result).to include("    2 |   hello")
+      end
+
+      it "returns empty string for nil inputs" do
+        result = formatter.send(:format_line_numbered_inputs, nil, nil)
+        expect(result).to eq("")
+      end
     end
   end
 end
