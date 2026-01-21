@@ -568,7 +568,198 @@ differences)
             end
           end
 
+          # For attribute presence differences, show what attributes differ
+          if dimension == :attribute_presence
+            attrs1 = extract_attributes(node1)
+            attrs2 = extract_attributes(node2)
+            return build_attribute_diff_reason(attrs1, attrs2)
+          end
+
+          # For text content differences, show the actual text (truncated if needed)
+          if dimension == :text_content
+            text1 = extract_text_from_node(node1)
+            text2 = extract_text_from_node(node2)
+            return build_text_diff_reason(text1, text2)
+          end
+
           "#{diff1} vs #{diff2}"
+        end
+
+        # Build a clear reason message for attribute presence differences
+        #
+        # @param attrs1 [Hash, nil] First node's attributes
+        # @param attrs2 [Hash, nil] Second node's attributes
+        # @return [String] Clear explanation of the attribute difference
+        def build_attribute_diff_reason(attrs1, attrs2)
+          return "#{attrs1&.keys&.size || 0} vs #{attrs2&.keys&.size || 0} attributes" unless attrs1 && attrs2
+
+          require "set"
+          keys1 = attrs1.keys.to_set
+          keys2 = attrs2.keys.to_set
+
+          only_in_first = keys1 - keys2
+          only_in_second = keys2 - keys1
+          common = keys1 & keys2
+
+          # Check if values differ for common keys
+          different_values = common.reject { |k| attrs1[k] == attrs2[k] }
+
+          parts = []
+          parts << "only in first: #{only_in_first.to_a.sort.join(', ')}" if only_in_first.any?
+          parts << "only in second: #{only_in_second.to_a.sort.join(', ')}" if only_in_second.any?
+          parts << "different values: #{different_values.sort.join(', ')}" if different_values.any?
+
+          if parts.empty?
+            "#{keys1.size} vs #{keys2.size} attributes (same names)"
+          else
+            parts.join("; ")
+          end
+        end
+
+        # Extract text from a node for diff reason
+        #
+        # @param node [Object, nil] Node to extract text from
+        # @return [String, nil] Text content or nil
+        def extract_text_from_node(node)
+          return nil if node.nil?
+
+          # For Canon::Xml::Nodes::TextNode
+          return node.value if node.respond_to?(:value) && node.is_a?(Canon::Xml::Nodes::TextNode)
+
+          # For XML/HTML nodes with text_content method
+          return node.text_content if node.respond_to?(:text_content)
+
+          # For nodes with text method
+          return node.text if node.respond_to?(:text)
+
+          # For nodes with content method (Moxml::Text)
+          return node.content if node.respond_to?(:content)
+
+          # For nodes with value method (other types)
+          return node.value if node.respond_to?(:value)
+
+          # For simple text nodes or strings
+          return node.to_s if node.is_a?(String)
+
+          # For other node types, try to_s
+          node.to_s
+        rescue StandardError
+          nil
+        end
+
+        # Build a clear reason message for text content differences
+        #
+        # @param text1 [String, nil] First text content
+        # @param text2 [String, nil] Second text content
+        # @return [String] Clear explanation of the text difference
+        def build_text_diff_reason(text1, text2)
+          # Handle nil cases
+          return "missing vs '#{truncate_text(text2)}'" if text1.nil? && text2
+          return "'#{truncate_text(text2)}' vs missing" if text1 && text2.nil?
+          return "both missing" if text1.nil? && text2.nil?
+
+          # Check if both are whitespace-only
+          if whitespace_only?(text1) && whitespace_only?(text2)
+            return "whitespace: #{describe_whitespace(text1)} vs #{describe_whitespace(text2)}"
+          end
+
+          # Show text with visible whitespace markers
+          # Use escaped representations for clarity: \n for newline, \t for tab, · for spaces
+          vis1 = visualize_whitespace(text1)
+          vis2 = visualize_whitespace(text2)
+
+          "Text: \"#{vis1}\" vs \"#{vis2}\""
+        end
+
+        # Check if text is only whitespace
+        #
+        # @param text [String] Text to check
+        # @return [Boolean] true if whitespace-only
+        def whitespace_only?(text)
+          return false if text.nil?
+
+          text.to_s.strip.empty?
+        end
+
+        # Make whitespace visible in text content
+        # Uses the existing character visualization map from DiffFormatter (single source of truth)
+        #
+        # @param text [String] Text to visualize
+        # @return [String] Text with visible whitespace markers
+        def visualize_whitespace(text)
+          return "" if text.nil?
+
+          # Use the character map loader as the single source of truth
+          viz_map = character_visualization_map
+
+          # Replace each character with its visualization
+          text.chars.map { |char| viz_map[char] || char }.join
+        end
+
+        # Get the character visualization map (lazy-loaded to avoid circular dependency)
+        #
+        # @return [Hash] Character to visualization symbol mapping
+        def character_visualization_map
+          @character_visualization_map ||= begin
+            # Load the YAML file directly to avoid circular dependency
+            require "yaml"
+            lib_root = File.expand_path("../..", __dir__)
+            yaml_path = File.join(lib_root, "canon/diff_formatter/character_map.yml")
+            data = YAML.load_file(yaml_path)
+
+            # Build visualization map from the YAML data
+            visualization_map = {}
+            data["characters"].each do |char_data|
+              # Get the character from either unicode code point or character field
+              char = if char_data["unicode"]
+                       # Convert hex string to character
+                       [char_data["unicode"].to_i(16)].pack("U")
+                     else
+                       # Use character field directly (handles \n, \t, etc.)
+                       char_data["character"]
+                     end
+
+              vis = char_data["visualization"]
+              visualization_map[char] = vis
+            end
+
+            visualization_map
+          end
+        end
+
+        # Describe whitespace content in a readable way
+        #
+        # @param text [String] Whitespace text
+        # @return [String] Description like "4 chars (2 newlines, 2 spaces)"
+        def describe_whitespace(text)
+          return "0 chars" if text.nil? || text.empty?
+
+          char_count = text.length
+          newline_count = text.count("\n")
+          space_count = text.count(" ")
+          tab_count = text.count("\t")
+
+          parts = []
+          parts << "#{newline_count} newlines" if newline_count.positive?
+          parts << "#{space_count} spaces" if space_count.positive?
+          parts << "#{tab_count} tabs" if tab_count.positive?
+
+          description = parts.join(", ")
+          "#{char_count} chars (#{description})"
+        end
+
+        # Truncate text for display in reason messages
+        #
+        # @param text [String] Text to truncate
+        # @param max_length [Integer] Maximum length
+        # @return [String] Truncated text
+        def truncate_text(text, max_length = 40)
+          return "" if text.nil?
+
+          text = text.to_s
+          return text if text.length <= max_length
+
+          "#{text[0...max_length]}..."
         end
 
         # Compare namespace declarations (xmlns and xmlns:* attributes)
