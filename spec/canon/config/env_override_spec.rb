@@ -8,6 +8,9 @@ RSpec.describe "ENV override system" do
     # Clear any existing ENV variables
     ENV.keys.grep(/^CANON_/).each { |key| ENV.delete(key) }
     Canon::Config.reset!
+
+    # Stub color detection to return true (as if in a TTY)
+    allow(Canon::ColorDetector).to receive(:supports_color?).and_return(true)
   end
 
   after do

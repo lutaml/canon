@@ -160,8 +160,7 @@ module Canon
                   desc: "Format type for second file"
     method_option :color,
                   type: :boolean,
-                  default: true,
-                  desc: "Colorize diff output"
+                  desc: "Colorize diff output (auto-detected by default)"
     method_option :verbose,
                   aliases: "-v",
                   type: :boolean,

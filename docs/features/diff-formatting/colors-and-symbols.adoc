@@ -457,58 +457,109 @@ The whitespace difference is informative because `structural_whitespace: :ignore
 
 == Color Control
 
+=== Automatic Color Detection
+
+Canon automatically detects whether the terminal supports color output:
+
+* **TTY detection**: Colors are only enabled when output is to a terminal (not when piped to a file)
+* **NO_COLOR support**: If the `NO_COLOR` environment variable is set (per https://no-color.org/), colors are disabled
+* **Terminal capability detection**: Checks environment variables like `TERM` and `COLORTERM`
+* **CI environment awareness**: Detects and adapts to CI systems (GitHub Actions, Travis CI, etc.)
+
+This means colors work automatically in most scenarios without manual configuration.
+
 === Enabling/Disabling Colors
 
-Colors are controlled by the `use_color` option:
+Colors can be explicitly controlled using the `use_color` option:
 
-.CLI
+.Using automatic detection (default)
 [example]
 ====
 [source,bash]
 ----
-# Enable colors (default)
+# Auto-detects color support (default)
+canon diff file1.xml file2.xml
+----
+====
+
+.Explicit control
+[example]
+====
+[source,bash]
+----
+# Force enable colors
 canon diff file1.xml file2.xml --color
 
-# Disable colors
+# Force disable colors
 canon diff file1.xml file2.xml --no-color
 ----
 ====
 
 .Ruby API
-[example]
-====
 [source,ruby]
 ----
-# Enable colors
-Canon.compare(file1, file2, format: :xml, color: true)
+# Auto-detect (default)
+Canon.compare(file1, file2, format: :xml)
 
-# Disable colors
-Canon.compare(file1, file2, format: :xml, color: false)
+# Explicit control
+Canon.compare(file1, file2, format: :xml, use_color: false)
 ----
 ====
 
-.RSpec
-[example]
-====
-[source,ruby]
-----
-RSpec.configure do |config|
-  # Enable for local, disable for CI
-  config.canon.xml.diff.use_color = !ENV['CI']
-end
-----
-====
+=== NO_COLOR Environment Variable
 
-=== Environment Variable
+Per the https://no-color.org/[NO_COLOR standard], setting the `NO_COLOR`
+environment variable will disable colors:
 
 [source,bash]
 ----
-# Disable colors globally
+# Disable colors (respected by Canon and other NO_COLOR-aware tools)
+export NO_COLOR=1
+
+# Run canon - colors will be disabled
+canon diff file1.xml file2.xml
+----
+
+The `NO_COLOR` variable always takes precedence over other color settings.
+
+=== Environment Variables
+
+In addition to `NO_COLOR`, Canon supports these environment variables:
+
+[source,bash]
+----
+# Disable colors globally (CANON_USE_COLOR)
 export CANON_USE_COLOR=false
 
-# Enable colors globally
+# Enable colors globally (CANON_USE_COLOR)
 export CANON_USE_COLOR=true
+
+# Format-specific color control
+export CANON_XML_DIFF_USE_COLOR=false
+export CANON_HTML_DIFF_USE_COLOR=false
+export CANON_JSON_DIFF_USE_COLOR=false
+export CANON_YAML_DIFF_USE_COLOR=false
 ----
+
+=== Terminal Detection
+
+Canon detects terminal capabilities through these environment variables:
+
+`COLORTERM`::
+Set to `24bit`, `truecolor`, or `true` indicates True Color support
+
+`TERM`:: Terminal type:
+
+256-color support::: `xterm-256color`, `screen-256color`
+Direct color support::: `xterm-direct`
+No color support::: `dumb`, `emacs`
+Assume basic ANSI color support::: Most other values
+
+`CI`:: CI environment detection
+(plus CI-specific variables)
+
+If no terminal information is available, Canon assumes color support for modern
+terminals.
 
 
 == Diff Type Display Options
