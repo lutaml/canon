@@ -16,7 +16,7 @@ RSpec.describe Canon::Diff::XmlSerializationFormatter do
           node1: node1,
           node2: node2,
           dimension: :text_content,
-          reason: "UNEQUAL_TEXT_CONTENTS"
+          reason: "UNEQUAL_TEXT_CONTENTS",
         )
 
         expect(described_class.serialization_formatting?(diff_node)).to be true
@@ -30,7 +30,7 @@ RSpec.describe Canon::Diff::XmlSerializationFormatter do
           node1: node1,
           node2: node2,
           dimension: :text_content,
-          reason: "UNEQUAL_TEXT_CONTENTS"
+          reason: "UNEQUAL_TEXT_CONTENTS",
         )
 
         expect(described_class.serialization_formatting?(diff_node)).to be true
@@ -44,7 +44,7 @@ RSpec.describe Canon::Diff::XmlSerializationFormatter do
           node1: node1,
           node2: node2,
           dimension: :attribute_order,
-          reason: "UNEQUAL_ATTRIBUTE_ORDER"
+          reason: "UNEQUAL_ATTRIBUTE_ORDER",
         )
 
         expect(described_class.serialization_formatting?(diff_node)).to be false
@@ -60,7 +60,7 @@ RSpec.describe Canon::Diff::XmlSerializationFormatter do
           node1: node1,
           node2: node2,
           dimension: :text_content,
-          reason: "UNEQUAL_TEXT_CONTENTS"
+          reason: "UNEQUAL_TEXT_CONTENTS",
         )
 
         expect(described_class.serialization_formatting?(diff_node)).to be false
@@ -74,7 +74,7 @@ RSpec.describe Canon::Diff::XmlSerializationFormatter do
           node1: node1,
           node2: node2,
           dimension: :text_content,
-          reason: "UNEQUAL_TEXT_CONTENTS"
+          reason: "UNEQUAL_TEXT_CONTENTS",
         )
 
         expect(described_class.serialization_formatting?(diff_node)).to be false
@@ -101,7 +101,7 @@ RSpec.describe Canon::Diff::XmlSerializationFormatter do
           node1: text1,
           node2: text2,
           dimension: :text_content,
-          reason: "UNEQUAL_TEXT_CONTENTS"
+          reason: "UNEQUAL_TEXT_CONTENTS",
         )
 
         result = described_class.serialization_formatting?(diff_node)
@@ -124,7 +124,7 @@ RSpec.describe Canon::Diff::XmlSerializationFormatter do
           node1: text1,
           node2: text2,
           dimension: :text_content,
-          reason: "UNEQUAL_TEXT_CONTENTS"
+          reason: "UNEQUAL_TEXT_CONTENTS",
         )
 
         expect(described_class.serialization_formatting?(diff_node)).to be false
@@ -144,7 +144,7 @@ RSpec.describe Canon::Diff::XmlSerializationFormatter do
           node1: text1,
           node2: text2,
           dimension: :text_content,
-          reason: "UNEQUAL_TEXT_CONTENTS"
+          reason: "UNEQUAL_TEXT_CONTENTS",
         )
 
         # Both are nil - no actual difference
@@ -244,7 +244,8 @@ RSpec.describe Canon::Diff::XmlSerializationFormatter do
     context "with Canon::Xml::Nodes::TextNode" do
       it "extracts value from Canon text nodes" do
         node = Canon::Xml::Nodes::TextNode.new(value: "sample text")
-        expect(described_class.send(:extract_text_content, node)).to eq("sample text")
+        expect(described_class.send(:extract_text_content,
+                                    node)).to eq("sample text")
       end
     end
 
@@ -254,7 +255,8 @@ RSpec.describe Canon::Diff::XmlSerializationFormatter do
         doc = Nokogiri::XML(xml)
         text_node = doc.xpath("//text()").first
 
-        expect(described_class.send(:extract_text_content, text_node)).to eq("sample text")
+        expect(described_class.send(:extract_text_content,
+                                    text_node)).to eq("sample text")
       end
 
       it "extracts content from Nokogiri nodes" do
@@ -262,7 +264,8 @@ RSpec.describe Canon::Diff::XmlSerializationFormatter do
         doc = Nokogiri::XML(xml)
         elem_node = doc.xpath("/root").first
 
-        expect(described_class.send(:extract_text_content, elem_node)).to eq("sample text")
+        expect(described_class.send(:extract_text_content,
+                                    elem_node)).to eq("sample text")
       end
     end
 
@@ -272,13 +275,15 @@ RSpec.describe Canon::Diff::XmlSerializationFormatter do
         doc = Moxml.new.parse(xml)
         text_node = doc.xpath("/root/text()").first
 
-        expect(described_class.send(:extract_text_content, text_node)).to eq("sample text")
+        expect(described_class.send(:extract_text_content,
+                                    text_node)).to eq("sample text")
       end
     end
 
     context "with strings" do
       it "returns the string itself" do
-        expect(described_class.send(:extract_text_content, "text")).to eq("text")
+        expect(described_class.send(:extract_text_content,
+                                    "text")).to eq("text")
       end
     end
 
@@ -291,27 +296,32 @@ RSpec.describe Canon::Diff::XmlSerializationFormatter do
     context "with objects with various content methods" do
       it "tries text_content method first" do
         obj = double("Node", text_content: "via text_content", text: "via text")
-        expect(described_class.send(:extract_text_content, obj)).to eq("via text_content")
+        expect(described_class.send(:extract_text_content,
+                                    obj)).to eq("via text_content")
       end
 
       it "falls back to text method" do
         obj = double("Node", text: "via text")
-        expect(described_class.send(:extract_text_content, obj)).to eq("via text")
+        expect(described_class.send(:extract_text_content,
+                                    obj)).to eq("via text")
       end
 
       it "falls back to content method" do
         obj = double("Node", content: "via content")
-        expect(described_class.send(:extract_text_content, obj)).to eq("via content")
+        expect(described_class.send(:extract_text_content,
+                                    obj)).to eq("via content")
       end
 
       it "falls back to value method" do
         obj = double("Node", value: "via value")
-        expect(described_class.send(:extract_text_content, obj)).to eq("via value")
+        expect(described_class.send(:extract_text_content,
+                                    obj)).to eq("via value")
       end
 
       it "falls back to to_s" do
         obj = double("Node", to_s: "via to_s")
-        expect(described_class.send(:extract_text_content, obj)).to eq("via to_s")
+        expect(described_class.send(:extract_text_content,
+                                    obj)).to eq("via to_s")
       end
     end
 
@@ -333,10 +343,11 @@ RSpec.describe Canon::Diff::XmlSerializationFormatter do
         node1: node1,
         node2: node2,
         dimension: :attribute_order,
-        reason: "UNEQUAL_ATTRIBUTE_ORDER"
+        reason: "UNEQUAL_ATTRIBUTE_ORDER",
       )
 
-      expect(described_class.send(:empty_text_content_serialization_diff?, diff_node)).to be false
+      expect(described_class.send(:empty_text_content_serialization_diff?,
+                                  diff_node)).to be false
     end
 
     it "returns false when nodes are not text nodes" do
@@ -347,10 +358,11 @@ RSpec.describe Canon::Diff::XmlSerializationFormatter do
         node1: node1,
         node2: node2,
         dimension: :text_content,
-        reason: "UNEQUAL_TEXT_CONTENTS"
+        reason: "UNEQUAL_TEXT_CONTENTS",
       )
 
-      expect(described_class.send(:empty_text_content_serialization_diff?, diff_node)).to be false
+      expect(described_class.send(:empty_text_content_serialization_diff?,
+                                  diff_node)).to be false
     end
 
     it "returns true when both texts are blank" do
@@ -361,10 +373,11 @@ RSpec.describe Canon::Diff::XmlSerializationFormatter do
         node1: node1,
         node2: node2,
         dimension: :text_content,
-        reason: "UNEQUAL_TEXT_CONTENTS"
+        reason: "UNEQUAL_TEXT_CONTENTS",
       )
 
-      expect(described_class.send(:empty_text_content_serialization_diff?, diff_node)).to be true
+      expect(described_class.send(:empty_text_content_serialization_diff?,
+                                  diff_node)).to be true
     end
 
     it "returns false when only one text is blank" do
@@ -375,10 +388,11 @@ RSpec.describe Canon::Diff::XmlSerializationFormatter do
         node1: node1,
         node2: node2,
         dimension: :text_content,
-        reason: "UNEQUAL_TEXT_CONTENTS"
+        reason: "UNEQUAL_TEXT_CONTENTS",
       )
 
-      expect(described_class.send(:empty_text_content_serialization_diff?, diff_node)).to be false
+      expect(described_class.send(:empty_text_content_serialization_diff?,
+                                  diff_node)).to be false
     end
   end
 end

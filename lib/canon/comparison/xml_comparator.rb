@@ -704,7 +704,8 @@ differences)
             # Load the YAML file directly to avoid circular dependency
             require "yaml"
             lib_root = File.expand_path("../..", __dir__)
-            yaml_path = File.join(lib_root, "canon/diff_formatter/character_map.yml")
+            yaml_path = File.join(lib_root,
+                                  "canon/diff_formatter/character_map.yml")
             data = YAML.load_file(yaml_path)
 
             # Build visualization map from the YAML data

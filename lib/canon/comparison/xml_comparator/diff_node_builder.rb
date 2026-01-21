@@ -144,7 +144,7 @@ module Canon
         common = keys1 & keys2
 
         # Check if values differ for common keys
-        different_values = common.select { |k| attrs1[k] != attrs2[k] }
+        different_values = common.reject { |k| attrs1[k] == attrs2[k] }
 
         parts = []
         parts << "only in first: #{only_in_1.to_a.sort.join(', ')}" if only_in_1.any?
@@ -154,7 +154,7 @@ module Canon
         if parts.empty?
           "#{keys1.size} vs #{keys2.size} attributes (same names)"
         else
-          parts.join('; ')
+          parts.join("; ")
         end
       end
 

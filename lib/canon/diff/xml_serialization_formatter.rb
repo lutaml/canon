@@ -99,8 +99,8 @@ module Canon
 
         # Nokogiri text nodes (node_type returns integer constant like 3)
         return true if node.respond_to?(:node_type) &&
-                       node.node_type.is_a?(Integer) &&
-                       node.node_type == Nokogiri::XML::Node::TEXT_NODE
+          node.node_type.is_a?(Integer) &&
+          node.node_type == Nokogiri::XML::Node::TEXT_NODE
 
         # Moxml text nodes (node_type returns symbol) - for when using Moxml adapters
         return true if node.respond_to?(:node_type) && node.node_type == :text
@@ -146,7 +146,8 @@ module Canon
         nil
       end
 
-      private_class_method :blank?, :text_node?, :extract_text_content, :empty_text_content_serialization_diff?
+      private_class_method :blank?, :text_node?, :extract_text_content,
+                           :empty_text_content_serialization_diff?
     end
   end
 end
