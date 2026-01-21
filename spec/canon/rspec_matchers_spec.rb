@@ -333,6 +333,9 @@ RSpec.describe Canon::RSpecMatchers do
       # Save original configuration
       @original_xml_mode = Canon::Config.instance.xml.diff.mode
       @original_xml_color = Canon::Config.instance.xml.diff.use_color
+
+      # Stub color detection to return true (as if in a TTY)
+      allow(Canon::ColorDetector).to receive(:supports_color?).and_return(true)
     end
 
     after do

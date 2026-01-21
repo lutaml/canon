@@ -2,6 +2,7 @@
 
 require_relative "../comparison"
 require_relative "../diff_formatter"
+require_relative "../color_detector"
 require "json"
 require "yaml"
 
@@ -48,7 +49,7 @@ module Canon
 
         # Format and output results
         formatter = Canon::DiffFormatter.new(
-          use_color: @options[:color],
+          use_color: resolve_color_option,
           mode: mode,
           context_lines: @options.fetch(:context_lines, 3),
           diff_grouping_lines: @options[:diff_grouping_lines],
@@ -64,7 +65,7 @@ module Canon
           config_output = Canon::DiffFormatter::DebugOutput.verbose_tables_only(
             result,
             {
-              use_color: @options[:color],
+              use_color: resolve_color_option,
               mode: mode,
               context_lines: @options.fetch(:context_lines, 3),
               diff_grouping_lines: @options[:diff_grouping_lines],
@@ -277,6 +278,19 @@ module Canon
         else
           5_242_880 # Default 5MB
         end
+      end
+
+      # Resolve color option with auto-detection
+      #
+      # Returns the user's explicit choice if provided, otherwise
+      # auto-detects terminal color support.
+      #
+      # @return [Boolean] true if colors should be used
+      def resolve_color_option
+        return @options[:color] unless @options[:color].nil?
+
+        # Auto-detect when no explicit choice was made
+        ColorDetector.supports_color?
       end
     end
   end

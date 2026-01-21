@@ -2,6 +2,7 @@
 
 require_relative "config/env_provider"
 require_relative "config/override_resolver"
+require_relative "color_detector"
 
 module Canon
   # Global configuration for Canon
@@ -304,7 +305,7 @@ module Canon
       def build_resolver(format)
         defaults = {
           mode: :by_line,
-          use_color: true,
+          use_color: ColorDetector.supports_color?,
           context_lines: 3,
           grouping_lines: 10,
           show_diffs: :all,
