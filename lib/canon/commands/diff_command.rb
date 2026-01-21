@@ -53,6 +53,9 @@ module Canon
           context_lines: @options.fetch(:context_lines, 3),
           diff_grouping_lines: @options[:diff_grouping_lines],
           show_diffs: @options[:show_diffs]&.to_sym || :all,
+          show_raw_inputs: @options[:show_raw_inputs] || false,
+          show_preprocessed_inputs: @options[:show_preprocessed_inputs] || false,
+          show_line_numbered_inputs: @options[:show_line_numbered_inputs] || false,
         )
 
         # Show configuration in verbose mode using shared DebugOutput

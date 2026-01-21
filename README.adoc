@@ -224,16 +224,204 @@ expect(actual).to be_xml_equivalent_to(expected)
   .show_diffs(:normative)
 ----
 
-=== Original input string display
+=== Input display options
 
-When debugging test failures, it's often helpful to see the exact strings that
-were passed to the comparison before any preprocessing or normalization. The
-`verbose_diff` option displays the original input strings in an RSpec-style
-format with line numbers.
+When debugging test failures, it's often helpful to see the exact inputs that were
+passed to the comparison. Canon provides four input display options:
 
+`show_raw_inputs`:: Show raw/original file contents (before preprocessing)
+
+`show_preprocessed_inputs`:: Show what was actually compared (after preprocessing)
+
+`show_line_numbered_inputs`:: Show raw inputs with line numbers (for reference)
+
+`verbose_diff`:: Convenience flag that enables all three options above
+
+You can enable any combination of them independently.
+
+==== Show raw inputs
+
+Display the raw file contents before any preprocessing. This shows exactly what's
+in your files, useful for copying to specs.
+
+**Ruby API:**
 [source,ruby]
 ----
-# Enable original string display in configuration
+# Enable raw input display in configuration
+Canon::Config.configure do |config|
+  config.xml.diff.show_raw_inputs = true
+end
+
+# Or programmatically for a specific comparison
+result = Canon::Comparison.equivalent?(xml1, xml2,
+  verbose: true,
+  show_raw_inputs: true
+)
+----
+
+**CLI usage:**
+[source,bash]
+----
+# Show raw file contents (for copying to specs)
+$ canon diff file1.xml file2.xml --show-raw-inputs
+
+# Show both raw and preprocessed (full trace)
+$ canon diff file1.xml file2.xml --show-raw-inputs --show-preprocessed-inputs
+----
+
+**Environment variables:**
+[source,bash]
+----
+# Global (all formats)
+export CANON_SHOW_RAW_INPUTS=true
+
+# Format-specific
+export CANON_XML_SHOW_RAW_INPUTS=true
+export CANON_HTML_SHOW_RAW_INPUTS=true
+export CANON_JSON_SHOW_RAW_INPUTS=true
+export CANON_YAML_SHOW_RAW_INPUTS=true
+----
+
+**Output format:**
+----
+=== ORIGINAL INPUTS (Raw) ===
+
+EXPECTED:
+----------------------------------------------------------------------
+<root>  hello
+  world</root>
+
+RECEIVED:
+----------------------------------------------------------------------
+<root>hello world</root>
+
+----
+
+==== Show preprocessed inputs
+
+Display the content after preprocessing (c14n, normalize, format, etc.).
+This shows what the comparison actually compared, useful for understanding
+how preprocessing affects your content.
+
+**Ruby API:**
+[source,ruby]
+----
+# Enable preprocessed input display in configuration
+Canon::Config.configure do |config|
+  config.xml.diff.show_preprocessed_inputs = true
+end
+
+# Or programmatically for a specific comparison
+result = Canon::Comparison.equivalent?(xml1, xml2,
+  verbose: true,
+  show_preprocessed_inputs: true
+)
+----
+
+**CLI usage:**
+[source,bash]
+----
+# Show what was actually compared
+$ canon diff file1.xml file2.xml --show-preprocessed-inputs
+
+# Preprocess with normalization and show what was compared
+$ canon diff file1.xml file2.xml --preprocessing normalize --show-preprocessed-inputs
+----
+
+**Environment variables:**
+[source,bash]
+----
+# Global (all formats)
+export CANON_SHOW_PROCESSED_INPUTS=true
+
+# Format-specific
+export CANON_XML_SHOW_PROCESSED_INPUTS=true
+export CANON_HTML_SHOW_PROCESSED_INPUTS=true
+export CANON_JSON_SHOW_PROCESSED_INPUTS=true
+export CANON_YAML_SHOW_PROCESSED_INPUTS=true
+----
+
+**Output format:**
+----
+=== PREPROCESSED INPUTS (Compared) ===
+Preprocessing: normalize
+
+EXPECTED:
+----------------------------------------------------------------------
+<root> hello world </root>
+
+RECEIVED:
+----------------------------------------------------------------------
+<root>hello world</root>
+
+----
+
+==== Show line-numbered inputs
+
+Display raw inputs with line numbers (RSpec-style format). Useful for
+pinpointing specific lines when debugging.
+
+**Ruby API:**
+[source,ruby]
+----
+# Enable line-numbered input display in configuration
+Canon::Config.configure do |config|
+  config.xml.diff.show_line_numbered_inputs = true
+end
+
+# Or programmatically for a specific comparison
+result = Canon::Comparison.equivalent?(xml1, xml2,
+  verbose: true,
+  show_line_numbered_inputs: true
+)
+----
+
+**CLI usage:**
+[source,bash]
+----
+# Show raw inputs with line numbers (RSpec-style)
+$ canon diff file1.xml file2.xml --show-line-numbered-inputs
+----
+
+**Environment variables:**
+[source,bash]
+----
+# Global (all formats)
+export CANON_SHOW_LINE_NUMBERED_INPUTS=true
+
+# Format-specific
+export CANON_XML_SHOW_LINE_NUMBERED_INPUTS=true
+export CANON_HTML_SHOW_LINE_NUMBERED_INPUTS=true
+export CANON_JSON_SHOW_LINE_NUMBERED_INPUTS=true
+export CANON_YAML_SHOW_LINE_NUMBERED_INPUTS=true
+----
+
+**Output format:**
+----
+======================================================================
+  ORIGINAL INPUTS (with line numbers)
+======================================================================
+
+Expected:
+     1 | <root>
+     2 |   hello
+     3 | </root>
+
+Received:
+     1 | <root>hello world</root>
+
+======================================================================
+----
+
+==== Verbose diff (all input displays)
+
+The `verbose_diff` option is a convenience flag that enables all three input
+display options at once. This is useful for maximum debugging output.
+
+**Ruby API:**
+[source,ruby]
+----
+# Enable all input displays in configuration
 Canon::Config.configure do |config|
   config.xml.diff.verbose_diff = true
 end
@@ -245,47 +433,53 @@ result = Canon::Comparison.equivalent?(xml1, xml2,
 )
 ----
 
-**Output format:**
-----
-==================================================================
-  ORIGINAL INPUT STRINGS
-==================================================================
-
-Expected (as string):
-     1 | <root>
-     2 |   <element>value1</element>
-     3 | </root>
-
-Actual (as string):
-     1 | <root>
-     2 |   <element>value2</element>
-     3 | </root>
-
-==================================================================
-----
-
-**When to use this feature:**
-
-* Debugging why two documents are considered different
-* Understanding preprocessing effects (c14n, normalization, etc.)
-* Verifying the exact input received by the comparison
-* Comparing raw vs processed content
-
-**Environment variable:**
+**CLI usage:**
 [source,bash]
 ----
+# Show all three input displays
+$ canon diff file1.xml file2.xml --verbose
+----
+
+**Environment variables:**
+[source,bash]
+----
+# Format-specific
 export CANON_XML_DIFF_VERBOSE_DIFF=true
 export CANON_HTML_DIFF_VERBOSE_DIFF=true
 export CANON_JSON_DIFF_VERBOSE_DIFF=true
 export CANON_YAML_DIFF_VERBOSE_DIFF=true
 ----
 
+==== When to use each option
+
+`show_raw_inputs`::
+** You want to copy the expected output to paste into your test specs
+** You need to see the exact formatting/structure of your input files
+** You're debugging file reading/parsing issues
+
+`show_preprocessed_inputs`::
+** You want to understand what the comparison actually compared
+** You're debugging why two documents are considered equivalent (or not)
+** You need to trace the effect of preprocessing (c14n, normalize, format)
+
+`show_line_numbered_inputs`::
+** You need line numbers for pinpointing specific lines
+** You prefer the RSpec-style format
+** You're collaborating on debugging with others
+
+`verbose_diff`::
+** You want maximum debugging output (all three displays at once)
+** You're doing initial investigation of a complex comparison issue
+
 === Algorithm choice
 
 Canon provides two diff algorithms:
 
-* **DOM diff** (default): Stable, position-based comparison for traditional line-by-line output
-* **Semantic tree diff** (experimental): Advanced operation detection (INSERT, DELETE, UPDATE, MOVE, MERGE, SPLIT, UPGRADE, DOWNGRADE)
+DOM diff (default):: Stable, position-based comparison for traditional
+line-by-line output
+
+Semantic tree diff (experimental):: Advanced operation detection (INSERT,
+DELETE, UPDATE, MOVE, MERGE, SPLIT, UPGRADE, DOWNGRADE)
 
 [source,ruby]
 ----

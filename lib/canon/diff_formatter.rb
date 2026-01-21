@@ -162,16 +162,23 @@ module Canon
       Comparison::UNEQUAL_PRIMITIVES => "Unequal primitive values",
     }.freeze
 
+    # rubocop:disable Metrics/ParameterLists
     def initialize(use_color: true, mode: :by_object, context_lines: 3,
                    diff_grouping_lines: nil, visualization_map: nil,
                    character_map_file: nil, character_definitions: nil,
-                   show_diffs: :all, verbose_diff: false)
+                   show_diffs: :all, verbose_diff: false,
+                   show_raw_inputs: false, show_preprocessed_inputs: false,
+                   show_line_numbered_inputs: false)
+      # rubocop:enable Metrics/ParameterLists
       @use_color = use_color
       @mode = mode
       @context_lines = context_lines
       @diff_grouping_lines = diff_grouping_lines
       @show_diffs = show_diffs
       @verbose_diff = verbose_diff
+      @show_raw_inputs = show_raw_inputs
+      @show_preprocessed_inputs = show_preprocessed_inputs
+      @show_line_numbered_inputs = show_line_numbered_inputs
       @visualization_map = build_visualization_map(
         visualization_map: visualization_map,
         character_map_file: character_map_file,
@@ -329,15 +336,39 @@ module Canon
         )
       end
 
-      # 2.5. Original Input Strings (ONLY if verbose_diff is enabled)
-      if @verbose_diff && comparison_result.is_a?(Canon::Comparison::ComparisonResult)
+      # verbose_diff enables all three input displays as a convenience
+      verbose = @verbose_diff || @show_raw_inputs
+      show_prep = @verbose_diff || @show_preprocessed_inputs
+      show_line = @verbose_diff || @show_line_numbered_inputs
+
+      # 3. Raw/Original Input Display (when show_raw_inputs is enabled)
+      if verbose && comparison_result.is_a?(Canon::Comparison::ComparisonResult)
         original1, original2 = comparison_result.original_strings
         if original1 && original2
-          output << format_original_strings(original1, original2)
+          output << format_raw_inputs(original1, original2)
         end
       end
 
-      # 3. Main diff output (by-line or by-object) - ALWAYS
+      # 4. Preprocessed Input Display (when show_preprocessed_inputs is enabled)
+      if show_prep && comparison_result.is_a?(Canon::Comparison::ComparisonResult)
+        preprocessed1, preprocessed2 = comparison_result.preprocessed_strings
+        if preprocessed1 && preprocessed2
+          preprocessing_info = comparison_result.match_options&.dig(:match,
+                                                                    :preprocessing)
+          output << format_preprocessed_inputs(preprocessed1, preprocessed2,
+                                               preprocessing_info)
+        end
+      end
+
+      # 5. Line-Numbered Input Display (when show_line_numbered_inputs is enabled)
+      if show_line && comparison_result.is_a?(Canon::Comparison::ComparisonResult)
+        original1, original2 = comparison_result.original_strings
+        if original1 && original2
+          output << format_line_numbered_inputs(original1, original2)
+        end
+      end
+
+      # 6. Main diff output (by-line or by-object) - ALWAYS
 
       # Check if comparison result is a ComparisonResult object
       if comparison_result.is_a?(Canon::Comparison::ComparisonResult)
@@ -428,24 +459,24 @@ module Canon
       html.to_s
     end
 
-    # Format original input strings for display (RSpec-style)
-    # Shows the actual strings that were passed in before any preprocessing
+    # Format original input strings with line numbers (RSpec-style)
+    # Shows the actual strings that were passed in with line numbers for reference
     #
     # @param original1 [String] First original input string
     # @param original2 [String] Second original input string
-    # @return [String] Formatted display of original strings
-    def format_original_strings(original1, original2)
+    # @return [String] Formatted display with line numbers
+    def format_line_numbered_inputs(original1, original2)
       return "" if original1.nil? || original2.nil?
 
       output = []
       output << ""
       output << colorize("=" * 70, :cyan, :bold)
-      output << colorize("  ORIGINAL INPUT STRINGS", :cyan, :bold)
+      output << colorize("  ORIGINAL INPUTS (with line numbers)", :cyan, :bold)
       output << colorize("=" * 70, :cyan, :bold)
       output << ""
 
       # Format expected
-      output << colorize("Expected (as string):", :yellow, :bold)
+      output << colorize("Expected:", :yellow, :bold)
       original1.each_line.with_index do |line, idx|
         output << "  #{colorize(sprintf('%4d', idx + 1),
                                 :blue)} | #{line.chomp}"
@@ -453,13 +484,72 @@ module Canon
       output << ""
 
       # Format actual
-      output << colorize("Actual (as string):", :yellow, :bold)
+      output << colorize("Received:", :yellow, :bold)
       original2.each_line.with_index do |line, idx|
         output << "  #{colorize(sprintf('%4d', idx + 1),
                                 :blue)} | #{line.chomp}"
       end
       output << ""
       output << colorize("=" * 70, :cyan, :bold)
+      output << ""
+
+      output.join("\n")
+    end
+
+    # Format raw/original inputs for display (user-friendly copyable format)
+    # Shows the raw file contents before any preprocessing
+    #
+    # @param raw1 [String] First raw input string
+    # @param raw2 [String] Second raw input string
+    # @return [String] Formatted display of raw inputs
+    def format_raw_inputs(raw1, raw2)
+      return "" if raw1.nil? || raw2.nil?
+
+      output = []
+      output << ""
+      output << colorize("=== ORIGINAL INPUTS (Raw) ===", :cyan, :bold)
+      output << ""
+      output << colorize("EXPECTED:", :yellow, :bold)
+      output << "-" * 70
+      output << raw1
+      output << ""
+      output << colorize("RECEIVED:", :yellow, :bold)
+      output << "-" * 70
+      output << raw2
+      output << ""
+      output << ""
+
+      output.join("\n")
+    end
+
+    # Format preprocessed inputs for display (what was actually compared)
+    # Shows the content after preprocessing (c14n, normalize, format, etc.)
+    #
+    # @param preprocessed1 [String] First preprocessed string
+    # @param preprocessed2 [String] Second preprocessed string
+    # @param preprocessing_info [Symbol, nil] Preprocessing mode (:c14n, :normalize, :format, etc.)
+    # @return [String] Formatted display of preprocessed inputs
+    def format_preprocessed_inputs(preprocessed1, preprocessed2,
+preprocessing_info = nil)
+      return "" if preprocessed1.nil? || preprocessed2.nil?
+
+      output = []
+      output << ""
+      output << colorize("=== PREPROCESSED INPUTS (Compared) ===", :cyan, :bold)
+
+      # Show preprocessing mode if available
+      if preprocessing_info
+        output << "Preprocessing: #{preprocessing_info}"
+      end
+      output << ""
+      output << colorize("EXPECTED:", :yellow, :bold)
+      output << "-" * 70
+      output << preprocessed1
+      output << ""
+      output << colorize("RECEIVED:", :yellow, :bold)
+      output << "-" * 70
+      output << preprocessed2
+      output << ""
       output << ""
 
       output.join("\n")
