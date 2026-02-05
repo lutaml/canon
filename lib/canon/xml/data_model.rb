@@ -23,8 +23,8 @@ module Canon
       def self.from_xml(xml_string, preserve_whitespace: false)
         # Parse with Nokogiri
         doc = Nokogiri::XML(xml_string) do |config|
-          config.nonet     # Disable network access
-          config.strict    # Strict parsing
+          config.nonet # Disable network access
+          # config.strict # Strict parsing
         end
 
         # Check for relative namespace URIs (prohibited by C14N 1.1)
