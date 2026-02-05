@@ -83,7 +83,11 @@ module Canon
         def parse_json(obj)
           return obj unless obj.is_a?(String)
 
-          JSON.parse(obj)
+          begin
+            JSON.parse(obj)
+          rescue JSON::ParserError
+            obj # Return original string if parsing fails
+          end
         end
 
         # Compare Ruby objects (Hash, Array, primitives) for JSON/YAML
