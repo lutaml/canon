@@ -22,10 +22,7 @@ module Canon
       # @return [Nodes::RootNode] Root of the data model tree
       def self.from_xml(xml_string, preserve_whitespace: false)
         # Parse with Nokogiri
-        doc = Nokogiri::XML(xml_string) do |config|
-          config.nonet # Disable network access
-          # config.strict # Strict parsing
-        end
+        doc = Nokogiri::XML(xml_string, &:nonet)
 
         # Check for relative namespace URIs (prohibited by C14N 1.1)
         check_for_relative_namespace_uris(doc)
