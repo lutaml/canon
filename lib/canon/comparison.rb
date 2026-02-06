@@ -558,6 +558,16 @@ module Canon
                               format1
                             end
 
+        # get match_profile if it is not defined in options
+        # but defined in config
+        if opts[:match_profile].nil? &&
+            Canon::Config.instance.respond_to?(comparison_format)
+          format_config = Canon::Config.instance.public_send(comparison_format)
+          if format_config.match.profile
+            opts[:match_profile] = format_config.match.profile
+          end
+        end
+
         case comparison_format
         when :xml
           XmlComparator.equivalent?(obj1, obj2, opts)
