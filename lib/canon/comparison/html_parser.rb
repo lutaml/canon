@@ -25,6 +25,11 @@ module Canon
           return content unless content.is_a?(String)
           return content if already_parsed?(content)
 
+          # Normalize HTML to ensure consistent parsing by HTML4.fragment
+          # The key issue is that HTML4.fragment treats newlines after </head>
+          # differently than no newlines, causing inconsistent parsing
+          content = normalize_html_for_parsing(content)
+
           begin
             case format
             when :html5
@@ -73,6 +78,23 @@ module Canon
         def detect_version(content)
           # Check for HTML5 DOCTYPE (case-insensitive)
           content.include?("<!DOCTYPE html>") ? :html5 : :html4
+        end
+
+        # Normalize HTML to ensure consistent parsing by HTML4.fragment
+        #
+        # The key issue is that HTML4.fragment treats whitespace after </head>
+        # differently than no whitespace, causing inconsistent parsing:
+        # - "</head>\n<body>" parses to [body, ...] (body is treated as content)
+        # - "</head><body>" parses to [meta, div, ...] (wrapper tags stripped)
+        #
+        # This method normalizes the HTML to ensure consistent parsing.
+        #
+        # @param content [String] HTML content
+        # @return [String] Normalized HTML content
+        def normalize_html_for_parsing(content)
+          # Remove whitespace between </head> and <body> to ensure consistent parsing
+          # This makes formatted and minified HTML parse the same way
+          content.gsub(%r{</head>\s*<body>}i, "</head><body>")
         end
       end
     end

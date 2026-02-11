@@ -60,6 +60,11 @@ module Canon
         def equivalent?(html1, html2, opts = {}, child_opts = {})
           opts = DEFAULT_OPTS.merge(opts)
 
+          # Capture original HTML strings BEFORE any parsing/transformation
+          # These are used for display to preserve original formatting
+          original_str1 = extract_original_string(html1)
+          original_str2 = extract_original_string(html2)
+
           # Resolve match options with format-specific defaults
           match_opts_hash = MatchOptions::Xml.resolve(
             format: :html,
@@ -165,6 +170,7 @@ module Canon
             ComparisonResult.new(
               differences: differences,
               preprocessed_strings: [preprocessed_str1, preprocessed_str2],
+              original_strings: [original_str1, original_str2],
               format: :html,
               html_version: detect_html_version_from_node(node1),
               match_options: match_opts_hash,
@@ -195,6 +201,11 @@ module Canon
         # @param match_opts_hash [Hash] Resolved match options
         # @return [Boolean, ComparisonResult] Result of tree diff comparison
         def perform_semantic_tree_diff(html1, html2, opts, match_opts_hash)
+          # Capture original HTML strings BEFORE any parsing/transformation
+          # These are used for display to preserve original formatting
+          original_str1 = extract_original_string(html1)
+          original_str2 = extract_original_string(html2)
+
           # Parse to Canon::Xml::Node (preserves preprocessing)
           # For HTML, we parse as XML to get Canon::Xml::Node structure
           node1 = parse_node_for_semantic(html1,
@@ -223,6 +234,7 @@ module Canon
             ComparisonResult.new(
               differences: differences,
               preprocessed_strings: preprocessed,
+              original_strings: [original_str1, original_str2],
               format: :html,
               html_version: html_version,
               match_options: match_opts_hash.merge(strategy.metadata),
@@ -505,6 +517,28 @@ module Canon
             node.to_xml
           else
             node.to_s
+          end
+        end
+
+        # Extract original HTML string from various input types
+        # This preserves the original formatting without minification
+        #
+        # @param html [String, Nokogiri::Node, Canon::Xml::Node] Input HTML
+        # @return [String] Original HTML string
+        def extract_original_string(html)
+          if html.is_a?(String)
+            html
+          elsif html.is_a?(Canon::Xml::Node)
+            # Serialize Canon nodes to string
+            Canon::Xml::DataModel.serialize(html)
+          elsif html.respond_to?(:to_html)
+            # Nokogiri nodes - use to_html to preserve formatting
+            html.to_html
+          elsif html.respond_to?(:to_s)
+            html.to_s
+          else
+            raise Canon::Error,
+                  "Unable to extract original string from: #{html.class}"
           end
         end
 

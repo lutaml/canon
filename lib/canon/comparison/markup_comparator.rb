@@ -150,13 +150,31 @@ module Canon
         # @return [Boolean] true if node should be excluded
         def node_excluded?(node, opts)
           return false if node.nil?
+
           return true if opts[:ignore_nodes]&.include?(node)
           return true if opts[:ignore_comments] && comment_node?(node)
           return true if opts[:ignore_text_nodes] && text_node?(node)
 
-          # Check structural_whitespace match option
+          # Check match options
           match_opts = opts[:match_opts]
-          # Filter out whitespace-only text nodes
+          return false unless match_opts
+
+          # Filter comments based on match options and format
+          # HTML: Filter comments to avoid spurious differences from zip pairing
+          #       BUT only when not in verbose mode (verbose needs differences recorded)
+          # XML: Don't filter comments (allow informative differences to be recorded)
+          if match_opts[:comments] == :ignore && comment_node?(node)
+            # In verbose mode, don't filter comments - we want to record the differences
+            return false if opts[:verbose]
+
+            # Only filter comments for HTML, not XML (when not verbose)
+            format = opts[:format] || match_opts[:format]
+            if %i[html html4 html5].include?(format)
+              return true
+            end
+          end
+
+          # Filter out whitespace-only text nodes based on structural_whitespace setting
           if match_opts && %i[ignore
                               normalize].include?(match_opts[:structural_whitespace]) && text_node?(node)
             text = node_text(node)
@@ -184,11 +202,28 @@ module Canon
 
         # Check if a node is a comment node
         #
+        # For XML/XHTML, this checks the node's comment? method or node_type.
+        # For HTML, this also checks TEXT nodes that contain HTML-style comments
+        # (Nokogiri parses HTML comments as TEXT nodes with content like "<!-- comment -->"
+        # or escaped like "<\\!-- comment -->" in full HTML documents).
+        #
         # @param node [Object] Node to check
         # @return [Boolean] true if node is a comment
         def comment_node?(node)
-          node.respond_to?(:comment?) && node.comment? ||
-            node.respond_to?(:node_type) && node.node_type == :comment
+          return true if node.respond_to?(:comment?) && node.comment?
+          return true if node.respond_to?(:node_type) && node.node_type == :comment
+
+          # HTML comments are parsed as TEXT nodes by Nokogiri
+          # Check if this is a text node with HTML comment content
+          if text_node?(node)
+            text = node_text(node)
+            # Strip whitespace and backslashes for comparison
+            # Nokogiri escapes HTML comments as "<\\!-- comment -->" in full documents
+            text_stripped = text.to_s.strip.gsub("\\", "")
+            return true if text_stripped.start_with?("<!--") && text_stripped.end_with?("-->")
+          end
+
+          false
         end
 
         # Check if a node is a text node

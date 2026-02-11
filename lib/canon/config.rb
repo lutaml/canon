@@ -246,6 +246,14 @@ module Canon
         @resolver.set_programmatic(:show_line_numbered_inputs, value)
       end
 
+      def display_format
+        @resolver.resolve(:display_format)
+      end
+
+      def display_format=(value)
+        @resolver.set_programmatic(:display_format, value)
+      end
+
       def algorithm
         @resolver.resolve(:algorithm)
       end
@@ -294,6 +302,7 @@ module Canon
           show_raw_inputs: show_raw_inputs,
           show_preprocessed_inputs: show_preprocessed_inputs,
           show_line_numbered_inputs: show_line_numbered_inputs,
+          display_format: display_format,
           max_file_size: max_file_size,
           max_node_count: max_node_count,
           max_diff_lines: max_diff_lines,
@@ -314,6 +323,7 @@ module Canon
           show_raw_inputs: false,
           show_preprocessed_inputs: false,
           show_line_numbered_inputs: false,
+          display_format: :raw,     # :raw = no formatting, :canonical = HTML-aware formatting
           max_file_size: 5_242_880, # 5MB in bytes
           max_node_count: 10_000,   # Maximum nodes in tree
           max_diff_lines: 10_000,   # Maximum diff output lines

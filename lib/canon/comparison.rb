@@ -7,6 +7,7 @@ require_relative "comparison/xml_comparator"
 require_relative "comparison/html_comparator"
 require_relative "comparison/json_comparator"
 require_relative "comparison/yaml_comparator"
+require_relative "errors"
 require_relative "comparison/profile_definition"
 require_relative "comparison/format_detector"
 require_relative "comparison/html_parser"
@@ -187,6 +188,12 @@ module Canon
       def semantic_diff(obj1, obj2, opts = {})
         require_relative "tree_diff"
 
+        # Capture original strings BEFORE any parsing/transformation
+        # These are used for display to preserve original formatting
+        format_hint = opts[:format]
+        original_str1 = extract_original_string(obj1, format_hint)
+        original_str2 = extract_original_string(obj2, format_hint)
+
         # Detect format for both objects
         format1 = opts[:format] || FormatDetector.detect(obj1)
         format2 = opts[:format] || FormatDetector.detect(obj2)
@@ -251,6 +258,7 @@ module Canon
         result = Canon::Comparison::ComparisonResult.new(
           differences: diff_nodes,
           preprocessed_strings: [str1, str2],
+          original_strings: [original_str1, original_str2],
           format: format1,
           html_version: %i[html4 html5].include?(format1) ? format1 : nil,
           match_options: enhanced_match_options,
@@ -490,6 +498,30 @@ module Canon
           :html
         else
           format
+        end
+      end
+
+      # Extract original string from various input types
+      # This preserves the original formatting without minification
+      #
+      # @param obj [String, Nokogiri::Node, Canon::Xml::Node, Object] Input object
+      # @param format [Symbol] Format type for context
+      # @return [String] Original string representation
+      def extract_original_string(obj, format = nil)
+        case obj
+        when String
+          obj
+        when Nokogiri::XML::Document, Nokogiri::HTML::Document,
+             Nokogiri::XML::DocumentFragment, Nokogiri::HTML::DocumentFragment
+          obj.respond_to?(:to_html) ? obj.to_html : obj.to_xml
+        else
+          if obj.respond_to?(:to_html)
+            obj.to_html
+          elsif obj.respond_to?(:to_xml)
+            obj.to_xml
+          else
+            obj.to_s
+          end
         end
       end
 

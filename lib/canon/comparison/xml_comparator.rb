@@ -259,18 +259,51 @@ module Canon
             return Comparison::MISSING_NODE
           end
 
-          # Check node types match
-          unless same_node_type?(n1, n2)
+          # Handle comment vs non-comment comparisons specially
+          # Create :comments dimension differences instead of UNEQUAL_NODES_TYPES
+          if comment_vs_non_comment_comparison?(n1, n2)
+            match_opts = opts[:match_opts]
+            comment_behavior = match_opts ? match_opts[:comments] : nil
+
+            # Create a :comments dimension difference
+            # The difference will be marked as normative or not based on the profile
+            add_difference(n1, n2, Comparison::MISSING_NODE,
+                           Comparison::MISSING_NODE, :comments, opts,
+                           differences)
+
+            # Return EQUIVALENT if comments are ignored, otherwise return UNEQUAL
+            if comment_behavior == :ignore
+              Comparison::EQUIVALENT
+            else
+              Comparison::UNEQUAL_COMMENTS
+            end
+          elsif !same_node_type?(n1, n2)
+            # Check node types match for non-comment comparisons
             add_difference(n1, n2, Comparison::UNEQUAL_NODES_TYPES,
                            Comparison::UNEQUAL_NODES_TYPES, :text_content, opts,
                            differences)
-            return Comparison::UNEQUAL_NODES_TYPES
+            Comparison::UNEQUAL_NODES_TYPES
+          else
+            # Dispatch based on node type using NodeTypeComparator strategy
+            XmlComparatorHelpers::NodeTypeComparator.compare(
+              n1, n2, self, opts, child_opts, diff_children, differences
+            )
           end
+        end
 
-          # Dispatch based on node type using NodeTypeComparator strategy
-          XmlComparatorHelpers::NodeTypeComparator.compare(
-            n1, n2, self, opts, child_opts, diff_children, differences
-          )
+        # Check if this is a comment vs non-comment comparison
+        #
+        # @param node1 [Object] First node
+        # @param node2 [Object] Second node
+        # @return [Boolean] true if exactly one node is a comment
+        def comment_vs_non_comment_comparison?(node1, node2)
+          require_relative "xml_node_comparison"
+
+          node1_comment = XmlNodeComparison.comment_node?(node1)
+          node2_comment = XmlNodeComparison.comment_node?(node2)
+
+          # XOR: exactly one is a comment
+          node1_comment ^ node2_comment
         end
 
         # Public comparison methods - exposed for XmlNodeComparison module

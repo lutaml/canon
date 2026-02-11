@@ -145,15 +145,26 @@ diff_children, differences)
             unless children1.length == children2.length
               dimension = determine_dimension_for_mismatch(children1,
                                                            children2, comparator)
-              comparator.send(:add_difference, parent_node, parent_node,
-                              Comparison::MISSING_NODE, Comparison::MISSING_NODE,
-                              dimension, opts, differences)
-              return Comparison::MISSING_NODE
+
+              # Skip creating parent-level difference for comments when comments: :ignore
+              # The child comparison will handle the comment vs element comparison
+              # This avoids creating duplicate differences
+              match_opts = opts[:match_opts]
+              unless dimension == :comments && match_opts && match_opts[:comments] == :ignore
+                comparator.send(:add_difference, parent_node, parent_node,
+                                Comparison::MISSING_NODE, Comparison::MISSING_NODE,
+                                dimension, opts, differences)
+              end
+              # Continue comparing children to find deeper differences like attribute values
+              # Use zip to compare up to the shorter length
             end
 
             # Compare children pairwise by position
             result = Comparison::EQUIVALENT
             children1.zip(children2).each do |child1, child2|
+              # Skip if one is nil (due to different lengths)
+              next if child1.nil? || child2.nil?
+
               child_result = comparator.send(:compare_nodes, child1, child2,
                                              child_opts, child_opts, diff_children, differences)
               result = child_result unless child_result == Comparison::EQUIVALENT

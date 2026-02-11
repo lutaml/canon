@@ -44,12 +44,20 @@ module Canon
         # Normalized text comparison
         #
         # Collapses whitespace and compares.
+        # Two whitespace-only strings that both normalize to empty are equivalent.
         #
         # @param text1 [String, nil] First text
         # @param text2 [String, nil] Second text
         # @return [Boolean] true if normalized texts are equal
         def compare_normalize(text1, text2)
-          normalize_text(text1) == normalize_text(text2)
+          normalized1 = normalize_text(text1)
+          normalized2 = normalize_text(text2)
+
+          # Both empty after normalization = equivalent
+          # This handles whitespace-only text nodes that normalize to empty
+          return true if normalized1.empty? && normalized2.empty?
+
+          normalized1 == normalized2
         end
 
         private

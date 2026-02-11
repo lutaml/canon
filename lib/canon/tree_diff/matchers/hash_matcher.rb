@@ -159,6 +159,15 @@ module Canon
         #
         # Uses normalized text comparison based on match_options.
         #
+        # IMPORTANT: For hash matching, we check STRUCTURAL equality:
+        # - Same label
+        # - Same text content (normalized)
+        # - Same attribute KEYS (values can differ)
+        #
+        # This allows nodes with same structure but different attribute values to be
+        # matched during hash matching. The attribute VALUE differences will be
+        # detected by OperationDetector and reported as UPDATE operations.
+        #
         # @param node1 [TreeNode] Node from tree1
         # @param node2 [TreeNode] Node from tree2
         # @return [Boolean]
@@ -168,8 +177,9 @@ module Canon
           # CRITICAL FIX: Use normalized text comparison
           return false unless text_equivalent?(node1, node2)
 
-          return false unless @attribute_comparator.equal?(node1.attributes,
-                                                           node2.attributes)
+          # CRITICAL FIX: Check attribute KEYS match, not values
+          # This allows nodes with same attribute keys but different values to match
+          return false unless node1.attributes.keys == node2.attributes.keys
 
           true
         end
