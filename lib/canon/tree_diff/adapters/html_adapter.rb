@@ -232,10 +232,28 @@ module Canon
         # @param root_node [Canon::Xml::Nodes::RootNode] Root node
         # @return [Core::TreeNode, nil] Tree node for first child (document element)
         def to_tree_from_canon_root(root_node)
-          # Root node: process first child (document element)
+          # CRITICAL FIX: RootNode contains all the parsed HTML content (body children)
+          # We need to create a TreeNode root and add all children to it
+          # Previously, this method only processed the first child, which caused
+          # most of the content to be lost during semantic diff
           return nil if root_node.children.empty?
 
-          to_tree(root_node.children.first)
+          # Create a root TreeNode
+          tree_root = Core::TreeNode.new(
+            label: :root,
+            value: nil,
+            attributes: {},
+            children: [],
+            source_node: root_node,
+          )
+
+          # Add all children of the RootNode to the TreeNode root
+          root_node.children.each do |child|
+            child_tree = to_tree(child)
+            tree_root.add_child(child_tree) if child_tree
+          end
+
+          tree_root
         end
 
         # Convert Canon::Xml::Nodes::ElementNode to TreeNode

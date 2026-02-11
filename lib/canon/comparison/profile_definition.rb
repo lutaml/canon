@@ -144,6 +144,6 @@ module Canon
     end
 
     # Custom error for profile definition issues
-    class ProfileError < Error; end
+    class ProfileError < ::Canon::Error; end
   end
 end

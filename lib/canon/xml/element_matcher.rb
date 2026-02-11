@@ -53,7 +53,7 @@ module Canon
     #
     class ElementMatcher
       # Default attributes used to identify elements
-      DEFAULT_IDENTITY_ATTRS = %w[id ref name key].freeze
+      DEFAULT_IDENTITY_ATTRS = %w[id ref name key class].freeze
 
       # Represents the result of matching an element across two DOM trees
       #
@@ -184,6 +184,12 @@ module Canon
 
         match_by_position(unmatched1, unmatched2, path, matched1, matched2)
 
+        # Fallback: match remaining elements by class attribute
+        # This handles insertions that shift positions
+        still_unmatched1 = elems1.reject { |e| matched1.include?(e) }
+        still_unmatched2 = elems2.reject { |e| matched2.include?(e) }
+        match_by_class(still_unmatched1, still_unmatched2, path, matched1, matched2)
+
         # Record unmatched as deleted/inserted
         unmatched1.each do |elem1|
           next if matched1.include?(elem1)
@@ -275,6 +281,52 @@ module Canon
         end
       end
 
+      # Match remaining elements by class attribute (position-independent)
+      # This handles cases where insertions shift positions but elements have class-based identity
+      def match_by_class(elems1, elems2, path, matched1, matched2)
+        # Build class maps for elements that have class attributes
+        class_map1 = build_class_map(elems1)
+        class_map2 = build_class_map(elems2)
+
+        # Match by class attribute
+        class_map1.each do |class_value, elem1|
+          next if matched1.include?(elem1)
+          next unless class_map2.key?(class_value)
+
+          elem2 = class_map2[class_value]
+          next if matched2.include?(elem2)
+
+          # Only match if element names are the same
+          next unless elem1.name == elem2.name
+          next unless elem1.namespace_uri == elem2.namespace_uri
+
+          # Build path with namespace information for clarity
+          elem_path_with_ns = if elem1.namespace_uri && !elem1.namespace_uri.empty?
+                                path + ["{#{elem1.namespace_uri}}#{elem1.name}"]
+                              else
+                                path + [elem1.name]
+                              end
+
+          # Track positions in original element lists
+          pos1 = elems1.index(elem1)
+          pos2 = elems2.index(elem2)
+
+          @matches << MatchResult.new(
+            status: :matched,
+            elem1: elem1,
+            elem2: elem2,
+            path: elem_path_with_ns,
+            pos1: pos1,
+            pos2: pos2,
+          )
+          matched1.add(elem1)
+          matched2.add(elem2)
+
+          # Recursively match children
+          match_children(elem1.children, elem2.children, elem_path_with_ns)
+        end
+      end
+
       # Build map of identity → element
       def build_identity_map(elements)
         map = {}
@@ -285,6 +337,22 @@ module Canon
 
           # Use element name + identity as key to handle multiple element types
           key = "#{elem.name}##{identity}"
+          map[key] = elem
+        end
+
+        map
+      end
+
+      # Build map of class attribute → element
+      def build_class_map(elements)
+        map = {}
+
+        elements.each do |elem|
+          class_attr = elem.attribute_nodes.find { |a| a.name == "class" }
+          next unless class_attr
+
+          # Use element name + class as key to handle multiple element types
+          key = "#{elem.name}##{class_attr.value}"
           map[key] = elem
         end
 

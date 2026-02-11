@@ -7,6 +7,8 @@ module Canon
     # Provides public comparison methods for XML/HTML nodes.
     # This module extracts shared comparison logic that was previously
     # accessed via send() from HtmlComparator.
+    #
+    # This is a simple utility module with focused responsibilities.
     module XmlNodeComparison
       # Main comparison dispatcher for XML nodes
       #
@@ -38,6 +40,27 @@ differences)
                          Comparison::MISSING_NODE, :text_content, opts,
                          differences)
           return Comparison::MISSING_NODE
+        end
+
+        # Handle comment vs non-comment comparisons specially
+        # When comparing a comment with a non-comment node (due to zip pairing),
+        # create a :comments dimension difference instead of UNEQUAL_NODES_TYPES
+        if comment_vs_non_comment_comparison?(node1, node2)
+          match_opts = opts[:match_opts]
+          comment_behavior = match_opts ? match_opts[:comments] : nil
+
+          # Create a :comments dimension difference
+          # The difference will be marked as normative or not based on the HtmlCompareProfile
+          add_difference(node1, node2, Comparison::MISSING_NODE,
+                         Comparison::MISSING_NODE, :comments, opts,
+                         differences)
+
+          # Return EQUIVALENT if comments are ignored, otherwise return UNEQUAL
+          if comment_behavior == :ignore
+            Comparison::EQUIVALENT
+          else
+            Comparison::UNEQUAL_COMMENTS
+          end
         end
 
         # Check node types match
@@ -81,17 +104,27 @@ differences)
         childrenode1 = node1.children.to_a
         childrenode2 = node2.children.to_a
 
-        if childrenode1.length != childrenode2.length
+        # Filter children before comparison to handle ignored nodes (like comments with :ignore)
+        children1 = filter_children(childrenode1, opts)
+        children2 = filter_children(childrenode2, opts)
+
+        if children1.length != children2.length
           add_difference(node1, node2, Comparison::UNEQUAL_ELEMENTS,
                          Comparison::UNEQUAL_ELEMENTS, :text_content, opts,
                          differences)
-          Comparison::UNEQUAL_ELEMENTS
-        elsif childrenode1.empty?
+          # Continue comparing children to find deeper differences like attribute values
+          # Use zip to compare up to the shorter length
+        end
+
+        if children1.empty? && children2.empty?
           Comparison::EQUIVALENT
         else
-          # Compare each pair of children
+          # Compare each pair of children (up to the shorter length)
           result = Comparison::EQUIVALENT
-          childrenode1.zip(childrenode2).each do |child1, child2|
+          children1.zip(children2).each do |child1, child2|
+            # Skip if one is nil (due to different lengths)
+            next if child1.nil? || child2.nil?
+
             child_result = compare_nodes(child1, child2, opts, child_opts,
                                          diff_children, differences)
             result = child_result unless result == Comparison::EQUIVALENT
@@ -133,13 +166,29 @@ diff_children, differences)
       # @return [Boolean] true if node should be excluded
       def self.node_excluded?(node, opts)
         return false if node.nil?
+
         return true if opts[:ignore_nodes]&.include?(node)
         return true if opts[:ignore_comments] && comment_node?(node)
         return true if opts[:ignore_text_nodes] && text_node?(node)
 
-        # Check structural_whitespace match option
+        # Check match options
         match_opts = opts[:match_opts]
         return false unless match_opts
+
+        # Filter comments based on match options and format
+        # HTML: Filter comments to avoid spurious differences from zip pairing
+        #       BUT only when not in verbose mode (verbose needs differences recorded)
+        # XML: Don't filter comments (allow informative differences to be recorded)
+        if match_opts[:comments] == :ignore && comment_node?(node)
+          # In verbose mode, don't filter comments - we want to record the differences
+          return false if opts[:verbose]
+
+          # Only filter comments for HTML, not XML (when not verbose)
+          format = opts[:format] || match_opts[:format]
+          if %i[html html4 html5].include?(format)
+            return true
+          end
+        end
 
         # Filter out whitespace-only text nodes based on structural_whitespace setting
         # - :ignore or :normalize: Filter all whitespace-only text nodes
@@ -151,6 +200,23 @@ diff_children, differences)
         end
 
         false
+      end
+
+      # Check if this is a comment vs non-comment comparison
+      #
+      # This handles the case where zip pairs a comment with a non-comment node
+      # due to different lengths in the children arrays. We create a :comments
+      # dimension difference instead of UNEQUAL_NODES_TYPES.
+      #
+      # @param node1 [Object] First node
+      # @param node2 [Object] Second node
+      # @return [Boolean] true if one node is a comment and the other isn't
+      def self.comment_vs_non_comment_comparison?(node1, node2)
+        node1_comment = comment_node?(node1)
+        node2_comment = comment_node?(node2)
+
+        # XOR: exactly one is a comment
+        node1_comment ^ node2_comment
       end
 
       # Check if two nodes are of the same type
@@ -171,11 +237,28 @@ diff_children, differences)
 
       # Check if a node is a comment node
       #
+      # For XML/XHTML, this checks the node's comment? method or node_type.
+      # For HTML, this also checks TEXT nodes that contain HTML-style comments
+      # (Nokogiri parses HTML comments as TEXT nodes with content like "<!-- comment -->"
+      # or escaped like "<\\!-- comment -->" in full HTML documents).
+      #
       # @param node [Object] Node to check
       # @return [Boolean] true if node is a comment
       def self.comment_node?(node)
-        node.respond_to?(:comment?) && node.comment? ||
-          node.respond_to?(:node_type) && node.node_type == :comment
+        return true if node.respond_to?(:comment?) && node.comment?
+        return true if node.respond_to?(:node_type) && node.node_type == :comment
+
+        # HTML comments are parsed as TEXT nodes by Nokogiri
+        # Check if this is a text node with HTML comment content
+        if text_node?(node)
+          text = node_text(node)
+          # Strip whitespace and backslashes for comparison
+          # Nokogiri escapes HTML comments as "<\\!-- comment -->" in full documents
+          text_stripped = text.to_s.strip.gsub("\\", "")
+          return true if text_stripped.start_with?("<!--") && text_stripped.end_with?("-->")
+        end
+
+        false
       end
 
       # Check if a node is a text node

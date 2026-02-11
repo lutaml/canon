@@ -25,13 +25,35 @@ module Canon
         # Detect if this is a full document (has <html> tag) or fragment
         # Full documents should use document parser to preserve structure
         # Fragments should use fragment parser to avoid adding implicit wrappers
-        is_full_document = html_string.match?(/<html[\s>]/i)
+        is_full_document = html_string.match?(%r{<html[\s>]}i)
 
         # Parse with Nokogiri using appropriate parser
         doc = if is_full_document
-                # Full document - use fragment parser to avoid Nokogiri's phantom tag insertion
-                # The fragment parser avoids auto-inserted meta tags in HTML4
-                if version == :html5
+                # CRITICAL FIX: For full HTML documents, parse as document first
+                # and extract the body element. This avoids Nokogiri::HTML.fragment()
+                # incorrectly moving head elements (like meta) to the body.
+                # Parse as full document to get proper structure
+                full_doc = if version == :html5
+                             Nokogiri::HTML5(html_string)
+                           else
+                             Nokogiri::HTML4(html_string)
+                           end
+                # Extract body element and create fragment from it
+                body = full_doc.at_css("body")
+                if body
+                  # Create a fragment and copy body children to it
+                  # This preserves the body structure without head elements
+                  frag = if version == :html5
+                           Nokogiri::HTML5::DocumentFragment.new(full_doc)
+                         else
+                           Nokogiri::HTML4::DocumentFragment.new(full_doc)
+                         end
+                  body.children.each do |child|
+                    frag.add_child(child.dup)
+                  end
+                  frag
+                elsif version == :html5
+                  # No body found, fall back to fragment parsing
                   Nokogiri::HTML5.fragment(html_string)
                 else
                   Nokogiri::HTML4.fragment(html_string)
