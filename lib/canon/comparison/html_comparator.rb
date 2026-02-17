@@ -122,41 +122,14 @@ module Canon
           # This is a SAFETY CHECK for legacy cases where Nokogiri nodes might still be used
           # The main path (parse_node) now returns Canon::Xml::Nodes::RootNode, so this
           # check should rarely trigger, but we keep it for robustness
-          if (node1.is_a?(Nokogiri::HTML4::DocumentFragment) ||
-              node1.is_a?(Nokogiri::XML::DocumentFragment)) &&
-              (node2.is_a?(Nokogiri::HTML4::DocumentFragment) ||
-              node2.is_a?(Nokogiri::XML::DocumentFragment))
-            # Compare children of fragments - filter them first
-            all_children1 = node1.children.to_a
-            all_children2 = node2.children.to_a
-
-            # Filter children based on match options (e.g., ignore comments)
-            children1 = XmlNodeComparison.filter_children(all_children1, opts)
-            children2 = XmlNodeComparison.filter_children(all_children2, opts)
-
-            if children1.length != children2.length
-              result = Comparison::UNEQUAL_ELEMENTS
-            elsif children1.empty?
-              result = Comparison::EQUIVALENT
-            else
-              # Compare each pair of children
-              result = Comparison::EQUIVALENT
-              children1.zip(children2).each do |child1, child2|
-                child_result = XmlNodeComparison.compare_nodes(child1, child2,
-                                                               opts, child_opts,
-                                                               diff_children,
-                                                               differences)
-                if child_result != Comparison::EQUIVALENT
-                  result = child_result
-                  break
-                end
-              end
-            end
-          else
-            result = XmlNodeComparison.compare_nodes(node1, node2, opts,
+          result = if fragment_nodes?(node1, node2)
+                     compare_fragment_children(node1, node2, opts, child_opts,
+                                               diff_children, differences)
+                   else
+                     XmlNodeComparison.compare_nodes(node1, node2, opts,
                                                      child_opts, diff_children,
                                                      differences)
-          end
+                   end
 
           # Classify DiffNodes as normative/informative if we have verbose output
           if opts[:verbose] && !differences.empty?
@@ -192,6 +165,53 @@ module Canon
         end
 
         private
+
+        # Check if both nodes are document fragments
+        #
+        # @param node1 [Object] First node
+        # @param node2 [Object] Second node
+        # @return [Boolean] true if both are document fragments
+        def fragment_nodes?(node1, node2)
+          (node1.is_a?(Nokogiri::HTML4::DocumentFragment) ||
+           node1.is_a?(Nokogiri::XML::DocumentFragment)) &&
+            (node2.is_a?(Nokogiri::HTML4::DocumentFragment) ||
+             node2.is_a?(Nokogiri::XML::DocumentFragment))
+        end
+
+        # Compare children of document fragments
+        #
+        # @param node1 [Nokogiri::DocumentFragment] First fragment
+        # @param node2 [Nokogiri::DocumentFragment] Second fragment
+        # @param opts [Hash] Comparison options
+        # @param child_opts [Hash] Child comparison options
+        # @param diff_children [Boolean] Whether to diff children
+        # @param differences [Array] Array to append differences to
+        # @return [Symbol] Comparison result constant
+        def compare_fragment_children(node1, node2, opts, child_opts,
+                                      diff_children, differences)
+          all_children1 = node1.children.to_a
+          all_children2 = node2.children.to_a
+
+          children1 = XmlNodeComparison.filter_children(all_children1, opts)
+          children2 = XmlNodeComparison.filter_children(all_children2, opts)
+
+          if children1.length != children2.length
+            return Comparison::UNEQUAL_ELEMENTS
+          elsif children1.empty?
+            return Comparison::EQUIVALENT
+          end
+
+          # Compare each pair of children
+          children1.zip(children2).each do |child1, child2|
+            child_result = XmlNodeComparison.compare_nodes(child1, child2,
+                                                           opts, child_opts,
+                                                           diff_children,
+                                                           differences)
+            return child_result if child_result != Comparison::EQUIVALENT
+          end
+
+          Comparison::EQUIVALENT
+        end
 
         # Perform semantic tree diff using SemanticTreeMatchStrategy
         #
