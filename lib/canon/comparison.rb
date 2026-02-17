@@ -507,7 +507,7 @@ module Canon
       # @param obj [String, Nokogiri::Node, Canon::Xml::Node, Object] Input object
       # @param format [Symbol] Format type for context
       # @return [String] Original string representation
-      def extract_original_string(obj, format = nil)
+      def extract_original_string(obj, _format = nil)
         case obj
         when String
           obj

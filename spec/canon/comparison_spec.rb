@@ -103,11 +103,12 @@ RSpec.describe Canon::Comparison do
         html2 = "<html><body><div>Test</div></body></html>"
 
         result = described_class.equivalent?(html1, html2,
-                                             { verbose: true, diff_algorithm: :semantic })
+                                             verbose: true,
+                                             diff_algorithm: :semantic)
         expect(result).to be_a(Canon::Comparison::ComparisonResult)
         expect(result.differences).not_to be_empty
         expect(result.equivalent?).to be false
-        # Semantic diff creates 2 DiffNodes: p element deleted, div element inserted
+        # Semantic diff creates 2 DiffNodes: p deleted, div inserted
         expect(result.differences.length).to eq(2)
         expect(result.differences.all?(Canon::Diff::DiffNode)).to be true
         expect(result.differences.all? do |d|
@@ -156,11 +157,13 @@ RSpec.describe Canon::Comparison do
         html2 = "<html><body><p>Test</p></body></html>"
 
         result = described_class.equivalent?(html1, html2,
-                                             { verbose: true, diff_algorithm: :semantic })
+                                             verbose: true,
+                                             diff_algorithm: :semantic)
         expect(result).to be_a(Canon::Comparison::ComparisonResult)
         expect(result.differences).not_to be_empty
         expect(result.equivalent?).to be false
-        # Semantic diff correctly identifies missing div as element_structure difference
+        # Semantic diff correctly identifies missing div as
+        # element_structure difference
         expect(result.differences.first.dimension).to eq(:element_structure)
       end
 
