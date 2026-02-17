@@ -375,7 +375,7 @@ module Canon
           # If already a Nokogiri node, check for incompatible XML documents
           unless node.is_a?(String)
             # Detect if this is an XML document (not HTML)
-            if is_xml_document?(node)
+            if xml_document?(node)
               raise Canon::CompareFormatMismatchError.new(:xml, :html)
             end
 
@@ -691,7 +691,7 @@ compare_profile = nil)
         # Check if a node is an XML document (not HTML)
         # XML documents typically have XML processing instructions or are
         # instances of Nokogiri::XML::Document (not HTML variants)
-        def is_xml_document?(node)
+        def xml_document?(node)
           # Check if it's a pure XML document (not HTML4/HTML5 which also
           # inherit from XML::Document)
           # Check both Document and DocumentFragment variants
