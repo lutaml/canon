@@ -4,6 +4,9 @@ require "spec_helper"
 require "canon/comparison"
 require "canon/rspec_matchers"
 
+# Attribute dimensions used for filtering differences
+ATTRIBUTE_DIMS = %i[attribute_presence attribute_values].freeze
+
 RSpec.describe "HTML4 Table Class Attribute Comparison Bug" do
   # Bug: When comparing two HTML snippets where only the table class attribute differs
   # (e.g., MsoISOTableBig vs MsoISOTable), the comparison incorrectly reports a
@@ -79,8 +82,12 @@ RSpec.describe "HTML4 Table Class Attribute Comparison Bug" do
         expect(result).not_to be_equivalent
 
         # The difference should be in attribute_presence or attribute_values, not text_content
-        text_content_diffs = result.differences.select { |d| d.dimension == :text_content }
-        attribute_diffs = result.differences.select { |d| %i[attribute_presence attribute_values].include?(d.dimension) }
+        text_content_diffs = result.differences.select do |d|
+          d.dimension == :text_content
+        end
+        attribute_diffs = result.differences.select do |d|
+          ATTRIBUTE_DIMS.include?(d.dimension)
+        end
 
         # This is the bug: currently text_content diffs are reported instead of attribute diffs
         # After fix: attribute_diffs should not be empty
@@ -102,7 +109,9 @@ RSpec.describe "HTML4 Table Class Attribute Comparison Bug" do
 
         expect(result).not_to be_equivalent
 
-        attribute_diffs = result.differences.select { |d| %i[attribute_presence attribute_values].include?(d.dimension) }
+        attribute_diffs = result.differences.select do |d|
+          ATTRIBUTE_DIMS.include?(d.dimension)
+        end
 
         pending "Bug: attribute differences are not being detected"
         expect(attribute_diffs).not_to be_empty
@@ -124,7 +133,9 @@ RSpec.describe "HTML4 Table Class Attribute Comparison Bug" do
         expect(result).not_to be_equivalent
         expect(result.algorithm).to eq(:dom)
 
-        attribute_diffs = result.differences.select { |d| %i[attribute_presence attribute_values].include?(d.dimension) }
+        attribute_diffs = result.differences.select do |d|
+          ATTRIBUTE_DIMS.include?(d.dimension)
+        end
 
         pending "Bug: attribute differences are not being detected"
         expect(attribute_diffs).not_to be_empty
@@ -143,7 +154,9 @@ RSpec.describe "HTML4 Table Class Attribute Comparison Bug" do
         expect(result).not_to be_equivalent
         expect(result.algorithm).to eq(:semantic)
 
-        attribute_diffs = result.differences.select { |d| %i[attribute_presence attribute_values].include?(d.dimension) }
+        attribute_diffs = result.differences.select do |d|
+          ATTRIBUTE_DIMS.include?(d.dimension)
+        end
 
         expect(attribute_diffs).not_to be_empty
       end
@@ -185,7 +198,9 @@ RSpec.describe "HTML4 Table Class Attribute Comparison Bug" do
 
         expect(result).not_to be_equivalent
 
-        attribute_diffs = result.differences.select { |d| %i[attribute_presence attribute_values].include?(d.dimension) }
+        attribute_diffs = result.differences.select do |d|
+          ATTRIBUTE_DIMS.include?(d.dimension)
+        end
 
         expect(attribute_diffs).not_to be_empty
       end
@@ -202,7 +217,9 @@ RSpec.describe "HTML4 Table Class Attribute Comparison Bug" do
 
         expect(result).not_to be_equivalent
 
-        attribute_diffs = result.differences.select { |d| %i[attribute_presence attribute_values].include?(d.dimension) }
+        attribute_diffs = result.differences.select do |d|
+          ATTRIBUTE_DIMS.include?(d.dimension)
+        end
 
         expect(attribute_diffs).not_to be_empty
       end
@@ -279,10 +296,18 @@ RSpec.describe "HTML4 Table Class Attribute Comparison Bug" do
 
   # Minimal test case to isolate the bug
   describe "Minimal reproduction" do
-    let(:simple_html_big) { '<table class="MsoISOTableBig"><td>Text</td></table>' }
-    let(:simple_html_normal) { '<table class="MsoISOTable"><td>Text</td></table>' }
-    let(:simple_html_big_with_body) { '<body><table class="MsoISOTableBig"><td>Text</td></table></body>' }
-    let(:simple_html_normal_with_body) { '<body><table class="MsoISOTable"><td>Text</td></table></body>' }
+    let(:simple_html_big) do
+      '<table class="MsoISOTableBig"><td>Text</td></table>'
+    end
+    let(:simple_html_normal) do
+      '<table class="MsoISOTable"><td>Text</td></table>'
+    end
+    let(:simple_html_big_with_body) do
+      '<body><table class="MsoISOTableBig"><td>Text</td></table></body>'
+    end
+    let(:simple_html_normal_with_body) do
+      '<body><table class="MsoISOTable"><td>Text</td></table></body>'
+    end
 
     it "detects attribute difference in simple case (without body)" do
       result = Canon::Comparison.equivalent?(
@@ -293,7 +318,9 @@ RSpec.describe "HTML4 Table Class Attribute Comparison Bug" do
 
       expect(result).not_to be_equivalent
 
-      attribute_diffs = result.differences.select { |d| %i[attribute_presence attribute_values].include?(d.dimension) }
+      attribute_diffs = result.differences.select do |d|
+        ATTRIBUTE_DIMS.include?(d.dimension)
+      end
 
       expect(attribute_diffs).not_to be_empty
       expect(attribute_diffs.first.dimension).to eq(:attribute_values)
@@ -308,7 +335,9 @@ RSpec.describe "HTML4 Table Class Attribute Comparison Bug" do
 
       expect(result).not_to be_equivalent
 
-      attribute_diffs = result.differences.select { |d| %i[attribute_presence attribute_values].include?(d.dimension) }
+      attribute_diffs = result.differences.select do |d|
+        ATTRIBUTE_DIMS.include?(d.dimension)
+      end
 
       expect(attribute_diffs).not_to be_empty
       expect(attribute_diffs.first.dimension).to eq(:attribute_values)
@@ -324,7 +353,9 @@ RSpec.describe "HTML4 Table Class Attribute Comparison Bug" do
 
       expect(result).not_to be_equivalent
 
-      attribute_diffs = result.differences.select { |d| %i[attribute_presence attribute_values].include?(d.dimension) }
+      attribute_diffs = result.differences.select do |d|
+        ATTRIBUTE_DIMS.include?(d.dimension)
+      end
 
       expect(attribute_diffs).not_to be_empty
       expect(attribute_diffs.first.dimension).to eq(:attribute_values)
@@ -369,9 +400,15 @@ RSpec.describe "HTML4 Table Class Attribute Comparison Bug" do
         # 1. One INSERT difference for <hd>hi</hd> (node1 is nil)
         # 2. One UPDATE difference for attribute he='1' vs he='2'
         # NOT cascading position mismatches
-        insert_diffs = result.differences.select { |d| d.node1.nil? && !d.node2.nil? }
-        delete_diffs = result.differences.select { |d| !d.node1.nil? && d.node2.nil? }
-        attribute_diffs = result.differences.select { |d| %i[attribute_presence attribute_values].include?(d.dimension) }
+        insert_diffs = result.differences.select do |d|
+          d.node1.nil? && !d.node2.nil?
+        end
+        delete_diffs = result.differences.select do |d|
+          !d.node1.nil? && d.node2.nil?
+        end
+        attribute_diffs = result.differences.select do |d|
+          ATTRIBUTE_DIMS.include?(d.dimension)
+        end
 
         expect(insert_diffs.size).to eq(1)
         expect(delete_diffs.size).to eq(0)
@@ -391,8 +428,12 @@ RSpec.describe "HTML4 Table Class Attribute Comparison Bug" do
         # Semantic diff should handle this better
         # It should recognize <hd> as INSERT and <ho> as UPDATE
         # We check the dimensions to infer the operation type
-        element_diffs = result.differences.select { |d| d.dimension == :element_structure }
-        attribute_diffs = result.differences.select { |d| %i[attribute_presence attribute_values].include?(d.dimension) }
+        element_diffs = result.differences.select do |d|
+          d.dimension == :element_structure
+        end
+        attribute_diffs = result.differences.select do |d|
+          ATTRIBUTE_DIMS.include?(d.dimension)
+        end
 
         pending "Bug: Semantic DIFF also struggles with insertions"
         # Should have 1 element_structure (insert) and 1 attribute diff
@@ -445,13 +486,17 @@ RSpec.describe "HTML4 Table Class Attribute Comparison Bug" do
 
         # We expect the meta tag to be reported as an insertion (node1 is nil)
         # and the rest of the elements to be matched correctly
-        insert_diffs = result.differences.select { |d| d.node1.nil? && !d.node2.nil? }
+        insert_diffs = result.differences.select do |d|
+          d.node1.nil? && !d.node2.nil?
+        end
         result.differences.select { |d| !d.node1.nil? && d.node2.nil? }
 
         # The meta tag should be an insertion
         expect(insert_diffs.size).to be >= 1
         # Check that the inserted element is a meta tag
-        meta_insert = insert_diffs.find { |d| d.node2.respond_to?(:name) && d.node2.name == "meta" }
+        meta_insert = insert_diffs.find do |d|
+          d.node2.respond_to?(:name) && d.node2.name == "meta"
+        end
         expect(meta_insert).not_to be_nil
       end
     end
