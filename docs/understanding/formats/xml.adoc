@@ -183,6 +183,31 @@ configures preprocessing, match options, diff algorithm, and formatting.
 
 == XML-specific features
 
+=== XML declaration handling
+
+The XML declaration (`<?xml version="1.0" encoding="UTF-8"?>`) is handled
+differently depending on the operation:
+
+[cols="2,3"]
+|===
+| Operation | XML Declaration
+
+| `Canon.format_xml` (pretty)
+| Preserved
+
+| `Canon.format_xml` (c14n)
+| Removed (per W3C C14N spec)
+
+| `Canon::Comparison.equivalent?`
+| Stripped during preprocessing
+
+| RSpec matchers
+| Stripped during preprocessing
+|===
+
+This means documents with and without XML declarations are considered
+equivalent when using the comparison API.
+
 === Comment handling
 
 XML comments are preserved in canonical form unless `--with-comments` is explicitly set.

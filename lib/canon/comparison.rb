@@ -76,6 +76,18 @@ module Canon
   #   diffs = Canon::Comparison.equivalent?(doc1, doc2, verbose: true)
   #   diffs.each { |diff| puts diff.inspect }
   #
+  # == XML Declaration Handling
+  #
+  # XML declarations (`<?xml version="1.0" encoding="UTF-8"?>`) are stripped
+  # during preprocessing for semantic comparison. This means:
+  #
+  # - Documents with and without declarations are considered equivalent
+  # - Declaration encoding differences are ignored
+  # - Entity declarations within DTD are resolved before comparison
+  #
+  # This behavior ensures documents are compared by their content, not
+  # their serialization format.
+  #
   # == Return Values
   #
   # - When verbose: false (default) → Boolean (true if equivalent)

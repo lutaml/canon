@@ -8,6 +8,26 @@ require_relative "../validators/xml_validator"
 module Canon
   module Formatters
     # XML formatter using Canonical XML 1.1 or pretty printing
+    #
+    # Use this class for formatting XML documents for display or storage.
+    # For semantic comparison of XML documents, use Canon::Comparison instead.
+    #
+    # == XML Declaration Handling
+    #
+    # - Pretty printing (default): Preserves XML declaration
+    # - Canonicalization: Removes XML declaration (per W3C C14N 1.1 spec)
+    #
+    # == Usage
+    #
+    #   # Pretty print (preserves declaration)
+    #   Canon.format_xml(xml)
+    #
+    #   # Canonicalize (removes declaration)
+    #   Canon.format(xml, :xml, pretty: false)
+    #
+    # For comparison, use:
+    #   Canon::Comparison.equivalent?(xml1, xml2, format: :xml)
+    #
     class XmlFormatter
       # Format XML with pretty printing by default
       # @param xml [String] XML document to format

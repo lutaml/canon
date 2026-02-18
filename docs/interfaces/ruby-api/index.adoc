@@ -18,6 +18,32 @@ For command-line usage, see link:../cli/[CLI documentation].
 
 For RSpec testing, see link:../rspec/[RSpec documentation].
 
+== Choosing the right API
+
+Canon provides two main categories of APIs with different purposes.
+
+=== Formatting APIs
+
+Use `Canon.format` or `Canon.format_xml` when you need to:
+
+* Pretty-print documents for display
+* Canonicalize documents for storage
+* Normalize document formatting
+
+NOTE: XML declarations are preserved in pretty-print mode and removed in
+canonicalization mode.
+
+=== Comparison APIs
+
+Use `Canon::Comparison.equivalent?` when you need to:
+
+* Compare documents semantically
+* Generate diffs
+* Make test assertions
+
+NOTE: XML declarations are stripped during preprocessing for semantic comparison.
+Documents with and without XML declarations are considered equivalent.
+
 == General
 
 Canon provides a unified Ruby API for working with XML, HTML, JSON, and YAML

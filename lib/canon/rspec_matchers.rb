@@ -72,6 +72,21 @@ module Canon
         self
       end
 
+      # Chain method for setting match profile
+      # @param profile_name [Symbol] Profile name (:strict, :spec_friendly, etc.)
+      # @return [SerializationMatcher] self for chaining
+      def with_profile(profile_name)
+        @match_profile = profile_name
+        self
+      end
+
+      # Chain method for setting match options (alias for with_match)
+      # @param options [Hash] Match dimension options
+      # @return [SerializationMatcher] self for chaining
+      def with_options(**options)
+        with_match(**options)
+      end
+
       def matches?(target)
         @target = target
 

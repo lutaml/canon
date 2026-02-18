@@ -188,7 +188,8 @@ module Canon
         # This handles insertions that shift positions
         still_unmatched1 = elems1.reject { |e| matched1.include?(e) }
         still_unmatched2 = elems2.reject { |e| matched2.include?(e) }
-        match_by_class(still_unmatched1, still_unmatched2, path, matched1, matched2)
+        match_by_class(still_unmatched1, still_unmatched2, path, matched1,
+                       matched2)
 
         # Record unmatched as deleted/inserted
         unmatched1.each do |elem1|
