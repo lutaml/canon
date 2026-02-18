@@ -16,6 +16,47 @@ Key features:
 * **Multiple interfaces**: Ruby API, CLI, RSpec matchers
 * **Smart diff output**: By-line or by-object modes with syntax highlighting
 
+== When to use formatting vs comparison
+
+Canon provides two main APIs with different purposes:
+
+*Use `Canon.format` for formatting/canonicalization:*
+
+* Pretty-printing XML/JSON/YAML for display
+* Canonicalizing documents for storage
+* Normalizing formatting
+
+*Use `Canon::Comparison.equivalent?` for semantic comparison:*
+
+* Test assertions
+* Document equivalence checking
+* Diff generation
+
+[IMPORTANT]
+====
+Do NOT use `Canon.format_xml` output for string comparison in tests.
+The formatting process changes line counts and formatting, which causes
+false test failures.
+
+Use `Canon::Comparison.equivalent?` instead, which performs semantic
+comparison and properly handles XML declarations.
+====
+
+[example]
+====
+[source,ruby]
+----
+# WRONG - formatting changes line counts
+expect(Canon.format_xml(actual)).to eq(expected_formatted)
+
+# RIGHT - semantic comparison ignores formatting differences
+expect(Canon::Comparison.equivalent?(actual, expected, format: :xml)).to be true
+
+# BEST - use RSpec matchers
+expect(actual).to be_xml_equivalent_to(expected)
+----
+====
+
 == Installation
 
 Add to your application's Gemfile:

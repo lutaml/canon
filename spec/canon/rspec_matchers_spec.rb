@@ -255,6 +255,49 @@ RSpec.describe Canon::RSpecMatchers do
     end
   end
 
+  describe "chain methods" do
+    it "supports with_profile chain method" do
+      xml1 = "<root><item>test</item></root>"
+      xml2 = "<root><item>test</item></root>"
+      expect(xml1).to be_xml_equivalent_to(xml2).with_profile(:strict)
+    end
+
+    it "supports with_options chain method" do
+      xml1 = "<root a=\"1\" b=\"2\"/>"
+      xml2 = "<root b=\"2\" a=\"1\"/>"
+      expect(xml1).to be_xml_equivalent_to(xml2).with_options(attribute_order: :ignore)
+    end
+
+    it "supports with_match chain method" do
+      xml1 = "<root><item>test</item></root>"
+      xml2 = "<root><item>test</item></root>"
+      expect(xml1).to be_xml_equivalent_to(xml2).with_match(text_content: :normalize)
+    end
+
+    it "supports chained with_profile and with_options" do
+      xml1 = "<root a=\"1\" b=\"2\"><item>test</item></root>"
+      xml2 = "<root b=\"2\" a=\"1\"><item>test</item></root>"
+      expect(xml1).to be_xml_equivalent_to(xml2)
+        .with_profile(:spec_friendly)
+        .with_options(attribute_order: :ignore)
+    end
+
+    it "supports show_diffs chain method with :all" do
+      matcher = be_xml_equivalent_to("<root/>").show_diffs(:all)
+      expect(matcher).to be_a(Canon::RSpecMatchers::SerializationMatcher)
+    end
+
+    it "supports show_diffs chain method with :normative" do
+      matcher = be_xml_equivalent_to("<root/>").show_diffs(:normative)
+      expect(matcher).to be_a(Canon::RSpecMatchers::SerializationMatcher)
+    end
+
+    it "supports show_diffs chain method with :informative" do
+      matcher = be_xml_equivalent_to("<root/>").show_diffs(:informative)
+      expect(matcher).to be_a(Canon::RSpecMatchers::SerializationMatcher)
+    end
+  end
+
   describe "failure messages" do
     context "when XML documents differ" do
       let(:xml1) { "<root><a>1</a></root>" }
