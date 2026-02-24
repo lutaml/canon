@@ -160,6 +160,10 @@ module Canon
             node.content
           elsif node.respond_to?(:inner_text)
             node.inner_text
+          elsif node.respond_to?(:value)
+            node.value
+          elsif node.respond_to?(:to_s)
+            node.to_s
           else
             ""
           end.to_s.strip
