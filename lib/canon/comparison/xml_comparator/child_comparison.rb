@@ -248,7 +248,9 @@ diff_children, differences)
                 # If the smaller set has no child at this position,
                 # consider it a mismatch
                 mismatch_children << larger_set[i]
-              elsif !smaller_set.map(&:name).include?(larger_set[i].name)
+              elsif larger_set[i].respond_to?(:name) &&
+                  smaller_set.first.respond_to?(:name) &&
+                  !smaller_set.map(&:name).include?(larger_set[i].name)
                 # If the name of the node is not found in the smaller set,
                 # consider it a mismatch
                 mismatch_children << larger_set[i]
