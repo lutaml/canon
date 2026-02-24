@@ -139,21 +139,45 @@ diff_children, differences)
           end
 
           # Use simple positional comparison for children
-          def use_positional_comparison(children1, children2, parent_node, comparator,
-                                        opts, child_opts, diff_children, differences)
+          def use_positional_comparison(
+            children1, children2, _parent_node, comparator,
+            opts, child_opts, diff_children, differences
+          )
             # Length check
             unless children1.length == children2.length
-              dimension = determine_dimension_for_mismatch(children1,
-                                                           children2, comparator)
+              dimension = determine_dimension_for_mismatch(
+                children1, children2, comparator
+              )
 
-              # Skip creating parent-level difference for comments when comments: :ignore
-              # The child comparison will handle the comment vs element comparison
+              mismatched_children, children1, children2 =
+                determine_mismatch_children(
+                  children1, children2, comparator
+                )
+
+              # Skip creating parent-level difference for comments
+              #  when comments: :ignore
+              # The child comparison will handle the comment vs
+              # element comparison
               # This avoids creating duplicate differences
               match_opts = opts[:match_opts]
               unless dimension == :comments && match_opts && match_opts[:comments] == :ignore
-                comparator.send(:add_difference, parent_node, parent_node,
-                                Comparison::MISSING_NODE, Comparison::MISSING_NODE,
-                                dimension, opts, differences)
+                if mismatched_children.empty?
+                  comparator.send(:add_difference, parent_node, parent_node,
+                                  Comparison::MISSING_NODE, Comparison::MISSING_NODE,
+                                  dimension, opts, differences)
+                else
+                  mismatched_children.each do |child|
+                    if children1.length > children2.length # rubocop:disable Metrics/BlockNesting
+                      comparator.send(:add_difference, child, nil,
+                                      Comparison::MISSING_NODE, Comparison::MISSING_NODE,
+                                      dimension, opts, differences)
+                    else
+                      comparator.send(:add_difference, nil, child,
+                                      Comparison::MISSING_NODE, Comparison::MISSING_NODE,
+                                      dimension, opts, differences)
+                    end
+                  end
+                end
               end
               # Continue comparing children to find deeper differences like attribute values
               # Use zip to compare up to the shorter length
@@ -167,7 +191,10 @@ diff_children, differences)
 
               child_result = comparator.send(:compare_nodes, child1, child2,
                                              child_opts, child_opts, diff_children, differences)
-              result = child_result unless child_result == Comparison::EQUIVALENT
+
+              unless child_result == Comparison::EQUIVALENT
+                result = child_result
+              end
             end
 
             result
@@ -200,6 +227,41 @@ diff_children, differences)
             end
 
             dimension
+          end
+
+          # Determine mismatch children
+          def determine_mismatch_children(children1, children2, _comparator)
+            mismatch_children = []
+
+            first_set_longer = children1.length > children2.length
+            larger_set = children2
+            smaller_set = children1
+            if first_set_longer
+              larger_set = children1
+              smaller_set = children2
+            end
+
+            new_larger_set = []
+            max_len = larger_set.length
+            (0...max_len).each do |i|
+              if mismatch_children.empty? && smaller_set[i].nil?
+                # If the smaller set has no child at this position,
+                # consider it a mismatch
+                mismatch_children << larger_set[i]
+              elsif !smaller_set.map(&:name).include?(larger_set[i].name)
+                # If the name of the node is not found in the smaller set,
+                # consider it a mismatch
+                mismatch_children << larger_set[i]
+              else
+                new_larger_set << larger_set[i]
+              end
+            end
+
+            if first_set_longer
+              [mismatch_children, new_larger_set, smaller_set]
+            else
+              [mismatch_children, smaller_set, new_larger_set]
+            end
           end
         end
       end

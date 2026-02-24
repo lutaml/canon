@@ -598,6 +598,8 @@ differences)
                           " (namespace: #{ns})"
                         end
               return "element '#{node.name}'#{ns_info}: #{diff1} vs #{diff2}"
+            elsif node.respond_to?(:name) && !node.respond_to?(:namespace_uri)
+              return "element missing: #{node}"
             end
           end
 
