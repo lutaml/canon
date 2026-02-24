@@ -323,6 +323,15 @@ module Canon
           text1 = NodeUtils.get_node_text(node1)
           text2 = NodeUtils.get_node_text(node2)
 
+          # Handle cases where one node is missing (e.g. text added or removed)
+          if node1.nil? || node2.nil?
+            if node1.nil?
+              text2 = node2.to_s
+            else
+              text1 = node1.to_s
+            end
+          end
+
           if NodeUtils.inside_preserve_element?(node1) || NodeUtils.inside_preserve_element?(node2)
             detail1 = ColorHelper.colorize(
               TextUtils.visualize_whitespace(text1), :red, use_color
