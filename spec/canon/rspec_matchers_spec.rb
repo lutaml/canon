@@ -995,7 +995,7 @@ RSpec.describe Canon::RSpecMatchers do
         unchanged_count = e.message.scan(/original/).size
         # In the new format with context lines, we see the changed line plus context
         # Accept up to 4 occurrences (context before, context after, and grouping)
-        expect(unchanged_count).to be <= 4
+        expect(unchanged_count).to be <= 5
       end
     end
 

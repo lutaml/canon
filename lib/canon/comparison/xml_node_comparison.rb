@@ -212,8 +212,8 @@ diff_children, differences)
       # @param node2 [Object] Second node
       # @return [Boolean] true if one node is a comment and the other isn't
       def self.comment_vs_non_comment_comparison?(node1, node2)
-        node1_comment = comment_node?(node1)
-        node2_comment = comment_node?(node2)
+        node1_comment = comment_node?(node1, check_children: true)
+        node2_comment = comment_node?(node2, check_children: true)
 
         # XOR: exactly one is a comment
         node1_comment ^ node2_comment
@@ -243,10 +243,25 @@ diff_children, differences)
       # or escaped like "<\\!-- comment -->" in full HTML documents).
       #
       # @param node [Object] Node to check
+      # @param check_children [Boolean] Whether to check child nodes
       # @return [Boolean] true if node is a comment
-      def self.comment_node?(node)
+      def self.comment_node?(node, check_children: false)
+        result = false
         return true if node.respond_to?(:comment?) && node.comment?
         return true if node.respond_to?(:node_type) && node.node_type == :comment
+
+        if node.is_a?(Nokogiri::XML::Element) && !node.children.empty? && check_children
+          node.children.each do |child|
+            # Recursively check child nodes for comments
+            # limit depth to avoid infinite recursion
+            # in case of circular structures (if any)
+            if comment_node?(child, check_children: false)
+              result = true
+              break
+            end
+          end
+        end
+        return true if result
 
         # HTML comments are parsed as TEXT nodes by Nokogiri
         # Check if this is a text node with HTML comment content
@@ -258,7 +273,7 @@ diff_children, differences)
           return true if text_stripped.start_with?("<!--") && text_stripped.end_with?("-->")
         end
 
-        false
+        result
       end
 
       # Check if a node is a text node
