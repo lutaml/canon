@@ -482,7 +482,7 @@ RSpec.describe "HTML4 Table Class Attribute Comparison Bug" do
         # Currently, DOM DIFF compares elements position-by-position when signatures don't match
         # This causes style to be compared with meta, which is incorrect.
         # TODO: Improve semantic matching to recognize insertions when signatures don't match
-        pending "TODO: Improve semantic matching for incompatible nodes (e.g., style vs meta)"
+        # pending "TODO: Improve semantic matching for incompatible nodes (e.g., style vs meta)"
 
         # We expect the meta tag to be reported as an insertion (node1 is nil)
         # and the rest of the elements to be matched correctly
