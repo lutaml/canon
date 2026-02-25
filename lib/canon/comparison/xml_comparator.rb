@@ -299,8 +299,10 @@ module Canon
         def comment_vs_non_comment_comparison?(node1, node2)
           require_relative "xml_node_comparison"
 
-          node1_comment = XmlNodeComparison.comment_node?(node1)
-          node2_comment = XmlNodeComparison.comment_node?(node2)
+          node1_comment = XmlNodeComparison
+            .comment_node?(node1, check_children: true)
+          node2_comment = XmlNodeComparison
+            .comment_node?(node2, check_children: true)
 
           # XOR: exactly one is a comment
           node1_comment ^ node2_comment
