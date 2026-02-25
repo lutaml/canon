@@ -81,24 +81,27 @@ module Canon
       #
       # @return [Boolean] true if colors appear to be supported
       def detect_from_env
-        # Check for known color-capable terminals
-        colorterm = ENV["COLORTERM"]
-        return true if COLOR_TERM_VALUES.include?(colorterm)
-
         # Check TERM variable
         term = ENV["TERM"]
-        if term
+        if term && NO_COLOR_TERMS.any? { |t| term.include?(t) }
           # Known no-color terminals
-          return false if NO_COLOR_TERMS.any? { |t| term.include?(t) }
+          return false
+        end
+
+        # Check CI environments
+        # Some CI systems support colors, others don't
+        return detect_ci_colors if ci_environment?
+
+        if term
           # Known color-capable terminals
           return true if COLOR_TERM_SUFFIXES.any? { |s| term.end_with?(s) }
           # Most modern terminals support basic ANSI colors
           return true unless term.empty? || term == "unknown"
         end
 
-        # Check CI environments
-        # Some CI systems support colors, others don't
-        return detect_ci_colors if ci_environment?
+        # Check for known color-capable terminals
+        colorterm = ENV["COLORTERM"]
+        return true if COLOR_TERM_VALUES.include?(colorterm)
 
         # Default: assume colors are supported on modern terminals
         # This is a safe default for most use cases
@@ -123,15 +126,15 @@ module Canon
       #
       # @return [Boolean] true if CI environment likely supports colors
       def detect_ci_colors
+        # Most modern CI systems support ANSI colors
+        # Only disable for explicitly known non-color CI
+        return false if ENV["TERM"] == "dumb"
+
         # GitHub Actions explicitly supports colors
         return true if ENV["GITHUB_ACTIONS"]
 
         # TeamCity supports colors with specific env var
         return true if ENV["TEAMCITY_VERSION"]
-
-        # Most modern CI systems support ANSI colors
-        # Only disable for explicitly known non-color CI
-        return false if ENV["TERM"] == "dumb"
 
         # Default to supporting colors in CI
         true
