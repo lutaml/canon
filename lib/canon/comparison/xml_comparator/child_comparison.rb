@@ -241,6 +241,10 @@ diff_children, differences)
               smaller_set = children2
             end
 
+            smaller_set_names = smaller_set.map do |c|
+              c.respond_to?(:name) ? c.name : nil
+            end.compact
+
             new_larger_set = []
             max_len = larger_set.length
             (0...max_len).each do |i|
@@ -249,8 +253,7 @@ diff_children, differences)
                 # consider it a mismatch
                 mismatch_children << larger_set[i]
               elsif larger_set[i].respond_to?(:name) &&
-                  smaller_set.first.respond_to?(:name) &&
-                  !smaller_set.map(&:name).include?(larger_set[i].name)
+                  !smaller_set_names.include?(larger_set[i].name)
                 # If the name of the node is not found in the smaller set,
                 # consider it a mismatch
                 mismatch_children << larger_set[i]
