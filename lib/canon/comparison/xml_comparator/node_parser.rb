@@ -26,7 +26,7 @@ module Canon
           end
 
           # Apply preprocessing to XML string before parsing
-          xml_string = apply_preprocessing(node, preprocessing)
+          xml_string = apply_preprocessing(node, preprocessing).strip
 
           # Use Canon::Xml::DataModel for parsing to get Canon::Xml::Node instances
           Canon::Xml::DataModel.from_xml(xml_string,
