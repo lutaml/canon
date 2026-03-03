@@ -50,6 +50,10 @@ module Canon
             [attr.namespace_uri.to_s, attr.local_name]
           end
         end
+
+        def node_info
+          "name: #{name} namespace_uri: #{namespace_uri} prefix: #{prefix}"
+        end
       end
     end
   end

@@ -48,6 +48,10 @@ module Canon
         def xml_base?
           xml_attribute? && name == "base"
         end
+
+        def node_info
+          "name: #{name} value: #{value} namespace_uri: #{namespace_uri} prefix: #{prefix}"
+        end
       end
     end
   end
