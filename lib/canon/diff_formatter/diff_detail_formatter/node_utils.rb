@@ -162,6 +162,8 @@ module Canon
             node.inner_text
           elsif node.respond_to?(:value)
             node.value
+          elsif node.respond_to?(:node_info)
+            node.node_info
           elsif node.respond_to?(:to_s)
             node.to_s
           else

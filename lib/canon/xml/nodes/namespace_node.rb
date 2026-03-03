@@ -32,6 +32,10 @@ module Canon
         def xml_namespace?
           prefix == "xml" && uri == "http://www.w3.org/XML/1998/namespace"
         end
+
+        def node_info
+          "prefix: #{prefix} uri: #{uri}"
+        end
       end
     end
   end

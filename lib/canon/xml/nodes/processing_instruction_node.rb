@@ -18,6 +18,10 @@ module Canon
         def node_type
           :processing_instruction
         end
+
+        def node_info
+          "data: #{data} target: #{target}"
+        end
       end
     end
   end
