@@ -241,9 +241,9 @@ diff_children, differences)
               smaller_set = children2
             end
 
-            smaller_set_names = smaller_set.map do |c|
+            smaller_set_names = smaller_set.filter_map do |c|
               c.respond_to?(:name) ? c.name : nil
-            end.compact
+            end
 
             new_larger_set = []
             max_len = larger_set.length

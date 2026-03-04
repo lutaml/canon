@@ -185,7 +185,7 @@ RSpec.describe Canon::Comparison do
       it "returns ComparisonResult with multiple differences " \
          "when multiple things differ" do
         html1 = '<html><body><p class="foo">Test 1</p>' \
-                 "<div>Extra</div></body></html>"
+                "<div>Extra</div></body></html>"
         html2 = '<html><body><p class="bar">Test 2</p></body></html>'
 
         result = described_class.equivalent?(html1, html2,

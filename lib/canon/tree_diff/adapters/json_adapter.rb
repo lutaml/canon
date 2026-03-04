@@ -166,13 +166,9 @@ module Canon
         # @param tree_node [Core::TreeNode] Array tree node
         # @return [Array] Reconstructed array
         def build_array(tree_node)
-          array = []
-
-          tree_node.children.each do |child|
-            array << from_tree(child)
+          tree_node.children.map do |child|
+            from_tree(child)
           end
-
-          array
         end
 
         # Parse value from value TreeNode

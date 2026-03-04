@@ -148,7 +148,7 @@ module Canon
             changed_str = changed.map do |prefix|
               attr_name = prefix.empty? ? "xmlns" : "xmlns:#{prefix}"
               "#{ColorHelper.colorize(attr_name, :cyan, use_color)}: " \
-              "\"#{ns_decls1[prefix]}\" → \"#{ns_decls2[prefix]}\""
+                "\"#{ns_decls1[prefix]}\" → \"#{ns_decls2[prefix]}\""
             end.join(", ")
             changes_parts << "Changed: #{changed_str}"
           end

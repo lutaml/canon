@@ -182,7 +182,7 @@ module Canon
             if node.respond_to?(:name) && node.name == line_element_name
               true
             # Check if the node's parent has the matching name (for TextNode diffs)
-            elsif node.respond_to?(:parent) && node.parent.respond_to?(:name) && node.parent.name == line_element_name
+            elsif node.respond_to?(:parent) && node.parent.respond_to?(:name) && node.parent.name == line_element_name # rubocop:disable Style/IfWithBooleanLiteralBranches
               true
             else
               false

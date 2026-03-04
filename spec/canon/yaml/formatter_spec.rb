@@ -46,9 +46,8 @@ RSpec.describe Canon::Formatters::YamlFormatter do
   end
 
   Dir.glob("spec/fixtures/yaml/*.raw.yaml").each do |f|
-    c14n_filename = f.gsub(".raw.", ".c14n.")
-
     it "canonicalizes #{File.basename(f)}" do
+      c14n_filename = f.gsub(".raw.", ".c14n.")
       yaml_raw = File.read(f)
       yaml_c14n = File.read(c14n_filename)
 

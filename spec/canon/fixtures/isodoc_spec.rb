@@ -13,39 +13,30 @@ RSpec.describe "IsoDoc HTML comparison fixtures" do
                                              format: :html4,
                                              verbose: true)
 
-      puts "\n=== Canon Comparison Results ==="
-      puts "Equivalent: #{result.equivalent?}"
-      puts "Total differences: #{result.differences.length}"
-
       # Group by dimension
       by_dimension = result.differences.group_by(&:dimension)
-      puts "\n=== Differences by Dimension ==="
       by_dimension.each do |dimension, diffs|
-        puts "#{dimension}: #{diffs.length} differences"
+        # puts "Dimension: #{dimension}, Count: #{diffs.size}"
       end
 
       # Show first few differences
-      puts "\n=== First 10 Differences ==="
-      result.differences.first(10).each_with_index do |d, i|
-        puts "\nDiff #{i + 1}:"
-        puts "  dimension: #{d.dimension}"
-        puts "  normative: #{d.normative?}"
-        puts "  location: #{d.path}"
-        puts "  node1: #{d.node1.class} - #{d.node1.name if d.node1.respond_to?(:name)}"
-        puts "  node2: #{d.node2.class} - #{d.node2.name if d.node2.respond_to?(:name)}"
-
+      result.differences.first(10).each_with_index do |d, _i|
         # Show attributes if element nodes
         if d.node1.is_a?(Nokogiri::XML::Element)
           attrs1 = d.node1.attributes.map do |k, v|
             "#{k}='#{v}'"
           end.sort.join(", ")
-          puts "  node1 attributes: #{attrs1}" if attrs1 && !attrs1.empty?
+          if attrs1 && !attrs1.empty?
+            # puts "Node1 attributes: #{attrs1}"
+          end
         end
         if d.node2.is_a?(Nokogiri::XML::Element)
           attrs2 = d.node2.attributes.map do |k, v|
             "#{k}='#{v}'"
           end.sort.join(", ")
-          puts "  node2 attributes: #{attrs2}" if attrs2 && !attrs2.empty?
+          if attrs2 && !attrs2.empty?
+            # puts "Node2 attributes: #{attrs2}"
+          end
         end
       end
 

@@ -39,7 +39,7 @@ module Canon
         # @param pos1 [Integer] First position
         # @param pos2 [Integer] Second position
         # @return [Boolean] true if positions are equal
-        def compare_strict(pos1, pos2)
+        def compare_strict(pos1, pos2) # rubocop:disable Naming/PredicateMethod
           pos1 == pos2
         end
 

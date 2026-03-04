@@ -410,7 +410,7 @@ module Canon
       when :xml
         [
           Canon::Xml::C14n.canonicalize(expected, with_comments: false).gsub(
-            /></, ">\n<"
+            "><", ">\n<"
           ),
           Canon::Xml::C14n.canonicalize(actual, with_comments: false).gsub(
             />\s+$/, ""
@@ -510,11 +510,11 @@ module Canon
       output << colorize("=== ORIGINAL INPUTS (Raw) ===", :cyan, :bold)
       output << ""
       output << colorize("EXPECTED:", :yellow, :bold)
-      output << "-" * 70
+      output << ("-" * 70)
       output << raw1
       output << ""
       output << colorize("RECEIVED:", :yellow, :bold)
-      output << "-" * 70
+      output << ("-" * 70)
       output << raw2
       output << ""
       output << ""
@@ -543,11 +543,11 @@ preprocessing_info = nil)
       end
       output << ""
       output << colorize("EXPECTED:", :yellow, :bold)
-      output << "-" * 70
+      output << ("-" * 70)
       output << preprocessed1
       output << ""
       output << colorize("RECEIVED:", :yellow, :bold)
-      output << "-" * 70
+      output << ("-" * 70)
       output << preprocessed2
       output << ""
       output << ""

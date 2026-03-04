@@ -82,7 +82,7 @@ module Canon
       # @return [Boolean] true if colors appear to be supported
       def detect_from_env
         # Check TERM variable
-        term = ENV["TERM"]
+        term = ENV.fetch("TERM", nil)
         if term && NO_COLOR_TERMS.any? { |t| term.include?(t) }
           # Known no-color terminals
           return false
@@ -100,7 +100,7 @@ module Canon
         end
 
         # Check for known color-capable terminals
-        colorterm = ENV["COLORTERM"]
+        colorterm = ENV.fetch("COLORTERM", nil)
         return true if COLOR_TERM_VALUES.include?(colorterm)
 
         # Default: assume colors are supported on modern terminals
@@ -125,7 +125,7 @@ module Canon
       # - Generic CI: check for specific TeamCity/Terminal variables
       #
       # @return [Boolean] true if CI environment likely supports colors
-      def detect_ci_colors
+      def detect_ci_colors # rubocop:disable Naming/PredicateMethod
         # Most modern CI systems support ANSI colors
         # Only disable for explicitly known non-color CI
         return false if ENV["TERM"] == "dumb"

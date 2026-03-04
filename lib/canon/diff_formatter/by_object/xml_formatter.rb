@@ -73,7 +73,7 @@ module Canon
             path = extract_dom_path(diff)
           end
 
-          super(tree, path, diff)
+          super
         end
 
         private

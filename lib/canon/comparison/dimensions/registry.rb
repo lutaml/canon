@@ -67,7 +67,7 @@ module Canon
         # @param node2 [Object] Second node
         # @param behavior [Symbol] Comparison behavior
         # @return [Boolean] true if nodes match for this dimension
-        def self.compare(dimension_name, node1, node2, behavior)
+        def self.compare(dimension_name, node1, node2, behavior) # rubocop:disable Naming/PredicateMethod
           dimension = get(dimension_name)
           dimension.equivalent?(node1, node2, behavior)
         end

@@ -132,8 +132,8 @@ module Canon
             # Serialize parsed nodes for consistent formatting
             # This ensures both sides formatted identically, showing only real differences
             preprocessed = [
-              serialize_node(node1).gsub(/></, ">\n<"),
-              serialize_node(node2).gsub(/></, ">\n<"),
+              serialize_node(node1).gsub("><", ">\n<"),
+              serialize_node(node2).gsub("><", ">\n<"),
             ]
 
             ComparisonResult.new(

@@ -352,7 +352,7 @@ module Canon
       #
       # @param dimension [Symbol] Match dimension
       # @return [Boolean] true if normative (should be shown)
-      def determine_normative(dimension)
+      def determine_normative(dimension) # rubocop:disable Naming/PredicateMethod
         # Check match options behavior for this dimension
         behavior = @match_options.behavior_for(dimension)
 

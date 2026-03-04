@@ -246,7 +246,7 @@ RSpec.describe Canon::TreeDiff::Core::Matching do
       matching.add(node1b, node2b)
 
       pairs = []
-      matching.each { |n1, n2| pairs << [n1, n2] }
+      matching.each { |n1, n2| pairs << [n1, n2] } # rubocop:disable Style/MapIntoArray
 
       expect(pairs).to eq([[node1a, node2a], [node1b, node2b]])
     end

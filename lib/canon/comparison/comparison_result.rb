@@ -44,10 +44,8 @@ html_version: nil, match_options: nil, algorithm: :dom, original_strings: nil)
           if diff.is_a?(Canon::Diff::DiffNode)
             diff.normative?
           # Legacy Hash format - always considered normative (structural differences)
-          elsif diff.is_a?(Hash)
-            true
           else
-            false
+            diff.is_a?(Hash)
           end
         end
       end

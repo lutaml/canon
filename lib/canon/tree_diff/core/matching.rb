@@ -28,7 +28,7 @@ module Canon
         # @param node1 [TreeNode] Node from tree 1
         # @param node2 [TreeNode] Node from tree 2
         # @return [Boolean] true if added, false if violates constraints
-        def add(node1, node2)
+        def add(node1, node2) # rubocop:disable Naming/PredicateMethod
           return false unless valid_pair?(node1, node2)
 
           @pairs << [node1, node2]
@@ -43,7 +43,7 @@ module Canon
         # @param node1 [TreeNode] Node from tree 1
         # @param node2 [TreeNode] Node from tree 2
         # @return [Boolean] true if removed, false if not found
-        def remove(node1, node2)
+        def remove(node1, node2) # rubocop:disable Naming/PredicateMethod
           removed = @pairs.delete([node1, node2])
           return false unless removed
 

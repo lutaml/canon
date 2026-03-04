@@ -294,9 +294,9 @@ module Canon
                                                            @diff_grouping_lines)
                               format_diff_groups(groups)
                             else
-                              diff_sections.map do |s|
+                              diff_sections.filter_map do |s|
                                 s[:formatted]
-                              end.compact.join("\n\n")
+                              end.join("\n\n")
                             end
 
           output << formatted_diffs

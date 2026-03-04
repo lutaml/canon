@@ -13,14 +13,11 @@ RSpec.describe "IsoDoc blockquotes bug reproduction" do
     expected_xml = File.read("spec/fixtures/xml/isodoc-blockquotes-expected.xml")
     actual_xml = File.read("spec/fixtures/xml/isodoc-blockquotes-actual.xml")
 
-    result = xml_formatter.format([], :xml, doc1: expected_xml,
-                                            doc2: actual_xml)
+    xml_formatter.format([], :xml, doc1: expected_xml,
+                                   doc2: actual_xml)
 
     # The bug: When comparing the presxml (pretty-printed) with actual output (compressed),
     # not all lines are shown in the diff
-    puts "\n=== RESULT ==="
-    puts result
-    puts "=== END RESULT ===\n"
 
     # This test documents the expected behavior
     # expect(result).to include("This International Standard")

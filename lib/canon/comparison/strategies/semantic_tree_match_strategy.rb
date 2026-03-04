@@ -146,8 +146,8 @@ module Canon
           # MUST match DOM diff preprocessing EXACTLY (xml_comparator.rb:106-109)
           # Simple pattern: add newline between adjacent tags
           [
-            xml1.gsub(/></, ">\n<"),
-            xml2.gsub(/></, ">\n<"),
+            xml1.gsub("><", ">\n<"),
+            xml2.gsub("><", ">\n<"),
           ]
         end
 
@@ -185,7 +185,7 @@ module Canon
 
           # KEY FIX: Use simple gsub, NOT Canon.format
           # This ensures proper line-by-line display matching DOM diff format
-          [html1.gsub(/></, ">\n<"), html2.gsub(/></, ">\n<")]
+          [html1.gsub("><", ">\n<"), html2.gsub("><", ">\n<")]
         end
 
         # Preprocess JSON documents

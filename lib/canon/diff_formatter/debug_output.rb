@@ -27,9 +27,9 @@ module Canon
 
           output = []
           output << ""
-          output << "=" * 80
+          output << ("=" * 80)
           output << "CANON VERBOSE MODE - DETAILED OPTIONS"
-          output << "=" * 80
+          output << ("=" * 80)
           output << ""
 
           # Show match options as a table
@@ -44,7 +44,7 @@ module Canon
           output << format_comparison_summary(comparison_result)
           output << ""
 
-          output << "=" * 80
+          output << ("=" * 80)
           output << ""
 
           output.join("\n")
@@ -63,9 +63,7 @@ module Canon
           internal_keys = %i[tree_diff_operations tree_diff_statistics
                              tree_diff_matching]
 
-          rows = comparison_result.match_options.reject do |dimension, _behavior|
-            internal_keys.include?(dimension)
-          end.map do |dimension, behavior|
+          rows = comparison_result.match_options.except(*internal_keys).map do |dimension, behavior|
             {
               dimension: dimension.to_s,
               behavior: behavior.to_s,

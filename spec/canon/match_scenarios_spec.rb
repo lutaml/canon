@@ -17,12 +17,7 @@ RSpec.describe "XML Diff Scenarios with Match Options" do
       expected_path = "spec/fixtures/xml/scenario1-single-leaf-single-line-parent-expected.xml"
       actual_path = "spec/fixtures/xml/scenario1-single-leaf-single-line-parent-actual.xml"
 
-      diff = format_diff(expected_path, actual_path)
-      puts "\n#{'=' * 80}"
-      puts "SCENARIO 1: Single leaf change in single-line parent"
-      puts "=" * 80
-      puts diff
-      puts "=" * 80
+      format_diff(expected_path, actual_path)
 
       # The diff should show:
       # - Line 5 with <bold>world</bold> (file 1)
@@ -36,12 +31,7 @@ RSpec.describe "XML Diff Scenarios with Match Options" do
       expected_path = "spec/fixtures/xml/scenario2-single-leaf-multiline-parent-expected.xml"
       actual_path = "spec/fixtures/xml/scenario2-single-leaf-multiline-parent-actual.xml"
 
-      diff = format_diff(expected_path, actual_path)
-      puts "\n#{'=' * 80}"
-      puts "SCENARIO 2: Single leaf change in multi-line parent"
-      puts "=" * 80
-      puts diff
-      puts "=" * 80
+      format_diff(expected_path, actual_path)
 
       # The diff should show:
       # - Opening <text> tag (line 5)
@@ -58,12 +48,7 @@ RSpec.describe "XML Diff Scenarios with Match Options" do
       expected_path = "spec/fixtures/xml/scenario3-multiple-leaves-same-parent-expected.xml"
       actual_path = "spec/fixtures/xml/scenario3-multiple-leaves-same-parent-actual.xml"
 
-      diff = format_diff(expected_path, actual_path)
-      puts "\n#{'=' * 80}"
-      puts "SCENARIO 3: Multiple leaf changes in same parent"
-      puts "=" * 80
-      puts diff
-      puts "=" * 80
+      format_diff(expected_path, actual_path)
 
       # The diff should show:
       # - Opening <text> tag
@@ -78,12 +63,7 @@ RSpec.describe "XML Diff Scenarios with Match Options" do
       expected_path = "spec/fixtures/xml/scenario4-nested-parents-expected.xml"
       actual_path = "spec/fixtures/xml/scenario4-nested-parents-actual.xml"
 
-      diff = format_diff(expected_path, actual_path)
-      puts "\n#{'=' * 80}"
-      puts "SCENARIO 4: Nested parents with changes"
-      puts "=" * 80
-      puts diff
-      puts "=" * 80
+      format_diff(expected_path, actual_path)
 
       # The diff should show:
       # - Opening <text> tag
@@ -102,12 +82,7 @@ RSpec.describe "XML Diff Scenarios with Match Options" do
       expected_path = "spec/fixtures/xml/isodoc-blockquotes-expected.xml"
       actual_path = "spec/fixtures/xml/isodoc-blockquotes-actual.xml"
 
-      diff = format_diff(expected_path, actual_path)
-      puts "\n#{'=' * 80}"
-      puts "SCENARIO 5: Original isodoc blockquotes case"
-      puts "=" * 80
-      puts diff
-      puts "=" * 80
+      format_diff(expected_path, actual_path)
 
       # The diff should show ALL lines from the <p> element inside <attribution>
       # Currently it's missing lines after line 21 in the diff output

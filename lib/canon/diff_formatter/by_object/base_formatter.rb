@@ -298,7 +298,7 @@ show_diffs: :all)
           # Try to get from config if available
           config = Canon::Config.instance
           # Default to 10,000 if config not available
-          config&.xml&.diff&.max_diff_lines || 10_000
+          config&.xml&.diff&.max_diff_lines || 10_000 # rubocop:disable Style/SafeNavigationChainLength
         end
       end
     end

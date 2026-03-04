@@ -231,9 +231,9 @@ module Canon
         # @param node [Object] Node to check
         # @return [Boolean] true if node is a text node
         def text_node?(node)
-          node.respond_to?(:text?) && node.text? &&
-            !node.respond_to?(:element?) ||
-            node.respond_to?(:node_type) && node.node_type == :text
+          (node.respond_to?(:text?) && node.text? &&
+            !node.respond_to?(:element?)) ||
+            (node.respond_to?(:node_type) && node.node_type == :text)
         end
 
         # Get text content from a node

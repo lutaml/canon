@@ -28,9 +28,8 @@ RSpec.describe Canon::Formatters::XmlFormatter do
   end
 
   Dir.glob("spec/fixtures/xml/*.raw.xml").each do |f|
-    c14n_filename = f.gsub(".raw.", ".c14n.")
-
     it "canonicalizes #{File.basename(f)}" do
+      c14n_filename = f.gsub(".raw.", ".c14n.")
       xml_raw = File.read(f)
       xml_c14n = File.read(c14n_filename)
 

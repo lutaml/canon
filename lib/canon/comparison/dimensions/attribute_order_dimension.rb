@@ -37,7 +37,7 @@ module Canon
         # @param order1 [Array<Symbol>] First attribute order
         # @param order2 [Array<Symbol>] Second attribute order
         # @return [Boolean] true if attribute order is exactly the same
-        def compare_strict(order1, order2)
+        def compare_strict(order1, order2) # rubocop:disable Naming/PredicateMethod
           order1 == order2
         end
 

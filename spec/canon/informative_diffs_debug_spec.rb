@@ -35,7 +35,7 @@ RSpec.describe "Debug informative diffs issues" do
       # With spec_friendly/html4 profile, attribute order should be INFORMATIVE
       # But it's showing as NORMATIVE (red/green instead of cyan)
 
-      result = Canon::Comparison.equivalent?(
+      _result = Canon::Comparison.equivalent?(
         expected_html,
         actual_html,
         format: :html4,
@@ -43,34 +43,16 @@ RSpec.describe "Debug informative diffs issues" do
         verbose: true,
       )
 
-      puts "\n=== DEBUG OUTPUT ==="
-      puts "Equivalent? #{result.equivalent?}"
-      puts "Has normative diffs? #{result.has_normative_diffs?}"
-      puts "Has informative diffs? #{result.has_informative_diffs?}"
-      puts "Differences count: #{result.differences.length}"
-
-      result.differences.each_with_index do |diff, i|
-        puts "\nDiff #{i + 1}:"
-        puts "  Class: #{diff.class}"
-        if diff.respond_to?(:dimension)
-          puts "  Dimension: #{diff.dimension}"
-          puts "  Active?: #{diff.normative?}"
-          puts "  Reason: #{diff.reason}"
-          if diff.respond_to?(:node1) && diff.node1
-            puts "  Node1 path: #{diff.node1.respond_to?(:path) ? diff.node1.path : 'N/A'}"
-            puts "  Node2 path: #{diff.node2.respond_to?(:path) ? diff.node2.path : 'N/A'}"
-          end
-        else
-          puts "  Hash: #{diff.inspect}"
-        end
-      end
+      # result.differences.each_with_index do |diff, _i|
+      #   if diff.respond_to?(:dimension) && diff.respond_to?(:node1) && diff.node1
+      #   end
+      # end
 
       # Try with just the divs that have attribute order differences
       div1 = '<div class="TOC" id="_">Test</div>'
       div2 = '<div id="_" class="TOC">Test</div>'
 
-      puts "\n\n=== ATTRIBUTE ORDER TEST ==="
-      attr_result = Canon::Comparison.equivalent?(
+      _attr_result = Canon::Comparison.equivalent?(
         div1,
         div2,
         format: :html4,
@@ -78,13 +60,10 @@ RSpec.describe "Debug informative diffs issues" do
         verbose: true,
       )
 
-      puts "Equivalent? #{attr_result.equivalent?}"
-      puts "Differences: #{attr_result.differences.length}"
-      attr_result.differences.each do |diff|
-        if diff.respond_to?(:dimension)
-          puts "  Dimension: #{diff.dimension}, Normative: #{diff.normative?}"
-        end
-      end
+      # attr_result.differences.each do |diff|
+      #   if diff.respond_to?(:dimension)
+      #   end
+      # end
     end
   end
 
@@ -101,12 +80,6 @@ RSpec.describe "Debug informative diffs issues" do
         match_profile: :spec_friendly,
         verbose: true,
       )
-
-      puts "\n=== ISSUE 2 DEBUG ==="
-      puts "Equivalent? #{result.equivalent?}"
-      puts "Has normative? #{result.has_normative_diffs?}"
-      puts "Has informative? #{result.has_informative_diffs?}"
-      puts "Differences: #{result.differences.length}"
 
       # With spec_friendly, attribute order is :strict, but :rendered preprocessing
       # should normalize it away
@@ -125,16 +98,10 @@ RSpec.describe "Debug informative diffs issues" do
         verbose: true,
       )
 
-      puts "\n=== MINIMAL HTML4 TEST ==="
-      puts "Equivalent? #{result.equivalent?}"
-      puts "Has normative? #{result.has_normative_diffs?}"
-      puts "Differences: #{result.differences.length}"
-
-      result.differences.each do |diff|
-        if diff.respond_to?(:dimension)
-          puts "  Dim: #{diff.dimension}, Normative: #{diff.normative?}, Reason: #{diff.reason}"
-        end
-      end
+      # result.differences.each do |diff|
+      #   if diff.respond_to?(:dimension)
+      #   end
+      # end
 
       # html4 profile has attribute_whitespace: :normalize
       expect(result.equivalent?).to be true

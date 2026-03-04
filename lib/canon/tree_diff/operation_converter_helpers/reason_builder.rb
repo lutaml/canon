@@ -160,7 +160,7 @@ module Canon
           text = text.to_s
           return text if text.length <= max_length
 
-          "#{text[0...max_length - 3]}..."
+          "#{text[0...(max_length - 3)]}..."
         end
       end
     end

@@ -40,7 +40,7 @@ module Canon
       # Line range for an element
       LineRange = Struct.new(:start_line, :end_line, :elem) do
         def contains?(line_num)
-          line_num >= start_line && line_num <= end_line
+          line_num.between?(start_line, end_line)
         end
 
         def length

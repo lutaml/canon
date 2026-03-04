@@ -37,12 +37,12 @@ module Canon
           attributes.each do |attr|
             # Try format-specific ENV var first
             env_key = EnvSchema.env_key(format, config_type, attr)
-            value = ENV[env_key]
+            value = ENV.fetch(env_key, nil)
 
             # Fall back to global ENV var if format-specific not set
             if value.nil?
               global_key = EnvSchema.global_env_key(attr)
-              value = ENV[global_key]
+              value = ENV.fetch(global_key, nil)
             end
 
             # Convert and store if value exists
@@ -57,7 +57,7 @@ module Canon
           result = {}
           attributes.each do |attr|
             global_key = EnvSchema.global_env_key(attr)
-            value = ENV[global_key]
+            value = ENV.fetch(global_key, nil)
 
             if value
               result[attr] = TypeConverter.convert(attr, value)
