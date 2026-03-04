@@ -144,6 +144,11 @@ module Canon
           elsif node.respond_to?(:get_attribute)
             attr = node.get_attribute(attr_name)
             attr.respond_to?(:value) ? attr.value : attr
+          elsif node.respond_to?(:attribute_nodes)
+            attribute_node = node.attribute_nodes.find do |attr|
+              attr.name == attr_name.to_s
+            end
+            attribute_node&.value
           end
         end
 
