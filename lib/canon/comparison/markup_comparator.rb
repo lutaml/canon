@@ -116,13 +116,13 @@ module Canon
 
           # Canon::Xml::Node ElementNode
           if node.is_a?(Canon::Xml::Nodes::ElementNode)
-            node.attribute_nodes.each_with_object({}) do |attr, hash|
-              hash[attr.name] = attr.value
+            node.attribute_nodes.to_h do |attr|
+              [attr.name, attr.value]
             end
           # Nokogiri nodes
           elsif node.respond_to?(:attributes)
-            node.attributes.each_with_object({}) do |(_, attr), hash|
-              hash[attr.name] = attr.value
+            node.attributes.to_h do |_, attr|
+              [attr.name, attr.value]
             end
           else
             {}

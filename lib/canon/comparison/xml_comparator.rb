@@ -123,9 +123,7 @@ module Canon
           # Classify DiffNodes as normative/informative if we have verbose output
           if opts[:verbose] && !differences.empty?
             classifier = Canon::Diff::DiffClassifier.new(match_opts)
-            classifier.classify_all(differences.select do |d|
-              d.is_a?(Canon::Diff::DiffNode)
-            end)
+            classifier.classify_all(differences.grep(Canon::Diff::DiffNode))
           end
 
           if opts[:verbose]
@@ -148,9 +146,7 @@ module Canon
             # Non-verbose mode: check equivalence
             # If comparison found differences, classify them to determine if normative
             classifier = Canon::Diff::DiffClassifier.new(match_opts)
-            classifier.classify_all(differences.select do |d|
-              d.is_a?(Canon::Diff::DiffNode)
-            end)
+            classifier.classify_all(differences.grep(Canon::Diff::DiffNode))
             # Equivalent if no normative differences (matches semantic algorithm)
             differences.none?(&:normative?)
           else
