@@ -69,7 +69,7 @@ RSpec.describe Canon::ColorDetector do
             true
           end
 
-          def obj.isatty
+          def obj.isatty # rubocop:disable Naming/PredicateMethod
             true
           end
         end

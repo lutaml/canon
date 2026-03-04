@@ -292,7 +292,7 @@ module Canon
           attr_diff = attribute_difference(other)
 
           # Weighted combination
-          depth_diff * 0.3 + content_diff * 0.5 + attr_diff * 0.2
+          (depth_diff * 0.3) + (content_diff * 0.5) + (attr_diff * 0.2)
         end
 
         # Get content as a set for similarity calculation

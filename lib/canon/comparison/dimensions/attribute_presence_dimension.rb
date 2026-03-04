@@ -37,7 +37,7 @@ module Canon
         # @param names1 [Array<Symbol>] First attribute names
         # @param names2 [Array<Symbol>] Second attribute names
         # @return [Boolean] true if attribute names are exactly equal
-        def compare_strict(names1, names2)
+        def compare_strict(names1, names2) # rubocop:disable Naming/PredicateMethod
           names1.sort == names2.sort
         end
 

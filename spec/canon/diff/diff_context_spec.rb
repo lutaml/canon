@@ -331,7 +331,7 @@ RSpec.describe Canon::Diff::DiffContext do
 
     it "handles many blocks" do
       many_blocks = Array.new(100) do |i|
-        Canon::Diff::DiffBlock.new(start_idx: i * 2, end_idx: i * 2 + 1,
+        Canon::Diff::DiffBlock.new(start_idx: i * 2, end_idx: (i * 2) + 1,
                                    types: ["-"])
       end
       context = described_class.new(start_idx: 0, end_idx: 300,

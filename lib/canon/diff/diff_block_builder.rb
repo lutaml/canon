@@ -66,13 +66,13 @@ module Canon
       # Create a DiffBlock from lines
       def create_block(start_idx, end_idx, diff_lines)
         # Determine types from diff_lines
-        types = diff_lines.map(&:type).uniq.map do |t|
+        types = diff_lines.map(&:type).uniq.filter_map do |t|
           case t
           when :added then "+"
           when :removed then "-"
           when :changed then "!"
           end
-        end.compact
+        end
 
         # Create block
         block = DiffBlock.new(

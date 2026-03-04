@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require "canon" unless defined?(::Canon)
+require "canon" unless defined?(Canon)
 require "canon/comparison"
 require "canon/diff_formatter"
 require "canon/config"
@@ -137,7 +137,7 @@ module Canon
         @target
       end
 
-      def diffable
+      def diffable # rubocop:disable Naming/PredicateMethod
         false
       end
 

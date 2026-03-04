@@ -33,7 +33,7 @@ grouping_lines: nil)
         grouped_blocks = if @grouping_lines
                            group_nearby_blocks(@diff_blocks, @grouping_lines)
                          else
-                           @diff_blocks.map { |block| [block] }
+                           @diff_blocks.zip
                          end
 
         # Create contexts with context lines

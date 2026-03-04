@@ -160,7 +160,7 @@ module Canon
 
           # Keep only context_lines after the last change
           keep_until = [last_change_pos + context_lines, hunk.length - 1].min
-          hunk.slice!(keep_until + 1..-1) if keep_until < hunk.length - 1
+          hunk.slice!((keep_until + 1)..-1) if keep_until < hunk.length - 1
         end
 
         # Colorize text if color is enabled
@@ -454,7 +454,7 @@ module Canon
           # Try to get from config if available
           config = Canon::Config.instance
           # Default to 10,000 if config not available
-          config&.xml&.diff&.max_diff_lines || 10_000
+          config&.xml&.diff&.max_diff_lines || 10_000 # rubocop:disable Style/SafeNavigationChainLength
         end
 
         # Build set of children of matched parents

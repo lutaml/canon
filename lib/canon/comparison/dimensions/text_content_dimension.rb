@@ -37,7 +37,7 @@ module Canon
         # @param text1 [String, nil] First text
         # @param text2 [String, nil] Second text
         # @return [Boolean] true if texts are exactly equal
-        def compare_strict(text1, text2)
+        def compare_strict(text1, text2) # rubocop:disable Naming/PredicateMethod
           text1.to_s == text2.to_s
         end
 
@@ -49,7 +49,7 @@ module Canon
         # @param text1 [String, nil] First text
         # @param text2 [String, nil] Second text
         # @return [Boolean] true if normalized texts are equal
-        def compare_normalize(text1, text2)
+        def compare_normalize(text1, text2) # rubocop:disable Naming/PredicateMethod
           normalized1 = normalize_text(text1)
           normalized2 = normalize_text(text2)
 

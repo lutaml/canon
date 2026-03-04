@@ -81,12 +81,10 @@ module Canon
         #
         # @return [Array<String>] Path components
         def compute_path
-          components = []
-
           # Build path from root to node
           ancestors = @node.ancestors.reverse
-          ancestors.each do |ancestor|
-            components << path_component(ancestor)
+          components = ancestors.map do |ancestor|
+            path_component(ancestor)
           end
 
           # Add the node itself

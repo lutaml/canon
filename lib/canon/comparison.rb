@@ -495,7 +495,7 @@ module Canon
 
         # Use cache for string documents
         Cache.fetch(:document_parse,
-                    Cache.key_for_document(doc, format, preprocessing)) do
+                    Cache.key_for_document(doc, format, preprocessing)) do # rubocop:disable Lint/UselessDefaultValueArgument
           yield doc
         end
       end

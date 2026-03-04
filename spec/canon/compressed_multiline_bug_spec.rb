@@ -40,16 +40,11 @@ RSpec.describe "Compressed multiline content bug" do
     result = formatter.format([], :xml, doc1: xml1, doc2: xml2)
 
     # Debugging: print the actual result
-    puts "\n=== ACTUAL DIFF OUTPUT ==="
-    puts result
-    puts "=== END DIFF OUTPUT ===\n"
 
     # Count how many lines contain the deletion marker "- |"
-    deletion_lines = result.lines.select { |line| line.match?(/\|\s*-\s*\|/) }
+    deletion_lines = result.lines.grep(/\|\s*-\s*\|/)
 
-    puts "\n=== DELETION LINES (#{deletion_lines.count}) ==="
-    deletion_lines.each { |line| puts line }
-    puts "=== END DELETION LINES ===\n"
+    # deletion_lines.each { |line| }
 
     # The multi-line attribution has these distinct lines:
     # 1. <p>

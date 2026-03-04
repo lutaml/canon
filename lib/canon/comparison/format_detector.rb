@@ -52,7 +52,7 @@ module Canon
         # @return [Symbol] Format type
         def detect_string(str)
           # Use cache for format detection
-          Cache.fetch(:format_detect, Cache.key_for_format_detection(str)) do
+          Cache.fetch(:format_detect, Cache.key_for_format_detection(str)) do # rubocop:disable Lint/UselessDefaultValueArgument
             detect_string_uncached(str)
           end
         end

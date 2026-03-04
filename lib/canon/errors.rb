@@ -83,13 +83,13 @@ module Canon
       case limit_type
       when :file_size
         "File size (#{format_bytes(actual)}) exceeds limit (#{format_bytes(limit)}). " \
-          "Increase limit via CANON_MAX_FILE_SIZE or config.diff.max_file_size"
+        "Increase limit via CANON_MAX_FILE_SIZE or config.diff.max_file_size"
       when :node_count
         "Tree node count (#{actual}) exceeds limit (#{limit}). " \
-          "Increase limit via CANON_MAX_NODE_COUNT or config.diff.max_node_count"
+        "Increase limit via CANON_MAX_NODE_COUNT or config.diff.max_node_count"
       when :diff_lines
         "Diff output (#{actual} lines) exceeds limit (#{limit} lines). " \
-          "Output truncated. Increase limit via CANON_MAX_DIFF_LINES or config.diff.max_diff_lines"
+        "Output truncated. Increase limit via CANON_MAX_DIFF_LINES or config.diff.max_diff_lines"
       else
         "Size limit exceeded: #{limit_type} (#{actual} > #{limit})"
       end

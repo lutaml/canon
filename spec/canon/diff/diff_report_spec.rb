@@ -91,7 +91,7 @@ RSpec.describe Canon::Diff::DiffReport do
 
       5.times do |i|
         ctx = Canon::Diff::DiffContext.new(start_idx: i * 10,
-                                           end_idx: i * 10 + 5, blocks: [])
+                                           end_idx: (i * 10) + 5, blocks: [])
         report.add_context(ctx)
       end
 
@@ -526,7 +526,7 @@ RSpec.describe Canon::Diff::DiffReport do
   describe "edge cases" do
     it "handles many contexts" do
       many_contexts = Array.new(100) do |i|
-        Canon::Diff::DiffContext.new(start_idx: i * 10, end_idx: i * 10 + 5,
+        Canon::Diff::DiffContext.new(start_idx: i * 10, end_idx: (i * 10) + 5,
                                      blocks: [])
       end
 

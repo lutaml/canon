@@ -37,7 +37,7 @@ module Canon
         # @param comments1 [Array<String>] First comments array
         # @param comments2 [Array<String>] Second comments array
         # @return [Boolean] true if comments are exactly equal
-        def compare_strict(comments1, comments2)
+        def compare_strict(comments1, comments2) # rubocop:disable Naming/PredicateMethod
           comments1 == comments2
         end
 
@@ -48,7 +48,7 @@ module Canon
         # @param comments1 [Array<String>] First comments array
         # @param comments2 [Array<String>] Second comments array
         # @return [Boolean] true if normalized comments are equal
-        def compare_normalize(comments1, comments2)
+        def compare_normalize(comments1, comments2) # rubocop:disable Naming/PredicateMethod
           normalize_comments(comments1) == normalize_comments(comments2)
         end
 

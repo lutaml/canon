@@ -41,7 +41,7 @@ module Canon
         # @param ws1 [Array<String>] First whitespace array
         # @param ws2 [Array<String>] Second whitespace array
         # @return [Boolean] true if structural whitespace is exactly equal
-        def compare_strict(ws1, ws2)
+        def compare_strict(ws1, ws2) # rubocop:disable Naming/PredicateMethod
           ws1 == ws2
         end
 
@@ -52,7 +52,7 @@ module Canon
         # @param ws1 [Array<String>] First whitespace array
         # @param ws2 [Array<String>] Second whitespace array
         # @return [Boolean] true if normalized structural whitespace is equal
-        def compare_normalize(ws1, ws2)
+        def compare_normalize(ws1, ws2) # rubocop:disable Naming/PredicateMethod
           normalize_whitespace(ws1) == normalize_whitespace(ws2)
         end
 

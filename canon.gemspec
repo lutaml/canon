@@ -41,4 +41,5 @@ comparison, testing, digital signatures, and human-readable output."
   spec.metadata["homepage_uri"] = spec.homepage
   spec.metadata["source_code_uri"] = spec.homepage
   spec.metadata["changelog_uri"] = spec.homepage
+  spec.metadata["rubygems_mfa_required"] = "true"
 end

@@ -293,7 +293,7 @@ module Canon
             if value.empty?
               "{}"
             else
-              "{Hash with #{value.keys.length} keys: #{value.keys.take(3).map(&:to_s).join(', ')}#{value.keys.length > 3 ? '...' : ''}}"
+              "{Hash with #{value.keys.length} keys: #{value.keys.take(3).map(&:to_s).join(', ')}#{'...' if value.keys.length > 3}}"
             end
           else
             value.inspect
