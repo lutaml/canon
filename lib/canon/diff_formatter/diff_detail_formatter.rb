@@ -109,6 +109,12 @@ module Canon
           output << "#{colorize('Location:', :cyan, use_color,
                                 bold: true)}  #{colorize(location, :blue,
                                                          use_color)}"
+
+          # show reason if available
+          if diff.respond_to?(:reason) && diff.reason
+            output << "#{colorize('Reason:', :cyan, use_color,
+                                  bold: true)}  #{colorize(diff.reason, :yellow, use_color)}"
+          end
           output << ""
 
           # Dimension-specific details
