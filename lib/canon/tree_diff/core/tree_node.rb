@@ -307,9 +307,12 @@ module Canon
           # Add value
           result << "value:#{value}" if value
 
-          # Add attributes
-          attributes.each do |key, val|
-            result << "attr:#{key}=#{val}"
+          # Add attributes (key only, not values)
+          # This ensures nodes differing only in attribute VALUES still get matched
+          # and are then reported as attribute_updates rather than structural differences
+          # NOTE: The value differences are detected separately in detect_changes
+          attributes.each_key do |key|
+            result << "attr:#{key}"
           end
 
           # Add child labels

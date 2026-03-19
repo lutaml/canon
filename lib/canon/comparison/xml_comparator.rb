@@ -615,7 +615,45 @@ differences)
             return build_text_diff_reason(text1, text2)
           end
 
+          # For attribute values differences, show the actual values
+          if dimension == :attribute_values
+            attrs1 = extract_attributes(node1)
+            attrs2 = extract_attributes(node2)
+            return build_attribute_value_diff_reason(attrs1, attrs2)
+          end
+
+          # For attribute order differences, show the actual attribute names
+          if dimension == :attribute_order
+            attrs1 = extract_attributes(node1)&.keys || []
+            attrs2 = extract_attributes(node2)&.keys || []
+            return "Attribute order changed: [#{attrs1.join(', ')}] → [#{attrs2.join(', ')}]"
+          end
+
           "#{diff1} vs #{diff2}"
+        end
+
+        # Build a clear reason message for attribute value differences
+        #
+        # @param attrs1 [Hash, nil] First node's attributes
+        # @param attrs2 [Hash, nil] Second node's attributes
+        # @return [String] Clear explanation of the attribute value difference
+        def build_attribute_value_diff_reason(attrs1, attrs2)
+          return "missing vs present attributes" unless attrs1 && attrs2
+
+          require "set"
+          keys1 = attrs1.keys.to_set
+          keys2 = attrs2.keys.to_set
+
+          common = keys1 & keys2
+          different_values = common.reject { |k| attrs1[k] == attrs2[k] }
+
+          return "all attribute values match" if different_values.empty?
+
+          parts = different_values.map do |k|
+            "#{k}: #{attrs1[k].inspect} vs #{attrs2[k].inspect}"
+          end
+
+          parts.join("; ")
         end
 
         # Build a clear reason message for attribute presence differences

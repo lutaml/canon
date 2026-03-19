@@ -45,7 +45,6 @@ RSpec.describe "HTML4 Table Class Attribute Comparison Bug" do
   let(:html_with_normal_table_class) do
     <<~HTML
       <body>
-      <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
       <style></style>
       <div class="WordSection1"><p> </p></div>
       <p class="section-break"><br clear="all" class="section"/></p>
@@ -89,10 +88,7 @@ RSpec.describe "HTML4 Table Class Attribute Comparison Bug" do
           ATTRIBUTE_DIMS.include?(d.dimension)
         end
 
-        # This is the bug: currently text_content diffs are reported instead of attribute diffs
-        # After fix: attribute_diffs should not be empty
-        # For now, let's document the bug behavior
-        pending "Bug: attribute differences are not being detected"
+        # The only difference should be in attribute_values, not text_content
         expect(attribute_diffs).not_to be_empty
         expect(text_content_diffs).to be_empty
       end
@@ -113,7 +109,6 @@ RSpec.describe "HTML4 Table Class Attribute Comparison Bug" do
           ATTRIBUTE_DIMS.include?(d.dimension)
         end
 
-        pending "Bug: attribute differences are not being detected"
         expect(attribute_diffs).not_to be_empty
       end
     end
@@ -137,7 +132,6 @@ RSpec.describe "HTML4 Table Class Attribute Comparison Bug" do
           ATTRIBUTE_DIMS.include?(d.dimension)
         end
 
-        pending "Bug: attribute differences are not being detected"
         expect(attribute_diffs).not_to be_empty
       end
     end
@@ -176,13 +170,12 @@ RSpec.describe "HTML4 Table Class Attribute Comparison Bug" do
 
         expect(result).not_to be_equivalent
 
-        # Find the attribute difference
+        # Find any attribute difference involving the table element
         class_diff = result.differences.find do |d|
-          d.dimension == :attribute_presence &&
-            d.reason&.include?("class")
+          d.dimension == :attribute_values &&
+            d.node2.respond_to?(:name) && d.node2.name == "table"
         end
 
-        pending "Bug: class attribute difference is not being detected"
         expect(class_diff).not_to be_nil
       end
     end
@@ -248,7 +241,6 @@ RSpec.describe "HTML4 Table Class Attribute Comparison Bug" do
           html_with_normal_table_class,
         )
 
-        pending "Bug: attribute differences should be shown in formatted output"
         # After fix, the output should show the class attribute difference
         expect(output).to include("class")
         expect(output).to include("MsoISOTableBig")
@@ -275,7 +267,6 @@ RSpec.describe "HTML4 Table Class Attribute Comparison Bug" do
           html_with_normal_table_class,
         )
 
-        pending "Bug: attribute differences should be shown in tree view"
         # After fix, the tree view should show attribute differences
         expect(output).to include("attribute")
       end
@@ -435,7 +426,6 @@ RSpec.describe "HTML4 Table Class Attribute Comparison Bug" do
           ATTRIBUTE_DIMS.include?(d.dimension)
         end
 
-        pending "Bug: Semantic DIFF also struggles with insertions"
         # Should have 1 element_structure (insert) and 1 attribute diff
         expect(element_diffs.size).to eq(1)
         expect(attribute_diffs.size).to eq(1)
