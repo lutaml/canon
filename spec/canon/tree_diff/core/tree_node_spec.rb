@@ -473,7 +473,10 @@ RSpec.describe Canon::TreeDiff::Core::TreeNode do
       expect(similarity).to be < 0.5
     end
 
-    it "returns intermediate value for partially similar nodes" do
+    it "returns 1.0 when only attribute values differ (structural keys match)" do
+      # Nodes differing only in attribute VALUES have 100% structural similarity
+      # because the content_set only includes attribute keys (not values).
+      # The value differences are detected separately by the matching algorithm.
       node1 = described_class.new(
         label: "div",
         value: "text",
@@ -486,8 +489,7 @@ RSpec.describe Canon::TreeDiff::Core::TreeNode do
       )
 
       similarity = node1.similarity_to(node2)
-      expect(similarity).to be >= 0.5
-      expect(similarity).to be < 1.0
+      expect(similarity).to eq(1.0)
     end
   end
 

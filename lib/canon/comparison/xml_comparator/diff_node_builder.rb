@@ -77,6 +77,13 @@ module Canon
           return build_text_difference_reason(text1, text2)
         end
 
+        # For attribute order differences, show the actual attribute names
+        if dimension == :attribute_order
+          attrs1 = extract_attributes(node1)&.keys || []
+          attrs2 = extract_attributes(node2)&.keys || []
+          return "Attribute order changed: [#{attrs1.join(', ')}] → [#{attrs2.join(', ')}]"
+        end
+
         # Default reason
         "#{diff1} vs #{diff2}"
       end

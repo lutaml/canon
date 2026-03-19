@@ -113,7 +113,8 @@ module Canon
           # show reason if available
           if diff.respond_to?(:reason) && diff.reason
             output << "#{colorize('Reason:', :cyan, use_color,
-                                  bold: true)}  #{colorize(diff.reason, :yellow, use_color)}"
+                                  bold: true)}  #{colorize(diff.reason,
+                                                           :yellow, use_color)}"
           end
           output << ""
 
