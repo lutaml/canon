@@ -55,6 +55,7 @@ strip_doctype: false)
       #
       # @param preserve_whitespace [Boolean] Whether to preserve whitespace-only text nodes
       def initialize(preserve_whitespace: false)
+        super()
         @preserve_whitespace = preserve_whitespace
         @root = Nodes::RootNode.new
         @stack = [@root]
