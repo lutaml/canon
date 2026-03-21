@@ -92,6 +92,16 @@ Error handling and validation.
 * Format detection
 * Error messages
 
+=== Performance
+
+link:performance/[**Performance**]::
+Performance benchmarking and optimization.
++
+* SAX-based XML parser
+* Benchmark categories
+* CI integration
+* Regression detection
+
 == Quick Configuration Examples
 
 === Test-Friendly Comparison
