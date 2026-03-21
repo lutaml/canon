@@ -22,101 +22,171 @@ class BenchmarkRunner
     CLEAR   = "\e[0m"
     BOLD    = "\e[1m"
     DIM     = "\e[2m"
-    CYAN    = "\e[36m"
+    BLACK   = "\e[30m"
+    RED     = "\e[31m"
     GREEN   = "\e[32m"
     YELLOW  = "\e[33m"
+    BLUE    = "\e[34m"
     MAGENTA = "\e[35m"
+    CYAN    = "\e[36m"
     WHITE   = "\e[37m"
-    GRAY    = "\e[90m"
-    RED     = "\e[31m"
+    BG_RED  = "\e[41m"
+    BG_GREEN = "\e[42m"
+
+    # Box-drawing
     HL = "─"
     VL = "│"
     TL = "┌"
     TR = "┐"
     BL = "└"
     BR = "┘"
+    TT = "┬"
+    BT = "┴"
+    LT = "├"
+    RT = "┤"
+    CROSS = "┼"
 
-    def self.header(title, color: CYAN)
-      line = HL * 76
-      "#{color}#{TL}#{line}#{TR}#{CLEAR}\n" \
-        "#{color}#{VL}#{CLEAR}  #{BOLD}#{color}#{title}#{CLEAR}#{' ' * (76 - title.length)}#{color}#{VL}#{CLEAR}\n" \
-        "#{color}#{BL}#{line}#{BR}#{CLEAR}"
+    # Spinner frames
+    SPINNER = %w[⠋ ⠙ ⠹ ⠸ ⠼ ⠴ ⠦ ⠧ ⠇ ⠏].freeze
+
+    @spinner_idx = 0
+
+    def self.spin
+      print "\b#{SPINNER[@spinner_idx % SPINNER.length]} "
+      $stdout.flush
+      @spinner_idx += 1
     end
 
-    def self.section(title, icon: "▶")
-      puts
-      puts "#{CYAN}#{VL}#{CLEAR}  #{BOLD}#{WHITE}#{icon} #{title}#{CLEAR}"
-      puts "#{GRAY}#{VL}#{CLEAR}  #{DIM}#{'─' * (title.length + 3)}#{CLEAR}"
-    end
-
-    def self.result(label, ips, deviation:, faster_than: nil)
-      status_color = if faster_than && faster_than > 1.0
-                       GREEN
-                     elsif faster_than && faster_than < 0.9
-                       RED
-                     else
-                       WHITE
-                     end
-
-      bar = render_bar(ips, 20)
-      speedup = if faster_than
-                  "  #{GREEN}⚡#{faster_than.round(2)}x#{CLEAR}"
-                else
-                  ""
-                end
-
-      puts "  #{status_color}#{label}#{CLEAR}"
-      puts "  #{bar}  #{status_color}#{format('%.1f', ips).rjust(8)}#{CLEAR} IPS  ±#{deviation.round(1)}%#{speedup}"
-    end
-
-    def self.comparison(label, base_ips, curr_ips, change:)
-      color = if change > 0.05
-                GREEN
-              elsif change < -0.05
-                RED
-              else
-                WHITE
-              end
-
-      change_str = format("%+.1f%%", change * 100)
-      bar = render_bar(curr_ips, 16)
-
-      base_str = format("%.1f", base_ips).rjust(8)
-      curr_str = format("%.1f", curr_ips).rjust(8)
-
-      puts
-      puts "  #{BOLD}#{label}#{CLEAR}"
-      puts "  #{bar}"
-      puts "  #{GRAY}base:  #{base_str} IPS#{CLEAR}"
-      puts "  #{color}curr:  #{curr_str} IPS#{CLEAR}"
-      puts "  #{color}#{change_str}#{CLEAR}"
-    end
-
-    def self.new_benchmark(label)
-      print "  #{YELLOW}◆#{CLEAR} #{label} ... "
+    def self.clear_spinner
+      print "\b \b"
       $stdout.flush
     end
 
-    def self.speedup(factor, label)
-      puts "  #{GREEN}⚡#{CLEAR} #{label} #{GREEN}#{factor.round(2)}x#{CLEAR} faster"
+    def self.ok
+      puts " #{GREEN}✓#{CLEAR}"
+    end
+
+    def self.fail(msg = nil)
+      puts " #{RED}✗#{CLEAR}"
+      puts "  #{RED}#{msg}#{CLEAR}" if msg
+    end
+
+    def self.info(msg)
+      puts "  #{DIM}#{msg}#{CLEAR}"
     end
 
     def self.hint(msg)
-      puts "  #{DIM}#{msg}#{CLEAR}"
+      puts "  #{CYAN}→#{CLEAR} #{DIM}#{msg}#{CLEAR}"
+    end
+
+    def self.sep(char: HL, width: 78)
+      puts "#{DIM}#{char * width}#{CLEAR}"
+    end
+
+    def self.header(title, color: CYAN)
+      width = 78
+      line = HL * width
+      puts
+      puts "#{color}#{TL}#{line}#{TR}#{CLEAR}"
+      puts "#{color}#{VL}#{CLEAR}  #{BOLD}#{color}#{title}#{CLEAR}#{' ' * (width - title.length - 4)}#{color}#{VL}#{CLEAR}"
+      puts "#{color}#{BL}#{line}#{BR}#{CLEAR}"
+    end
+
+    def self.env_info(ruby_version, platform)
+      puts
+      puts "  #{DIM}Environment:#{CLEAR}"
+      puts "  #{VL}  Ruby #{ruby_version} on #{platform}#{' ' * (60 - ruby_version.length - platform.length)}#{VL}"
+      puts "  #{DIM}#{BL}#{HL * 76}#{BR}#{CLEAR}"
+      puts
+    end
+
+    # Category section with description
+    def self.category(title, icon:, description:, failure_means:, compare_against: nil)
+      puts
+      puts "#{CYAN}#{VL}#{CLEAR}  #{BOLD}#{MAGENTA}#{icon} #{title}#{CLEAR}"
+      puts
+
+      # Description
+      puts "  #{DIM}#{description}#{CLEAR}"
+      puts
+
+      # What we compare
+      if compare_against
+        puts "  #{CYAN}Comparing against:#{CLEAR} #{compare_against}"
+        puts
+      end
+
+      # What failure means
+      puts "  #{YELLOW}⚠️  Failure means:#{CLEAR} #{failure_means}"
+      puts
+
+      sep(width: 76)
+      puts
+    end
+
+    # Results table for a category
+    def self.table_header
+      puts "  #{BOLD}#{'%-35s'} #{'%10s'} #{'%8s'} #{'%s'}#{CLEAR}"
+      puts "  Test                                       IPS       ±% Speedup"
+      sep(char: "─", width: 76)
+    end
+
+    def self.table_row(label, ips, deviation, speedup: nil, is_best: false)
+      speedup_str = speedup ? "  ⚡#{speedup.round(2)}x" : ""
+      label_str = is_best ? "#{GREEN}#{label}#{CLEAR}" : label
+      bar = render_bar(ips)
+
+      puts "  #{label_str}"
+      puts "  #{DIM}#{bar}#{CLEAR}  #{format('%10.1f', ips)}  #{format('%6.1f%%', deviation)}#{speedup_str}"
+      puts
+    end
+
+    def self.table_footer
+      sep(char: "─", width: 76)
+      puts
+    end
+
+    def self.speedup_badge(factor, label)
+      puts "  #{GREEN}⚡ #{label}#{CLEAR}"
+      puts "  #{GREEN}   #{factor.round(2)}x faster#{CLEAR}"
     end
 
     def self.reset_max_ips
       @max_ips = nil
     end
 
-    def self.render_bar(ips, max_width)
+    def self.set_max_ips(val)
+      @max_ips = val
+    end
+
+    def self.render_bar(ips, max_width: 20)
       @max_ips ||= ips
       ratio = ips / @max_ips.to_f
       width = [(ratio * max_width).round, 1].max
       filled = [width, max_width].min
       empty = max_width - filled
-      bar = ("█" * filled) + ("░" * empty)
-      "#{DIM}#{bar}#{CLEAR}"
+      ("█" * filled) + ("░" * empty)
+    end
+
+    # Summary card
+    def self.summary_card(results)
+      puts
+      sep(width: 78)
+      puts
+      puts "  #{BOLD}#{MAGENTA}SUMMARY#{CLEAR}"
+      puts
+
+      total = results.length
+
+      results.each do |r|
+        # For standalone runs, all results are shown as "current" without comparison
+        ips_str = r[:ips] ? format("%10.1f IPS", r[:ips]) : ""
+        puts "  #{DIM}◆#{CLEAR} #{format('%-35s', r[:label])} #{ips_str}"
+      end
+
+      puts
+      puts "  #{DIM}#{total} benchmarks completed#{CLEAR}"
+      puts
     end
   end
 
@@ -127,12 +197,79 @@ class BenchmarkRunner
   DEFAULT_WARMUP = 2
   DEFAULT_ITEMS = 50
 
+  # Category definitions with descriptions
+  CATEGORIES = {
+    xml_parsing: {
+      name: "XML Parsing",
+      icon: "📄",
+      description: "XML parsing performance tests. Measures how quickly we can convert XML strings into internal data structures.",
+      failure_means: "Slow XML parsing impacts all downstream operations. A regression here means users will experience delays when processing XML documents.",
+      compare_against: "Previous branch (main). We test both DOM parsing and SAX parsing.",
+    },
+    html_parsing: {
+      name: "HTML Parsing",
+      icon: "🌐",
+      description: "HTML parsing for web scraping and document processing. Tests both simple and complex HTML with scripts/styles.",
+      failure_means: "Slow HTML parsing affects web scraping workflows. Complex HTML tests include scripts and tables.",
+      compare_against: "Previous branch (main).",
+    },
+    xml_comparison: {
+      name: "XML Comparison",
+      icon: "⚖️",
+      description: "XML semantic comparison. Tests three scenarios: identical documents, similar documents, and documents with different namespaces.",
+      failure_means: "Slow comparison means CI/CD pipelines and test suites will take longer. Critical for regression testing workflows.",
+      compare_against: "Previous branch (main). Identical should be fastest, then similar, then different.",
+    },
+    html_comparison: {
+      name: "HTML Comparison",
+      icon: "🔍",
+      description: "HTML semantic comparison. Tests HTML document equivalence including structural normalization.",
+      failure_means: "Slow HTML comparison affects automated testing of web content. Critical for validation workflows.",
+      compare_against: "Previous branch (main).",
+    },
+    formatting: {
+      name: "Format Canonicalization",
+      icon: "✨",
+      description: "Format canonicalization (XML C14N, JSON, YAML). Tests how quickly we can produce canonical output from data structures.",
+      failure_means: "Slow formatting affects serialization performance. C14N is critical for digital signatures and XML canonicalization.",
+      compare_against: "Previous branch (main).",
+    },
+  }.freeze
+
+  # Test definitions
+  BENCHMARKS = {
+    xml_parsing: [
+      { name: "DOM (simple)", method: :xml_parse_dom_simple, desc: "Standard DOM parsing" },
+      { name: "SAX (simple)", method: :xml_parse_sax_simple, desc: "Streaming SAX parsing" },
+      { name: "DOM (large)", method: :xml_parse_dom_large, desc: "Large document DOM" },
+      { name: "SAX (large)", method: :xml_parse_sax_large, desc: "Large document SAX" },
+    ],
+    html_parsing: [
+      { name: "Simple HTML", method: :html_parse_simple, desc: "Basic HTML" },
+      { name: "Complex HTML", method: :html_parse_complex, desc: "HTML with scripts/tables" },
+    ],
+    xml_comparison: [
+      { name: "Identical XML", method: :xml_compare_identical, desc: "Same documents" },
+      { name: "Similar XML", method: :xml_compare_similar, desc: "Slightly different" },
+      { name: "Different XML", method: :xml_compare_different, desc: "Different namespaces" },
+    ],
+    html_comparison: [
+      { name: "Identical HTML", method: :html_compare_identical, desc: "Same HTML" },
+      { name: "Similar HTML", method: :html_compare_similar, desc: "Slightly different" },
+      { name: "Different HTML", method: :html_compare_different, desc: "Different structure" },
+    ],
+    formatting: [
+      { name: "XML C14N", method: :xml_c14n_format, desc: "Canonical XML" },
+      { name: "JSON", method: :json_format, desc: "JSON formatting" },
+      { name: "YAML", method: :yaml_format, desc: "YAML formatting" },
+    ],
+  }.freeze
+
   # Test data generators
   module DataGenerator
     class << self
-      # Generate XML with varying complexity
       def generate_xml(items: DEFAULT_ITEMS, depth: 1, with_namespaces: false,
-with_attributes: true)
+                       with_attributes: true)
         ns = with_namespaces ? 'xmlns:ns="http://example.org"' : ""
         prefix = with_namespaces ? "ns:" : ""
 
@@ -150,26 +287,22 @@ with_attributes: true)
           end.join
           "<#{prefix}root#{ns_attr}#{attrs}>#{children}</#{prefix}root>"
         else
-          child = build_xml_element(items / 2, depth - 1, prefix, with_attrs,
-                                    "")
+          child = build_xml_element(items / 2, depth - 1, prefix, with_attrs, "")
           "<#{prefix}root#{ns_attr}#{attrs}>#{child}</#{prefix}root>"
         end
       end
 
-      # Generate HTML document
       def generate_html(items: DEFAULT_ITEMS, with_scripts: false,
-with_tables: false)
+                        with_tables: false)
         scripts = if with_scripts
-                    <<-HTML
-          <script type="text/javascript">
-            //<!-- Some inline script
-            function test() { return true; }
-            //-->
-          </script>
-          <style>
-            /* <!-- Inline styles --> */
-            body { margin: 0; }
-          </style>
+                    <<~HTML
+                      <script type="text/javascript">
+                        // Some inline script
+                        function test() { return true; }
+                      </script>
+                      <style>
+                        body { margin: 0; }
+                      </style>
                     HTML
                   else
                     ""
@@ -185,16 +318,15 @@ with_tables: false)
                  end
 
         list_items = Array.new(items) do |i|
-          "<li class=\"item-#{i}\">List item #{i} with <strong>bold</strong> text</li>"
+          "<li class=\"item-#{i}\">List item #{i} with bold text</li>"
         end.join("\n              ")
 
-        # Ensure nav has at least 2 items
         nav_item_count = [(items / 5), 2].max
         nav_items = items.times.first(nav_item_count).map do |i|
           "<li class=\"nav-#{i}\">Nav #{i}</li>"
         end.join("\n                ")
 
-        <<-HTML
+        <<~HTML
           <!DOCTYPE html>
           <html lang="en">
           <head>
@@ -213,7 +345,7 @@ with_tables: false)
             </header>
             <main>
               <section id="content">
-                <p>This is a paragraph with <em>emphasized</em> and <strong>strong</strong> text.</p>
+                <p>This is a paragraph with emphasized and strong text.</p>
                 <ul>
                 #{list_items}
                 </ul>
@@ -228,13 +360,9 @@ with_tables: false)
         HTML
       end
 
-      # Generate JSON data
       def generate_json(items: DEFAULT_ITEMS)
         data = {
-          metadata: {
-            version: "1.0",
-            generated: Time.now.iso8601,
-          },
+          metadata: { version: "1.0", generated: Time.now.iso8601 },
           items: Array.new(items) do |i|
             {
               id: i,
@@ -242,11 +370,7 @@ with_tables: false)
               value: rand * 1000,
               tags: ["tag1", "tag2", "tag#{i % 10}"],
               nested: {
-                level1: {
-                  level2: {
-                    data: "deeply nested value #{i}",
-                  },
-                },
+                level1: { level2: { data: "deeply nested value #{i}" } },
               },
             }
           end,
@@ -254,44 +378,14 @@ with_tables: false)
         JSON.generate(data)
       end
 
-      # Generate YAML data
       def generate_yaml(items: DEFAULT_ITEMS)
         data = JSON.parse(generate_json(items: items))
         data.to_yaml
       end
 
-      # Large XML document for SAX vs DOM comparison
       def generate_large_xml(items: 500)
         generate_xml(items: items, depth: 3, with_namespaces: true,
                      with_attributes: true)
-      end
-
-      # Deeply nested XML for tree traversal testing
-      def generate_deep_xml(depth: 50)
-        return "<leaf>content</leaf>" if depth <= 0
-
-        "<nested level=\"#{depth}\">#{generate_deep_xml(depth - 1)}</nested>"
-      end
-
-      # XML with many attributes
-      def generate_attributed_xml(attrs_per_element: 20, elements: 20)
-        items = Array.new(elements) do |i|
-          attrs = Array.new(attrs_per_element) do |j|
-            "attr#{j}=\"value#{j}_#{i}\""
-          end.join(" ")
-          "<element #{attrs}>Content #{i}</element>"
-        end.join
-        "<root>#{items}</root>"
-      end
-
-      # HTML with mixed content (text + elements)
-      def generate_mixed_html(items: DEFAULT_ITEMS)
-        paragraphs = Array.new(items) do |i|
-          "<p>This is paragraph <strong>#{i}</strong> with " \
-            "<em>mixed</em> content and " \
-            "<a href=\"http://example.com/#{i}\">links</a>.</p>"
-        end.join("\n")
-        generate_html(items: 5).sub("</main>", "#{paragraphs}</main>")
       end
     end
   end
@@ -301,297 +395,206 @@ with_tables: false)
     @warmup = warmup || DEFAULT_WARMUP
     @items = items || DEFAULT_ITEMS
     @benchmark = benchmark
-    @label = self.class.name.split("::")[1]
+    @results = {}
+    @env_shown = false
+    @all_results = []
   end
 
-  # Run the specified benchmark(s)
   def run_benchmarks
     Term.reset_max_ips
-    puts Term.header("Canon Performance Benchmarks", color: Term::CYAN)
-    puts "#{Term::DIM}ruby #{RUBY_VERSION}#{Term::CLEAR}"
-    puts
 
-    results = if @benchmark
-                send(:"benchmark_#{@benchmark}")
-              else
-                run_all_benchmarks
-              end
+    # Header
+    Term.header("Canon Performance Benchmarks", color: Term::CYAN)
 
-    puts
-    puts Term.header("Summary", color: Term::MAGENTA)
-    puts
-
-    results.each do |label, metrics|
-      ips = (metrics[:lower] + metrics[:upper]) / 2.0
-      deviation = ((metrics[:upper] - metrics[:lower]) / metrics[:upper] * 100).round(1)
-      Term.result(label, ips, deviation: deviation)
+    unless @env_shown
+      Term.env_info(RUBY_VERSION, RUBY_PLATFORM)
+      @env_shown = true
     end
 
-    puts
-    results
+    # Run all categories
+    BENCHMARKS.each do |category, tests|
+      run_category(category, tests)
+    end
+
+    # Summary
+    print_summary
+
+    @results
   end
 
   private
 
-  def run_all_benchmarks
-    results = {}
+  def run_category(category, tests)
+    config = CATEGORIES[category]
+    Term.category(
+      config[:name],
+      icon: config[:icon],
+      description: config[:description],
+      failure_means: config[:failure_means],
+      compare_against: config[:compare_against],
+    )
 
-    # XML Parsing benchmarks
-    results.merge!(benchmark_xml_parsing_dom)
-    results.merge!(benchmark_xml_parsing_sax)
-    results.merge!(benchmark_xml_parsing_large)
+    Term.table_header
 
-    # HTML Parsing benchmarks
-    results.merge!(benchmark_html_parsing)
-    results.merge!(benchmark_html_parsing_complex)
+    # Run each test in category
+    category_results = []
+    max_ips = 0
 
-    # Comparison benchmarks
-    results.merge!(benchmark_xml_comparison)
-    results.merge!(benchmark_html_comparison)
+    tests.each do |test|
+      next if test[:method] == :xml_parse_sax_simple && !SAX_AVAILABLE
+      next if test[:method] == :xml_parse_sax_large && !SAX_AVAILABLE
 
-    # Formatting/Canonicalization benchmarks
-    results.merge!(benchmark_xml_c14n)
-    results.merge!(benchmark_json_formatting)
-    results.merge!(benchmark_yaml_formatting)
+      # Redirect stdout during benchmark to suppress benchmark-ips output
+      original_stdout = $stdout
+      $stdout = StringIO.new
 
-    results
-  end
+      result = run_single_test(test[:method])
+      ips = (result[:lower] + result[:upper]) / 2.0
+      max_ips = ips if ips > max_ips
+      category_results << { name: test[:name], result: result }
 
-  # ============================================================
-  # XML PARSING BENCHMARKS
-  # ============================================================
-
-  def benchmark_xml_parsing_dom
-    Term.section("XML Parsing", icon: "📄")
-    xml = DataGenerator.generate_xml(items: @items)
-    Term.new_benchmark("DOM parser (simple)")
-    result = run_ips_benchmark("xml_parse_dom_simple") { Canon::Xml::DataModel.from_xml(xml) }
-    display_ips_result(result)
-    result
-  end
-
-  def benchmark_xml_parsing_sax
-    return {} unless SAX_AVAILABLE
-
-    xml = DataGenerator.generate_xml(items: @items)
-    Term.new_benchmark("SAX parser (simple)")
-    result = run_ips_benchmark("xml_parse_sax_simple") { Canon::Xml::SaxBuilder.parse(xml) }
-    display_ips_result(result)
-
-    # Show comparison if both DOM and SAX were run
-    result
-  end
-
-  def benchmark_xml_parsing_large
-    Term.section("XML Parsing (Large Document)", icon: "📋")
-    xml = DataGenerator.generate_large_xml(items: @items * 5)
-    results = {}
-
-    Term.new_benchmark("DOM parser (large)")
-    results["xml_parse_dom_large"] = time_with_error do
-      Canon::Xml::DataModel.from_xml(xml)
+      # Restore stdout
+      $stdout = original_stdout
     end
-    display_time_result("xml_parse_dom_large", results["xml_parse_dom_large"])
 
-    if SAX_AVAILABLE
-      Term.new_benchmark("SAX parser (large)")
-      results["xml_parse_sax_large"] = time_with_error { Canon::Xml::SaxBuilder.parse(xml) }
-      display_time_result("xml_parse_sax_large", results["xml_parse_sax_large"])
+    # Reset for relative bars within category
+    Term.set_max_ips(max_ips)
 
-      # Show speedup if SAX is faster
-      if results["xml_parse_dom_large"] && results["xml_parse_sax_large"]
-        dom_ips = results["xml_parse_dom_large"][:upper]
-        sax_ips = results["xml_parse_sax_large"][:upper]
+    # Print results with relative bars
+    category_results.each do |r|
+      is_best = r[:result][:upper] >= max_ips
+      Term.table_row(r[:name], (r[:result][:lower] + r[:result][:upper]) / 2.0,
+                     calculate_deviation(r[:result]), is_best: is_best)
+      @all_results << { label: "#{config[:name]}: #{r[:name]}", ips: (r[:result][:lower] + r[:result][:upper]) / 2.0 }
+    end
+
+    Term.table_footer
+
+    # SAX vs DOM comparison for XML parsing
+    if category == :xml_parsing && SAX_AVAILABLE
+      sax = category_results.find { |r| r[:name].include?("SAX") && r[:name].include?("large") }
+      dom = category_results.find { |r| r[:name].include?("DOM") && r[:name].include?("large") }
+
+      if sax && dom
+        sax_ips = (sax[:result][:lower] + sax[:result][:upper]) / 2.0
+        dom_ips = (dom[:result][:lower] + dom[:result][:upper]) / 2.0
         speedup = sax_ips / dom_ips
+
         if speedup > 1.0
-          Term.speedup(speedup, "SAX vs DOM:")
-          Term.hint("(#{format('%.1f', dom_ips)} IPS → #{format('%.1f', sax_ips)} IPS)")
+          Term.speedup_badge(speedup, "SAX is faster than DOM for large documents")
         else
-          Term.hint("(SAX: #{format('%.1f', sax_ips)} IPS, DOM: #{format('%.1f', dom_ips)} IPS)")
+          Term.hint("DOM is #{format('%.2f', 1 / speedup)}x faster than SAX for large documents")
         end
       end
     end
-    results
+
+    puts
   end
 
-  # ============================================================
-  # HTML PARSING BENCHMARKS
-  # ============================================================
-
-  def benchmark_html_parsing
-    Term.section("HTML Parsing", icon: "🌐")
-    html = DataGenerator.generate_html(items: @items)
-    Term.new_benchmark("Simple HTML")
-    result = run_ips_benchmark("html_parse_simple") { Canon.parse_html(html) }
-    display_ips_result(result)
-    result
+  def run_single_test(method)
+    case method
+    when :xml_parse_dom_simple
+      xml = DataGenerator.generate_xml(items: @items)
+      measure { Canon::Xml::DataModel.from_xml(xml) }
+    when :xml_parse_sax_simple
+      xml = DataGenerator.generate_xml(items: @items)
+      measure { Canon::Xml::SaxBuilder.parse(xml) }
+    when :xml_parse_dom_large
+      xml = DataGenerator.generate_large_xml(items: @items * 5)
+      measure_time { Canon::Xml::DataModel.from_xml(xml) }
+    when :xml_parse_sax_large
+      xml = DataGenerator.generate_large_xml(items: @items * 5)
+      measure_time { Canon::Xml::SaxBuilder.parse(xml) }
+    when :html_parse_simple
+      html = DataGenerator.generate_html(items: @items)
+      measure { Canon.parse_html(html) }
+    when :html_parse_complex
+      html = DataGenerator.generate_html(items: @items, with_scripts: true, with_tables: true)
+      measure { Canon.parse_html(html) }
+    when :xml_compare_identical
+      xml = DataGenerator.generate_xml(items: @items)
+      measure { Canon::Comparison.equivalent?(xml, xml, format: :xml) }
+    when :xml_compare_similar
+      xml1 = DataGenerator.generate_xml(items: @items)
+      xml2 = DataGenerator.generate_xml(items: @items)
+      measure { Canon::Comparison.equivalent?(xml1, xml2, format: :xml) }
+    when :xml_compare_different
+      xml1 = DataGenerator.generate_xml(items: @items)
+      xml2 = DataGenerator.generate_xml(items: @items, with_namespaces: true)
+      measure { Canon::Comparison.equivalent?(xml1, xml2, format: :xml) }
+    when :html_compare_identical
+      html = DataGenerator.generate_html(items: @items)
+      measure { Canon::Comparison.equivalent?(html, html, format: :html) }
+    when :html_compare_similar
+      html1 = DataGenerator.generate_html(items: @items)
+      html2 = DataGenerator.generate_html(items: @items)
+      measure { Canon::Comparison.equivalent?(html1, html2, format: :html) }
+    when :html_compare_different
+      html1 = DataGenerator.generate_html(items: @items)
+      html2 = DataGenerator.generate_html(items: @items, with_tables: true)
+      measure { Canon::Comparison.equivalent?(html1, html2, format: :html) }
+    when :xml_c14n_format
+      xml = DataGenerator.generate_xml(items: @items, with_namespaces: true)
+      measure { Canon.format_xml(xml) }
+    when :json_format
+      json = DataGenerator.generate_json(items: @items)
+      data = JSON.parse(json)
+      measure { Canon.format_json(data) }
+    when :yaml_format
+      yaml = DataGenerator.generate_yaml(items: @items)
+      data = YAML.safe_load(yaml, permitted_classes: [Time])
+      measure { Canon.format_yaml(data) }
+    else
+      raise "Unknown benchmark: #{method}"
+    end
   end
 
-  def benchmark_html_parsing_complex
-    html = DataGenerator.generate_html(items: @items, with_scripts: true,
-                                       with_tables: true)
-    Term.new_benchmark("Complex HTML (scripts, tables)")
-    result = run_ips_benchmark("html_parse_complex") { Canon.parse_html(html) }
-    display_ips_result(result)
-    result
-  end
-
-  # ============================================================
-  # COMPARISON BENCHMARKS
-  # ============================================================
-
-  def benchmark_xml_comparison
-    Term.section("XML Comparison", icon: "⚖️")
-    xml1 = DataGenerator.generate_xml(items: @items)
-    xml2 = DataGenerator.generate_xml(items: @items)
-    xml3 = DataGenerator.generate_xml(items: @items, with_namespaces: true)
-
-    results = {}
-    Term.new_benchmark("Identical XML")
-    results.merge!(run_ips_benchmark("xml_compare_identical") do
-      Canon::Comparison.equivalent?(xml1, xml1, format: :xml)
-    end)
-    display_ips_result(results)
-
-    Term.new_benchmark("Similar XML")
-    results.merge!(run_ips_benchmark("xml_compare_similar") do
-      Canon::Comparison.equivalent?(xml1, xml2, format: :xml)
-    end)
-    display_ips_result(results)
-
-    Term.new_benchmark("Different XML (namespaces)")
-    results.merge!(run_ips_benchmark("xml_compare_different") do
-      Canon::Comparison.equivalent?(xml1, xml3, format: :xml)
-    end)
-    display_ips_result(results)
-    results
-  end
-
-  def benchmark_html_comparison
-    Term.section("HTML Comparison", icon: "🔍")
-    html1 = DataGenerator.generate_html(items: @items)
-    html2 = DataGenerator.generate_html(items: @items)
-    html3 = DataGenerator.generate_html(items: @items, with_tables: true)
-
-    results = {}
-    Term.new_benchmark("Identical HTML")
-    results.merge!(run_ips_benchmark("html_compare_identical") do
-      Canon::Comparison.equivalent?(html1, html1, format: :html)
-    end)
-    display_ips_result(results)
-
-    Term.new_benchmark("Similar HTML")
-    results.merge!(run_ips_benchmark("html_compare_similar") do
-      Canon::Comparison.equivalent?(html1, html2, format: :html)
-    end)
-    display_ips_result(results)
-
-    Term.new_benchmark("Different HTML (tables)")
-    results.merge!(run_ips_benchmark("html_compare_different") do
-      Canon::Comparison.equivalent?(html1, html3, format: :html)
-    end)
-    display_ips_result(results)
-    results
-  end
-
-  # ============================================================
-  # FORMATTING/CANONICALIZATION BENCHMARKS
-  # ============================================================
-
-  def benchmark_xml_c14n
-    Term.section("XML Canonicalization", icon: "✨")
-    xml = DataGenerator.generate_xml(items: @items, with_namespaces: true)
-    Term.new_benchmark("XML C14N format")
-    result = run_ips_benchmark("xml_c14n_format") { Canon.format_xml(xml) }
-    display_ips_result(result)
-    result
-  end
-
-  def benchmark_json_formatting
-    Term.section("JSON Formatting", icon: "{}")
-    json = DataGenerator.generate_json(items: @items)
-    data = JSON.parse(json)
-    Term.new_benchmark("JSON format")
-    result = run_ips_benchmark("json_format") { Canon.format_json(data) }
-    display_ips_result(result)
-    result
-  end
-
-  def benchmark_yaml_formatting
-    Term.section("YAML Formatting", icon: "📝")
-    yaml = DataGenerator.generate_yaml(items: @items)
-    data = YAML.safe_load(yaml, permitted_classes: [Time])
-    Term.new_benchmark("YAML format")
-    result = run_ips_benchmark("yaml_format") { Canon.format_yaml(data) }
-    display_ips_result(result)
-    result
-  end
-
-  # ============================================================
-  # BENCHMARK INFRASTRUCTURE
-  # ============================================================
-
-  def run_ips_benchmark(label, &block)
+  def measure(&block)
     job = Benchmark::IPS::Job.new
     job.config(time: @run_time, warmup: @warmup)
-    job.report(label, &block)
+    job.report("test", &block)
     job.run
 
     entry = job.full_report.entries.first
     samples = entry.stats.samples
 
-    raise "No samples collected for #{label}" if samples.empty?
+    return { lower: 0, upper: 0 } if samples.empty?
 
     mean = samples.sum.to_f / samples.size
     variance = samples.sum { |x| (x - mean)**2 } / (samples.size - 1)
     std_dev = Math.sqrt(variance)
     error_margin = std_dev / mean
+    error_pct = error_margin.round(4)
 
-    error_percentage = error_margin.round(4)
-    lower = mean.round(4) * (1 - error_percentage)
-    upper = mean.round(4) * (1 + error_percentage)
-
-    { label => { lower: lower, upper: upper } }
+    { lower: mean.round(4) * (1 - error_pct), upper: mean.round(4) * (1 + error_pct) }
   end
 
-  def display_ips_result(results)
-    return if results.nil? || results.empty?
-
-    results.each do |label, metrics|
-      ips = (metrics[:lower] + metrics[:upper]) / 2.0
-      deviation = ((metrics[:upper] - metrics[:lower]) / metrics[:upper] * 100).round(1)
-      Term.result(label, ips, deviation: deviation)
-    end
-  end
-
-  def display_time_result(label, metrics)
-    return if metrics.nil?
-
-    ips = metrics[:upper]
-    Term.result(label, ips, deviation: 5.0)
-  end
-
-  def time_with_error
-    # For longer-running operations, use fewer iterations but measure accurately
+  def measure_time
     times = []
     iterations = 5
 
     iterations.times do
-      start = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+      start_t = Process.clock_gettime(Process::CLOCK_MONOTONIC)
       yield
-      finish = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-      times << (finish - start)
+      finish_t = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+      times << (finish_t - start_t)
     end
 
     mean = times.sum / times.size
     variance = times.sum { |t| (t - mean)**2 } / (times.size - 1)
     std_dev = Math.sqrt(variance)
-    std_dev / mean
 
-    # Convert to IPS (iterations per second)
     lower_ips = (1.0 / (mean + std_dev)).round(4)
     upper_ips = (1.0 / (mean - std_dev)).round(4)
 
     { lower: lower_ips, upper: upper_ips }
+  end
+
+  def calculate_deviation(metrics)
+    ((metrics[:upper] - metrics[:lower]) / metrics[:upper] * 100).round(1)
+  end
+
+  def print_summary
+    Term.summary_card(@all_results)
   end
 end

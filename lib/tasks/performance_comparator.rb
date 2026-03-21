@@ -46,9 +46,12 @@ class PerformanceComparator
     all_current = {}
     all_base = {}
 
-    puts "\n== Running Canon Performance Benchmarks =="
-    puts "Comparing: #{PerformanceHelpers.current_branch} vs #{DEFAULT_BASE}"
-    puts "Threshold: #{(DEFAULT_THRESHOLD * 100).round(1)}%"
+    puts PerformanceHelpers::Term.header("Performance Comparison", color: PerformanceHelpers::Term::CYAN)
+    puts
+    puts "  #{PerformanceHelpers::Term::DIM}Comparing#{PerformanceHelpers::Term::CLEAR}:"
+    puts "  #{PerformanceHelpers::Term::CYAN}  Current#{PerformanceHelpers::Term::CLEAR}: #{PerformanceHelpers.current_branch}"
+    puts "  #{PerformanceHelpers::Term::CYAN}  Base#{PerformanceHelpers::Term::CLEAR}: #{DEFAULT_BASE}"
+    puts "  #{PerformanceHelpers::Term::CYAN}  Threshold#{PerformanceHelpers::Term::CLEAR}: #{(DEFAULT_THRESHOLD * 100).round(0)}% regression allowed"
     puts
 
     # Run all benchmarks
@@ -79,11 +82,15 @@ class PerformanceComparator
   end
 
   def handle_results(summary)
+    puts
     if summary[:regressions].any?
-      warn "\nPerformance regressions detected!"
+      puts "  #{PerformanceHelpers::Term::RED}#{PerformanceHelpers::Term::BOLD}❌ PERFORMANCE REGRESSIONS DETECTED#{PerformanceHelpers::Term::CLEAR}"
+      puts "  #{PerformanceHelpers::Term::RED}#{summary[:regressions].length} benchmark(s) regressed beyond threshold#{PerformanceHelpers::Term::CLEAR}"
+      puts
       exit(1)
     else
-      puts "\nAll performance benchmarks passed!"
+      puts "  #{PerformanceHelpers::Term::GREEN}#{PerformanceHelpers::Term::BOLD}✅ ALL BENCHMARKS PASSED#{PerformanceHelpers::Term::CLEAR}"
+      puts
     end
   end
 

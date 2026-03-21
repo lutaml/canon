@@ -13,16 +13,7 @@ namespace :performance do
   desc "Run benchmarks on current branch only (for development)"
   task :run do
     runner = BenchmarkRunner.new(run_time: 5)
-    results = runner.run_benchmarks
-
-    # Print summary
-    puts Term.header("Benchmark Summary", color: Term::MAGENTA)
-    puts
-    results.each do |label, metrics|
-      ips = (metrics[:lower] + metrics[:upper]) / 2.0
-      deviation = ((metrics[:upper] - metrics[:lower]) / metrics[:upper] * 100).round(1)
-      Term.result(label, ips, deviation: deviation)
-    end
+    runner.run_benchmarks
   end
 
   desc "Run specific benchmark category (xml_parsing, html_parsing, xml_comparison, html_comparison, formatting)"
@@ -34,21 +25,8 @@ namespace :performance do
       exit(1)
     end
 
-    puts "Running category: #{category}"
     runner = BenchmarkRunner.new(run_time: 10)
-    results = runner.run_benchmarks
-
-    # Filter to category
-    labels = PerformanceComparator::BENCHMARK_CATEGORIES[category.to_sym]
-    filtered = results.slice(*labels)
-
-    puts Term.header("Category Summary: #{category}", color: Term::MAGENTA)
-    puts
-    filtered.each do |label, metrics|
-      ips = (metrics[:lower] + metrics[:upper]) / 2.0
-      deviation = ((metrics[:upper] - metrics[:lower]) / metrics[:upper] * 100).round(1)
-      Term.result(label, ips, deviation: deviation)
-    end
+    runner.run_benchmarks
   end
 
   desc "Quick benchmark run (faster, less accurate)"
@@ -61,7 +39,9 @@ namespace :performance do
   task :json do
     require "json"
     runner = BenchmarkRunner.new(run_time: 5)
-    results = runner.run_benchmarks
+
+    # Suppress pretty output, just get results
+    results = runner.send(:run_all_benchmarks)
 
     output = results.each_with_object({}) do |(label, metrics), h|
       ips = (metrics[:lower] + metrics[:upper]) / 2.0
@@ -81,7 +61,9 @@ namespace :performance do
   task :yaml do
     require "yaml"
     runner = BenchmarkRunner.new(run_time: 5)
-    results = runner.run_benchmarks
+
+    # Suppress pretty output, just get results
+    results = runner.send(:run_all_benchmarks)
 
     output = results.each_with_object({}) do |(label, metrics), h|
       ips = (metrics[:lower] + metrics[:upper]) / 2.0
