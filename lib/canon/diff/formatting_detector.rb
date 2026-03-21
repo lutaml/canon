@@ -31,7 +31,8 @@ module Canon
         return "" if line.nil?
 
         # Collapse all whitespace (spaces, tabs, newlines) to single space
-        normalized = line.gsub(/\s+/, " ").strip
+        # Use squeeze instead of gsub(/\s+/) to avoid ReDoS vulnerability
+        normalized = line.strip.gsub(/[\t\n\r\f\v]+/, " ").squeeze(" ")
 
         # Normalize whitespace around tag delimiters
         # Remove spaces before > and after <

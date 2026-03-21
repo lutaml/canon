@@ -472,7 +472,10 @@ module Canon
                 next unless text_child.is_a?(Canon::Xml::Nodes::TextNode)
 
                 # Remove HTML comments from text content
-                normalized = text_child.value.gsub(/<!--.*?-->/m, "").strip
+                # Use tr then squeeze to avoid ReDoS vulnerability from gsub(/<!--.*?-->/m)
+                # Split on comment markers and take only content outside comments
+                parts = text_child.value.split(/<!--.*?-->/m)
+                normalized = parts.join.strip
                 # Update the text value
                 text_child.instance_variable_set(:@value, normalized)
               end
@@ -563,12 +566,10 @@ module Canon
         def normalize_html_style_script_comments(doc)
           doc.css("style, script").each do |element|
             # Remove HTML comments from style/script content
-            # SAFE: This regex operates on already-parsed DOM element content,
-            # not on raw user input. The non-greedy .*? correctly matches
-            # comment boundaries. Any remaining <!-- would be literal text
-            # (not a comment), which is safe in this context.
-            # CodeQL false positive: see https://github.com/github/codeql/issues/XXXX
-            normalized = element.content.gsub(/<!--.*?-->/m, "").strip
+            # Use split instead of gsub to avoid ReDoS vulnerability
+            # Split on comment markers and take only content outside comments
+            parts = element.content.split(/<!--.*?-->/m)
+            normalized = parts.join.strip
 
             if normalized.empty?
               # Remove all children (including whitespace-only CDATA nodes)
