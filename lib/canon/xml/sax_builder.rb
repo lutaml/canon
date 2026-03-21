@@ -39,16 +39,47 @@ module Canon
 strip_doctype: false)
         # Strip DOCTYPE to prevent Nokogiri SAX from expanding DTD default attributes
         # This is needed for C14N which should NOT include default attributes from DTD
-        # Match multi-line DOCTYPE declarations with nested content
+        # Use string methods instead of complex regex to avoid ReDoS vulnerability
         if strip_doctype
-          xml_string = xml_string.gsub(/<!DOCTYPE\s+[^>\[]*(\[[^\]]*\])?\s*>/im,
-                                       "")
+          xml_string = strip_doctype_declaration(xml_string)
         end
 
         builder = new(preserve_whitespace: preserve_whitespace)
         parser = Nokogiri::XML::SAX::Parser.new(builder)
         parser.parse(xml_string)
         builder.result
+      end
+
+      # Strip DOCTYPE declaration without using complex regex
+      # This avoids ReDoS vulnerability from patterns like \s+ and [^>]*
+      #
+      # @param xml [String] XML string potentially containing DOCTYPE
+      # @return [String] XML string with DOCTYPE removed
+      def self.strip_doctype_declaration(xml)
+        # Find DOCTYPE start (case-insensitive)
+        doctype_start = xml.upcase.index("<!DOCTYPE")
+        return xml unless doctype_start
+
+        # Find the end of DOCTYPE - it ends with >
+        # Handle both simple DOCTYPE and those with internal subset [...]
+        pos = doctype_start + 9 # length of "<!DOCTYPE"
+        in_bracket = false
+
+        while pos < xml.length
+          char = xml[pos]
+          if char == "[" && !in_bracket
+            in_bracket = true
+          elsif char == "]" && in_bracket
+            in_bracket = false
+          elsif char == ">" && !in_bracket
+            # Found the end of DOCTYPE
+            return xml[0...doctype_start] + xml[(pos + 1)..]
+          end
+          pos += 1
+        end
+
+        # If we didn't find a proper end, just return original
+        xml
       end
 
       # Initialize the SAX builder
