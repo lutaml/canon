@@ -171,9 +171,7 @@ all_current)
       # Handle new benchmarks that don't exist in base
       if base_metrics.nil?
         curr_ips = (curr_metrics[:lower] + curr_metrics[:upper]) / 2.0
-        puts format("%<label>30s: #{CLEAR}#{GREEN}NEW#{CLEAR} (current: %<curr>s IPS) [N/A]\n\n",
-                    label: label,
-                    curr: format("%.2f", curr_ips))
+        puts "#{format('%-30s', label)}: #{GREEN}NEW#{CLEAR} (current: #{format('%.2f', curr_ips)} IPS) [N/A]\n\n"
         return
       end
 
@@ -188,12 +186,8 @@ all_current)
       base_str = format("%.2f", base_ips)
       curr_str = format("%.2f", curr_ips)
 
-      puts format("%<label>30s: #{CLEAR}#{GRAY}%s#{CLEAR} → #{color}%s#{CLEAR} IPS (change: #{color}%s#{CLEAR}) [#{color}%s#{CLEAR}]\n\n",
-                  label: label,
-                  base: base_str,
-                  curr: curr_str,
-                  delta: delta_str,
-                  status: status)
+      puts "#{format('%-30s', label)}: #{GRAY}#{base_str}#{CLEAR} → #{color}#{curr_str}#{CLEAR} IPS " \
+           "(change: #{color}#{delta_str}#{CLEAR}) [#{color}#{status}#{CLEAR}]\n\n"
     end
   end
 end
