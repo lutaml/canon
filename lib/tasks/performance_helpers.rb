@@ -16,6 +16,32 @@ module PerformanceHelpers
   RED     = "\e[31m"
   GRAY    = "\e[90m"
   WHITE   = "\e[37m"
+  MAGENTA = "\e[35m"
+
+  # Terminal formatting helpers
+  module Term
+    extend self
+
+    HL = "─"
+    VL = "│"
+    TL = "┌"
+    TR = "┐"
+    BL = "└"
+    BR = "┘"
+
+    def header(title, color: CYAN)
+      width = 78
+      line = HL * width
+      puts
+      puts "#{color}#{TL}#{line}#{TR}#{CLEAR}"
+      puts "#{color}#{VL}#{CLEAR}  #{BOLD}#{color}#{title}#{CLEAR}#{' ' * (width - title.length - 4)}#{color}#{VL}#{CLEAR}"
+      puts "#{color}#{BL}#{line}#{BR}#{CLEAR}"
+    end
+
+    def sep(char: HL, width: 78)
+      puts "#{DIM}#{char * width}#{CLEAR}"
+    end
+  end
 
   module Base
   end
@@ -40,7 +66,7 @@ module PerformanceHelpers
 
     # Clone base branch into a temp dir and return its path
     def clone_base_repo(base, performance_dir, script)
-      puts "Cloning base #{base}..."
+      puts "#{DIM}Cloning base #{base}...#{CLEAR}"
       safe_ref = base.gsub(/[^0-9A-Za-z._-]/, "-")
       clone_dir = File.join(performance_dir, "base-#{safe_ref}")
       FileUtils.rm_rf(clone_dir)
@@ -64,7 +90,7 @@ module PerformanceHelpers
     end
 
     def run_benchmarks(base_runner, current_runner, threshold, all_base,
-all_current)
+                       all_current)
       base_results = base_runner.run_benchmarks
       curr_results = current_runner.run_benchmarks
 
