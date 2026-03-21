@@ -4,6 +4,7 @@ require "json"
 require "open3"
 require "tmpdir"
 require "fileutils"
+require "table_tennis"
 
 module PerformanceHelpers
   # ANSI color codes for terminal output
@@ -97,9 +98,49 @@ module PerformanceHelpers
       all_base.merge!(base_results)
       all_current.merge!(curr_results)
 
+      # Collect comparison results for TableTennis table
+      comparison_rows = []
+
       curr_results.each do |label, result|
-        print_realtime_comparison(label, result, base_results[label], threshold)
+        base_result = base_results[label]
+        cmp = compare_metrics(label, result, base_result, threshold)
+        comparison_rows << cmp
       end
+
+      print_comparison_table(comparison_rows, threshold)
+    end
+
+    def print_comparison_table(comparison_rows, threshold)
+      rows = comparison_rows.map do |cmp|
+        {
+          benchmark: cmp[:label],
+          base_ips: cmp[:base_ips]&.round(1),
+          curr_ips: cmp[:curr_ips]&.round(1),
+          change: cmp[:change] ? "#{(cmp[:change] * 100).round(1)}%" : "N/A",
+          status: if cmp[:base_ips].nil?
+                    "NEW"
+                  elsif cmp[:change] < -threshold
+                    "REGRESSED"
+                  else
+                    "OK"
+                  end,
+        }
+      end
+
+      return if rows.empty?
+
+      table = TableTennis.new(rows,
+                              title: "Performance Comparison",
+                              theme: :dark,
+                              headers: {
+                                benchmark: "Benchmark",
+                                base_ips: "Base IPS",
+                                curr_ips: "Curr IPS",
+                                change: "Change",
+                                status: "Status",
+                              })
+      table.render
+      puts
     end
 
     def compare_metrics(label, curr, base, threshold)
