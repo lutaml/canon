@@ -203,6 +203,11 @@ with_tables: false)
 
   # Run the specified benchmark(s)
   def run_benchmarks
+    puts "=" * 80
+    puts "Canon Comprehensive Performance Benchmarks"
+    puts "=" * 80
+    puts
+
     if @benchmark
       send(:"benchmark_#{@benchmark}")
     else
@@ -241,6 +246,9 @@ with_tables: false)
   # ============================================================
 
   def benchmark_xml_parsing_dom
+    puts "-" * 40
+    puts "XML PARSING (DOM)"
+    puts "-" * 40
     xml = DataGenerator.generate_xml(items: @items)
     run_ips_benchmark("xml_parse_dom_simple") { Canon::Xml::DataModel.from_xml(xml) }
   end
@@ -248,11 +256,17 @@ with_tables: false)
   def benchmark_xml_parsing_sax
     return {} unless SAX_AVAILABLE
 
+    puts "-" * 40
+    puts "XML PARSING (SAX)"
+    puts "-" * 40
     xml = DataGenerator.generate_xml(items: @items)
     run_ips_benchmark("xml_parse_sax_simple") { Canon::Xml::SaxBuilder.parse(xml) }
   end
 
   def benchmark_xml_parsing_large
+    puts "-" * 40
+    puts "XML PARSING (LARGE DOC)"
+    puts "-" * 40
     xml = DataGenerator.generate_large_xml(items: @items * 5)
     results = {
       "xml_parse_dom_large" => time_with_error do
@@ -270,11 +284,17 @@ with_tables: false)
   # ============================================================
 
   def benchmark_html_parsing
+    puts "-" * 40
+    puts "HTML PARSING (SIMPLE)"
+    puts "-" * 40
     html = DataGenerator.generate_html(items: @items)
     run_ips_benchmark("html_parse_simple") { Canon.parse_html(html) }
   end
 
   def benchmark_html_parsing_complex
+    puts "-" * 40
+    puts "HTML PARSING (COMPLEX)"
+    puts "-" * 40
     html = DataGenerator.generate_html(items: @items, with_scripts: true,
                                        with_tables: true)
     run_ips_benchmark("html_parse_complex") { Canon.parse_html(html) }
@@ -285,6 +305,9 @@ with_tables: false)
   # ============================================================
 
   def benchmark_xml_comparison
+    puts "-" * 40
+    puts "XML COMPARISON"
+    puts "-" * 40
     xml1 = DataGenerator.generate_xml(items: @items)
     xml2 = DataGenerator.generate_xml(items: @items)
     xml3 = DataGenerator.generate_xml(items: @items, with_namespaces: true)
@@ -303,6 +326,9 @@ with_tables: false)
   end
 
   def benchmark_html_comparison
+    puts "-" * 40
+    puts "HTML COMPARISON"
+    puts "-" * 40
     html1 = DataGenerator.generate_html(items: @items)
     html2 = DataGenerator.generate_html(items: @items)
     html3 = DataGenerator.generate_html(items: @items, with_tables: true)
@@ -325,12 +351,18 @@ with_tables: false)
   # ============================================================
 
   def benchmark_xml_c14n
+    puts "-" * 40
+    puts "XML CANONICALIZATION"
+    puts "-" * 40
     xml = DataGenerator.generate_xml(items: @items, with_namespaces: true)
 
     run_ips_benchmark("xml_c14n_format") { Canon.format_xml(xml) }
   end
 
   def benchmark_json_formatting
+    puts "-" * 40
+    puts "JSON FORMATTING"
+    puts "-" * 40
     json = DataGenerator.generate_json(items: @items)
     data = JSON.parse(json)
 
@@ -338,6 +370,9 @@ with_tables: false)
   end
 
   def benchmark_yaml_formatting
+    puts "-" * 40
+    puts "YAML FORMATTING"
+    puts "-" * 40
     yaml = DataGenerator.generate_yaml(items: @items)
     data = YAML.safe_load(yaml, permitted_classes: [Time])
 
