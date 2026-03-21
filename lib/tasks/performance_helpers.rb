@@ -52,7 +52,8 @@ module PerformanceHelpers
       end
     end
 
-    def run_benchmarks(base_runner, current_runner, threshold, all_base, all_current)
+    def run_benchmarks(base_runner, current_runner, threshold, all_base,
+all_current)
       base_results = base_runner.run_benchmarks
       curr_results = current_runner.run_benchmarks
 
@@ -66,7 +67,10 @@ module PerformanceHelpers
 
     def compare_metrics(label, curr, base, threshold)
       # Skip comparison if base result is missing (e.g., new benchmark)
-      return { label: label, base_ips: nil, curr_ips: nil, change: nil, regressed: false } unless base
+      unless base
+        return { label: label, base_ips: nil, curr_ips: nil, change: nil,
+                 regressed: false }
+      end
 
       base_ips = base.fetch(:lower)
       curr_ips = curr.fetch(:upper)
