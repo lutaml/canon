@@ -29,7 +29,7 @@ module PerformanceHelpers
     BL = "└"
     BR = "┘"
 
-    def header(title, color: CYAN)
+    def header(title, color: PerformanceHelpers::CYAN)
       width = 78
       line = HL * width
       puts

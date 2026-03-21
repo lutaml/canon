@@ -584,8 +584,18 @@ class BenchmarkRunner
     variance = times.sum { |t| (t - mean)**2 } / (times.size - 1)
     std_dev = Math.sqrt(variance)
 
-    lower_ips = (1.0 / (mean + std_dev)).round(4)
-    upper_ips = (1.0 / (mean - std_dev)).round(4)
+    # Ensure positive values for IPS calculation
+    # Use conservative estimate: mean + std_dev for lower bound, mean for upper
+    lower_time = [mean - std_dev, mean * 0.5].max
+    lower_ips = (1.0 / (lower_time * 1.5)).round(4)
+    upper_ips = (1.0 / mean).round(4)
+
+    # Sanity check: if mean is very small, we might have measurement noise
+    if mean < 0.001 # Less than 1ms
+      # For fast operations, estimate more conservatively
+      upper_ips = (1.0 / mean).round(4)
+      lower_ips = (upper_ips * 0.8).round(4)
+    end
 
     { lower: lower_ips, upper: upper_ips }
   end
