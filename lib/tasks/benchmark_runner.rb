@@ -17,6 +17,109 @@ rescue LoadError
 end
 
 class BenchmarkRunner
+  # Pretty terminal formatting for benchmark output
+  module Term
+    CLEAR   = "\e[0m"
+    BOLD    = "\e[1m"
+    DIM     = "\e[2m"
+    CYAN    = "\e[36m"
+    GREEN   = "\e[32m"
+    YELLOW  = "\e[33m"
+    MAGENTA = "\e[35m"
+    WHITE   = "\e[37m"
+    GRAY    = "\e[90m"
+    RED     = "\e[31m"
+    HL = "─"
+    VL = "│"
+    TL = "┌"
+    TR = "┐"
+    BL = "└"
+    BR = "┘"
+
+    def self.header(title, color: CYAN)
+      line = HL * 76
+      "#{color}#{TL}#{line}#{TR}#{CLEAR}\n" \
+        "#{color}#{VL}#{CLEAR}  #{BOLD}#{color}#{title}#{CLEAR}#{' ' * (76 - title.length)}#{color}#{VL}#{CLEAR}\n" \
+        "#{color}#{BL}#{line}#{BR}#{CLEAR}"
+    end
+
+    def self.section(title, icon: "▶")
+      puts
+      puts "#{CYAN}#{VL}#{CLEAR}  #{BOLD}#{WHITE}#{icon} #{title}#{CLEAR}"
+      puts "#{GRAY}#{VL}#{CLEAR}  #{DIM}#{'─' * (title.length + 3)}#{CLEAR}"
+    end
+
+    def self.result(label, ips, deviation:, faster_than: nil)
+      status_color = if faster_than && faster_than > 1.0
+                       GREEN
+                     elsif faster_than && faster_than < 0.9
+                       RED
+                     else
+                       WHITE
+                     end
+
+      bar = render_bar(ips, 20)
+      speedup = if faster_than
+                  "  #{GREEN}⚡#{faster_than.round(2)}x#{CLEAR}"
+                else
+                  ""
+                end
+
+      puts "  #{status_color}#{label}#{CLEAR}"
+      puts "  #{bar}  #{status_color}#{format('%.1f', ips).rjust(8)}#{CLEAR} IPS  ±#{deviation.round(1)}%#{speedup}"
+    end
+
+    def self.comparison(label, base_ips, curr_ips, change:)
+      color = if change > 0.05
+                GREEN
+              elsif change < -0.05
+                RED
+              else
+                WHITE
+              end
+
+      change_str = format("%+.1f%%", change * 100)
+      bar = render_bar(curr_ips, 16)
+
+      base_str = format("%.1f", base_ips).rjust(8)
+      curr_str = format("%.1f", curr_ips).rjust(8)
+
+      puts
+      puts "  #{BOLD}#{label}#{CLEAR}"
+      puts "  #{bar}"
+      puts "  #{GRAY}base:  #{base_str} IPS#{CLEAR}"
+      puts "  #{color}curr:  #{curr_str} IPS#{CLEAR}"
+      puts "  #{color}#{change_str}#{CLEAR}"
+    end
+
+    def self.new_benchmark(label)
+      print "  #{YELLOW}◆#{CLEAR} #{label} ... "
+      $stdout.flush
+    end
+
+    def self.speedup(factor, label)
+      puts "  #{GREEN}⚡#{CLEAR} #{label} #{GREEN}#{factor.round(2)}x#{CLEAR} faster"
+    end
+
+    def self.hint(msg)
+      puts "  #{DIM}#{msg}#{CLEAR}"
+    end
+
+    def self.reset_max_ips
+      @max_ips = nil
+    end
+
+    def self.render_bar(ips, max_width)
+      @max_ips ||= ips
+      ratio = ips / @max_ips.to_f
+      width = [(ratio * max_width).round, 1].max
+      filled = [width, max_width].min
+      empty = max_width - filled
+      bar = ("█" * filled) + ("░" * empty)
+      "#{DIM}#{bar}#{CLEAR}"
+    end
+  end
+
   REPO_ROOT = File.expand_path(File.join(__dir__, "..", ".."))
 
   # Benchmark configuration
@@ -203,16 +306,29 @@ with_tables: false)
 
   # Run the specified benchmark(s)
   def run_benchmarks
-    puts "=" * 80
-    puts "Canon Comprehensive Performance Benchmarks"
-    puts "=" * 80
+    Term.reset_max_ips
+    puts Term.header("Canon Performance Benchmarks", color: Term::CYAN)
+    puts "#{Term::DIM}ruby #{RUBY_VERSION}#{Term::CLEAR}"
     puts
 
-    if @benchmark
-      send(:"benchmark_#{@benchmark}")
-    else
-      run_all_benchmarks
+    results = if @benchmark
+                send(:"benchmark_#{@benchmark}")
+              else
+                run_all_benchmarks
+              end
+
+    puts
+    puts Term.header("Summary", color: Term::MAGENTA)
+    puts
+
+    results.each do |label, metrics|
+      ips = (metrics[:lower] + metrics[:upper]) / 2.0
+      deviation = ((metrics[:upper] - metrics[:lower]) / metrics[:upper] * 100).round(1)
+      Term.result(label, ips, deviation: deviation)
     end
+
+    puts
+    results
   end
 
   private
@@ -246,35 +362,54 @@ with_tables: false)
   # ============================================================
 
   def benchmark_xml_parsing_dom
-    puts "-" * 40
-    puts "XML PARSING (DOM)"
-    puts "-" * 40
+    Term.section("XML Parsing", icon: "📄")
     xml = DataGenerator.generate_xml(items: @items)
-    run_ips_benchmark("xml_parse_dom_simple") { Canon::Xml::DataModel.from_xml(xml) }
+    Term.new_benchmark("DOM parser (simple)")
+    result = run_ips_benchmark("xml_parse_dom_simple") { Canon::Xml::DataModel.from_xml(xml) }
+    display_ips_result(result)
+    result
   end
 
   def benchmark_xml_parsing_sax
     return {} unless SAX_AVAILABLE
 
-    puts "-" * 40
-    puts "XML PARSING (SAX)"
-    puts "-" * 40
     xml = DataGenerator.generate_xml(items: @items)
-    run_ips_benchmark("xml_parse_sax_simple") { Canon::Xml::SaxBuilder.parse(xml) }
+    Term.new_benchmark("SAX parser (simple)")
+    result = run_ips_benchmark("xml_parse_sax_simple") { Canon::Xml::SaxBuilder.parse(xml) }
+    display_ips_result(result)
+
+    # Show comparison if both DOM and SAX were run
+    result
   end
 
   def benchmark_xml_parsing_large
-    puts "-" * 40
-    puts "XML PARSING (LARGE DOC)"
-    puts "-" * 40
+    Term.section("XML Parsing (Large Document)", icon: "📋")
     xml = DataGenerator.generate_large_xml(items: @items * 5)
-    results = {
-      "xml_parse_dom_large" => time_with_error do
-        Canon::Xml::DataModel.from_xml(xml)
-      end,
-    }
+    results = {}
+
+    Term.new_benchmark("DOM parser (large)")
+    results["xml_parse_dom_large"] = time_with_error do
+      Canon::Xml::DataModel.from_xml(xml)
+    end
+    display_time_result("xml_parse_dom_large", results["xml_parse_dom_large"])
+
     if SAX_AVAILABLE
+      Term.new_benchmark("SAX parser (large)")
       results["xml_parse_sax_large"] = time_with_error { Canon::Xml::SaxBuilder.parse(xml) }
+      display_time_result("xml_parse_sax_large", results["xml_parse_sax_large"])
+
+      # Show speedup if SAX is faster
+      if results["xml_parse_dom_large"] && results["xml_parse_sax_large"]
+        dom_ips = results["xml_parse_dom_large"][:upper]
+        sax_ips = results["xml_parse_sax_large"][:upper]
+        speedup = sax_ips / dom_ips
+        if speedup > 1.0
+          Term.speedup(speedup, "SAX vs DOM:")
+          Term.hint("(#{format('%.1f', dom_ips)} IPS → #{format('%.1f', sax_ips)} IPS)")
+        else
+          Term.hint("(SAX: #{format('%.1f', sax_ips)} IPS, DOM: #{format('%.1f', dom_ips)} IPS)")
+        end
+      end
     end
     results
   end
@@ -284,20 +419,21 @@ with_tables: false)
   # ============================================================
 
   def benchmark_html_parsing
-    puts "-" * 40
-    puts "HTML PARSING (SIMPLE)"
-    puts "-" * 40
+    Term.section("HTML Parsing", icon: "🌐")
     html = DataGenerator.generate_html(items: @items)
-    run_ips_benchmark("html_parse_simple") { Canon.parse_html(html) }
+    Term.new_benchmark("Simple HTML")
+    result = run_ips_benchmark("html_parse_simple") { Canon.parse_html(html) }
+    display_ips_result(result)
+    result
   end
 
   def benchmark_html_parsing_complex
-    puts "-" * 40
-    puts "HTML PARSING (COMPLEX)"
-    puts "-" * 40
     html = DataGenerator.generate_html(items: @items, with_scripts: true,
                                        with_tables: true)
-    run_ips_benchmark("html_parse_complex") { Canon.parse_html(html) }
+    Term.new_benchmark("Complex HTML (scripts, tables)")
+    result = run_ips_benchmark("html_parse_complex") { Canon.parse_html(html) }
+    display_ips_result(result)
+    result
   end
 
   # ============================================================
@@ -305,44 +441,56 @@ with_tables: false)
   # ============================================================
 
   def benchmark_xml_comparison
-    puts "-" * 40
-    puts "XML COMPARISON"
-    puts "-" * 40
+    Term.section("XML Comparison", icon: "⚖️")
     xml1 = DataGenerator.generate_xml(items: @items)
     xml2 = DataGenerator.generate_xml(items: @items)
     xml3 = DataGenerator.generate_xml(items: @items, with_namespaces: true)
 
     results = {}
+    Term.new_benchmark("Identical XML")
     results.merge!(run_ips_benchmark("xml_compare_identical") do
       Canon::Comparison.equivalent?(xml1, xml1, format: :xml)
     end)
+    display_ips_result(results)
+
+    Term.new_benchmark("Similar XML")
     results.merge!(run_ips_benchmark("xml_compare_similar") do
       Canon::Comparison.equivalent?(xml1, xml2, format: :xml)
     end)
+    display_ips_result(results)
+
+    Term.new_benchmark("Different XML (namespaces)")
     results.merge!(run_ips_benchmark("xml_compare_different") do
       Canon::Comparison.equivalent?(xml1, xml3, format: :xml)
     end)
+    display_ips_result(results)
     results
   end
 
   def benchmark_html_comparison
-    puts "-" * 40
-    puts "HTML COMPARISON"
-    puts "-" * 40
+    Term.section("HTML Comparison", icon: "🔍")
     html1 = DataGenerator.generate_html(items: @items)
     html2 = DataGenerator.generate_html(items: @items)
     html3 = DataGenerator.generate_html(items: @items, with_tables: true)
 
     results = {}
+    Term.new_benchmark("Identical HTML")
     results.merge!(run_ips_benchmark("html_compare_identical") do
       Canon::Comparison.equivalent?(html1, html1, format: :html)
     end)
+    display_ips_result(results)
+
+    Term.new_benchmark("Similar HTML")
     results.merge!(run_ips_benchmark("html_compare_similar") do
       Canon::Comparison.equivalent?(html1, html2, format: :html)
     end)
+    display_ips_result(results)
+
+    Term.new_benchmark("Different HTML (tables)")
     results.merge!(run_ips_benchmark("html_compare_different") do
       Canon::Comparison.equivalent?(html1, html3, format: :html)
     end)
+    display_ips_result(results)
     results
   end
 
@@ -351,32 +499,32 @@ with_tables: false)
   # ============================================================
 
   def benchmark_xml_c14n
-    puts "-" * 40
-    puts "XML CANONICALIZATION"
-    puts "-" * 40
+    Term.section("XML Canonicalization", icon: "✨")
     xml = DataGenerator.generate_xml(items: @items, with_namespaces: true)
-
-    run_ips_benchmark("xml_c14n_format") { Canon.format_xml(xml) }
+    Term.new_benchmark("XML C14N format")
+    result = run_ips_benchmark("xml_c14n_format") { Canon.format_xml(xml) }
+    display_ips_result(result)
+    result
   end
 
   def benchmark_json_formatting
-    puts "-" * 40
-    puts "JSON FORMATTING"
-    puts "-" * 40
+    Term.section("JSON Formatting", icon: "{}")
     json = DataGenerator.generate_json(items: @items)
     data = JSON.parse(json)
-
-    run_ips_benchmark("json_format") { Canon.format_json(data) }
+    Term.new_benchmark("JSON format")
+    result = run_ips_benchmark("json_format") { Canon.format_json(data) }
+    display_ips_result(result)
+    result
   end
 
   def benchmark_yaml_formatting
-    puts "-" * 40
-    puts "YAML FORMATTING"
-    puts "-" * 40
+    Term.section("YAML Formatting", icon: "📝")
     yaml = DataGenerator.generate_yaml(items: @items)
     data = YAML.safe_load(yaml, permitted_classes: [Time])
-
-    run_ips_benchmark("yaml_format") { Canon.format_yaml(data) }
+    Term.new_benchmark("YAML format")
+    result = run_ips_benchmark("yaml_format") { Canon.format_yaml(data) }
+    display_ips_result(result)
+    result
   end
 
   # ============================================================
@@ -404,6 +552,23 @@ with_tables: false)
     upper = mean.round(4) * (1 + error_percentage)
 
     { label => { lower: lower, upper: upper } }
+  end
+
+  def display_ips_result(results)
+    return if results.nil? || results.empty?
+
+    results.each do |label, metrics|
+      ips = (metrics[:lower] + metrics[:upper]) / 2.0
+      deviation = ((metrics[:upper] - metrics[:lower]) / metrics[:upper] * 100).round(1)
+      Term.result(label, ips, deviation: deviation)
+    end
+  end
+
+  def display_time_result(label, metrics)
+    return if metrics.nil?
+
+    ips = metrics[:upper]
+    Term.result(label, ips, deviation: 5.0)
   end
 
   def time_with_error

@@ -6,6 +6,17 @@ require "tmpdir"
 require "fileutils"
 
 module PerformanceHelpers
+  # ANSI color codes for terminal output
+  CLEAR   = "\e[0m"
+  BOLD    = "\e[1m"
+  DIM     = "\e[2m"
+  CYAN    = "\e[36m"
+  GREEN   = "\e[32m"
+  YELLOW  = "\e[33m"
+  RED     = "\e[31m"
+  GRAY    = "\e[90m"
+  WHITE   = "\e[37m"
+
   module Base
   end
 
@@ -123,16 +134,20 @@ all_current)
     def log_new_benchmarks(new_benchmarks)
       return if new_benchmarks.empty?
 
-      puts "\nNew benchmarks (not in base branch):"
+      puts
+      puts "#{YELLOW}🆕 New benchmarks (not in base branch):#{CLEAR}"
       new_benchmarks.each do |label|
-        puts "  - #{label}"
+        puts "  • #{label}"
       end
     end
 
     def log_regressions(regressions, threshold)
       return if regressions.empty?
 
-      puts "\nDetected regressions (< -#{(threshold * 100).round(2)}% IPS):"
+      puts
+      puts "#{RED}⚠️  Performance Regressions Detected#{CLEAR}"
+      puts "#{RED}   (< -#{(threshold * 100).round(2)}% IPS)#{CLEAR}"
+      puts
       regressions.each do |regression|
         delta = regression[:delta_fraction]
         base_ips = regression[:base_ips]
@@ -142,11 +157,11 @@ all_current)
         base_str = base_ips ? format("%.2f", base_ips) : "N/A"
         curr_str = curr_ips ? format("%.2f", curr_ips) : "N/A"
 
-        puts format("%<label>30s: %<base>s -> %<curr>s IPS (change: %<delta>s)",
-                    label: regression[:label],
-                    base: base_str,
-                    curr: curr_str,
-                    delta: delta_str)
+        puts "  #{BOLD}#{regression[:label]}#{CLEAR}"
+        puts "    #{GRAY}base: #{base_str} IPS#{CLEAR}"
+        puts "    #{RED}curr: #{curr_str} IPS#{CLEAR}"
+        puts "    #{RED}change: #{delta_str}#{CLEAR}"
+        puts
       end
     end
 
@@ -156,7 +171,7 @@ all_current)
       # Handle new benchmarks that don't exist in base
       if base_metrics.nil?
         curr_ips = (curr_metrics[:lower] + curr_metrics[:upper]) / 2.0
-        puts format("%<label>30s: NEW (current: %<curr>s IPS) [N/A]\n\n",
+        puts format("%<label>30s: #{CLEAR}#{GREEN}NEW#{CLEAR} (current: %<curr>s IPS) [N/A]\n\n",
                     label: label,
                     curr: format("%.2f", curr_ips))
         return
@@ -167,12 +182,13 @@ all_current)
       return unless curr_ips && base_ips
 
       change = (curr_ips - base_ips) / base_ips.to_f
-      status = change < -threshold ? "REGRESSED" : "OK"
+      color = change < -threshold ? RED : GREEN
+      status = change < -threshold ? "⚠️ REGRESSED" : "✅ OK"
       delta_str = format("%+0.2f%%", change * 100)
       base_str = format("%.2f", base_ips)
       curr_str = format("%.2f", curr_ips)
 
-      puts format("%<label>30s: %<base>s -> %<curr>s IPS (change: %<delta>s) [%<status>s]\n\n",
+      puts format("%<label>30s: #{CLEAR}#{GRAY}%s#{CLEAR} → #{color}%s#{CLEAR} IPS (change: #{color}%s#{CLEAR}) [#{color}%s#{CLEAR}]\n\n",
                   label: label,
                   base: base_str,
                   curr: curr_str,

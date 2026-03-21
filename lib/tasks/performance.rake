@@ -15,10 +15,13 @@ namespace :performance do
     runner = BenchmarkRunner.new(run_time: 5)
     results = runner.run_benchmarks
 
-    puts "\n=== Benchmark Results ===\n"
+    # Print summary
+    puts Term.header("Benchmark Summary", color: Term::MAGENTA)
+    puts
     results.each do |label, metrics|
       ips = (metrics[:lower] + metrics[:upper]) / 2.0
-      puts format("%<label>30s: %<ips>.2f IPS", label: label, ips: ips)
+      deviation = ((metrics[:upper] - metrics[:lower]) / metrics[:upper] * 100).round(1)
+      Term.result(label, ips, deviation: deviation)
     end
   end
 
@@ -39,22 +42,58 @@ namespace :performance do
     labels = PerformanceComparator::BENCHMARK_CATEGORIES[category.to_sym]
     filtered = results.slice(*labels)
 
-    puts "\n=== #{category.capitalize} Results ===\n"
+    puts Term.header("Category Summary: #{category}", color: Term::MAGENTA)
+    puts
     filtered.each do |label, metrics|
       ips = (metrics[:lower] + metrics[:upper]) / 2.0
-      puts format("%<label>30s: %<ips>.2f IPS", label: label, ips: ips)
+      deviation = ((metrics[:upper] - metrics[:lower]) / metrics[:upper] * 100).round(1)
+      Term.result(label, ips, deviation: deviation)
     end
   end
 
   desc "Quick benchmark run (faster, less accurate)"
   task :quick do
     runner = BenchmarkRunner.new(run_time: 2, warmup: 1, items: 20)
+    runner.run_benchmarks
+  end
+
+  desc "Run benchmarks and output as JSON"
+  task :json do
+    require "json"
+    runner = BenchmarkRunner.new(run_time: 5)
     results = runner.run_benchmarks
 
-    puts "\n=== Quick Benchmark Results ===\n"
-    results.each do |label, metrics|
+    output = results.each_with_object({}) do |(label, metrics), h|
       ips = (metrics[:lower] + metrics[:upper]) / 2.0
-      puts format("%<label>30s: %<ips>.2f IPS", label: label, ips: ips)
+      deviation = ((metrics[:upper] - metrics[:lower]) / metrics[:upper] * 100).round(1)
+      h[label] = {
+        ips: ips.round(2),
+        lower: metrics[:lower].round(2),
+        upper: metrics[:upper].round(2),
+        deviation: deviation,
+      }
     end
+
+    puts JSON.pretty_generate(output)
+  end
+
+  desc "Run benchmarks and output as YAML"
+  task :yaml do
+    require "yaml"
+    runner = BenchmarkRunner.new(run_time: 5)
+    results = runner.run_benchmarks
+
+    output = results.each_with_object({}) do |(label, metrics), h|
+      ips = (metrics[:lower] + metrics[:upper]) / 2.0
+      deviation = ((metrics[:upper] - metrics[:lower]) / metrics[:upper] * 100).round(1)
+      h[label.to_sym] = {
+        ips: ips.round(2),
+        lower: metrics[:lower].round(2),
+        upper: metrics[:upper].round(2),
+        deviation: deviation,
+      }
+    end
+
+    puts YAML.dump(output)
   end
 end
