@@ -655,8 +655,8 @@ compare_profile = nil)
             next if ancestor_preserves_whitespace?(parent, preserve_whitespace)
 
             # Collapse whitespace sequences (spaces, tabs, newlines) to single
-            # space
-            normalized = text_node.content.gsub(/\s+/, " ")
+            # space - use tr/squeeze to avoid ReDoS vulnerability from gsub(/\s+/)
+            normalized = text_node.content.tr("\t\n\r\f\v", " ").squeeze(" ")
 
             # Trim leading/trailing whitespace if appropriate
             normalized = normalized.strip if should_trim_text_node?(text_node)
