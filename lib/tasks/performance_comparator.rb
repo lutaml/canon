@@ -46,12 +46,12 @@ class PerformanceComparator
     all_current = {}
     all_base = {}
 
-    puts PerformanceHelpers::Term.header("Performance Comparison", color: PerformanceHelpers::Term::CYAN)
+    puts PerformanceHelpers::Term.header("Performance Comparison", color: PerformanceHelpers::CYAN)
     puts
-    puts "  #{PerformanceHelpers::Term::DIM}Comparing#{PerformanceHelpers::Term::CLEAR}:"
-    puts "  #{PerformanceHelpers::Term::CYAN}  Current#{PerformanceHelpers::Term::CLEAR}: #{PerformanceHelpers.current_branch}"
-    puts "  #{PerformanceHelpers::Term::CYAN}  Base#{PerformanceHelpers::Term::CLEAR}: #{DEFAULT_BASE}"
-    puts "  #{PerformanceHelpers::Term::CYAN}  Threshold#{PerformanceHelpers::Term::CLEAR}: #{(DEFAULT_THRESHOLD * 100).round(0)}% regression allowed"
+    puts "  #{PerformanceHelpers::DIM}Comparing#{PerformanceHelpers::CLEAR}:"
+    puts "  #{PerformanceHelpers::CYAN}  Current#{PerformanceHelpers::CLEAR}: #{PerformanceHelpers.current_branch}"
+    puts "  #{PerformanceHelpers::CYAN}  Base#{PerformanceHelpers::CLEAR}: #{DEFAULT_BASE}"
+    puts "  #{PerformanceHelpers::CYAN}  Threshold#{PerformanceHelpers::CLEAR}: #{(DEFAULT_THRESHOLD * 100).round(0)}% regression allowed"
     puts
 
     # Run all benchmarks
@@ -84,12 +84,12 @@ class PerformanceComparator
   def handle_results(summary)
     puts
     if summary[:regressions].any?
-      puts "  #{PerformanceHelpers::Term::RED}#{PerformanceHelpers::Term::BOLD}❌ PERFORMANCE REGRESSIONS DETECTED#{PerformanceHelpers::Term::CLEAR}"
-      puts "  #{PerformanceHelpers::Term::RED}#{summary[:regressions].length} benchmark(s) regressed beyond threshold#{PerformanceHelpers::Term::CLEAR}"
+      puts "  #{PerformanceHelpers::RED}#{PerformanceHelpers::BOLD}❌ PERFORMANCE REGRESSIONS DETECTED#{PerformanceHelpers::CLEAR}"
+      puts "  #{PerformanceHelpers::RED}#{summary[:regressions].length} benchmark(s) regressed beyond threshold#{PerformanceHelpers::CLEAR}"
       puts
       exit(1)
     else
-      puts "  #{PerformanceHelpers::Term::GREEN}#{PerformanceHelpers::Term::BOLD}✅ ALL BENCHMARKS PASSED#{PerformanceHelpers::Term::CLEAR}"
+      puts "  #{PerformanceHelpers::GREEN}#{PerformanceHelpers::BOLD}✅ ALL BENCHMARKS PASSED#{PerformanceHelpers::CLEAR}"
       puts
     end
   end
