@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "benchmark/ips"
+require "table_tennis"
 
 # Ensure lib/ is on the load path regardless of tmp location
 lib_path = File.expand_path(File.join(__dir__, "..", "..", "lib"))
@@ -124,26 +125,21 @@ class BenchmarkRunner
       puts
     end
 
-    # Results table for a category
-    def self.table_header
-      puts "  #{BOLD}#{'%-35s'} #{'%10s'} #{'%8s'} #{'%s'}#{CLEAR}"
-      puts "  Test                                       IPS       ±% Speedup"
-      sep(char: "─", width: 76)
-    end
+    # Results table for a category using TableTennis
+    def self.table(results)
+      rows = results.map do |r|
+        {
+          test: r[:name],
+          ips: r[:ips],
+          deviation: "#{r[:deviation].round(1)}%",
+          status: r[:is_best] ? "BEST" : "",
+        }
+      end
 
-    def self.table_row(label, ips, deviation, speedup: nil, is_best: false)
-      speedup_str = speedup ? "  ⚡#{speedup.round(2)}x" : ""
-      label_str = is_best ? "#{GREEN}#{label}#{CLEAR}" : label
-      bar = render_bar(ips)
+      return if rows.empty?
 
-      puts "  #{label_str}"
-      puts "  #{DIM}#{bar}#{CLEAR}  #{format('%10.1f', ips)}  #{format('%6.1f%%', deviation)}#{speedup_str}"
-      puts
-    end
-
-    def self.table_footer
-      sep(char: "─", width: 76)
-      puts
+      table = TableTennis.new(rows, theme: :dark)
+      table.render
     end
 
     def self.speedup_badge(factor, label)
@@ -151,24 +147,7 @@ class BenchmarkRunner
       puts "  #{GREEN}   #{factor.round(2)}x faster#{CLEAR}"
     end
 
-    def self.reset_max_ips
-      @max_ips = nil
-    end
-
-    def self.set_max_ips(val)
-      @max_ips = val
-    end
-
-    def self.render_bar(ips, max_width: 20)
-      @max_ips ||= ips
-      ratio = ips / @max_ips.to_f
-      width = [(ratio * max_width).round, 1].max
-      filled = [width, max_width].min
-      empty = max_width - filled
-      ("█" * filled) + ("░" * empty)
-    end
-
-    # Summary card
+    # Summary card using TableTennis
     def self.summary_card(results)
       puts
       sep(width: 78)
@@ -176,16 +155,23 @@ class BenchmarkRunner
       puts "  #{BOLD}#{MAGENTA}SUMMARY#{CLEAR}"
       puts
 
-      total = results.length
-
-      results.each do |r|
-        # For standalone runs, all results are shown as "current" without comparison
-        ips_str = r[:ips] ? format("%10.1f IPS", r[:ips]) : ""
-        puts "  #{DIM}◆#{CLEAR} #{format('%-35s', r[:label])} #{ips_str}"
+      rows = results.map do |r|
+        {
+          benchmark: r[:label],
+          ips: r[:ips]&.round(1),
+        }
       end
 
+      return if rows.empty?
+
+      table = TableTennis.new(rows,
+                              title: "Performance Results",
+                              theme: :dark,
+                              headers: { benchmark: "Benchmark", ips: "IPS" })
+      table.render
+
       puts
-      puts "  #{DIM}#{total} benchmarks completed#{CLEAR}"
+      puts "  #{DIM}#{results.length} benchmarks completed#{CLEAR}"
       puts
     end
   end
@@ -401,8 +387,6 @@ class BenchmarkRunner
   end
 
   def run_benchmarks
-    Term.reset_max_ips
-
     # Header
     Term.header("Canon Performance Benchmarks", color: Term::CYAN)
 
@@ -434,8 +418,6 @@ class BenchmarkRunner
       compare_against: config[:compare_against],
     )
 
-    Term.table_header
-
     # Run each test in category
     category_results = []
     max_ips = 0
@@ -457,18 +439,22 @@ class BenchmarkRunner
       $stdout = original_stdout
     end
 
-    # Reset for relative bars within category
-    Term.set_max_ips(max_ips)
-
-    # Print results with relative bars
-    category_results.each do |r|
+    # Build results for TableTennis table
+    table_rows = category_results.map do |r|
       is_best = r[:result][:upper] >= max_ips
-      Term.table_row(r[:name], (r[:result][:lower] + r[:result][:upper]) / 2.0,
-                     calculate_deviation(r[:result]), is_best: is_best)
-      @all_results << { label: "#{config[:name]}: #{r[:name]}", ips: (r[:result][:lower] + r[:result][:upper]) / 2.0 }
+      label = "#{config[:name]}: #{r[:name]}"
+      @all_results << { label: label, ips: (r[:result][:lower] + r[:result][:upper]) / 2.0 }
+      @results[label] = r[:result] # Populate @results for comparison
+      {
+        name: r[:name],
+        ips: (r[:result][:lower] + r[:result][:upper]) / 2.0,
+        deviation: calculate_deviation(r[:result]),
+        is_best: is_best,
+      }
     end
 
-    Term.table_footer
+    # Render TableTennis table
+    Term.table(table_rows)
 
     # SAX vs DOM comparison for XML parsing
     if category == :xml_parsing && SAX_AVAILABLE
