@@ -901,6 +901,63 @@ After checking out the repo, run `bin/setup` to install dependencies. Then run
 `rake spec` to run the tests. You can also run `bin/console` for an interactive
 prompt.
 
+== Performance
+
+Canon includes a comprehensive performance benchmarking system to prevent regressions in XML/HTML parsing and comparison algorithms.
+
+=== Running Benchmarks
+
+[source,bash]
+----
+# Run all benchmarks (10s per test, takes ~5 minutes)
+bundle exec rake performance:run
+
+# Quick benchmark (2s per test, takes ~30 seconds)
+bundle exec rake performance:quick
+
+# Compare against main branch (for PRs)
+bundle exec rake performance:compare
+
+# Run specific category
+bundle exec rake performance:category[xml_parsing]
+
+# Output formats
+bundle exec rake performance:json
+bundle exec rake performance:yaml
+----
+
+=== Benchmark Categories
+
+* **XML Parsing**: DOM vs SAX, simple vs large documents
+* **HTML Parsing**: Simple vs complex (with scripts/tables)
+* **XML/HTML Comparison**: Identical, similar, different documents
+* **Format Canonicalization**: XML C14N, JSON, YAML
+
+=== SAX Parser
+
+Canon includes a SAX-based XML parser (`Canon::Xml::SaxBuilder`) that provides
+significantly faster XML parsing by avoiding intermediate Nokogiri DOM trees.
+
+[source,ruby]
+----
+require 'canon/xml/sax_builder'
+
+# Parse XML directly to Canon::Xml::Node tree
+root = Canon::Xml::SaxBuilder.parse(xml_string)
+
+# For C14N (strips DOCTYPE to avoid DTD default attribute expansion)
+root = Canon::Xml::SaxBuilder.parse(xml_string, strip_doctype: true)
+----
+
+Performance improvement: ~6x faster than DOM parsing + conversion for large documents.
+
+=== CI Integration
+
+Performance benchmarks run automatically on:
+
+* **Pull requests**: Compares against `main` branch and fails if regression exceeds 10%
+* **Main branch pushes**: Logs baseline metrics for performance tracking
+
 == Contributing
 
 Bug reports and pull requests are welcome on GitHub at

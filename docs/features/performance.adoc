@@ -1,0 +1,161 @@
+---
+layout: default
+title: Performance
+nav_order: 100
+---
+= Performance
+
+Canon includes a comprehensive performance benchmarking system to prevent regressions in XML/HTML parsing and comparison algorithms.
+
+== Running Benchmarks
+
+[source,bash]
+----
+# Run all benchmarks (10s per test, ~5 minutes total)
+bundle exec rake performance:run
+
+# Quick benchmark (2s per test, ~30 seconds)
+bundle exec rake performance:quick
+
+# Compare against main branch (for PRs, fails on regression)
+bundle exec rake performance:compare
+
+# Run specific category
+bundle exec rake performance:category[xml_parsing]
+
+# Output in different formats
+bundle exec rake performance:json
+bundle exec rake performance:yaml
+----
+
+== Benchmark Categories
+
+=== XML Parsing
+
+* **DOM (simple)**: Standard Nokogiri DOM parsing
+* **SAX (simple)**: SAX-based streaming parser
+* **DOM (large)**: Large document DOM parsing
+* **SAX (large)**: Large document SAX parsing
+
+SAX parser is typically ~20-50% faster than DOM for XML parsing.
+
+=== HTML Parsing
+
+* **Simple HTML**: Basic HTML document parsing
+* **Complex HTML**: HTML with scripts, styles, and tables
+
+=== XML/HTML Comparison
+
+* **Identical**: Comparing the same document to itself
+* **Similar**: Comparing documents with minor differences
+* **Different**: Comparing documents with different namespaces/structure
+
+=== Format Canonicalization
+
+* **XML C14N**: W3C Canonical XML
+* **JSON**: JSON formatting
+* **YAML**: YAML formatting
+
+== SAX Parser
+
+Canon includes a SAX-based XML parser (`Canon::Xml::SaxBuilder`) that provides
+significantly faster XML parsing by avoiding intermediate Nokogiri DOM trees.
+
+=== How It Works
+
+Traditional parsing:
+[source]
+----
+XML String → Nokogiri DOM (~60ms) → Canon::Xml::Node (~1200ms) = ~1260ms
+----
+
+SAX parsing:
+[source]
+----
+XML String → Nokogiri SAX → Canon::Xml::Node (~200ms) = ~200ms
+----
+
+=== Usage
+
+[source,ruby]
+----
+require 'canon/xml/sax_builder'
+
+# Parse XML directly to Canon::Xml::Node tree
+root = Canon::Xml::SaxBuilder.parse(xml_string)
+
+# With options
+root = Canon::Xml::SaxBuilder.parse(xml_string,
+  preserve_whitespace: true,
+  strip_doctype: true  # For C14N compatibility
+)
+----
+
+=== Options
+
+`preserve_whitespace`:: Keep whitespace-only text nodes (default: false)
+`strip_doctype`:: Remove DOCTYPE declaration (for C14N, avoids DTD default attribute expansion)
+
+== CI Integration
+
+Performance benchmarks run automatically on:
+
+=== Pull Requests
+
+When a PR is opened, the performance workflow compares benchmarks against the `main` branch.
+If any benchmark regresses by more than 10%, the check fails with a clear error message.
+
+[source,bash]
+----
+# CI output shows comparison
+Comparing against: Previous branch (main).
+Threshold: 10% regression allowed
+
+XML Parsing: SAX (large)
+  base: 1042.30 IPS
+  curr: 1285.20 IPS
+  change: +23.31%
+  ✅ OK
+----
+
+=== Main Branch
+
+On pushes to `main`, benchmarks run to log baseline metrics for performance tracking.
+
+== Threshold Configuration
+
+The default regression threshold is 10%. Configure via rake task:
+
+[source,bash]
+----
+# Custom threshold (e.g., 5%)
+RUBYOPT="-rbenchmark-runner" bundle exec rake performance:compare
+----
+
+Or modify `lib/tasks/performance_comparator.rb`:
+
+[source,ruby]
+----
+DEFAULT_THRESHOLD = 0.10 # 10%
+----
+
+== Adding New Benchmarks
+
+Add test methods to `lib/tasks/benchmark_runner.rb`:
+
+[source,ruby]
+----
+# In BENCHMARKS hash
+BENCHMARKS = {
+  xml_parsing: [
+    # ... existing tests ...
+    { name: "New Test", method: :my_new_test, desc: "Description" },
+  ],
+}.freeze
+
+# Add test method
+def my_new_test
+  xml = DataGenerator.generate_xml(items: @items)
+  measure { Canon::Xml::SaxBuilder.parse(xml) }
+end
+----
