@@ -12,10 +12,13 @@ class PerformanceComparator
 
   # Benchmark categories - run specific subsets
   BENCHMARK_CATEGORIES = {
-    xml_parsing: %w[xml_parse_dom_simple xml_parse_sax_simple xml_parse_dom_large xml_parse_sax_large],
+    xml_parsing: %w[xml_parse_dom_simple xml_parse_sax_simple
+                    xml_parse_dom_large xml_parse_sax_large],
     html_parsing: %w[html_parse_simple html_parse_complex],
-    xml_comparison: %w[xml_compare_identical xml_compare_similar xml_compare_different],
-    html_comparison: %w[html_compare_identical html_compare_similar html_compare_different],
+    xml_comparison: %w[xml_compare_identical xml_compare_similar
+                       xml_compare_different],
+    html_comparison: %w[html_compare_identical html_compare_similar
+                        html_compare_different],
     formatting: %w[xml_c14n_format json_format yaml_format],
   }.freeze
 
@@ -34,7 +37,8 @@ class PerformanceComparator
     FileUtils.cp(File.join(REPO_ROOT, "lib", "tasks", "benchmark_runner.rb"),
                  BENCH_SCRIPT)
 
-    PerformanceHelpers.load_into_namespace(PerformanceHelpers::Current, BENCH_SCRIPT)
+    PerformanceHelpers.load_into_namespace(PerformanceHelpers::Current,
+                                           BENCH_SCRIPT)
     PerformanceHelpers.clone_base_repo(DEFAULT_BASE, TMP_PERF_DIR, BENCH_SCRIPT)
   end
 

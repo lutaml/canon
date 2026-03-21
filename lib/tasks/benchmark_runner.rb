@@ -41,19 +41,21 @@ with_attributes: true)
         ns_attr = ns_decl.empty? ? "" : " #{ns_decl}"
 
         if depth <= 1
-          children = items.times.map do |i|
+          children = Array.new(items) do |i|
             inner_attrs = with_attrs ? " index=\"#{i}\"" : ""
             "<#{prefix}item#{inner_attrs}>Item #{i} content with some text</#{prefix}item>"
           end.join
           "<#{prefix}root#{ns_attr}#{attrs}>#{children}</#{prefix}root>"
         else
-          child = build_xml_element(items / 2, depth - 1, prefix, with_attrs, "")
+          child = build_xml_element(items / 2, depth - 1, prefix, with_attrs,
+                                    "")
           "<#{prefix}root#{ns_attr}#{attrs}>#{child}</#{prefix}root>"
         end
       end
 
       # Generate HTML document
-      def generate_html(items: DEFAULT_ITEMS, with_scripts: false, with_tables: false)
+      def generate_html(items: DEFAULT_ITEMS, with_scripts: false,
+with_tables: false)
         scripts = if with_scripts
                     <<-HTML
           <script type="text/javascript">
@@ -65,13 +67,13 @@ with_attributes: true)
             /* <!-- Inline styles --> */
             body { margin: 0; }
           </style>
-        HTML
+                    HTML
                   else
                     ""
                   end
 
         tables = if with_tables
-                   rows = items.times.map do |i|
+                   rows = Array.new(items) do |i|
                      "<tr><td>Cell #{i}A</td><td>Cell #{i}B</td></tr>"
                    end.join
                    "<table>#{rows}</table>"
@@ -79,7 +81,7 @@ with_attributes: true)
                    ""
                  end
 
-        list_items = items.times.map do |i|
+        list_items = Array.new(items) do |i|
           "<li class=\"item-#{i}\">List item #{i} with <strong>bold</strong> text</li>"
         end.join("\n              ")
 
@@ -130,7 +132,7 @@ with_attributes: true)
             version: "1.0",
             generated: Time.now.iso8601,
           },
-          items: items.times.map do |i|
+          items: Array.new(items) do |i|
             {
               id: i,
               name: "Item #{i}",
@@ -158,19 +160,20 @@ with_attributes: true)
       # Large XML document for SAX vs DOM comparison
       def generate_large_xml(items: 500)
         generate_xml(items: items, depth: 3, with_namespaces: true,
-with_attributes: true)
+                     with_attributes: true)
       end
 
       # Deeply nested XML for tree traversal testing
       def generate_deep_xml(depth: 50)
         return "<leaf>content</leaf>" if depth <= 0
+
         "<nested level=\"#{depth}\">#{generate_deep_xml(depth - 1)}</nested>"
       end
 
       # XML with many attributes
       def generate_attributed_xml(attrs_per_element: 20, elements: 20)
-        items = elements.times.map do |i|
-          attrs = attrs_per_element.times.map do |j|
+        items = Array.new(elements) do |i|
+          attrs = Array.new(attrs_per_element) do |j|
             "attr#{j}=\"value#{j}_#{i}\""
           end.join(" ")
           "<element #{attrs}>Content #{i}</element>"
@@ -180,10 +183,10 @@ with_attributes: true)
 
       # HTML with mixed content (text + elements)
       def generate_mixed_html(items: DEFAULT_ITEMS)
-        paragraphs = items.times.map do |i|
+        paragraphs = Array.new(items) do |i|
           "<p>This is paragraph <strong>#{i}</strong> with " \
-          "<em>mixed</em> content and " \
-          "<a href=\"http://example.com/#{i}\">links</a>.</p>"
+            "<em>mixed</em> content and " \
+            "<a href=\"http://example.com/#{i}\">links</a>.</p>"
         end.join("\n")
         generate_html(items: 5).sub("</main>", "#{paragraphs}</main>")
       end
@@ -252,7 +255,9 @@ with_attributes: true)
   def benchmark_xml_parsing_large
     xml = DataGenerator.generate_large_xml(items: @items * 5)
     results = {
-      "xml_parse_dom_large" => time_with_error { Canon::Xml::DataModel.from_xml(xml) },
+      "xml_parse_dom_large" => time_with_error do
+        Canon::Xml::DataModel.from_xml(xml)
+      end,
     }
     if SAX_AVAILABLE
       results["xml_parse_sax_large"] = time_with_error { Canon::Xml::SaxBuilder.parse(xml) }
@@ -271,7 +276,7 @@ with_attributes: true)
 
   def benchmark_html_parsing_complex
     html = DataGenerator.generate_html(items: @items, with_scripts: true,
-with_tables: true)
+                                       with_tables: true)
     run_ips_benchmark("html_parse_complex") { Canon.parse_html(html) }
   end
 
@@ -343,10 +348,10 @@ with_tables: true)
   # BENCHMARK INFRASTRUCTURE
   # ============================================================
 
-  def run_ips_benchmark(label)
+  def run_ips_benchmark(label, &block)
     job = Benchmark::IPS::Job.new
     job.config(time: @run_time, warmup: @warmup)
-    job.report(label) { yield }
+    job.report(label, &block)
     job.run
 
     entry = job.full_report.entries.first
@@ -381,7 +386,7 @@ with_tables: true)
     mean = times.sum / times.size
     variance = times.sum { |t| (t - mean)**2 } / (times.size - 1)
     std_dev = Math.sqrt(variance)
-    error_margin = std_dev / mean
+    std_dev / mean
 
     # Convert to IPS (iterations per second)
     lower_ips = (1.0 / (mean + std_dev)).round(4)

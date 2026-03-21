@@ -108,8 +108,10 @@ strip_doctype: false)
         # Separate namespace declarations from regular attributes
         ns_decls, regular_attrs = separate_namespaces(attrs)
 
-        # Check for relative namespace URIs
-        ns_decls.each do |_name, uri|
+        # Check for relative namespace URIs (before building hash)
+        # Convert to hash for iteration
+        ns_hash = build_ns_hash(ns_decls)
+        ns_hash.each_value do |uri|
           next if uri.nil? || uri.empty?
 
           if relative_uri?(uri)
@@ -119,7 +121,7 @@ strip_doctype: false)
         end
 
         # Push new namespace scope with declarations
-        new_scope = @namespace_stack.last.merge(build_ns_hash(ns_decls))
+        new_scope = @namespace_stack.last.merge(ns_hash)
         @namespace_stack.push(new_scope)
 
         # Find namespace URI from current scope

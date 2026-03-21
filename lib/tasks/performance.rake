@@ -37,7 +37,7 @@ namespace :performance do
 
     # Filter to category
     labels = PerformanceComparator::BENCHMARK_CATEGORIES[category.to_sym]
-    filtered = results.select { |k, _| labels.include?(k) }
+    filtered = results.slice(*labels)
 
     puts "\n=== #{category.capitalize} Results ===\n"
     filtered.each do |label, metrics|
