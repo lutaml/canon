@@ -31,13 +31,18 @@ module Canon
         return "" if line.nil?
 
         # Collapse all whitespace (spaces, tabs, newlines) to single space
-        # Use squeeze instead of gsub(/\s+/) to avoid ReDoS vulnerability
-        normalized = line.strip.gsub(/[\t\n\r\f\v]+/, " ").squeeze(" ")
+        # Avoid regex to prevent ReDoS vulnerability - use String methods
+        normalized = line.strip.tr("\t\n\r\f\v", " ").squeeze(" ")
 
         # Normalize whitespace around tag delimiters
-        # Remove spaces before > and after <
-        normalized = normalized.gsub(/\s+>/, ">") # "div >" -> "div>"
-        normalized.gsub(/<\s+/, "<") # "< div" -> "<div"
+        # Remove spaces before > and after < (avoid regex for ReDoS safety)
+        while normalized.include?(" >")
+          normalized = normalized.gsub(" >", ">")
+        end
+        while normalized.include?("< ")
+          normalized = normalized.gsub("< ", "<")
+        end
+        normalized
       end
 
       # Check if a line is blank (nil or whitespace-only)

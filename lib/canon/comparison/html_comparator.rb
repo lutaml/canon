@@ -471,11 +471,9 @@ module Canon
               child.children.each do |text_child|
                 next unless text_child.is_a?(Canon::Xml::Nodes::TextNode)
 
-                # Remove HTML comments from text content
-                # Use tr then squeeze to avoid ReDoS vulnerability from gsub(/<!--.*?-->/m)
-                # Split on comment markers and take only content outside comments
-                parts = text_child.value.split(/<!--.*?-->/m)
-                normalized = parts.join.strip
+                # Remove HTML comments from text content without using regex
+                # to avoid ReDoS/incomplete sanitization vulnerabilities
+                normalized = remove_html_comments(text_child.value)
                 # Update the text value
                 text_child.instance_variable_set(:@value, normalized)
               end
@@ -565,11 +563,9 @@ module Canon
         # Also removes whitespace-only CDATA children that Nokogiri creates
         def normalize_html_style_script_comments(doc)
           doc.css("style, script").each do |element|
-            # Remove HTML comments from style/script content
-            # Use split instead of gsub to avoid ReDoS vulnerability
-            # Split on comment markers and take only content outside comments
-            parts = element.content.split(/<!--.*?-->/m)
-            normalized = parts.join.strip
+            # Remove HTML comments from style/script content without using regex
+            # to avoid ReDoS/incomplete sanitization vulnerabilities
+            normalized = remove_html_comments(element.content)
 
             if normalized.empty?
               # Remove all children (including whitespace-only CDATA nodes)
@@ -578,6 +574,43 @@ module Canon
               element.content = normalized
             end
           end
+        end
+
+        # Remove HTML comments from a string without using regex
+        # This avoids ReDoS and incomplete sanitization vulnerabilities
+        #
+        # @param text [String] Text potentially containing HTML comments
+        # @return [String] Text with HTML comments removed
+        def remove_html_comments(text)
+          return "" if text.nil?
+
+          result = +""
+          pos = 0
+
+          while pos < text.length
+            # Look for comment start
+            comment_start = text.index("<!--", pos)
+            if comment_start.nil?
+              # No more comments, append rest of text
+              result << text[pos..]
+              break
+            end
+
+            # Append text before comment
+            result << text[pos...comment_start]
+
+            # Look for comment end
+            comment_end = text.index("-->", comment_start + 4)
+            if comment_end.nil?
+              # Unclosed comment, skip the rest
+              break
+            end
+
+            # Move past the comment
+            pos = comment_end + 3
+          end
+
+          result.strip
         end
 
         # Normalize whitespace in text nodes according to HTML rendering rules
