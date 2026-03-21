@@ -65,6 +65,9 @@ module PerformanceHelpers
     end
 
     def compare_metrics(label, curr, base, threshold)
+      # Skip comparison if base result is missing (e.g., new benchmark)
+      return { label: label, base_ips: nil, curr_ips: nil, change: nil, regressed: false } unless base
+
       base_ips = base.fetch(:lower)
       curr_ips = curr.fetch(:upper)
       change = (curr_ips - base_ips) / base_ips.to_f
@@ -85,10 +88,19 @@ module PerformanceHelpers
         branch: current_branch,
         base: base,
         regressions: [],
+        new_benchmarks: [],
       }
 
       current_results.each do |label, metrics|
-        cmp = compare_metrics(label, metrics, base_results[label], threshold)
+        base_result = base_results[label]
+        cmp = compare_metrics(label, metrics, base_result, threshold)
+
+        # Track new benchmarks that don't exist in base
+        if base_result.nil?
+          summary[:new_benchmarks] << label
+          next
+        end
+
         next unless cmp[:regressed]
 
         summary[:regressions] << {
@@ -100,7 +112,17 @@ module PerformanceHelpers
       end
 
       log_regressions(summary[:regressions], threshold)
+      log_new_benchmarks(summary[:new_benchmarks])
       summary
+    end
+
+    def log_new_benchmarks(new_benchmarks)
+      return if new_benchmarks.empty?
+
+      puts "\nNew benchmarks (not in base branch):"
+      new_benchmarks.each do |label|
+        puts "  - #{label}"
+      end
     end
 
     def log_regressions(regressions, threshold)
@@ -127,6 +149,15 @@ module PerformanceHelpers
     private
 
     def print_realtime_comparison(label, curr_metrics, base_metrics, threshold)
+      # Handle new benchmarks that don't exist in base
+      if base_metrics.nil?
+        curr_ips = (curr_metrics[:lower] + curr_metrics[:upper]) / 2.0
+        puts format("%<label>30s: NEW (current: %<curr>s IPS) [N/A]\n\n",
+                    label: label,
+                    curr: format("%.2f", curr_ips))
+        return
+      end
+
       curr_ips = curr_metrics[:upper]
       base_ips = base_metrics[:lower]
       return unless curr_ips && base_ips
