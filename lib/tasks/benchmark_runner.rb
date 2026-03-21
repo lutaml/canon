@@ -102,7 +102,8 @@ class BenchmarkRunner
     end
 
     # Category section with description
-    def self.category(title, icon:, description:, failure_means:, compare_against: nil)
+    def self.category(title, icon:, description:, failure_means:,
+compare_against: nil)
       puts
       puts "#{CYAN}#{VL}#{CLEAR}  #{BOLD}#{MAGENTA}#{icon} #{title}#{CLEAR}"
       puts
@@ -225,24 +226,35 @@ class BenchmarkRunner
   # Test definitions
   BENCHMARKS = {
     xml_parsing: [
-      { name: "DOM (simple)", method: :xml_parse_dom_simple, desc: "Standard DOM parsing" },
-      { name: "SAX (simple)", method: :xml_parse_sax_simple, desc: "Streaming SAX parsing" },
-      { name: "DOM (large)", method: :xml_parse_dom_large, desc: "Large document DOM" },
-      { name: "SAX (large)", method: :xml_parse_sax_large, desc: "Large document SAX" },
+      { name: "DOM (simple)", method: :xml_parse_dom_simple,
+        desc: "Standard DOM parsing" },
+      { name: "SAX (simple)", method: :xml_parse_sax_simple,
+        desc: "Streaming SAX parsing" },
+      { name: "DOM (large)", method: :xml_parse_dom_large,
+        desc: "Large document DOM" },
+      { name: "SAX (large)", method: :xml_parse_sax_large,
+        desc: "Large document SAX" },
     ],
     html_parsing: [
       { name: "Simple HTML", method: :html_parse_simple, desc: "Basic HTML" },
-      { name: "Complex HTML", method: :html_parse_complex, desc: "HTML with scripts/tables" },
+      { name: "Complex HTML", method: :html_parse_complex,
+        desc: "HTML with scripts/tables" },
     ],
     xml_comparison: [
-      { name: "Identical XML", method: :xml_compare_identical, desc: "Same documents" },
-      { name: "Similar XML", method: :xml_compare_similar, desc: "Slightly different" },
-      { name: "Different XML", method: :xml_compare_different, desc: "Different namespaces" },
+      { name: "Identical XML", method: :xml_compare_identical,
+        desc: "Same documents" },
+      { name: "Similar XML", method: :xml_compare_similar,
+        desc: "Slightly different" },
+      { name: "Different XML", method: :xml_compare_different,
+        desc: "Different namespaces" },
     ],
     html_comparison: [
-      { name: "Identical HTML", method: :html_compare_identical, desc: "Same HTML" },
-      { name: "Similar HTML", method: :html_compare_similar, desc: "Slightly different" },
-      { name: "Different HTML", method: :html_compare_different, desc: "Different structure" },
+      { name: "Identical HTML", method: :html_compare_identical,
+        desc: "Same HTML" },
+      { name: "Similar HTML", method: :html_compare_similar,
+        desc: "Slightly different" },
+      { name: "Different HTML", method: :html_compare_different,
+        desc: "Different structure" },
     ],
     formatting: [
       { name: "XML C14N", method: :xml_c14n_format, desc: "Canonical XML" },
@@ -273,7 +285,8 @@ class BenchmarkRunner
           end.join
           "<#{prefix}root#{ns_attr}#{attrs}>#{children}</#{prefix}root>"
         else
-          child = build_xml_element(items / 2, depth - 1, prefix, with_attrs, "")
+          child = build_xml_element(items / 2, depth - 1, prefix, with_attrs,
+                                    "")
           "<#{prefix}root#{ns_attr}#{attrs}>#{child}</#{prefix}root>"
         end
       end
@@ -443,7 +456,8 @@ class BenchmarkRunner
     table_rows = category_results.map do |r|
       is_best = r[:result][:upper] >= max_ips
       label = "#{config[:name]}: #{r[:name]}"
-      @all_results << { label: label, ips: (r[:result][:lower] + r[:result][:upper]) / 2.0 }
+      @all_results << { label: label,
+                        ips: (r[:result][:lower] + r[:result][:upper]) / 2.0 }
       @results[label] = r[:result] # Populate @results for comparison
       {
         name: r[:name],
@@ -458,8 +472,12 @@ class BenchmarkRunner
 
     # SAX vs DOM comparison for XML parsing
     if category == :xml_parsing && SAX_AVAILABLE
-      sax = category_results.find { |r| r[:name].include?("SAX") && r[:name].include?("large") }
-      dom = category_results.find { |r| r[:name].include?("DOM") && r[:name].include?("large") }
+      sax = category_results.find do |r|
+        r[:name].include?("SAX") && r[:name].include?("large")
+      end
+      dom = category_results.find do |r|
+        r[:name].include?("DOM") && r[:name].include?("large")
+      end
 
       if sax && dom
         sax_ips = (sax[:result][:lower] + sax[:result][:upper]) / 2.0
@@ -467,9 +485,11 @@ class BenchmarkRunner
         speedup = sax_ips / dom_ips
 
         if speedup > 1.0
-          Term.speedup_badge(speedup, "SAX is faster than DOM for large documents")
+          Term.speedup_badge(speedup,
+                             "SAX is faster than DOM for large documents")
         else
-          Term.hint("DOM is #{format('%.2f', 1 / speedup)}x faster than SAX for large documents")
+          Term.hint("DOM is #{format('%.2f',
+                                     1 / speedup)}x faster than SAX for large documents")
         end
       end
     end
@@ -495,7 +515,8 @@ class BenchmarkRunner
       html = DataGenerator.generate_html(items: @items)
       measure { Canon.parse_html(html) }
     when :html_parse_complex
-      html = DataGenerator.generate_html(items: @items, with_scripts: true, with_tables: true)
+      html = DataGenerator.generate_html(items: @items, with_scripts: true,
+                                         with_tables: true)
       measure { Canon.parse_html(html) }
     when :xml_compare_identical
       xml = DataGenerator.generate_xml(items: @items)
@@ -552,7 +573,8 @@ class BenchmarkRunner
     error_margin = std_dev / mean
     error_pct = error_margin.round(4)
 
-    { lower: mean.round(4) * (1 - error_pct), upper: mean.round(4) * (1 + error_pct) }
+    { lower: mean.round(4) * (1 - error_pct),
+      upper: mean.round(4) * (1 + error_pct) }
   end
 
   def measure_time

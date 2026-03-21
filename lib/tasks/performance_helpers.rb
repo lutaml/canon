@@ -238,7 +238,9 @@ module PerformanceHelpers
       # Handle new benchmarks that don't exist in base
       if base_metrics.nil?
         curr_ips = (curr_metrics[:lower] + curr_metrics[:upper]) / 2.0
-        puts "#{format('%-30s', label)}: #{GREEN}NEW#{CLEAR} (current: #{format('%.2f', curr_ips)} IPS) [N/A]\n\n"
+        puts "#{format('%-30s',
+                       label)}: #{GREEN}NEW#{CLEAR} (current: #{format('%.2f',
+                                                                       curr_ips)} IPS) [N/A]\n\n"
         return
       end
 
@@ -253,7 +255,8 @@ module PerformanceHelpers
       base_str = format("%.2f", base_ips)
       curr_str = format("%.2f", curr_ips)
 
-      puts "#{format('%-30s', label)}: #{GRAY}#{base_str}#{CLEAR} → #{color}#{curr_str}#{CLEAR} IPS " \
+      puts "#{format('%-30s',
+                     label)}: #{GRAY}#{base_str}#{CLEAR} → #{color}#{curr_str}#{CLEAR} IPS " \
            "(change: #{color}#{delta_str}#{CLEAR}) [#{color}#{status}#{CLEAR}]\n\n"
     end
   end
