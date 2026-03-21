@@ -109,7 +109,7 @@ strip_doctype: false)
         ns_decls, regular_attrs = separate_namespaces(attrs)
 
         # Check for relative namespace URIs
-        ns_decls.each_value do |uri|
+        ns_decls.each do |_name, uri|
           next if uri.nil? || uri.empty?
 
           if relative_uri?(uri)

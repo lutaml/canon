@@ -5,6 +5,7 @@ source "https://rubygems.org"
 # Specify your gem's dependencies in xml-c14n.gemspec
 gemspec
 
+gem "benchmark-ips"
 gem "openssl", "~> 3.0"
 gem "rake"
 gem "rspec"
