@@ -180,9 +180,9 @@ RSpec.describe Canon::Comparison::XmlComparator do
         expect(result.differences).not_to be_empty
         expect(result.equivalent?).to be false
 
-        # Elements with different namespaces are detected as different
-        # The difference is reported as a namespace_uri difference
-        expect(result.differences.length).to eq(1) # Namespace URI difference
+        # Elements with different namespaces are detected as different by the
+        # ElementMatcher and reported as deleted + inserted (2 differences)
+        expect(result.differences.length).to eq(2) # deleted + inserted
       end
 
       it "handles elements with no namespace vs elements with namespace" do

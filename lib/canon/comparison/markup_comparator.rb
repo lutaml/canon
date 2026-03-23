@@ -174,9 +174,13 @@ module Canon
             end
           end
 
-          # Filter out whitespace-only text nodes based on structural_whitespace setting
-          if match_opts && %i[ignore
-                              normalize].include?(match_opts[:structural_whitespace]) && text_node?(node)
+          # Filter out whitespace-only text nodes.
+          # Whitespace between elements (indentation, newlines) is formatting and
+          # should never be compared structurally — it causes false mismatches when
+          # comparing compact vs pretty-printed XML. The structural_whitespace setting
+          # controls how whitespace WITHIN text content is compared, not whether
+          # whitespace between elements is structural.
+          if text_node?(node)
             text = node_text(node)
             return true if MatchOptions.normalize_text(text).empty?
           end
