@@ -190,14 +190,17 @@ diff_children, differences)
           end
         end
 
-        # Filter out whitespace-only text nodes based on structural_whitespace setting
-        # - :ignore or :normalize: Filter all whitespace-only text nodes
-        # - :strict: Preserve all whitespace-only text nodes (don't filter any)
-        if text_node?(node) && %i[ignore
-                                  normalize].include?(match_opts[:structural_whitespace])
-          text = node_text(node)
-          return true if MatchOptions.normalize_text(text).empty?
-        end
+        # Strip whitespace-only text nodes based on parent element configuration.
+        # Use sensitive_elements / insensitive_elements to control.
+        # Blacklist (insensitive) > whitelist (sensitive) > format defaults.
+        return false unless text_node?(node) && node.parent
+        return false unless MatchOptions.normalize_text(node_text(node)).empty?
+
+        return true unless WhitespaceSensitivity.whitespace_preserved?(
+          node.parent, match_opts
+        )
+
+        false
 
         false
       end

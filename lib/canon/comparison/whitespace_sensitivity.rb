@@ -66,6 +66,79 @@ module Canon
           element_sensitive?(node, opts)
         end
 
+        # Check if structural whitespace is preserved (not stripped) for an element.
+        #
+        # Uses sensitive_elements (whitelist) and insensitive_elements (blacklist)
+        # from match_opts. Blacklist takes precedence over whitelist.
+        # Format defaults apply when neither is configured.
+        #
+        # No inheritance from ancestors — checks only the immediate parent element name.
+        #
+        # @param element [Object] Element node to check
+        # @param match_opts [Hash] Resolved match options
+        # @return [Boolean] true if whitespace is preserved (not stripped)
+        def whitespace_preserved?(element, match_opts)
+          return false unless element
+          return false unless element.respond_to?(:name)
+
+          elem_name = element.name.to_s
+
+          # Blacklist: always strip (highest priority)
+          insensitive_raw = match_opts[:insensitive_elements]
+          insensitive_raw ||= match_opts[:whitespace_insensitive_elements]
+          insensitive = (insensitive_raw || []).map(&:to_s)
+          return false if insensitive.include?(elem_name)
+
+          # Whitelist: preserve whitespace
+          sensitive = resolved_sensitive_elements(match_opts)
+          return true if sensitive.include?(elem_name)
+
+          # Default: preserve for HTML, strip for XML
+          format = match_opts[:format] || :xml
+          case format
+          when :html, :html4, :html5
+            true
+          else
+            false
+          end
+        end
+
+        # Get resolved list of whitespace-sensitive element names (strings).
+        #
+        # Combines format defaults + user whitelist, minus user blacklist.
+        # Supports both short names (sensitive_elements) and long names
+        # (whitespace_sensitive_elements) for backward compatibility.
+        #
+        # @param match_opts [Hash] Resolved match options
+        # @return [Array<String>] Sensitive element names
+        def resolved_sensitive_elements(match_opts)
+          sensitive = []
+
+          # 1. Format defaults
+          format = match_opts[:format] || :xml
+          case format
+          when :html, :html4, :html5
+            sensitive += %w[pre code textarea script style]
+          end
+
+          # 2. User whitelist (additive to format defaults)
+          whitelist = match_opts[:sensitive_elements]
+          whitelist ||= match_opts[:whitespace_sensitive_elements]
+          if whitelist
+            sensitive += whitelist.map(&:to_s)
+          end
+
+          # 3. User blacklist removes from combined set
+          blacklist_raw = match_opts[:insensitive_elements]
+          blacklist_raw ||= match_opts[:whitespace_insensitive_elements]
+          if blacklist_raw
+            blacklist = blacklist_raw.to_set(&:to_s)
+            sensitive.reject! { |e| blacklist.include?(e) }
+          end
+
+          sensitive.uniq
+        end
+
         # Get format-specific default sensitive elements
         #
         # This is the SINGLE SOURCE OF TRUTH for default whitespace-sensitive

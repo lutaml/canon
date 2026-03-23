@@ -8,6 +8,12 @@ module Canon
       # XML/HTML-specific match options resolver
       class XmlResolver < BaseResolver
         # Format-specific defaults for XML/HTML
+        #
+        # Sensitive elements (preserve structural whitespace):
+        # - XML: none by default — all structural whitespace stripped
+        # - HTML: pre, code, textarea, script, style by default
+        # Use sensitive_elements option to add elements that preserve whitespace.
+        #
         FORMAT_DEFAULTS = {
           html: {
             preprocessing: :rendered,
@@ -33,7 +39,9 @@ module Canon
 
         # Predefined match profiles for XML/HTML
         MATCH_PROFILES = {
-          # Strict: Match exactly as written in source (XML default)
+          # Strict: Match exactly as written in source (XML default).
+          # Structural whitespace is stripped by default for XML.
+          # Use sensitive_elements to preserve structural whitespace in specific elements.
           strict: {
             preprocessing: :none,
             text_content: :strict,

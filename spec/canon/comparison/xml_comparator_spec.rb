@@ -161,7 +161,9 @@ RSpec.describe Canon::Comparison::XmlComparator do
       it "reports namespace differences as deleted/inserted " \
          "via ElementMatcher" do
         # ElementMatcher treats elements with different namespaces
-        # as separate elements
+        # as separate elements. With whitespace stripped (XML default),
+        # ElementMatcher is used and reports namespace differences as
+        # deleted/inserted (2 differences) rather than a modification.
         xml1 = <<~XML
           <root>
             <child xmlns="http://example.org/ns1">content</child>
@@ -181,8 +183,8 @@ RSpec.describe Canon::Comparison::XmlComparator do
         expect(result.equivalent?).to be false
 
         # Elements with different namespaces are detected as different
-        # The difference is reported as a namespace_uri difference
-        expect(result.differences.length).to eq(1) # Namespace URI difference
+        # ElementMatcher reports them as deleted/inserted (2 differences)
+        expect(result.differences.length).to eq(2)
       end
 
       it "handles elements with no namespace vs elements with namespace" do

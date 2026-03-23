@@ -326,9 +326,9 @@ module Canon
           # Handle cases where one node is missing (e.g. text added or removed)
           if node1.nil? || node2.nil?
             if node1.nil?
-              text2 = node2.to_s
+              text2 = NodeUtils.get_node_text(node2)
             else
-              text1 = node1.to_s
+              text1 = NodeUtils.get_node_text(node1)
             end
           end
 
