@@ -121,6 +121,8 @@ module Canon
               hash_matching
               similarity_matching
               propagation
+              sensitive_elements
+              insensitive_elements
               whitespace_sensitive_elements
               whitespace_insensitive_elements
               respect_xml_space
