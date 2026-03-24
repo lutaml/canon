@@ -20,3 +20,5 @@ Gemfile*.lock
 !lib/canon/diff_formatter/debug_output.rb
 .rubocop-https*
 _site
+
+.lycheecache

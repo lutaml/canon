@@ -27,7 +27,7 @@ RSpec.describe "Encoding normalization" do
     it "handles XML with encoding declaration mismatching actual bytes" do
       # String is labeled UTF-8 but XML declares Shift_JIS
       # This is a common scenario when a file's encoding is misdetected
-      xml1 = %(<?xml version="1.0" encoding="Shift_JIS"?><root>日本語</root>).dup.force_encoding("UTF-8")
+      xml1 = (+%(<?xml version="1.0" encoding="Shift_JIS"?><root>日本語</root>)).force_encoding("UTF-8")
       xml2 = %(<?xml version="1.0" encoding="UTF-8"?><root>日本語</root>)
 
       # Should normalize by detecting the declared encoding and transcoding
@@ -47,9 +47,9 @@ RSpec.describe "Encoding normalization" do
       binary_xml = "<root>\xFF\xFE</root>".b
 
       # Should not raise, should transcode with replacement
-      expect {
+      expect do
         Canon::Comparison.equivalent?(binary_xml, binary_xml)
-      }.not_to raise_error
+      end.not_to raise_error
     end
 
     it "compares ASCII-only XML across encodings" do
@@ -73,8 +73,7 @@ RSpec.describe "Encoding normalization" do
 
         # Explicit normalize_encoding option
         expect(Canon::Comparison.equivalent?(xml1, xml2,
-          normalize_encoding: "UTF-8"
-        )).to be true
+                                             normalize_encoding: "UTF-8")).to be true
       end
     end
   end

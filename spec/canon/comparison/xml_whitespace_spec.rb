@@ -24,8 +24,7 @@ RSpec.describe "XML whitespace handling" do
       xml1 = "<root>Hello  World</root>"
       xml2 = "<root>Hello World</root>"
       expect(Canon::Comparison.equivalent?(xml1, xml2,
-        match: { text_content: :normalize }
-      )).to be true
+                                           match: { text_content: :normalize })).to be true
     end
 
     it "preserves structural whitespace in whitespace-sensitive HTML elements" do
@@ -33,8 +32,7 @@ RSpec.describe "XML whitespace handling" do
       xml1 = "<pre>\n  code\n</pre>"
       xml2 = "<pre>  code</pre>"
       expect(Canon::Comparison.equivalent?(xml1, xml2,
-        match: { format: :html }
-      )).to be false
+                                           match: { format: :html })).to be false
     end
 
     it "uses sensitive_elements to preserve whitespace in specific XML elements" do
@@ -42,8 +40,7 @@ RSpec.describe "XML whitespace handling" do
       xml2 = "<custom> text </custom>"
       # With sensitive_elements, whitespace in <custom> is preserved
       expect(Canon::Comparison.equivalent?(xml1, xml2,
-        match: { sensitive_elements: [:custom] }
-      )).to be false
+                                           match: { sensitive_elements: [:custom] })).to be false
     end
 
     it "uses whitespace_insensitive_elements to override element sensitivity" do
@@ -51,8 +48,7 @@ RSpec.describe "XML whitespace handling" do
       xml2 = "<pre> text </pre>"
       # whitespace_insensitive_elements overrides default sensitivity
       expect(Canon::Comparison.equivalent?(xml1, xml2,
-        match: { format: :html, whitespace_insensitive_elements: [:pre], text_content: :normalize }
-      )).to be true
+                                           match: { format: :html, whitespace_insensitive_elements: [:pre], text_content: :normalize })).to be true
     end
 
     it "compares attributes with strict mode by default" do
@@ -66,8 +62,7 @@ RSpec.describe "XML whitespace handling" do
       xml1 = %(<root attr="  value  "/>)
       xml2 = %(<root attr="value"/>)
       expect(Canon::Comparison.equivalent?(xml1, xml2,
-        match: { attribute_values: :normalize }
-      )).to be true
+                                           match: { attribute_values: :normalize })).to be true
     end
 
     context "with structural_whitespace dimension" do
@@ -76,24 +71,21 @@ RSpec.describe "XML whitespace handling" do
         xml2 = "<root>  <text>Hello</text></root>"
         # Note: structural_whitespace: :strict still filters for non-sensitive elements
         expect(Canon::Comparison.equivalent?(xml1, xml2,
-          match: { structural_whitespace: :strict }
-        )).to be true
+                                             match: { structural_whitespace: :strict })).to be true
       end
 
       it "uses :normalize to collapse structural whitespace" do
         xml1 = "<root>\n  <text>Hello</text>\n</root>"
         xml2 = "<root>  <text>Hello</text></root>"
         expect(Canon::Comparison.equivalent?(xml1, xml2,
-          match: { structural_whitespace: :normalize }
-        )).to be true
+                                             match: { structural_whitespace: :normalize })).to be true
       end
 
       it "uses :ignore to skip structural whitespace comparison" do
         xml1 = "<root>\n  <text>Hello</text>\n</root>"
         xml2 = "<root><text>Hello</text></root>"
         expect(Canon::Comparison.equivalent?(xml1, xml2,
-          match: { structural_whitespace: :ignore }
-        )).to be true
+                                             match: { structural_whitespace: :ignore })).to be true
       end
     end
 

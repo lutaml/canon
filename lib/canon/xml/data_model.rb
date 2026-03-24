@@ -83,7 +83,7 @@ module Canon
       # @param new_encoding [String] New encoding to declare
       # @return [String] XML string with updated declaration
       def self.update_xml_declaration(xml_string, new_encoding)
-        xml_string.sub(/\bencoding\s*=\s*["'][^"']+["']/i) do |match|
+        xml_string.sub(/\bencoding\s*=\s*["'][^"']+["']/i) do |_match|
           %(encoding="#{new_encoding}")
         end
       end
@@ -111,9 +111,9 @@ module Canon
             # Bytes aren't valid UTF-8, so they must really be in source_encoding
             # Proceed with transcoding
             return forced.encode("UTF-8", source_encoding,
-                                invalid: :replace,
-                                undef: :replace,
-                                replace: "?")
+                                 invalid: :replace,
+                                 undef: :replace,
+                                 replace: "?")
           end
         end
 
@@ -156,6 +156,7 @@ module Canon
         if binary_string =~ /\A\s*<\?xml[^>]*\bencoding\s*=\s*["']([^"']+)["'][^>]*\?>/i
           return Regexp.last_match(1)
         end
+
         nil
       end
 
