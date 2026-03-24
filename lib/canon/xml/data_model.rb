@@ -21,14 +21,142 @@ module Canon
       # @param preserve_whitespace [Boolean] Whether to preserve whitespace-only text nodes
       # @return [Nodes::RootNode] Root of the data model tree
       def self.from_xml(xml_string, preserve_whitespace: false)
+        # Normalize encoding before parsing
+        normalized_xml = normalize_encoding(xml_string)
+
         # Parse with Nokogiri
-        doc = Nokogiri::XML(xml_string, &:nonet)
+        doc = Nokogiri::XML(normalized_xml, &:nonet)
 
         # Check for relative namespace URIs (prohibited by C14N 1.1)
         check_for_relative_namespace_uris(doc)
 
         # Convert to XPath data model
         build_from_nokogiri(doc, preserve_whitespace: preserve_whitespace)
+      end
+
+      # Normalize XML string encoding to UTF-8
+      #
+      # Handles cases where:
+      # 1. The XML declaration specifies an encoding that doesn't match the actual encoding
+      # 2. The string's internal encoding is non-UTF-8 (without a declaration)
+      #
+      # For case 1, we check if the declared encoding matches the actual bytes.
+      # If bytes are valid UTF-8 despite the declaration, we update the declaration to UTF-8.
+      #
+      # @param xml_string [String] XML string to normalize
+      # @return [String] Normalized XML string with UTF-8 encoding
+      def self.normalize_encoding(xml_string)
+        return xml_string unless xml_string.is_a?(String)
+
+        # Extract declared encoding from XML declaration
+        declared_encoding = extract_xml_encoding(xml_string)
+
+        if declared_encoding
+          # Case 1: XML has a declaration
+          if declared_encoding.upcase != "UTF-8"
+            # Check if bytes are actually valid UTF-8 despite the declaration
+            utf8_reinterpreted = try_utf8_reinterpretation(xml_string)
+            if utf8_reinterpreted
+              # Bytes are valid UTF-8 - update declaration to UTF-8
+              return update_xml_declaration(xml_string, "UTF-8")
+            end
+
+            # Bytes aren't valid UTF-8 - must really be in declared encoding
+            return transcode_to_utf8(xml_string, declared_encoding)
+          end
+        elsif xml_string.encoding.name != "UTF-8"
+          # Case 2: No declaration but string encoding is non-UTF-8
+          # First, try to re-interpret bytes as UTF-8 (handles mislabeled strings)
+          reinterpreted = try_utf8_reinterpretation(xml_string)
+          return reinterpreted if reinterpreted
+
+          # If re-interpretation fails, try transcoding with the labeled encoding
+          return transcode_to_utf8(xml_string, xml_string.encoding.name)
+        end
+
+        xml_string
+      end
+
+      # Update the encoding declaration in an XML string
+      #
+      # @param xml_string [String] XML string
+      # @param new_encoding [String] New encoding to declare
+      # @return [String] XML string with updated declaration
+      def self.update_xml_declaration(xml_string, new_encoding)
+        xml_string.sub(/\bencoding\s*=\s*["'][^"']+["']/i) do |match|
+          %(encoding="#{new_encoding}")
+        end
+      end
+
+      # Transcode string to UTF-8
+      #
+      # @param xml_string [String] String to transcode
+      # @param source_encoding [String] Source encoding to interpret bytes as
+      # @return [String] UTF-8 transcoded string
+      def self.transcode_to_utf8(xml_string, source_encoding)
+        # First, check if the bytes are actually valid UTF-8 despite the declared encoding
+        # If so, just re-interpret as UTF-8 (common case: declaration is wrong)
+        if source_encoding != "UTF-8"
+          # Force the bytes to be interpreted as the declared encoding, then check validity
+          forced = xml_string.dup.force_encoding(source_encoding)
+          if forced.valid_encoding?
+            # Now check if the same bytes are valid UTF-8
+            utf8_check = xml_string.dup.force_encoding("UTF-8")
+            if utf8_check.valid_encoding?
+              # Bytes are valid UTF-8 - the declaration is likely wrong
+              # Return the string as UTF-8 (already is)
+              return xml_string.dup.force_encoding("UTF-8")
+            end
+
+            # Bytes aren't valid UTF-8, so they must really be in source_encoding
+            # Proceed with transcoding
+            return forced.encode("UTF-8", source_encoding,
+                                invalid: :replace,
+                                undef: :replace,
+                                replace: "?")
+          end
+        end
+
+        # Already UTF-8 or transcoding failed, return as-is
+        xml_string.dup.force_encoding("UTF-8")
+      rescue EncodingError
+        xml_string
+      end
+
+      # Attempt to re-interpret string as UTF-8 if bytes are valid UTF-8
+      #
+      # This handles the case where a string was incorrectly labeled with a different
+      # encoding (e.g., `.encode("Shift_JIS")` on a UTF-8 string) but the actual
+      # bytes are valid UTF-8.
+      #
+      # @param xml_string [String] XML string to check
+      # @return [String, nil] UTF-8 re-interpreted string, or nil if not possible
+      def self.try_utf8_reinterpretation(xml_string)
+        return xml_string if xml_string.encoding.name == "UTF-8"
+
+        # Try forcing to UTF-8 and see if it's valid
+        forced = xml_string.dup.force_encoding("UTF-8")
+        return forced if forced.valid_encoding?
+
+        nil
+      end
+
+      # Extract encoding from XML declaration
+      #
+      # @param xml_string [String] XML string
+      # @return [String, nil] Declared encoding or nil if not found
+      def self.extract_xml_encoding(xml_string)
+        # Match XML declaration with encoding attribute
+        # Handles: <?xml version="1.0" encoding="UTF-8"?>
+        # and: <?xml version='1.0' encoding='UTF-8'?>
+        #
+        # Use binary encoding to avoid encoding compatibility issues
+        # when the string has non-ASCII compatible encoding (e.g., UTF-16)
+        binary_string = xml_string.dup.force_encoding("BINARY")
+        if binary_string =~ /\A\s*<\?xml[^>]*\bencoding\s*=\s*["']([^"']+)["'][^>]*\?>/i
+          return Regexp.last_match(1)
+        end
+        nil
       end
 
       # Alias for compatibility with base class interface

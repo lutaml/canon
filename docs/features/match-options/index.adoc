@@ -151,6 +151,43 @@ sensitivity in XML instance documents:
 </text>
 ----
 
+The `xml:space` attribute affects both structural whitespace and text content:
+
+* **Structural whitespace** (whitespace-only text nodes between child elements)
+* **Text content whitespace** (whitespace within text nodes)
+
+.xml:space with structural_whitespace
+[example]
+====
+[source,ruby]
+----
+# With xml:space="preserve", structural whitespace is preserved
+xml1 = "<root xml:space='preserve'>\n  <text>Hello</text>\n</root>"
+xml2 = "<root xml:space='preserve'><text>Hello</text></root>"
+
+# These are NOT equivalent (structural whitespace differs)
+Canon::Comparison.equivalent?(xml1, xml2)
+# => false
+----
+====
+
+.xml:space with text_content
+[example]
+====
+[source,ruby]
+----
+# With xml:space="preserve", text content whitespace is preserved
+xml1 = '<root xml:space="preserve"><code>  indented  </code></root>'
+xml2 = '<root xml:space="preserve"><code>indented</code></root>'
+
+# These are NOT equivalent (text whitespace differs)
+Canon::Comparison.equivalent?(xml1, xml2,
+  match: { text_content: :strict }
+)
+# => false
+----
+====
+
 ==== Whitelist and blacklist options
 
 You can explicitly specify which elements are whitespace-sensitive using either short or long option names:
@@ -260,29 +297,44 @@ Canon::Comparison.equivalent?(xml1, xml2,
 
 ==== Examples
 
-.Using xml:space attribute
+.Using xml:space="preserve" for structural whitespace
 [source,ruby]
 ----
-xml1 = '<root><code xml:space="preserve">  indented  </code></root>'
-xml2 = '<root><code xml:space="preserve">indented</code></root>'
+xml1 = "<root xml:space='preserve'>\n  <text>Hello</text>\n</root>"
+xml2 = "<root xml:space='preserve'><text>Hello</text></root>"
 
-# These are NOT equivalent (whitespace matters in xml:space="preserve")
+# Structural whitespace differs - NOT equivalent
+Canon::Comparison.equivalent?(xml1, xml2)
+# => false
+----
+
+.Using xml:space="preserve" for text content
+[source,ruby]
+----
+xml1 = '<root><code xml:space="preserve">  multiple   spaces  </code></root>'
+xml2 = '<root><code xml:space="preserve">multiple spaces</code></root>'
+
+# Text content whitespace differs - NOT equivalent with text_content: :strict
 Canon::Comparison.equivalent?(xml1, xml2,
-  match: { structural_whitespace: :strict }
+  match: { text_content: :strict }
 )
 # => false
 ----
 
-.Using whitelist
+.Using sensitive_elements whitelist
 [source,ruby]
 ----
-# Make <p> elements whitespace-sensitive (strings, not symbols)
+# Make <sample> elements whitespace-sensitive (strings, not symbols)
+xml1 = "<sample>\n  content\n</sample>"
+xml2 = "<sample>content</sample>"
+
 Canon::Comparison.equivalent?(xml1, xml2,
   match: {
     structural_whitespace: :strict,
-    sensitive_elements: ["p", "pre"]
+    sensitive_elements: ["sample"]
   }
 )
+# => false (structural whitespace differs in <sample>)
 ----
 
 .Overriding HTML defaults

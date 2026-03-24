@@ -214,6 +214,7 @@ Compare documents based on meaning, not formatting:
 * Comment handling with display control
 * Multiple match dimensions with behaviors
 * Predefined match profiles (strict, rendered, spec_friendly, content_only)
+* **Cross-encoding comparison**: Compare XML documents with different character encodings (UTF-8, Shift_JIS, ISO-8859-1, UTF-16) — Canon automatically normalizes to UTF-8 before comparison
 
 See link:docs/MATCH_OPTIONS[Match options] for details.
 

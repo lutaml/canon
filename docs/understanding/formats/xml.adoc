@@ -340,6 +340,44 @@ Special attributes like `xml:lang`, `xml:space`, `xml:id`, and `xml:base` are pr
 When `xml:space="preserve"` is set, whitespace is preserved in descendants.
 ----
 
+=== Cross-encoding comparison
+
+Canon automatically normalizes XML character encodings before comparison, enabling
+cross-encoding comparisons to work correctly.
+
+**Supported encodings**: UTF-8, UTF-16 (all variants), Shift_JIS, EUC-JP, ISO-8859-1, and more.
+
+**How it works**:
+
+1. Extract the declared encoding from the XML declaration (e.g., `encoding="Shift_JIS"`)
+2. If declared encoding differs from UTF-8, transcode to UTF-8
+3. Handle cases where the declared encoding doesn't match actual bytes
+4. Use safe transcoding with replacement characters for invalid sequences
+
+.Cross-encoding comparison example
+[example]
+====
+[source,ruby]
+----
+# UTF-8 vs Shift_JIS - automatically normalized
+xml1 = "<root>日本語</root>"  # UTF-8
+xml2 = "<root>日本語</root>".encode("Shift_JIS")  # Shift_JIS
+
+Canon::Comparison.equivalent?(xml1, xml2)
+# => true (automatically transcoded to UTF-8 before comparison)
+
+# ASCII content works across all encodings
+xml3 = "<root>hello</root>"
+xml4 = "<root>hello</root>".encode("ISO-8859-1")
+
+Canon::Comparison.equivalent?(xml3, xml4)
+# => true
+----
+====
+
+This means you can compare XML files from different sources or systems without
+worrying about their native encoding.
+
 == Usage examples
 
 === Basic XML comparison
