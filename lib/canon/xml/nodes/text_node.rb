@@ -6,12 +6,20 @@ module Canon
   module Xml
     module Nodes
       # Text node in the XPath data model
+      #
+      # Stores both the decoded text value and the original text (with entity
+      # references preserved) to enable accurate round-trip serialization.
       class TextNode < Node
-        attr_reader :value
+        attr_reader :value, :original
 
-        def initialize(value:)
+        # @param value [String] Decoded text content (entity references resolved)
+        # @param original [String, nil] Original text as it appeared in source XML,
+        #   with entity references preserved (e.g., "&#x201C;" instead of '"').
+        #   If not provided, defaults to value.
+        def initialize(value:, original: nil)
           super()
           @value = value
+          @original = original || value
         end
 
         def node_type

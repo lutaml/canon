@@ -26,7 +26,9 @@ module Canon
 
         # Handle Canon::Xml::Nodes::TextNode
         if node.is_a?(Canon::Xml::Nodes::TextNode)
-          return node.value.to_s
+          # Use original text (with entity references) if available,
+          # otherwise fall back to value (decoded text)
+          return node.original || node.value
         end
 
         # Handle Canon::Xml::Nodes::CommentNode

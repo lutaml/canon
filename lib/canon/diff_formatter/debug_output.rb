@@ -270,7 +270,20 @@ module Canon
         def format_node_brief(node)
           return "(nil)" if node.nil?
 
-          if node.respond_to?(:name)
+          # Handle TextNode specially
+          if node.is_a?(Canon::Xml::Nodes::TextNode)
+            content = node.value.to_s
+            if content&.length && content.length > 30
+              "\"#{content[0..27]}...\""
+            else
+              "\"#{content}\""
+            end
+          # Handle CommentNode specially
+          elsif node.is_a?(Canon::Xml::Nodes::CommentNode)
+            content = node.value.to_s
+            preview = content.length > 30 ? "#{content[0..27]}..." : content
+            "<!--#{preview}-->"
+          elsif node.respond_to?(:name)
             "<#{node.name}>"
           elsif node.respond_to?(:content)
             content = node.content.to_s

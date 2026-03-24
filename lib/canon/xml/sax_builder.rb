@@ -160,6 +160,9 @@ strip_doctype: false)
 
         parent = @stack.last
 
+        # Capture raw text BEFORE entity resolution for accurate serialization
+        raw_string = string
+
         # Decode numeric character references
         decoded_string = decode_character_references(string)
 
@@ -169,8 +172,11 @@ strip_doctype: false)
         # whether to skip whitespace
         last_child = parent.children.last
         if last_child&.node_type == :text
+          # Combine both raw and decoded forms
           last_child.instance_variable_set(:@value,
                                            last_child.value + decoded_string)
+          last_child.instance_variable_set(:@original,
+                                           (last_child.original || "") + raw_string)
           return
         end
 
@@ -182,7 +188,7 @@ strip_doctype: false)
           return
         end
 
-        text = Nodes::TextNode.new(value: decoded_string)
+        text = Nodes::TextNode.new(value: decoded_string, original: raw_string)
         parent.add_child(text)
       end
 
