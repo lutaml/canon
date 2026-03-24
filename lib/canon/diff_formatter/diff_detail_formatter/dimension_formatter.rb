@@ -340,10 +340,22 @@ module Canon
               TextUtils.visualize_whitespace(text2), :green, use_color
             )
           else
-            detail1 = ColorHelper.colorize(format_json_value(text1), :red,
-                                           use_color)
-            detail2 = ColorHelper.colorize(format_json_value(text2), :green,
-                                           use_color)
+            # Escape non-ASCII characters for better terminal display
+            # JSON.generate doesn't escape chars like NBSP (U+00A0) or em-dash (U+2014)
+            detail1 = if TextUtils.needs_escaping?(text1)
+                        ColorHelper.colorize(
+                          TextUtils.escape_for_display(text1), :red, use_color
+                        )
+                      else
+                        ColorHelper.colorize(format_json_value(text1), :red, use_color)
+                      end
+            detail2 = if TextUtils.needs_escaping?(text2)
+                        ColorHelper.colorize(
+                          TextUtils.escape_for_display(text2), :green, use_color
+                        )
+                      else
+                        ColorHelper.colorize(format_json_value(text2), :green, use_color)
+                      end
           end
 
           changes = "Content differs: #{detail1} → #{detail2}"

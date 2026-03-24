@@ -16,7 +16,12 @@ module Canon
         def self.extract_location(diff)
           return "" unless diff
 
-          # Get the appropriate node based on diff type
+          # Prefer pre-computed path if available (populated by MetadataEnricher)
+          if diff.respond_to?(:path) && !diff.path.nil? && !diff.path.empty?
+            return "Location: #{diff.path}"
+          end
+
+          # Fall back to extracting from nodes
           node = if diff.respond_to?(:node1)
                    diff.node1 || diff.node2
                  elsif diff.is_a?(Hash)

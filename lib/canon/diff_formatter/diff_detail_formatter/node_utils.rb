@@ -159,7 +159,7 @@ module Canon
         def self.get_node_text(node)
           return "" unless node
 
-          if node.respond_to?(:text)
+          text = if node.respond_to?(:text)
             node.text
           elsif node.respond_to?(:content)
             node.content
@@ -173,7 +173,19 @@ module Canon
             node.to_s
           else
             ""
-          end.to_s.strip
+          end
+
+          strip_ascii_whitespace(text.to_s)
+        end
+
+        # Strip only ASCII whitespace (space, tab, CR, LF) but preserve Unicode
+        # whitespace like non-breaking space (\u00A0). Ruby's String#strip removes
+        # all Unicode whitespace, which destroys meaningful content like \u00A0.
+        #
+        # @param str [String] String to strip
+        # @return [String] String with leading/trailing ASCII whitespace removed
+        def self.strip_ascii_whitespace(str)
+          str.sub(/\A[ \t\r\n]+/, "").sub(/[ \t\r\n]+\z/, "")
         end
 
         # Get element name for display
