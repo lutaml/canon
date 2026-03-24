@@ -25,6 +25,9 @@ module Canon
                                      preserve_whitespace: preserve_whitespace)
           end
 
+          # Normalize encoding before preprocessing (UTF-16 strings can't use strip, etc.)
+          node = Canon::Xml::DataModel.normalize_encoding(node)
+
           # Apply preprocessing to XML string before parsing
           xml_string = apply_preprocessing(node, preprocessing).strip
 

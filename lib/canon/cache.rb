@@ -89,7 +89,8 @@ module Canon
       # @return [String] Cache key
       def key_for_format_detection(content)
         # Use first 100 chars for quick key, plus length
-        preview = content[0..100]
+        # Force to binary to avoid encoding compatibility issues
+        preview = content[0..100].b
         digest = Digest::SHA256.hexdigest(preview + content.length.to_s)
         "fmt:#{digest[0..16]}"
       end

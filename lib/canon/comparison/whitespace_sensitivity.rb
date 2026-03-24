@@ -89,6 +89,15 @@ module Canon
           insensitive = (insensitive_raw || []).map(&:to_s)
           return false if insensitive.include?(elem_name)
 
+          # Check if we should ignore xml:space (user override)
+          if respect_xml_space?(match_opts)
+            # Check xml:space="preserve" (document declaration)
+            return true if xml_space_preserve?(element)
+
+            # Check xml:space="default" (use configured behavior)
+            return false if xml_space_default?(element)
+          end
+
           # Whitelist: preserve whitespace
           sensitive = resolved_sensitive_elements(match_opts)
           return true if sensitive.include?(elem_name)

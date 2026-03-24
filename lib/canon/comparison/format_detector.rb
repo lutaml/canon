@@ -62,7 +62,19 @@ module Canon
         # @param str [String] String to detect format of
         # @return [Symbol] Format type
         def detect_string_uncached(str)
-          trimmed = str.strip
+          # Convert to UTF-8 for consistent handling if possible
+          # This handles cases like UTF-16 encoded XML that would otherwise fail string operations
+          str_utf8 = if str.encoding.name == "UTF-16" || str.encoding.name == "UTF-16BE" || str.encoding.name == "UTF-16LE"
+                       begin
+                         str.encode("UTF-8", str.encoding, invalid: :replace, undef: :replace, replace: "?")
+                       rescue EncodingError
+                         str.dup.force_encoding("BINARY").encode("UTF-8")
+                       end
+                     else
+                       str
+                     end
+
+          trimmed = str_utf8.strip
 
           # YAML indicators
           return :yaml if trimmed.start_with?("---")
