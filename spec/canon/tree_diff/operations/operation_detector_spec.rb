@@ -309,6 +309,120 @@ RSpec.describe Canon::TreeDiff::Operations::OperationDetector do
         expect(detector.send(:calculate_depth, grandchild)).to eq(2)
       end
     end
+
+    describe "#normalize_text" do
+      it "collapses whitespace and decodes XML entities" do
+        # Entity &#x201C; is U+201C LEFT DOUBLE QUOTATION MARK
+        text_with_entity = "&#x201C;hello&#x201D;"
+        result = detector.send(:normalize_text, text_with_entity)
+        # After decoding, should be U+201C characters
+        expect(result.bytes).to eq([226, 128, 156, 104, 101, 108, 108, 111, 226, 128, 157])
+      end
+
+      it "decodes named XML entities" do
+        text_with_named = "&amp; &lt; &gt; &quot; &apos;"
+        result = detector.send(:normalize_text, text_with_named)
+        expect(result).to eq("& < > \" '")
+      end
+
+      it "decodes decimal numeric entities" do
+        # &#169; is copyright symbol (U+00A9)
+        text_with_decimal = "&#169;2024"
+        result = detector.send(:normalize_text, text_with_decimal)
+        expect(result).to eq("©2024")
+      end
+
+      it "decodes hexadecimal numeric entities" do
+        # &#x00A9; is copyright symbol (U+00A9)
+        text_with_hex = "&#x00A9;2024"
+        result = detector.send(:normalize_text, text_with_hex)
+        expect(result).to eq("©2024")
+      end
+
+      it "normalizes whitespace after entity decoding" do
+        text = "&#x201C;hello&#x201D;   world"
+        result = detector.send(:normalize_text, text)
+        # After entity decoding and whitespace normalization
+        expected = "#{0x201C.chr(Encoding::UTF_8)}hello#{0x201D.chr(Encoding::UTF_8)} world"
+        expect(result).to eq(expected)
+      end
+
+      it "handles empty and nil text" do
+        expect(detector.send(:normalize_text, "")).to eq("")
+        expect(detector.send(:normalize_text, nil)).to eq("")
+      end
+
+      it "preserves text without entities" do
+        text = "hello world"
+        result = detector.send(:normalize_text, text)
+        expect(result).to eq("hello world")
+      end
+    end
+
+    describe "#decode_xml_entities" do
+      it "decodes hex entity for left double quotation mark" do
+        result = detector.send(:decode_xml_entities, "&#x201C;")
+        expect(result.bytes).to eq([226, 128, 156]) # U+201C
+      end
+
+      it "decodes hex entity for right double quotation mark" do
+        result = detector.send(:decode_xml_entities, "&#x201D;")
+        expect(result.bytes).to eq([226, 128, 157]) # U+201D
+      end
+
+      it "decodes named entity &amp;" do
+        result = detector.send(:decode_xml_entities, "&amp;")
+        expect(result).to eq("&")
+      end
+
+      it "decodes named entity &lt;" do
+        result = detector.send(:decode_xml_entities, "&lt;")
+        expect(result).to eq("<")
+      end
+
+      it "decodes named entity &gt;" do
+        result = detector.send(:decode_xml_entities, "&gt;")
+        expect(result).to eq(">")
+      end
+
+      it "decodes named entity &quot;" do
+        result = detector.send(:decode_xml_entities, "&quot;")
+        expect(result).to eq('"')
+      end
+
+      it "decodes named entity &apos;" do
+        result = detector.send(:decode_xml_entities, "&apos;")
+        expect(result).to eq("'")
+      end
+
+      it "decodes decimal numeric entity" do
+        # &#169; = U+00A9 (copyright symbol)
+        result = detector.send(:decode_xml_entities, "&#169;")
+        expect(result.bytes).to eq([194, 169])
+      end
+
+      it "decodes hexadecimal numeric entity with uppercase X" do
+        result = detector.send(:decode_xml_entities, "&#X201C;")
+        expect(result.bytes).to eq([226, 128, 156])
+      end
+
+      it "preserves unknown entities" do
+        result = detector.send(:decode_xml_entities, "&unknown;")
+        expect(result).to eq("&unknown;")
+      end
+
+      it "returns original text when no entities present" do
+        text = "hello world"
+        result = detector.send(:decode_xml_entities, text)
+        expect(result).to eq(text)
+      end
+
+      it "handles mixed entity and regular text" do
+        result = detector.send(:decode_xml_entities, "Hello &#x201C;world&#x201D;")
+        expected = "Hello #{0x201C.chr(Encoding::UTF_8)}world#{0x201D.chr(Encoding::UTF_8)}"
+        expect(result).to eq(expected)
+      end
+    end
   end
 
   describe "Level 3 semantic operations" do

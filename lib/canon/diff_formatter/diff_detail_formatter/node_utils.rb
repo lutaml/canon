@@ -209,6 +209,16 @@ module Canon
         def self.get_element_name_for_display(node)
           return "" unless node
 
+          # Handle TextNode specially since it doesn't respond to :name
+          if node.is_a?(Canon::Xml::Nodes::TextNode)
+            return "text"
+          end
+
+          # Handle CommentNode specially since it doesn't respond to :name
+          if node.is_a?(Canon::Xml::Nodes::CommentNode)
+            return "comment"
+          end
+
           if node.respond_to?(:name)
             node.name.to_s
           else
