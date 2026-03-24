@@ -20,7 +20,8 @@ module Canon
 
         # Visualize whitespace characters in text
         #
-        # Shows spaces as ·, tabs as →, newlines as ¬
+        # Shows spaces as ·, tabs as →, newlines as ¬, and Unicode whitespace
+        # like non-breaking space as <NBSP>, etc.
         #
         # @param text [String] Text to visualize
         # @return [String] Text with visible whitespace
@@ -31,6 +32,9 @@ module Canon
             .gsub(" ", "·")
             .gsub("\t", "→")
             .gsub("\n", "¬")
+            .gsub("\u00A0", "<NBSP>")   # Non-breaking space
+            .gsub("\u2028", "<LSEP>")    # Line separator
+            .gsub("\u2029", "<PSEP>")    # Paragraph separator
         end
 
         # Extract a content preview from a node
@@ -54,6 +58,42 @@ module Canon
           # Clean up whitespace
           text = text.strip.gsub(/\s+/, " ")
           truncate_text(text, max_length)
+        end
+
+        # Escape non-ASCII and non-printable characters for display
+        #
+        # Converts characters outside the printable ASCII range (32-126) to
+        # their \uXXXX escape sequences. This ensures special characters like
+        # non-breaking space (\u00A0) and em-dash (\u2014) are visible in
+        # terminal output.
+        #
+        # @param text [String] Text to escape
+        # @return [String] Escaped text safe for terminal display
+        def self.escape_for_display(text)
+          return "" if text.nil?
+
+          text.chars.map do |c|
+            codepoint = c.ord
+            if codepoint < 32 || codepoint >= 127 || codepoint == 34 || codepoint == 92
+              # Escape control characters, non-ASCII, double-quote, and backslash
+              "\\u#{codepoint.to_s(16).upcase.rjust(4, '0')}"
+            else
+              c
+            end
+          end.join
+        end
+
+        # Check if text contains non-ASCII or non-printable characters
+        #
+        # @param text [String] Text to check
+        # @return [Boolean] true if text needs escaping for display
+        def self.needs_escaping?(text)
+          return false if text.nil?
+
+          text.each_char.any? do |c|
+            codepoint = c.ord
+            codepoint < 32 || codepoint >= 127 || codepoint == 34 || codepoint == 92
+          end
         end
       end
     end
