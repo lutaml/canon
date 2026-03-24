@@ -160,20 +160,20 @@ module Canon
           return "" unless node
 
           text = if node.respond_to?(:text)
-            node.text
-          elsif node.respond_to?(:content)
-            node.content
-          elsif node.respond_to?(:inner_text)
-            node.inner_text
-          elsif node.respond_to?(:value)
-            node.value
-          elsif node.respond_to?(:node_info)
-            node.node_info
-          elsif node.respond_to?(:to_s)
-            node.to_s
-          else
-            ""
-          end
+                   node.text
+                 elsif node.respond_to?(:content)
+                   node.content
+                 elsif node.respond_to?(:inner_text)
+                   node.inner_text
+                 elsif node.respond_to?(:value)
+                   node.value
+                 elsif node.respond_to?(:node_info)
+                   node.node_info
+                 elsif node.respond_to?(:to_s)
+                   node.to_s
+                 else
+                   ""
+                 end
 
           strip_ascii_whitespace(text.to_s)
         end

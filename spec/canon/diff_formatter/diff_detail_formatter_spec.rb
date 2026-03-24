@@ -171,7 +171,7 @@ RSpec.describe "DiffDetailFormatter helpers" do
           node2: nil,
           dimension: :text_content,
           reason: "text content differs",
-          path: "/root[0]/span[2]/text()[0]"
+          path: "/root[0]/span[2]/text()[0]",
         )
         result = described_class.extract_location(diff)
         expect(result).to eq("Location: /root[0]/span[2]/text()[0]")
@@ -187,7 +187,7 @@ RSpec.describe "DiffDetailFormatter helpers" do
           node1: nil,
           node2: nil,
           dimension: :text_content,
-          reason: "text content differs"
+          reason: "text content differs",
         )
         result = described_class.extract_location(diff)
         expect(result).to eq("")
@@ -202,7 +202,7 @@ RSpec.describe "DiffDetailFormatter helpers" do
           node2: nil,
           dimension: :text_content,
           reason: "text content differs",
-          path: "/preferred/path[0]"
+          path: "/preferred/path[0]",
         )
         result = described_class.extract_location(diff)
         expect(result).to eq("Location: /preferred/path[0]")
