@@ -279,16 +279,98 @@ module Canon
         # Normalize text for comparison
         #
         # Collapses multiple whitespace into single space and strips.
-        # This matches the behavior of Canon's text_content: normalize option.
+        # Also decodes XML entity references so that entity-encoded text
+        # (e.g., &#x201C;) and literal characters (e.g., ") that represent
+        # the same Unicode character compare as equivalent.
         #
         # @param text [String, nil] Text to normalize
         # @return [String] Normalized text
         def normalize_text(text)
           return "" if text.nil? || text.empty?
 
+          # First decode XML entity references
+          normalized = decode_xml_entities(text)
+
           # Collapse multiple whitespace (including newlines) into single space
           # Then strip leading/trailing whitespace
-          text.gsub(/\s+/, " ").strip
+          normalized.gsub(/\s+/, " ").strip
+        end
+
+        # Decode XML entity references to Unicode characters
+        #
+        # Handles:
+        # - Named entities: &amp; &lt; &gt; &quot; &apos; and custom entities
+        # - Decimal numeric entities: &#201C; (Unicode code point in decimal)
+        # - Hexadecimal numeric entities: &#x201C; (Unicode code point in hex)
+        #
+        # @param text [String] Text with potential entity references
+        # @return [String] Text with entities decoded to Unicode characters
+        def decode_xml_entities(text)
+          return text if text.nil? || text.empty?
+
+          # Skip decoding if text doesn't contain any entity-like patterns
+          return text unless text.include?("&")
+
+          # Pattern for XML entities:
+          # 1. Named entities (amp, lt, gt, quot, apos, and custom ones)
+          # 2. Decimal numeric entities: &#digits;
+          # 3. Hexadecimal numeric entities: &#xH+;
+          entity_pattern = /&(?:amp|lt|gt|quot|apos|#[0-9]+|#[xX][0-9a-fA-F]+|#[0-9a-zA-Z]+);/
+
+          # Only decode if text looks like it contains entity patterns
+          return text unless entity_pattern.match?(text)
+
+          text.gsub(entity_pattern) do |match|
+            decode_entity(match)
+          end
+        end
+
+        # Decode a single XML entity to its Unicode character
+        #
+        # @param entity [String] Entity string including & and ;
+        # @return [String] Decoded Unicode character or original string if not decodable
+        def decode_entity(entity)
+          # Remove leading & and trailing ;
+          inner = entity[1..-2]
+
+          case inner
+          when "amp"
+            "&"
+          when "lt"
+            "<"
+          when "gt"
+            ">"
+          when "quot"
+            '"'
+          when "apos"
+            "'"
+          when /\A#([0-9]+)\z/ # Decimal numeric entity
+            code_point = Regexp.last_match(1).to_i
+            decode_codepoint(code_point)
+          when /\A#x([0-9a-fA-F]+)\z/, /\A#X([0-9a-fA-F]+)\z/ # Hex numeric entity
+            code_point = Regexp.last_match(1).to_i(16)
+            decode_codepoint(code_point)
+          when /\A#[0-9][0-9a-zA-Z]*\z/ # Alphanumeric entity like &#201C;
+            # Some parsers accept alphanumeric numeric entities - treat as decimal
+            inner.match(/\A#([0-9]+)/)
+            code_point = Regexp.last_match(1).to_i
+            decode_codepoint(code_point)
+          else
+            # Unknown entity - keep as-is
+            entity
+          end
+        end
+
+        # Decode a Unicode code point to its character
+        #
+        # @param code_point [Integer] Unicode code point
+        # @return [String] Character or empty string if invalid
+        def decode_codepoint(code_point)
+          if code_point.positive? && code_point <= 0x10FFFF
+            [code_point].pack("U")
+          else
+            ""
+          end
         end
 
         # Collect all nodes in a tree (depth-first)
