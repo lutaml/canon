@@ -64,9 +64,11 @@ module Canon
         def detect_string_uncached(str)
           # Convert to UTF-8 for consistent handling if possible
           # This handles cases like UTF-16 encoded XML that would otherwise fail string operations
-          str_utf8 = if str.encoding.name == "UTF-16" || str.encoding.name == "UTF-16BE" || str.encoding.name == "UTF-16LE"
+          str_utf8 = if ["UTF-16", "UTF-16BE",
+                         "UTF-16LE"].include?(str.encoding.name)
                        begin
-                         str.encode("UTF-8", str.encoding, invalid: :replace, undef: :replace, replace: "?")
+                         str.encode("UTF-8", str.encoding, invalid: :replace,
+                                                           undef: :replace, replace: "?")
                        rescue EncodingError
                          str.dup.force_encoding("BINARY").encode("UTF-8")
                        end
