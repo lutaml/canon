@@ -26,7 +26,7 @@ module Canon
 
         # Handle Canon::Xml::Nodes::TextNode
         if node.is_a?(Canon::Xml::Nodes::TextNode)
-          return node.value.to_s
+          return encode_xml_text(node.value)
         end
 
         # Handle Canon::Xml::Nodes::CommentNode
@@ -60,6 +60,20 @@ module Canon
 
         # Fallback to string
         node.to_s
+      end
+
+      # Encode special XML characters in text content.
+      # This ensures entity references like &amp; &lt; &gt; are preserved
+      # in serialized output rather than being resolved to characters.
+      #
+      # @param text [String] Text to encode
+      # @return [String] Encoded text
+      def self.encode_xml_text(text)
+        return text unless text.is_a?(String)
+
+        text.gsub("&", "&amp;")
+          .gsub("<", "&lt;")
+          .gsub(">", "&gt;")
       end
 
       # Serialize an ElementNode to HTML/XML string
