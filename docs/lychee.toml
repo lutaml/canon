@@ -9,9 +9,6 @@ max_cache_age = "1d"
 # Check both source files and built site
 include_verbatim = true
 
-# Recursively check all files
-recursive = true
-
 # File types to check (regex patterns)
 include = [
   "_site/**/*.html",
@@ -50,9 +47,6 @@ user_agent = "lychee/canon-docs-link-checker"
 # Check HTTP, HTTPS, and file:// schemes
 scheme = ["https", "http", "file"]
 
-# Include file:// URLs for local link checking
-include_file = true
-
 # Handle different link types
 include_mail = false  # Don't check mailto: links
 
@@ -67,6 +61,3 @@ require_https = false  # Don't enforce
 
 # Index files for directory URLs
 index_files = ["index.html"]
-
-# Ignore patterns file
-ignore_file = ".lycheeignore"
