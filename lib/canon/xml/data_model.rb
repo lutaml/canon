@@ -340,8 +340,13 @@ preserve_whitespace: false)
           return nil
         end
 
+        # Capture original text with entity references preserved.
+        # nokogiri_text.to_xml returns the serialized text node which preserves
+        # entity forms like &#x201C; instead of the decoded character U+201C.
+        original = nokogiri_text.to_xml
+
         # Nokogiri already handles CDATA conversion and entity resolution
-        Nodes::TextNode.new(value: content)
+        Nodes::TextNode.new(value: content, original: original)
       end
 
       # Build comment node from Nokogiri comment
