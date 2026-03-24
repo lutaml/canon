@@ -347,14 +347,16 @@ module Canon
                           TextUtils.escape_for_display(text1), :red, use_color
                         )
                       else
-                        ColorHelper.colorize(format_json_value(text1), :red, use_color)
+                        ColorHelper.colorize(format_json_value(text1), :red,
+                                             use_color)
                       end
             detail2 = if TextUtils.needs_escaping?(text2)
                         ColorHelper.colorize(
                           TextUtils.escape_for_display(text2), :green, use_color
                         )
                       else
-                        ColorHelper.colorize(format_json_value(text2), :green, use_color)
+                        ColorHelper.colorize(format_json_value(text2), :green,
+                                             use_color)
                       end
           end
 

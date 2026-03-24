@@ -32,7 +32,7 @@ module Canon
             .gsub(" ", "·")
             .gsub("\t", "→")
             .gsub("\n", "¬")
-            .gsub("\u00A0", "<NBSP>")   # Non-breaking space
+            .gsub("\u00A0", "<NBSP>") # Non-breaking space
             .gsub("\u2028", "<LSEP>")    # Line separator
             .gsub("\u2029", "<PSEP>")    # Paragraph separator
         end

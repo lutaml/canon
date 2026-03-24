@@ -85,16 +85,15 @@ module Canon
 
         # For text nodes, use parent element name for clarity
         # e.g., instead of "/p/#text[0]" use "/p/text()[0]"
-        if label == "text" || label == "#text"
-          if tree_node.respond_to?(:parent) && tree_node.parent
-            parent_name = if tree_node.parent.respond_to?(:label)
-                            tree_node.parent.label
-                          elsif tree_node.parent.respond_to?(:name)
-                            tree_node.parent.name
-                          end
-            if parent_name && parent_name != "#document" && parent_name != "#document-fragment"
-              return "#{parent_name}/text()[#{index}]"
-            end
+        if ["text",
+            "#text"].include?(label) && tree_node.respond_to?(:parent) && tree_node.parent
+          parent_name = if tree_node.parent.respond_to?(:label)
+                          tree_node.parent.label
+                        elsif tree_node.parent.respond_to?(:name)
+                          tree_node.parent.name
+                        end
+          if parent_name && parent_name != "#document" && parent_name != "#document-fragment"
+            return "#{parent_name}/text()[#{index}]"
           end
         end
 
