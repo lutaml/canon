@@ -184,8 +184,22 @@ module Canon
         #
         # @param str [String] String to strip
         # @return [String] String with leading/trailing ASCII whitespace removed
+        ASCII_WHITESPACE_BYTES = [32, 9, 13, 10].freeze # ' ', '\t', '\r', '\n'
+
         def self.strip_ascii_whitespace(str)
-          str.sub(/\A[ \t\r\n]+/, "").sub(/[ \t\r\n]+\z/, "")
+          return "" if str.nil?
+          return str if str.empty?
+
+          # Find first non-ASCII-whitespace character position
+          first_pos = str.index(/[^ \t\r\n]/)
+          return "" unless first_pos
+
+          # Find last non-ASCII-whitespace character position (from end)
+          # Use reverse and index, then convert back to forward position
+          reversed_pos = str.reverse.index(/[^ \t\r\n]/)
+          last_pos = str.length - 1 - reversed_pos
+
+          str[first_pos..last_pos]
         end
 
         # Get element name for display
