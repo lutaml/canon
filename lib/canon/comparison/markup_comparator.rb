@@ -93,7 +93,7 @@ module Canon
           elsif node.is_a?(Canon::Xml::Nodes::ElementNode)
             serialize_element_node(node)
           elsif node.is_a?(Canon::Xml::Nodes::TextNode)
-            node.value
+            encode_xml_text(node.value)
           elsif node.is_a?(Canon::Xml::Nodes::CommentNode)
             "<!--#{node.value}-->"
           elsif node.is_a?(Canon::Xml::Nodes::ProcessingInstructionNode)
@@ -105,6 +105,20 @@ module Canon
           else
             node.to_s
           end
+        end
+
+        # Encode special XML characters in text content.
+        # This ensures entity references like &amp; &lt; &gt; are preserved
+        # in serialized output rather than being resolved to characters.
+        #
+        # @param text [String] Text to encode
+        # @return [String] Encoded text
+        def encode_xml_text(text)
+          return text unless text.is_a?(String)
+
+          text.gsub("&", "&amp;")
+            .gsub("<", "&lt;")
+            .gsub(">", "&gt;")
         end
 
         # Extract attributes from a node
