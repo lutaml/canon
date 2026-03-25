@@ -316,7 +316,8 @@ RSpec.describe Canon::TreeDiff::Operations::OperationDetector do
         text_with_entity = "&#x201C;hello&#x201D;"
         result = detector.send(:normalize_text, text_with_entity)
         # After decoding, should be U+201C characters
-        expect(result.bytes).to eq([226, 128, 156, 104, 101, 108, 108, 111, 226, 128, 157])
+        expect(result.bytes).to eq([226, 128, 156, 104, 101, 108, 108, 111,
+                                    226, 128, 157])
       end
 
       it "decodes named XML entities" do
@@ -418,7 +419,8 @@ RSpec.describe Canon::TreeDiff::Operations::OperationDetector do
       end
 
       it "handles mixed entity and regular text" do
-        result = detector.send(:decode_xml_entities, "Hello &#x201C;world&#x201D;")
+        result = detector.send(:decode_xml_entities,
+                               "Hello &#x201C;world&#x201D;")
         expected = "Hello #{0x201C.chr(Encoding::UTF_8)}world#{0x201D.chr(Encoding::UTF_8)}"
         expect(result).to eq(expected)
       end

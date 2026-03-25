@@ -352,7 +352,7 @@ module Canon
             decode_codepoint(code_point)
           when /\A#[0-9][0-9a-zA-Z]*\z/ # Alphanumeric entity like &#201C;
             # Some parsers accept alphanumeric numeric entities - treat as decimal
-            inner.match(/\A#([0-9]+)/)
+            inner =~ /\A#([0-9]+)/
             code_point = Regexp.last_match(1).to_i
             decode_codepoint(code_point)
           else
