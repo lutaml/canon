@@ -228,8 +228,14 @@ module Canon
         # This is needed because semantic_diff doesn't go through dom_diff's config handling
         if !(opts[:match_profile] || opts[:global_options]) && Canon::Config.instance.respond_to?(format1)
           format_config = Canon::Config.instance.public_send(format1)
-          opts[:match_profile] = format_config.match.profile if format_config.match.profile
-          opts[:global_options] = format_config.match.options if format_config.match.options && !format_config.match.options.empty?
+          if format_config.match.profile
+            opts[:match_profile] =
+              format_config.match.profile
+          end
+          if format_config.match.options && !format_config.match.options.empty?
+            opts[:global_options] =
+              format_config.match.options
+          end
         end
 
         # Resolve match options for the format
@@ -239,7 +245,10 @@ module Canon
         # This is independent of match options and needs to be passed to TreeDiffIntegrator
         if !match_opts_hash[:max_node_count] && Canon::Config.instance.respond_to?(format1)
           diff_max_node = Canon::Config.instance.public_send(format1).diff.max_node_count
-          match_opts_hash[:max_node_count] = diff_max_node if diff_max_node > 10_000
+          if diff_max_node > 10_000
+            match_opts_hash[:max_node_count] =
+              diff_max_node
+          end
         end
 
         # Delegate parsing to comparators (reuses existing preprocessing logic)

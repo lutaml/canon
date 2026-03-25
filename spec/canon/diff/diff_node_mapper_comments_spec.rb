@@ -114,7 +114,9 @@ RSpec.describe Canon::Diff::DiffNodeMapper do
         # All comment lines (<!--, content, --!>) should be informative
         comment_content_lines = informative_lines.select do |l|
           l.content.include?("<!--") ||
-            %w[multi-line comment spanning several].any? { |w| l.content.include?(w) } ||
+            %w[multi-line comment spanning several].any? do |w|
+              l.content.include?(w)
+            end ||
             (l.content.include?("--") && l.content.include?(">"))
         end
         expect(comment_content_lines.length).to eq(5)
