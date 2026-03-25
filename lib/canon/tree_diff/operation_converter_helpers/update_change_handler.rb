@@ -45,8 +45,8 @@ module Canon
           end
 
           if changes.key?(:value)
-            diff_nodes << create_text_content_diff(
-              node1, node2, changes[:value], metadata, is_metadata, normative_determiner
+            diff_nodes << create_value_diff(
+              node1, node2, changes[:value], metadata, is_metadata, normative_determiner, tree_node1, tree_node2
             )
           end
 
@@ -112,6 +112,51 @@ is_metadata, normative_determiner)
           )
           diff_node.normative = is_metadata ? false : normative_determiner.call(:attribute_order)
           diff_node
+        end
+
+        # Create DiffNode for value differences (text content or comments)
+        #
+        # @param node1 [Object] First node
+        # @param node2 [Object] Second node
+        # @param changes [Object] Value changes
+        # @param metadata [Hash] Enriched metadata
+        # @param is_metadata [Boolean] Whether nodes are metadata elements
+        # @param normative_determiner [#call] Proc to determine normative status
+        # @param tree_node1 [Object] First tree node for label check
+        # @param tree_node2 [Object] Second tree node for label check
+        # @return [DiffNode] Diff node for value differences
+        def self.create_value_diff(node1, node2, changes, metadata,
+is_metadata, normative_determiner, tree_node1, tree_node2)
+          reason = ReasonBuilder.build_text_content_reason(changes)
+
+          # Determine dimension based on node type - comments use :comments dimension
+          dimension = dimension_for_value_change(tree_node1, tree_node2)
+
+          diff_node = Canon::Diff::DiffNode.new(
+            node1: node1,
+            node2: node2,
+            dimension: dimension,
+            reason: reason,
+            **metadata,
+          )
+          diff_node.normative = is_metadata ? false : normative_determiner.call(dimension)
+          diff_node
+        end
+
+        # Determine dimension for value changes based on node type
+        # Comment nodes should use :comments dimension instead of :text_content
+        #
+        # @param tree_node1 [Object] First tree node
+        # @param tree_node2 [Object] Second tree node
+        # @return [Symbol] The dimension to use (:text_content or :comments)
+        def self.dimension_for_value_change(tree_node1, tree_node2)
+          label1 = tree_node1.respond_to?(:label) ? tree_node1.label : nil
+          label2 = tree_node2.respond_to?(:label) ? tree_node2.label : nil
+
+          # If either node is a comment, use :comments dimension
+          return :comments if label1 == "comment" || label2 == "comment"
+
+          :text_content
         end
 
         # Create DiffNode for text content differences

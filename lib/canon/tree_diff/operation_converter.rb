@@ -132,6 +132,9 @@ module Canon
         tree_node2 = operation[:node] # TreeNode from adapter
         node2 = extract_source_node(tree_node2)
 
+        # Determine dimension based on node type - comments use :comments dimension
+        dimension = dimension_for_insert_delete(tree_node2)
+
         # Enrich with path and serialized content
         metadata = OperationConverterHelpers::MetadataEnricher.enrich(nil,
                                                                       tree_node2, @format)
@@ -139,13 +142,21 @@ module Canon
         diff_node = Canon::Diff::DiffNode.new(
           node1: nil,
           node2: node2,
-          dimension: :element_structure,
+          dimension: dimension,
           reason: OperationConverterHelpers::ReasonBuilder.build_insert_reason(operation),
           **metadata,
         )
         # Metadata elements are informative (don't affect equivalence)
-        diff_node.normative = metadata_element?(node2) ? false : determine_normative(:element_structure)
+        diff_node.normative = metadata_element?(node2) ? false : determine_normative(dimension)
         diff_node
+      end
+
+      # Determine dimension for INSERT/DELETE operations based on node type
+      def dimension_for_insert_delete(tree_node)
+        label = tree_node.respond_to?(:label) ? tree_node.label : nil
+        return :comments if label == "comment"
+
+        :element_structure
       end
 
       # Convert DELETE operation to DiffNode
@@ -156,6 +167,9 @@ module Canon
         tree_node1 = operation[:node] # TreeNode from adapter
         node1 = extract_source_node(tree_node1)
 
+        # Determine dimension based on node type - comments use :comments dimension
+        dimension = dimension_for_insert_delete(tree_node1)
+
         # Enrich with path and serialized content
         metadata = OperationConverterHelpers::MetadataEnricher.enrich(
           tree_node1, nil, @format
@@ -164,12 +178,12 @@ module Canon
         diff_node = Canon::Diff::DiffNode.new(
           node1: node1,
           node2: nil,
-          dimension: :element_structure,
+          dimension: dimension,
           reason: OperationConverterHelpers::ReasonBuilder.build_delete_reason(operation),
           **metadata,
         )
         # Metadata elements are informative (don't affect equivalence)
-        diff_node.normative = metadata_element?(node1) ? false : determine_normative(:element_structure)
+        diff_node.normative = metadata_element?(node1) ? false : determine_normative(dimension)
         diff_node
       end
 
