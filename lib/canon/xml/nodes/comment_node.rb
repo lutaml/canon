@@ -14,6 +14,10 @@ module Canon
           @value = value
         end
 
+        def name
+          "comment"
+        end
+
         def node_type
           :comment
         end

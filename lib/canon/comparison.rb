@@ -224,8 +224,23 @@ module Canon
           raise Canon::CompareFormatMismatchError.new(format1, format2)
         end
 
+        # Get global config options if not defined in opts
+        # This is needed because semantic_diff doesn't go through dom_diff's config handling
+        if !(opts[:match_profile] || opts[:global_options]) && Canon::Config.instance.respond_to?(format1)
+          format_config = Canon::Config.instance.public_send(format1)
+          opts[:match_profile] = format_config.match.profile if format_config.match.profile
+          opts[:global_options] = format_config.match.options if format_config.match.options && !format_config.match.options.empty?
+        end
+
         # Resolve match options for the format
         match_opts_hash = resolve_match_options(format1, opts)
+
+        # Also read diff options from config (e.g., max_node_count for large documents)
+        # This is independent of match options and needs to be passed to TreeDiffIntegrator
+        if !match_opts_hash[:max_node_count] && Canon::Config.instance.respond_to?(format1)
+          diff_max_node = Canon::Config.instance.public_send(format1).diff.max_node_count
+          match_opts_hash[:max_node_count] = diff_max_node if diff_max_node > 10_000
+        end
 
         # Delegate parsing to comparators (reuses existing preprocessing logic)
         doc1, doc2 = parse_with_comparator(obj1, obj2, format1, match_opts_hash)
@@ -243,11 +258,21 @@ module Canon
         # Perform diff
         tree_diff_result = integrator.diff(doc1, doc2)
 
+        # Extract only match-related keys for OperationConverter and SemanticTreeMatchStrategy
+        # These components expect match options, not diff options like max_node_count
+        match_only_keys = %i[match_profile match preprocessing
+                             text_content structural_whitespace attribute_presence
+                             attribute_order attribute_values element_position
+                             comments format similarity_threshold hash_matching
+                             similarity_matching propagation sensitive_elements
+                             whitespace_sensitive_elements respect_xml_space]
+        match_options_only = match_opts_hash.slice(*match_only_keys)
+
         # Convert operations to DiffNodes for unified pipeline
         # CRITICAL: Use match_opts_hash (resolved options with profile) not opts[:match]
         converter = Canon::TreeDiff::OperationConverter.new(
           format: format1,
-          match_options: match_opts_hash,
+          match_options: match_options_only,
         )
         diff_nodes = converter.convert(tree_diff_result[:operations])
 
@@ -255,7 +280,7 @@ module Canon
         # This matches DOM diff preprocessing pattern (xml_comparator.rb:106-109)
         require_relative "comparison/strategies/semantic_tree_match_strategy"
         strategy = Comparison::Strategies::SemanticTreeMatchStrategy.new(
-          format: format1, match_options: match_opts_hash,
+          format: format1, match_options: match_options_only,
         )
         str1, str2 = strategy.preprocess_for_display(doc1, doc2)
 

@@ -143,8 +143,11 @@ diff_children, differences)
             children1, children2, _parent_node, comparator,
             opts, child_opts, diff_children, differences
           )
+            has_mismatch = false
+
             # Length check
             unless children1.length == children2.length
+              has_mismatch = true
               dimension = determine_dimension_for_mismatch(
                 children1, children2, comparator
               )
@@ -154,28 +157,20 @@ diff_children, differences)
                   children1, children2, comparator
                 )
 
-              # Skip creating parent-level difference for comments
-              #  when comments: :ignore
-              # The child comparison will handle the comment vs
-              # element comparison
-              # This avoids creating duplicate differences
-              match_opts = opts[:match_opts]
-              unless dimension == :comments && match_opts && match_opts[:comments] == :ignore
-                if mismatched_children.empty?
-                  comparator.send(:add_difference, parent_node, parent_node,
-                                  Comparison::MISSING_NODE, Comparison::MISSING_NODE,
-                                  dimension, opts, differences)
-                else
-                  mismatched_children.each do |child|
-                    if children1.length > children2.length # rubocop:disable Metrics/BlockNesting
-                      comparator.send(:add_difference, child, nil,
-                                      Comparison::MISSING_NODE, Comparison::MISSING_NODE,
-                                      dimension, opts, differences)
-                    else
-                      comparator.send(:add_difference, nil, child,
-                                      Comparison::MISSING_NODE, Comparison::MISSING_NODE,
-                                      dimension, opts, differences)
-                    end
+              if mismatched_children.empty?
+                comparator.send(:add_difference, parent_node, parent_node,
+                                Comparison::MISSING_NODE, Comparison::MISSING_NODE,
+                                dimension, opts, differences)
+              else
+                mismatched_children.each do |child|
+                  if children1.length > children2.length # rubocop:disable Metrics/BlockNesting
+                    comparator.send(:add_difference, child, nil,
+                                    Comparison::MISSING_NODE, Comparison::MISSING_NODE,
+                                    dimension, opts, differences)
+                  else
+                    comparator.send(:add_difference, nil, child,
+                                    Comparison::MISSING_NODE, Comparison::MISSING_NODE,
+                                    dimension, opts, differences)
                   end
                 end
               end
@@ -184,7 +179,7 @@ diff_children, differences)
             end
 
             # Compare children pairwise by position
-            result = Comparison::EQUIVALENT
+            result = has_mismatch ? Comparison::UNEQUAL_ELEMENTS : Comparison::EQUIVALENT
             children1.zip(children2).each do |child1, child2|
               # Skip if one is nil (due to different lengths)
               next if child1.nil? || child2.nil?
@@ -220,8 +215,12 @@ diff_children, differences)
               elsif !comparator.send(:same_node_type?, children1[i],
                                      children2[i])
                 # Different node types at same position
-                dimension = comparator.send(:determine_node_dimension,
-                                            children1[i])
+                # Check both nodes - if either is a comment, use :comments dimension
+                dim1 = comparator.send(:determine_node_dimension,
+                                       children1[i])
+                dim2 = comparator.send(:determine_node_dimension,
+                                       children2[i])
+                dimension = [dim1, dim2].include?(:comments) ? :comments : dim1
                 break
               end
             end

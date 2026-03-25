@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative "diff_line"
+require "set"
 
 module Canon
   module Diff
@@ -27,6 +28,15 @@ module Canon
         @text2 = text2
         @line_map1 = options[:line_map1]
         @line_map2 = options[:line_map2]
+
+        # Pre-compute comment line ranges for multi-line comment handling
+        @comment_lines1 = build_comment_lines(@text1)
+        @comment_lines2 = build_comment_lines(@text2)
+        @comment_diff_nodes = if @diff_nodes
+                                @diff_nodes.select { |n| n.dimension == :comments }
+                              else
+                                []
+                              end
       end
 
       def map
@@ -62,9 +72,13 @@ module Canon
                         )
                       when "-"
                         # Find the diff node for this line
-                        node = shared_informative_node || find_diff_node_for_line(
-                          line_num, lines1, :removed
-                        )
+                        # Check comment range first (handles multi-line comments),
+                        # then fall back to element name matching
+                        node = shared_informative_node ||
+                          find_diff_node_for_line(
+                            line_num, lines1, :removed,
+                            comment_lines: @comment_lines1
+                          )
 
                         # Check if this is formatting-only:
                         # 1. First check if the DiffNode itself is marked as formatting-only
@@ -86,9 +100,11 @@ module Canon
                         )
                       when "+"
                         # Find the diff node for this line
-                        node = shared_informative_node || find_diff_node_for_line(
-                          line_num, lines2, :added
-                        )
+                        node = shared_informative_node ||
+                          find_diff_node_for_line(
+                            line_num, lines2, :added,
+                            comment_lines: @comment_lines2
+                          )
 
                         # Check if this is formatting-only:
                         # 1. First check if the DiffNode itself is marked as formatting-only
@@ -109,9 +125,13 @@ module Canon
                         )
                       when "!"
                         # Find the diff node for this line
-                        node = shared_informative_node || find_diff_node_for_line(
-                          line_num, lines2, :changed
-                        )
+                        # For changed lines, check comment ranges in both texts
+                        node = shared_informative_node ||
+                          find_diff_node_for_line(
+                            line_num, lines2, :changed,
+                            comment_lines: @comment_lines2,
+                            comment_lines_alt: @comment_lines1
+                          )
 
                         # Check if this is formatting-only:
                         # 1. First check if the DiffNode itself is marked as formatting-only
@@ -152,12 +172,27 @@ module Canon
       end
 
       # Find the DiffNode associated with a line
-      # Uses element name matching for precise line-level linking
-      def find_diff_node_for_line(line_num, lines, change_type)
+      # Uses comment range matching for multi-line comments,
+      # then element name matching for other elements
+      def find_diff_node_for_line(line_num, lines, change_type,
+                                   comment_lines: nil, comment_lines_alt: nil)
         return nil if @diff_nodes.nil? || @diff_nodes.empty?
 
         line_content = lines[line_num]
         return nil if line_content.nil?
+
+        # Check comment range first (handles multi-line comments where
+        # only the first line has <!--, but all lines are part of the comment)
+        if comment_lines&.include?(line_num)
+          node = find_comment_diff_node_for_line(line_num, lines)
+          return node if node
+        end
+
+        # For changed lines, also check the alternate text's comment ranges
+        if comment_lines_alt&.include?(line_num)
+          node = find_comment_diff_node_for_line(line_num, lines)
+          return node if node
+        end
 
         # Extract element name from the line
         line_element_name = extract_element_name(line_content)
@@ -196,11 +231,60 @@ module Canon
       #   "<bibitem ...>" => "bibitem"
       #   "</bibitem>" => "bibitem"
       #   "<ns:element ...>" => "ns:element"
+      #   "<!-- comment -->" => "comment"
       def extract_element_name(line)
+        # Check for XML comments first
+        return "comment" if line.include?("<!--")
+
         # Match opening or closing tag: <element ...> or </element>
         # Supports namespaces (e.g., ns:element)
         match = line.match(/<\/?([a-zA-Z0-9_:-]+)/)
         match[1] if match
+      end
+
+      # Build a Set of line numbers that fall within XML comment blocks.
+      # A single comment can span multiple lines when formatted; this method
+      # maps the comment's character range to the line numbers it covers,
+      # so that all lines of a multi-line comment can be linked to the
+      # same DiffNode.
+      #
+      # @param text [String] The formatted text to scan
+      # @return [Set<Integer>] Set of 0-based line numbers inside comments
+      def build_comment_lines(text)
+        lines = text.split("\n")
+        comment_lines = Set.new
+        in_comment = false
+
+        lines.each_with_index do |line, idx|
+          if in_comment
+            comment_lines.add(idx)
+            if line.include?("-->")
+              in_comment = false
+            end
+          elsif line.include?("<!--")
+            comment_lines.add(idx)
+            # Check if comment opens AND closes on the same line
+            # (single-line comment like <!-- text -->)
+            in_comment = true unless line.include?("-->")
+          end
+        end
+
+        comment_lines
+      end
+
+      # Find a comment DiffNode for a line that falls within a comment range.
+      # Matches by checking if the DiffNode's source node has name "comment".
+      #
+      # @param line_num [Integer] Line number (0-based)
+      # @param lines [Array<String>] Lines of the text
+      # @return [DiffNode, nil] The matching comment DiffNode, or nil
+      def find_comment_diff_node_for_line(_line_num, _lines)
+        @comment_diff_nodes&.find do |diff_node|
+          nodes_to_check = [diff_node.node1, diff_node.node2].compact
+          nodes_to_check.any? do |node|
+            node.respond_to?(:name) && node.name == "comment"
+          end
+        end
       end
     end
   end
