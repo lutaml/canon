@@ -33,7 +33,9 @@ module Canon
         @comment_lines1 = build_comment_lines(@text1)
         @comment_lines2 = build_comment_lines(@text2)
         @comment_diff_nodes = if @diff_nodes
-                                @diff_nodes.select { |n| n.dimension == :comments }
+                                @diff_nodes.select do |n|
+                                  n.dimension == :comments
+                                end
                               else
                                 []
                               end
@@ -125,12 +127,11 @@ module Canon
                         )
                       when "!"
                         # Find the diff node for this line
-                        # For changed lines, check comment ranges in both texts
                         node = shared_informative_node ||
                           find_diff_node_for_line(
                             line_num, lines2, :changed,
                             comment_lines: @comment_lines2,
-                            comment_lines_alt: @comment_lines1
+                            old_content: change.old_element
                           )
 
                         # Check if this is formatting-only:
@@ -175,7 +176,7 @@ module Canon
       # Uses comment range matching for multi-line comments,
       # then element name matching for other elements
       def find_diff_node_for_line(line_num, lines, change_type,
-                                   comment_lines: nil, comment_lines_alt: nil)
+                                   comment_lines: nil, old_content: nil)
         return nil if @diff_nodes.nil? || @diff_nodes.empty?
 
         line_content = lines[line_num]
@@ -188,18 +189,27 @@ module Canon
           return node if node
         end
 
-        # For changed lines, also check the alternate text's comment ranges
-        if comment_lines_alt&.include?(line_num)
-          node = find_comment_diff_node_for_line(line_num, lines)
-          return node if node
-        end
-
         # Extract element name from the line
         line_element_name = extract_element_name(line_content)
         return nil unless line_element_name
 
         # Find DiffNode whose element name matches this line's element
-        @diff_nodes.find do |diff_node|
+        # Exclude comment DiffNodes for lines that don't contain comment
+        # markers — closing tags like </mml:mrow> should not match comment
+        # DiffNodes via parent.name, but lines with inline comments like
+        # <item>before<!-- mid -->after</item> should still match.
+        # For changed lines, also check old_content since the comment
+        # may have been in the old text but not the new text.
+        line_has_comment = line_content.include?("<!--") ||
+          old_content&.include?("<!--")
+        candidates = if line_has_comment
+                       @diff_nodes
+                     else
+                       @diff_nodes.reject { |dn| dn.dimension == :comments }
+                     end
+        return nil if candidates.empty?
+
+        candidates.find do |diff_node|
           # For changed lines, we need to check BOTH nodes since the line
           # could represent either the old or new content
           nodes_to_check = case change_type

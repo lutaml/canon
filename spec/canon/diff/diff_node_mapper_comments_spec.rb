@@ -20,7 +20,9 @@ RSpec.describe Canon::Diff::DiffNodeMapper do
         )
 
         informative_lines = diff_lines.select(&:informative?)
-        comment_lines = informative_lines.select { |l| l.content.include?("<!--") }
+        comment_lines = informative_lines.select do |l|
+          l.content.include?("<!--")
+        end
         expect(comment_lines).not_to be_empty
         expect(diff_lines.select(&:normative?)).to be_empty
       end
@@ -40,7 +42,9 @@ RSpec.describe Canon::Diff::DiffNodeMapper do
         )
 
         informative_lines = diff_lines.select(&:informative?)
-        comment_lines = informative_lines.select { |l| l.content.include?("comment") }
+        comment_lines = informative_lines.select do |l|
+          l.content.include?("comment")
+        end
         expect(comment_lines).not_to be_empty
       end
 
@@ -107,9 +111,11 @@ RSpec.describe Canon::Diff::DiffNodeMapper do
         )
 
         informative_lines = diff_lines.select(&:informative?)
-        # All comment lines (<!--, content, -->) should be informative
+        # All comment lines (<!--, content, --!>) should be informative
         comment_content_lines = informative_lines.select do |l|
-          l.content.match?(/<!--|multi-line|comment|spanning|several|-->/)
+          l.content.include?("<!--") ||
+            %w[multi-line comment spanning several].any? { |w| l.content.include?(w) } ||
+            (l.content.include?("--") && l.content.include?(">"))
         end
         expect(comment_content_lines.length).to eq(5)
 
