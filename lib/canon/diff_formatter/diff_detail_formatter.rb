@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require "paint"
+require "rainbow"
 require_relative "../xml/namespace_helper"
 # DiffDetailFormatter helper modules
 require_relative "diff_detail_formatter/text_utils"

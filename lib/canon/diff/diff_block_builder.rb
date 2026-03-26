@@ -95,9 +95,9 @@ module Canon
         when :normative
           blocks.select(&:normative?)
         when :informative
-          blocks.select(&:informative?)
+          blocks.select { |b| b.informative? && !b.formatting? }
         else # :all
-          blocks
+          blocks.reject(&:formatting?)
         end
       end
     end

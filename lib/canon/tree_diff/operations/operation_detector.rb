@@ -518,7 +518,11 @@ module Canon
           return false if text1.empty? || text2.empty?
 
           similarity = text_similarity(text1, text2)
-          similarity >= 0.9 # 90% similarity for hierarchy changes
+          return false unless similarity >= 0.9
+
+          # Verify attribute values match to prevent false upgrade/downgrade
+          # detection on nodes with same text but different attribute values
+          node1.attributes == node2.attributes
         end
 
         # Extract all text content from a node and its descendants

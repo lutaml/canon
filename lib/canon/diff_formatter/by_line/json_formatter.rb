@@ -16,6 +16,7 @@ module Canon
         # @param doc2 [String] Second JSON document
         # @return [String] Formatted diff
         def format(doc1, doc2)
+          compute_line_num_width(doc1, doc2)
           output = []
 
           begin
@@ -124,20 +125,22 @@ module Canon
         def format_token_diff_line(old_line, new_line, old_highlighted,
                                     new_highlighted)
           output = []
+          fmt = "%#{@line_num_width}d"
+          blank = " " * @line_num_width
 
           if @use_color
-            yellow_old = colorize("%4d" % old_line, :yellow)
+            yellow_old = colorize(fmt % old_line, :yellow)
             yellow_pipe1 = colorize("|", :yellow)
-            yellow_new = colorize("%4d" % new_line, :yellow)
+            yellow_new = colorize(fmt % new_line, :yellow)
             yellow_pipe2 = colorize("|", :yellow)
             red_marker = colorize("-", :red)
             green_marker = colorize("+", :green)
 
-            output << "#{yellow_old}#{yellow_pipe1}    #{red_marker} #{yellow_pipe2} #{old_highlighted}"
-            output << "    #{yellow_pipe1}#{yellow_new}#{green_marker} #{yellow_pipe2} #{new_highlighted}"
+            output << "#{yellow_old}#{yellow_pipe1}#{blank}#{red_marker} #{yellow_pipe2} #{old_highlighted}"
+            output << "#{blank}#{yellow_pipe1}#{yellow_new}#{green_marker} #{yellow_pipe2} #{new_highlighted}"
           else
-            output << "#{'%4d' % old_line}|    - | #{old_highlighted}"
-            output << "    |#{'%4d' % new_line}+ | #{new_highlighted}"
+            output << "#{fmt % old_line}|#{blank}- | #{old_highlighted}"
+            output << "#{blank}|#{fmt % new_line}+ | #{new_highlighted}"
           end
 
           output.join("\n")
@@ -235,8 +238,8 @@ module Canon
           end.join
 
           if color && @use_color
-            require "paint"
-            Paint[visual, color, :bold]
+            require "rainbow"
+            Rainbow(visual).send(color).bright.to_s
           else
             visual
           end

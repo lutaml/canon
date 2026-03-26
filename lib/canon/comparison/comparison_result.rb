@@ -90,9 +90,11 @@ html_version: nil, match_options: nil, algorithm: :dom, original_strings: nil)
       # @param context_lines [Integer] Number of context lines to show
       # @param diff_grouping_lines [Integer] Maximum gap for grouping diffs
       # @param show_diffs [Symbol] Which diffs to show (:all, :normative, :informative)
+      # @param diff_mode [Symbol] Diff display mode (:separate, :inline)
+      # @param legacy_terminal [Boolean] Force legacy mode (no ANSI, separate-line only)
       # @return [String] Formatted diff output
       def diff(use_color: true, context_lines: 3, diff_grouping_lines: nil,
-show_diffs: :all)
+show_diffs: :all, diff_mode: :separate, legacy_terminal: false)
         require_relative "../diff_formatter"
 
         formatter = Canon::DiffFormatter.new(
@@ -101,13 +103,16 @@ show_diffs: :all)
           context_lines: context_lines,
           diff_grouping_lines: diff_grouping_lines,
           show_diffs: show_diffs,
+          diff_mode: diff_mode,
+          legacy_terminal: legacy_terminal,
         )
 
+        # Pass self (ComparisonResult) so formatter can check equivalent? status
         formatter.format(
-          @differences,
+          self,
           @format,
-          doc1: @original_strings[0],
-          doc2: @original_strings[1],
+          doc1: @preprocessed_strings[0],
+          doc2: @preprocessed_strings[1],
           html_version: @html_version,
         )
       end

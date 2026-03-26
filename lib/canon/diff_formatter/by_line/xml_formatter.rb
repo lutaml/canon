@@ -2,6 +2,7 @@
 
 require_relative "base_formatter"
 require_relative "../legend"
+require_relative "../../tree_diff/core/xml_entity_decoder"
 require "set"
 require "strscan"
 
@@ -17,6 +18,8 @@ module Canon
         # @param doc2 [String] Second XML document
         # @return [String] Formatted diff
         def format(doc1, doc2)
+          compute_line_num_width(doc1, doc2)
+
           # If we have DiffNodes from comparison, check if there are normative diffs
           # based on show_diffs setting
           if @differences&.any?(Canon::Diff::DiffNode)
@@ -30,7 +33,7 @@ module Canon
           end
 
           # LEGACY: Fall back to old behavior for backward compatibility
-          # This happens when @differences is nil (no comparison result provided)
+          # This handles formatting-only differences (0 DiffNodes) and legacy Hash entries
           format_legacy(doc1, doc2)
         end
 
@@ -41,11 +44,18 @@ module Canon
             return ""
           end
 
-          require_relative "../../diff/diff_node_mapper"
+          require_relative "../../diff/diff_node_enricher"
+          require_relative "../../diff/diff_line_builder"
           require_relative "../../diff/diff_report_builder"
 
-          # Layer 2: Map DiffNodes to DiffLines
-          diff_lines = Canon::Diff::DiffNodeMapper.map(@differences, doc1, doc2)
+          # Compute line number width BEFORE formatting
+          compute_line_num_width(doc1, doc2)
+
+          # Phase 1: Enrich DiffNodes with character positions
+          Canon::Diff::DiffNodeEnricher.build(@differences, doc1, doc2)
+
+          # Phase 2: Assemble DiffLines from enriched DiffNodes
+          diff_lines = Canon::Diff::DiffLineBuilder.build(@differences, doc1, doc2)
 
           # Layers 3-5: Build report through pipeline
           report = Canon::Diff::DiffReportBuilder.build(
@@ -94,8 +104,9 @@ module Canon
           context.lines.each do |diff_line|
             case diff_line.type
             when :unchanged
-              line_num = diff_line.line_number + 1
-              output << format_unified_line(line_num, line_num, " ",
+              old_num = diff_line.line_number + 1
+              new_num = (diff_line.new_position || diff_line.line_number) + 1
+              output << format_unified_line(old_num, new_num, " ",
                                             diff_line.content)
             when :removed
               line_num = diff_line.line_number + 1
@@ -114,6 +125,25 @@ module Canon
                                               diff_line.content,
                                               :blue,
                                               informative: true)
+                        elsif diff_line.has_char_ranges?
+                          # Use character-level highlighting when char_ranges available.
+                          # The highlighted content already has colors applied by
+                          # render_line_from_char_ranges. We manually construct the
+                          # line so the marker is red but content uses embedded colors.
+                          highlighted = render_line_from_char_ranges(
+                            diff_line.content, diff_line.char_ranges, :old
+                          )
+                          old_str = "%#{@line_num_width}d" % line_num
+                          blank = " " * @line_num_width
+                          if @use_color
+                            yellow_old = colorize(old_str, :yellow)
+                            yellow_pipe1 = colorize("|", :yellow)
+                            yellow_pipe2 = colorize("|", :yellow)
+                            red_marker = colorize("-", :red)
+                            "#{yellow_old}#{yellow_pipe1}#{blank}#{red_marker} #{yellow_pipe2} #{highlighted}"
+                          else
+                            "#{old_str}|#{blank}- | #{highlighted}"
+                          end
                         else
                           # Normative removal: - marker in red
                           format_unified_line(line_num, nil, "-",
@@ -121,7 +151,7 @@ module Canon
                                               :red)
                         end
             when :added
-              line_num = diff_line.line_number + 1
+              line_num = (diff_line.new_position || diff_line.line_number) + 1
               formatting = diff_line.formatting?
               informative = diff_line.informative?
 
@@ -144,40 +174,10 @@ module Canon
                                               :green)
                         end
             when :changed
-              old_line_num = diff_line.line_number + 1
-              new_line_num = (diff_line.new_position || diff_line.line_number) + 1
-              formatting = diff_line.formatting?
-              informative = diff_line.informative?
-              # For changed lines, we need both old and new content
-              old_content = lines1[diff_line.line_number]
-              new_content = diff_line.content
-
-              if formatting
-                output << format_unified_line(old_line_num, nil, "[",
-                                              old_content,
-                                              :black,
-                                              formatting: true)
-                output << format_unified_line(nil, new_line_num, "]",
-                                              new_content,
-                                              :white,
-                                              formatting: true)
-              elsif informative
-                output << format_unified_line(old_line_num, nil, "<",
-                                              old_content,
-                                              :blue,
-                                              informative: true)
-                output << format_unified_line(nil, new_line_num, ">",
-                                              new_content,
-                                              :cyan,
-                                              informative: true)
-              else
-                output << format_unified_line(old_line_num, nil, "-",
-                                              old_content,
-                                              :red)
-                output << format_unified_line(nil, new_line_num, "+",
-                                              new_content,
-                                              :green)
-              end
+              output << format_changed_line(diff_line, lines1)
+            when :reflow_summary
+              # Reflow summary: show collapsed formatting-only reflow
+              output << format_reflow_summary(diff_line)
             end
           end
 
@@ -188,6 +188,15 @@ module Canon
         def format_legacy(doc1, doc2)
           # Check if we should show any diffs based on differences array
           if should_skip_diff_display?
+            return ""
+          end
+
+          # If documents are equivalent (no normative diffs), do NOT run legacy formatter.
+          # The legacy formatter shows ALL differences it finds via LCS on lines,
+          # which can be misleading when the comparison found no normative differences.
+          # Only run legacy formatter when we have actual DiffNode data to display.
+          if @equivalent == true && (@differences.nil? || @differences.empty? ||
+             @differences.none?(Canon::Diff::DiffNode))
             return ""
           end
 
@@ -252,6 +261,193 @@ module Canon
 
         private
 
+        # Format a changed diff line using DiffCharRanges for character-level highlighting.
+        # Reads pre-computed char ranges from the DiffLine — NO tokenization, NO LCS.
+        def format_changed_line(diff_line, _lines1)
+          old_line_num = diff_line.line_number + 1
+          new_line_num = (diff_line.new_position || diff_line.line_number) + 1
+          formatting = diff_line.formatting?
+          informative = diff_line.informative?
+          old_content = diff_line.old_content || diff_line.content
+          new_content = diff_line.new_content || diff_line.content
+
+          if formatting
+            # For formatting-only changes, marker goes on NEW side:
+            # - If new_content has MORE whitespace than old_content: formatting ADDED → ]
+            # - If new_content has LESS whitespace than old_content: formatting REMOVED → [
+            marker = new_content.length > old_content.length ? "]" : "["
+            [
+              # OLD line: no marker (formatting was on NEW side)
+              # Apply visualization so spaces show as ░
+              format_unified_line(old_line_num, nil, " ",
+                                  apply_visualization(old_content)),
+              # NEW line: marker on NEW side indicating what changed
+              format_unified_line(nil, new_line_num, marker, new_content,
+                                  :white, formatting: true),
+            ].join("\n")
+          elsif informative
+            [
+              format_unified_line(old_line_num, nil, "<", old_content,
+                                  :magenta, informative: true),
+              format_unified_line(nil, new_line_num, ">", new_content,
+                                  :cyan, informative: true),
+            ].join("\n")
+          elsif diff_line.has_char_ranges?
+            # Check if this is a mixed change (both old and new have changed content
+            # AND both have multiple ranges indicating partial deletion/insertion)
+            old_ranges = diff_line.char_ranges
+            new_ranges = diff_line.new_char_ranges
+            has_old_change = old_ranges.any? { |cr| cr.status == :changed_old }
+            has_new_change = new_ranges.any? { |cr| cr.status == :changed_new }
+
+            # Mixed change: both sides have changed content AND there are
+            # MULTIPLE separate changed regions (not just prefix+change+suffix).
+            # Count contiguous changed regions — a simple word replacement has
+            # ONE changed region even though it produces 3 ranges (prefix+change+suffix).
+            old_changed_regions = count_changed_regions(old_ranges, :changed_old)
+            new_changed_regions = count_changed_regions(new_ranges, :changed_new)
+            is_mixed = has_old_change && has_new_change &&
+              (old_changed_regions > 1 || new_changed_regions > 1)
+
+            if is_mixed
+              # Mixed change: use * marker
+              format_mixed_changed_line(old_line_num, new_line_num,
+                                        diff_line.char_ranges, diff_line.new_char_ranges,
+                                        old_content, new_content)
+            else
+              # Render from DiffCharRanges — the correct approach
+              old_highlighted = render_line_from_char_ranges(
+                old_content, diff_line.char_ranges, :old
+              )
+              new_highlighted = render_line_from_char_ranges(
+                new_content, diff_line.new_char_ranges, :new
+              )
+              format_token_diff_line(old_line_num, new_line_num, old_highlighted,
+                                     new_highlighted)
+            end
+          else
+            # Fallback: whole-line highlighting (no char ranges available)
+            [
+              format_unified_line(old_line_num, nil, "-", old_content, :red),
+              format_unified_line(nil, new_line_num, "+", new_content, :green),
+            ].join("\n")
+          end
+        end
+
+        # Render a line from its DiffCharRanges — walks each range and applies
+        # the appropriate color. This is the Phase 2 renderer: NO computation,
+        # just reads pre-computed ranges and applies visualization + color.
+        #
+        # @param line_text [String] the full line text
+        # @param ranges [Array<DiffCharRange>] character ranges for this line
+        # @param side [Symbol] :old or :new
+        # @return [String] rendered text with colors/visualization applied
+        def render_line_from_char_ranges(line_text, ranges, side)
+          return apply_visualization(line_text) if ranges.nil? || ranges.empty?
+
+          parts = []
+          cursor = 0
+
+          ranges.each do |cr|
+            # Fill in any gap before this range as unchanged text
+            if cursor < cr.start_col
+              gap = line_text[cursor...cr.start_col]
+              decoded_gap = Canon::TreeDiff::Core::XmlEntityDecoder.decode_xml_entities(gap)
+              parts << apply_visualization(decoded_gap)
+            end
+
+            segment = cr.extract_from(line_text)
+            next if segment.nil? || segment.empty?
+
+            # Decode XML entities so visualization can handle actual characters
+            # (e.g., &#xA0; -> NBSP -> visualized as ␣)
+            decoded_segment = Canon::TreeDiff::Core::XmlEntityDecoder.decode_xml_entities(segment)
+
+            parts << if cr.diff_node&.informative?
+                       # Informative change: use magenta for deletions, bright cyan for additions
+                       # Magenta (ANSI 35) is bright and visible on both light and dark terminals
+                       case cr.status
+                       when :unchanged
+                         apply_visualization(decoded_segment)
+                       when :changed_old
+                         (side == :old ? apply_visualization(decoded_segment, :magenta) : apply_visualization(decoded_segment))
+                       when :changed_new
+                         (side == :new ? apply_visualization(decoded_segment, :cyan) : apply_visualization(decoded_segment))
+                       when :removed
+                         apply_visualization(decoded_segment, :magenta)
+                       when :added
+                         apply_visualization(decoded_segment, :cyan)
+                       else
+                         apply_visualization(decoded_segment)
+                       end
+                     else
+                       case cr.status
+                       when :unchanged
+                         apply_visualization(decoded_segment)
+                       when :changed_old
+                         (side == :old ? apply_visualization(decoded_segment, :red) : apply_visualization(decoded_segment))
+                       when :changed_new
+                         (side == :new ? apply_visualization(decoded_segment, :green) : apply_visualization(decoded_segment))
+                       when :removed
+                         apply_visualization(decoded_segment, :red)
+                       when :added
+                         apply_visualization(decoded_segment, :green)
+                       else
+                         apply_visualization(decoded_segment)
+                       end
+                     end
+
+            cursor = cr.end_col
+          end
+
+          # Fill in any remaining text after the last range
+          if cursor < line_text.length
+            tail = line_text[cursor..]
+            decoded_tail = Canon::TreeDiff::Core::XmlEntityDecoder.decode_xml_entities(tail)
+            parts << apply_visualization(decoded_tail)
+          end
+
+          parts.join
+        end
+
+        # Format token diff where old content spans multiple lines.
+        # Each old line is shown separately with its own line number,
+        # and the new (single-line) content is shown once.
+        def format_multi_line_token_diff(old_start_num, new_num, old_highlighted,
+                                          new_highlighted)
+          output = []
+          fmt = "%#{@line_num_width}d"
+          blank = " " * @line_num_width
+
+          # Split old highlighted content by newlines and show each line
+          old_lines = old_highlighted.split("\n")
+          old_lines.each_with_index do |line, idx|
+            line_num = old_start_num + idx
+            if @use_color
+              yellow_old = colorize(fmt % line_num, :yellow)
+              yellow_pipe1 = colorize("|", :yellow)
+              red_marker = colorize("-", :red)
+              yellow_pipe2 = colorize("|", :yellow)
+              output << "#{yellow_old}#{yellow_pipe1}#{blank}#{red_marker} #{yellow_pipe2} #{line}"
+            else
+              output << "#{fmt % line_num}|#{blank}- | #{line}"
+            end
+          end
+
+          # Show new content once
+          if @use_color
+            yellow_pipe1 = colorize("|", :yellow)
+            yellow_new = colorize(fmt % new_num, :yellow)
+            green_marker = colorize("+", :green)
+            yellow_pipe2 = colorize("|", :yellow)
+            output << "#{blank}#{yellow_pipe1}#{yellow_new}#{green_marker} #{yellow_pipe2} #{new_highlighted}"
+          else
+            output << "#{blank}|#{fmt % new_num}+ | #{new_highlighted}"
+          end
+
+          output.join("\n")
+        end
+
         # Format element matches for display
         def format_element_matches(matches, map1, map2, lines1, lines2)
           output = []
@@ -313,7 +509,7 @@ module Canon
 
               # Only apply semantic filtering if we have DiffNode objects
               # (when called standalone or without DiffNodes, show all diffs)
-              if !@differences.nil? && !@differences.empty? && @differences.any?(Canon::Diff::DiffNode)
+              if @differences.any?(Canon::Diff::DiffNode)
                 # Skip if no semantic diffs exist (all diffs were normalized)
                 next if elements_with_semantic_diffs.empty?
 
@@ -612,10 +808,23 @@ module Canon
         end
 
         # Format a unified diff line
+        # Format a reflow summary line (collapsed formatting-only reflow)
+        def format_reflow_summary(diff_line)
+          old_str = " " * @line_num_width
+          new_str = " " * @line_num_width
+          content = diff_line.content
+
+          if @use_color
+            "#{old_str}|#{new_str} | #{colorize(content, :black)}"
+          else
+            "#{old_str}|#{new_str} | #{content}"
+          end
+        end
+
         def format_unified_line(old_num, new_num, marker, content, color = nil,
 informative: false, formatting: false)
-          old_str = old_num ? "%4d" % old_num : "    "
-          new_str = new_num ? "%4d" % new_num : "    "
+          old_str = old_num ? "%#{@line_num_width}d" % old_num : " " * @line_num_width
+          new_str = new_num ? "%#{@line_num_width}d" % new_num : " " * @line_num_width
           marker_part = "#{marker} "
 
           visualized_content = if color
@@ -642,24 +851,149 @@ informative: false, formatting: false)
           end
         end
 
+        # Format mixed changed line where both old and new have changed content.
+        # Uses * marker on BOTH lines to indicate mixed deletion/insertion.
+        # Supports :inline mode (both on same line) and :separate mode (two lines).
+        def format_mixed_changed_line(old_line_num, new_line_num,
+                                     char_ranges, new_char_ranges,
+                                     old_content, new_content)
+          fmt = "%#{@line_num_width}d"
+          blank = " " * @line_num_width
+
+          if @diff_mode == :inline
+            format_mixed_changed_line_inline(old_line_num, new_line_num,
+                                             char_ranges, new_char_ranges,
+                                             old_content, new_content, fmt, blank)
+          else
+            format_mixed_changed_line_separate(old_line_num, new_line_num,
+                                               char_ranges, new_char_ranges,
+                                               old_content, new_content, fmt, blank)
+          end
+        end
+
+        # Separate-line format for mixed changes: * on BOTH OLD and NEW lines
+        def format_mixed_changed_line_separate(old_line_num, new_line_num,
+                                               char_ranges, new_char_ranges,
+                                               old_content, new_content, fmt, blank)
+          output = []
+          old_highlighted = render_line_from_char_ranges(old_content, char_ranges, :old)
+          new_highlighted = render_line_from_char_ranges(new_content, new_char_ranges, :new)
+
+          if @use_color
+            yellow_old = colorize(fmt % old_line_num, :yellow)
+            yellow_pipe1 = colorize("|", :yellow)
+            yellow_new = colorize(fmt % new_line_num, :yellow)
+            yellow_pipe2 = colorize("|", :yellow)
+            mixed_marker = colorize("*", :magenta)
+
+            # OLD line: show line number with * marker
+            output << "#{yellow_old}#{yellow_pipe1}#{blank}#{mixed_marker} #{yellow_pipe2} #{old_highlighted}"
+            # NEW line: show line number with * marker
+            output << "#{blank}#{yellow_pipe1}#{yellow_new}#{mixed_marker} #{yellow_pipe2} #{new_highlighted}"
+          else
+            # OLD line: show line number with * marker
+            output << "#{fmt % old_line_num}|#{blank}* | #{old_highlighted}"
+            # NEW line: show line number with * marker
+            output << "#{blank}|#{fmt % new_line_num}* | #{new_highlighted}"
+          end
+
+          output.join("\n")
+        end
+
+        # Inline format for mixed changes: OLD and NEW on same line
+        # Shows: OLD line with removed parts in red/strikethrough, NEW line with added parts in green/underline
+        def format_mixed_changed_line_inline(old_line_num, new_line_num,
+                                             char_ranges, new_char_ranges,
+                                             old_content, new_content, fmt, blank)
+          old_highlighted = render_line_for_inline(old_content, char_ranges, :old)
+          new_highlighted = render_line_for_inline(new_content, new_char_ranges, :new)
+
+          # Separator between OLD and NEW content in inline mode
+          separator = @use_color ? colorize(" → ", :cyan) : " → "
+
+          if @use_color
+            yellow_old = colorize(fmt % old_line_num, :yellow)
+            yellow_pipe1 = colorize("|", :yellow)
+            yellow_new = colorize(fmt % new_line_num, :yellow)
+            yellow_pipe2 = colorize("|", :yellow)
+            mixed_marker = colorize("*", :magenta)
+
+            "#{yellow_old}#{yellow_pipe1}#{yellow_new}#{mixed_marker} #{yellow_pipe2} #{old_highlighted}#{separator}#{new_highlighted}"
+          else
+            "#{fmt % old_line_num}|#{fmt % new_line_num}*| #{old_highlighted}#{separator}#{new_highlighted}"
+          end
+        end
+
+        # Render a line segment for inline mode with proper styling
+        # Uses red for removed (changed_old), green for added (changed_new)
+        # Falls back to strikethrough/underline when color is off
+        def render_line_for_inline(line_text, ranges, side)
+          return apply_visualization(line_text) if ranges.nil? || ranges.empty?
+
+          parts = []
+          cursor = 0
+
+          ranges.each do |cr|
+            # Fill in any gap before this range as unchanged text
+            if cursor < cr.start_col
+              gap = line_text[cursor...cr.start_col]
+              decoded_gap = Canon::TreeDiff::Core::XmlEntityDecoder.decode_xml_entities(gap)
+              parts << apply_visualization(decoded_gap)
+            end
+
+            segment = cr.extract_from(line_text)
+            next if segment.nil? || segment.empty?
+
+            decoded_segment = Canon::TreeDiff::Core::XmlEntityDecoder.decode_xml_entities(segment)
+
+            parts << case cr.status
+                     when :unchanged
+                       apply_visualization(decoded_segment)
+                     when :changed_old
+                       apply_effect(decoded_segment, :strikethrough, :red)
+                     when :changed_new
+                       apply_effect(decoded_segment, :underline, :green)
+                     when :removed
+                       apply_effect(decoded_segment, :strikethrough, :red)
+                     when :added
+                       apply_effect(decoded_segment, :underline, :green)
+                     else
+                       apply_visualization(decoded_segment)
+                     end
+
+            cursor = cr.end_col
+          end
+
+          # Fill in any remaining text after the last range
+          if cursor < line_text.length
+            tail = line_text[cursor..]
+            decoded_tail = Canon::TreeDiff::Core::XmlEntityDecoder.decode_xml_entities(tail)
+            parts << apply_visualization(decoded_tail)
+          end
+
+          parts.join
+        end
+
         # Format token diff lines
         def format_token_diff_line(old_line, new_line, old_highlighted,
                                     new_highlighted)
           output = []
+          fmt = "%#{@line_num_width}d"
+          blank = " " * @line_num_width
 
           if @use_color
-            yellow_old = colorize("%4d" % old_line, :yellow)
+            yellow_old = colorize(fmt % old_line, :yellow)
             yellow_pipe1 = colorize("|", :yellow)
-            yellow_new = colorize("%4d" % new_line, :yellow)
+            yellow_new = colorize(fmt % new_line, :yellow)
             yellow_pipe2 = colorize("|", :yellow)
             red_marker = colorize("-", :red)
             green_marker = colorize("+", :green)
 
-            output << "#{yellow_old}#{yellow_pipe1}    #{red_marker} #{yellow_pipe2} #{old_highlighted}"
-            output << "    #{yellow_pipe1}#{yellow_new}#{green_marker} #{yellow_pipe2} #{new_highlighted}"
+            output << "#{yellow_old}#{yellow_pipe1}#{blank}#{red_marker} #{yellow_pipe2} #{old_highlighted}"
+            output << "#{blank}#{yellow_pipe1}#{yellow_new}#{green_marker} #{yellow_pipe2} #{new_highlighted}"
           else
-            output << "#{'%4d' % old_line}|    - | #{old_highlighted}"
-            output << "    |#{'%4d' % new_line}+ | #{new_highlighted}"
+            output << "#{fmt % old_line}|#{blank}- | #{old_highlighted}"
+            output << "#{blank}|#{fmt % new_line}+ | #{new_highlighted}"
           end
 
           output.join("\n")
@@ -730,30 +1064,46 @@ informative: false, formatting: false)
           parts.join
         end
 
-        # Apply character visualization
-        def apply_visualization(token, color = nil)
+        # Apply character visualization with optional effect (strikethrough/underline)
+        #
+        # @param token [String] The token to apply visualization to
+        # @param effect [Symbol, nil] Effect to apply (:strikethrough or :underline)
+        # @param color [Symbol, nil] Color to apply (:red, :green, :white, etc.)
+        # @return [String] Visualized and optionally colored/effect text
+        def apply_effect(token, effect = nil, color = nil)
           return "" if token.nil?
 
           visual = token.to_s.chars.map do |char|
             @visualization_map.fetch(char, char)
           end.join
 
-          if color && @use_color
-            require "paint"
-            Paint[visual, color, :bold]
+          # In legacy mode, no effects at all
+          if @legacy_terminal
+            return visual
+          end
+
+          if @use_color
+            require "rainbow"
+            rainbow = Rainbow.new
+            rainbow.enabled = true
+            presenter = rainbow.wrap(visual)
+
+            # Apply effect if specified (map :strikethrough to :cross_out for Rainbow)
+            if effect
+              rainbow_effect = effect == :strikethrough ? :cross_out : effect
+              presenter = presenter.send(rainbow_effect)
+            end
+
+            # Apply color if specified
+            presenter = presenter.send(color) if color
+
+            presenter.to_s
           else
             visual
           end
         end
 
-        # Pre-compute which diff indices are formatting-only at the block level.
-        # Groups consecutive non-= changes within the context range, joins
-        # old/new parts, and checks via FormattingDetector. This catches
-        # multi-line tag wrapping that per-line comparison misses.
-        #
-        # @param context [DiffContext] The diff context
-        # @param diffs [Array] The LCS diff changes
-        # @return [Set<Integer>] Indices that are formatting-only
+
         def detect_block_formatting(context, diffs)
           formatting_indices = Set.new
           blocks = []
@@ -827,6 +1177,28 @@ informative: false, formatting: false)
           end
 
           formatting_indices
+        end
+
+        # Count the number of separate contiguous changed regions in a range list.
+        # A simple word replacement like "John Doe" → "Jane Doe" produces
+        # 3 ranges (unchanged prefix + changed + unchanged suffix) but only
+        # ONE changed region. Only multiple separate changed regions count as mixed.
+        #
+        # @param ranges [Array<DiffCharRange>]
+        # @param changed_status [Symbol] :changed_old or :changed_new
+        # @return [Integer] number of separate changed regions
+        def count_changed_regions(ranges, changed_status)
+          count = 0
+          in_changed = false
+          ranges.each do |cr|
+            if cr.status == changed_status
+              count += 1 unless in_changed
+              in_changed = true
+            else
+              in_changed = false
+            end
+          end
+          count
         end
       end
     end

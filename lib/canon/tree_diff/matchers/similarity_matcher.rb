@@ -96,6 +96,7 @@ module Canon
         def match_group(nodes1, nodes2)
           # Create similarity matrix
           matches = []
+          ambiguous = nodes1.size > 1
 
           nodes2.each do |node2|
             next if @matching.matched2?(node2)
@@ -115,6 +116,15 @@ module Canon
               end
 
               similarity = node1.similarity_to(node2)
+
+              # When multiple candidates exist, penalize attribute value
+              # mismatches to prevent cross-matching of nodes with same
+              # structure but different IDs. Uses TreeNode#attribute_difference
+              # for consistent attribute comparison across the tree_diff module.
+              if similarity >= @threshold && ambiguous && !node1.attributes.empty?
+                attr_diff = node1.attribute_difference(node2)
+                similarity *= (1.0 - attr_diff) if attr_diff.positive?
+              end
 
               if similarity > best_similarity
                 best_similarity = similarity

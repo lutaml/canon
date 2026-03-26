@@ -168,7 +168,8 @@ module Canon
                    character_map_file: nil, character_definitions: nil,
                    show_diffs: :all, verbose_diff: false,
                    show_raw_inputs: false, show_preprocessed_inputs: false,
-                   show_line_numbered_inputs: false)
+                   show_line_numbered_inputs: false,
+                   diff_mode: :separate, legacy_terminal: false)
       # rubocop:enable Metrics/ParameterLists
       @use_color = use_color
       @mode = mode
@@ -179,6 +180,8 @@ module Canon
       @show_raw_inputs = show_raw_inputs
       @show_preprocessed_inputs = show_preprocessed_inputs
       @show_line_numbered_inputs = show_line_numbered_inputs
+      @diff_mode = legacy_terminal ? :separate : diff_mode
+      @legacy_terminal = legacy_terminal
       @visualization_map = build_visualization_map(
         visualization_map: visualization_map,
         character_map_file: character_map_file,
@@ -259,19 +262,16 @@ module Canon
     # @param html_version [Symbol, nil] HTML version (:html4 or :html5)
     # @return [String] Formatted output
     def format(differences, format, doc1: nil, doc2: nil, html_version: nil)
-      # In by-line mode with doc1/doc2, always perform diff regardless of differences
+      # In by-line mode, always use by-line diff
       if @mode == :by_line && doc1 && doc2
         return by_line_diff(doc1, doc2, format: format,
                                         html_version: html_version,
                                         differences: differences)
       end
 
-      # Check if no differences (handle both ComparisonResult and legacy Array)
       no_diffs = if differences.respond_to?(:equivalent?)
-                   # ComparisonResult object (production path)
                    differences.equivalent?
                  else
-                   # Legacy Array (for low-level tests)
                    differences.empty?
                  end
       return success_message if no_diffs
@@ -644,10 +644,12 @@ differences: [])
 
       return output.join("\n") if doc1.nil? || doc2.nil?
 
-      # Extract differences array from ComparisonResult if needed
+      # Extract differences array and equivalent status from ComparisonResult if needed
       diffs_array = if differences.is_a?(Canon::Comparison::ComparisonResult)
+                      @comparison_equivalent = differences.equivalent?
                       differences.differences
                     else
+                      @comparison_equivalent = nil
                       differences
                     end
 
@@ -660,6 +662,9 @@ differences: [])
         visualization_map: @visualization_map,
         show_diffs: @show_diffs,
         differences: diffs_array,
+        diff_mode: @legacy_terminal ? :separate : @diff_mode,
+        legacy_terminal: @legacy_terminal,
+        equivalent: @comparison_equivalent,
       )
 
       output << formatter.format(doc1, doc2)

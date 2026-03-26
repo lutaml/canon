@@ -91,6 +91,19 @@ module Canon
           candidates = (@signature_map[sig2] || []).reject { |n| @matched_tree1.include?(n) }
           return if candidates.empty?
 
+          # When multiple candidates have identical signatures (common with
+          # duplicate subtrees like MathML formulas), sort by sibling position
+          # proximity to prefer matching nodes at the same position within
+          # their parent. This reduces cross-matching that causes cascading
+          # prefix closure failures.
+          if candidates.size > 1
+            pos2 = node2.position || 0
+            candidates = candidates.sort_by do |c|
+              pos1 = c.position || 0
+              (pos1 - pos2).abs
+            end
+          end
+
           # Try each candidate until one passes both subtree matching
           # AND the prefix closure constraint in matching.add.
           # When multiple candidates have identical subtrees (e.g., labels

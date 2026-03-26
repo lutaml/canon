@@ -11,7 +11,7 @@ module Canon
       # Provides common LCS diff logic and hunk building
       class BaseFormatter
         attr_reader :use_color, :context_lines, :diff_grouping_lines,
-                    :visualization_map, :show_diffs
+                    :visualization_map, :show_diffs, :diff_mode, :legacy_terminal
 
         # Create a format-specific by-line formatter
         #
@@ -46,13 +46,25 @@ module Canon
 
         def initialize(use_color: true, context_lines: 3,
                        diff_grouping_lines: nil, visualization_map: nil,
-                       show_diffs: :all, differences: [])
+                       show_diffs: :all, differences: [],
+                       diff_mode: :separate, legacy_terminal: false,
+                       equivalent: nil)
           @use_color = use_color
           @context_lines = context_lines
           @diff_grouping_lines = diff_grouping_lines
           @visualization_map = visualization_map
           @show_diffs = show_diffs
           @differences = differences
+          @line_num_width = 4
+          @diff_mode = legacy_terminal ? :separate : diff_mode
+          @legacy_terminal = legacy_terminal
+          @equivalent = equivalent
+        end
+
+        # Compute line number column width from document line counts
+        def compute_line_num_width(doc1, doc2)
+          max_lines = [doc1.count("\n"), doc2.count("\n")].max
+          @line_num_width = [max_lines.to_s.length, 4].max
         end
 
         # Format line-by-line diff
@@ -167,14 +179,18 @@ module Canon
         # RSpec-aware: resets any existing ANSI codes before applying new colors
         #
         # @param text [String] Text to colorize
-        # @param colors [Array<Symbol>] Paint color arguments
+        # @param colors [Array<Symbol>] Rainbow color/effect arguments
         # @return [String] Colorized or plain text
         def colorize(text, *colors)
           return text unless @use_color
 
-          require "paint"
-          # Reset ANSI codes first to prevent RSpec's initial red from interfering
-          "\e[0m#{Paint[text, *colors]}"
+          require "rainbow"
+          # Use a local Rainbow instance that ignores global TTY detection
+          rainbow = Rainbow.new
+          rainbow.enabled = true
+          presenter = rainbow.wrap(text)
+          colors.each { |c| presenter = presenter.send(c) }
+          presenter.to_s
         end
 
         # Identify contiguous diff blocks
@@ -349,8 +365,8 @@ module Canon
         # @return [String] Formatted line
         def format_unified_line(old_num, new_num, marker, content, color = nil,
                                 informative: false, formatting: false)
-          old_str = old_num ? "%4d" % old_num : "    "
-          new_str = new_num ? "%4d" % new_num : "    "
+          old_str = old_num ? "%#{@line_num_width}d" % old_num : " " * @line_num_width
+          new_str = new_num ? "%#{@line_num_width}d" % new_num : " " * @line_num_width
 
           # Formatting and informative diffs use directional colors already passed in
           # No need to override since callers set the correct color
@@ -409,19 +425,22 @@ module Canon
           old_visualized = apply_visualization(old_text, old_color)
           new_visualized = apply_visualization(new_text, new_color)
 
+          fmt = "%#{@line_num_width}d"
+          blank = " " * @line_num_width
+
           if @use_color
-            yellow_old = colorize("%4d" % old_line, :yellow)
+            yellow_old = colorize(fmt % old_line, :yellow)
             yellow_pipe1 = colorize("|", :yellow)
-            yellow_new = colorize("%4d" % new_line, :yellow)
+            yellow_new = colorize(fmt % new_line, :yellow)
             yellow_pipe2 = colorize("|", :yellow)
             old_marker_colored = colorize(old_marker, old_color)
             new_marker_colored = colorize(new_marker, new_color)
 
-            output << "#{yellow_old}#{yellow_pipe1}    #{old_marker_colored} #{yellow_pipe2} #{old_visualized}"
-            output << "    #{yellow_pipe1}#{yellow_new}#{new_marker_colored} #{yellow_pipe2} #{new_visualized}"
+            output << "#{yellow_old}#{yellow_pipe1}#{blank}#{old_marker_colored} #{yellow_pipe2} #{old_visualized}"
+            output << "#{blank}#{yellow_pipe1}#{yellow_new}#{new_marker_colored} #{yellow_pipe2} #{new_visualized}"
           else
-            output << "#{'%4d' % old_line}|    #{old_marker} | #{old_visualized}"
-            output << "    |#{'%4d' % new_line}#{new_marker} | #{new_visualized}"
+            output << "#{fmt % old_line}|#{blank}#{old_marker} | #{old_visualized}"
+            output << "#{blank}|#{fmt % new_line}#{new_marker} | #{new_visualized}"
           end
 
           output.join("\n")
@@ -440,8 +459,10 @@ module Canon
           end.join
 
           if color && @use_color
-            require "paint"
-            Paint[visual, color, :bold]
+            require "rainbow"
+            rainbow = Rainbow.new
+            rainbow.enabled = true
+            rainbow.wrap(visual).send(color).bright.to_s
           else
             visual
           end
@@ -528,6 +549,15 @@ module Canon
         #
         # @return [Boolean] True if diff display should be skipped
         def should_skip_diff_display?
+          # If documents are equivalent and there are no normative diffs,
+          # skip display entirely - showing even informative diffs when
+          # equivalent is misleading
+          if @equivalent == true
+            return @differences.none? do |diff|
+              diff.is_a?(Canon::Diff::DiffNode) && diff.normative?
+            end
+          end
+
           return false if @differences.nil? || @differences.empty?
 
           case @show_diffs

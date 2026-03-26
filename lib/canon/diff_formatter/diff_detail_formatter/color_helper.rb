@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require "paint"
+require "rainbow"
 
 module Canon
   class DiffFormatter
@@ -19,10 +19,9 @@ module Canon
         def self.colorize(text, color, use_color, bold: false)
           return text unless use_color
 
-          args = [color]
-          args << :bold if bold
-
-          Paint[text, *args]
+          presenter = Rainbow(text).send(color)
+          presenter = presenter.bright if bold
+          presenter.to_s
         end
       end
     end

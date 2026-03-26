@@ -84,17 +84,21 @@ end
 
 == Layer 3: Mapping
 
-**Responsibility**: Map semantic diffs to text line positions
+**Responsibility**: Enrich semantic diffs with character-level positions and map to text lines
 
 **Input**: DiffNode array + original text documents
 
 **Process**:
-1. Run text diff (Diff::LCS) on original strings
-2. For each changed line, find corresponding DiffNode
-3. Create DiffLine linking line ↔ DiffNode
-4. Inherit normative/informative from DiffNode
+1. **Enrichment** (DiffNodeEnricher): For each DiffNode, locate serialized content in source text and decompose into character ranges
+   - SourceLocator: Find serialized content position (char offset, line, column)
+   - TextDecomposer: Split into common prefix / changed / common suffix
+   - Create DiffCharRange objects with exact character positions
+2. **Assembly** (DiffLineBuilder): Build DiffLine sequence from enriched DiffNodes
+   - Map DiffCharRanges to source lines
+   - Fill in unchanged lines between changes
+   - Detect reflow (lines that moved but content unchanged)
 
-**Output**: Array of DiffLine objects
+**Output**: Array of DiffLine objects, each carrying DiffCharRange arrays
 
 [source,ruby]
 ----
@@ -102,13 +106,27 @@ end
 {
   line_number: 5,
   content: "<p>Changed text</p>",
+  new_content: "<p>New text</p>",
   type: :changed,  # :added, :removed, :unchanged
   diff_node: DiffNode reference,
+  char_ranges: [DiffCharRange, ...],       # text1 side
+  new_char_ranges: [DiffCharRange, ...],   # text2 side
   normative: true  # from diff_node
+}
+
+# DiffCharRange structure
+{
+  line_number: 5,
+  start_col: 3,
+  end_col: 14,
+  side: :old,
+  status: :changed_old,  # :unchanged, :changed_new, :removed, :added
+  role: :changed,        # :before, :changed, :after
+  diff_node: DiffNode reference
 }
 ----
 
-**Key Point**: This layer bridges semantic differences to their textual representation.
+**Key Point**: This layer bridges semantic differences to their textual representation with precise character-level positions. The two-phase approach (enrich then assemble) ensures the formatter receives pre-computed data requiring no further computation.
 
 == Layer 4: Blocking
 
@@ -272,7 +290,15 @@ Result: Files differ, diff shown in red/green
 
 === Processing Layers
 
-[`DiffNodeMapper`](../../lib/canon/diff/diff_node_mapper.rb):: Maps semantic diffs to text line positions
+[`DiffNodeEnricher`](../../lib/canon/diff/diff_node_enricher.rb):: Phase 1: Enriches DiffNodes with character-level positions (SourceLocator + TextDecomposer)
+
+[`DiffLineBuilder`](../../lib/canon/diff/diff_line_builder.rb):: Phase 2: Assembles DiffLines from enriched DiffNodes (replaces DiffNodeMapper)
+
+[`DiffCharRange`](../../lib/canon/diff/diff_char_range.rb):: Value object: a character range within a source line linked to a DiffNode
+
+[`TextDecomposer`](../../lib/canon/diff/text_decomposer.rb):: Decomposes two strings into common prefix / changed / common suffix
+
+[`SourceLocator`](../../lib/canon/diff/source_locator.rb):: Locates serialized content within source text, returns char offset + line/col
 
 [`DiffBlockBuilder`](../../lib/canon/diff/diff_block_builder.rb):: Groups contiguous lines into blocks, filters by show_diffs
 
@@ -296,7 +322,8 @@ Each class does ONE thing:
 
 * **Comparator**: Compares → DiffNodes
 * **Classifier**: Classifies → normative flags
-* **Mapper**: Maps nodes → lines
+* **Enricher**: Enriches → char positions on DiffNodes
+* **LineBuilder**: Assembles → DiffLines with char ranges
 * **BlockBuilder**: Groups lines → blocks
 * **ContextBuilder**: Adds context → contexts
 * **Formatter**: Renders → string

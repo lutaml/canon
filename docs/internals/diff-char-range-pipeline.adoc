@@ -1,0 +1,249 @@
+---
+title: DiffCharRange Pipeline
+parent: Internals
+nav_order: 2
+---
+= DiffCharRange Pipeline
+
+== Purpose
+
+This document explains the two-phase pipeline that enriches semantic DiffNodes with character-level positions and assembles them into display-ready DiffLines. This pipeline replaced the previous DiffNodeMapper approach that used Diff::LCS on text lines, which caused structural mismatches for XML.
+
+== The Problem
+
+The previous approach (`DiffNodeMapper`) ran `Diff::LCS.sdiff(lines1, lines2)` on text lines. This was fundamentally wrong because:
+
+1. LCS operates on text lines, not XML structure
+2. It caused spurious deletes/inserts for closing tags that merely moved to a different line
+3. Character-level highlighting was independently re-tokenized in the formatter
+4. A string-concatenation hack (`merge_adjacent_removals!`) was needed to paper over structural mismatches
+
+== The Solution
+
+The new pipeline follows a strict two-phase separation:
+
+* **Phase 1 (Enrichment)**: DiffNodes are enriched with character positions and line counts. LCS on serialized content is acceptable here -- it operates on the change itself (short strings like "Hello World" vs "Hello Universe"), NOT on document lines.
+* **Phase 2 (Rendering)**: Formatter renders pre-computed DiffCharRanges. NO LCS, NO tokenization, NO computation. Just read char ranges and apply colors.
+
+== Architecture
+
+[source]
+----
+PHASE 1: DIFFNODE GENERATION + ENRICHMENT
+==========================================
+
+  Comparator (DOM/semantic) produces DiffNode[]
+    |
+    | serialized_before, serialized_after, dimension, etc.
+    |
+    v
+  DiffNodeEnricher (NEW)
+    |
+    | For each DiffNode:
+    |   1. SourceLocator: find serialized content in source text
+    |      -> char_offset, line_number, col in text1 and text2
+    |   2. TextDecomposer: decompose serialized_before vs serialized_after
+    |      -> common_prefix, changed_old, changed_new, common_suffix
+    |   3. Create DiffCharRange objects for each part
+    |      -> attached to DiffNode
+    |   4. Compute line_range_before, line_range_after
+    |
+    v
+  DiffNode[] (enriched with char_ranges, line counts)
+
+
+PHASE 2: RENDERING (NO LCS, NO COMPUTATION)
+============================================
+
+  DiffNode[] -> DiffLineBuilder (maps DiffCharRanges to DiffLines)
+           -> DiffLines (each carrying DiffCharRange[])
+           -> DiffBlockBuilder -> DiffContextBuilder -> DiffReport  [UNCHANGED]
+           -> Formatter (reads DiffCharRanges, applies colors)
+----
+
+== New Classes
+
+=== DiffCharRange
+
+*Location*: `lib/canon/diff/diff_char_range.rb`
+
+Value object: a character range within a source line linked to a DiffNode.
+
+[source,ruby]
+----
+class DiffCharRange
+  attr_reader :line_number, :start_col, :end_col, :side, :status, :role, :diff_node
+
+  # side: :old (text1) or :new (text2)
+  # status: :unchanged / :removed / :added / :changed_old / :changed_new
+  # role: :before / :changed / :after
+end
+----
+
+Status meanings:
+
+[cols="2,4"]
+|===
+| Status | Meaning
+
+| `:unchanged` | Same in both documents (before-text / after-text portions)
+| `:changed_old` | Old text being replaced (changed-text, text1 side)
+| `:changed_new` | New replacement text (changed-text, text2 side)
+| `:removed` | Entire range only in text1 (whole-line deletion)
+| `:added` | Entire range only in text2 (whole-line addition)
+|===
+
+=== TextDecomposer
+
+*Location*: `lib/canon/diff/text_decomposer.rb`
+
+Pure function: decomposes two strings into common prefix / changed / common suffix.
+
+[source,ruby]
+----
+TextDecomposer.decompose("Hello World", "Hello Universe")
+# => {
+#   common_prefix: "Hello ",
+#   changed_old: "World",
+#   changed_new: "Universe",
+#   common_suffix: ""
+# }
+----
+
+Algorithm: character-by-character prefix scan + reverse suffix scan. O(n).
+
+=== SourceLocator
+
+*Location*: `lib/canon/diff/source_locator.rb`
+
+Locates serialized content within source text, returns char offset + line/col.
+
+[source,ruby]
+----
+SourceLocator.locate("Hello World", text1, line_map)
+# => { char_offset: 17, line_number: 1, col: 9 }
+----
+
+Uses `String#index` on the full text, then maps char offset to line/col via a pre-built line offset map.
+
+=== DiffNodeEnricher
+
+*Location*: `lib/canon/diff/diff_node_enricher.rb`
+
+Enriches DiffNodes with character position data. This is Phase 1 of the pipeline.
+
+**Input**: `DiffNode[]`, `text1`, `text2` (preprocessed strings)
+**Output**: Same `DiffNode[]` enriched with `char_ranges`, `line_range_before`, `line_range_after`
+
+**Algorithm**:
+----
+Step 1: Build line offset maps for text1 and text2
+Step 2: For each DiffNode:
+  a. SourceLocator.locate(serialized_before, text1) -> position in text1
+  b. SourceLocator.locate(serialized_after, text2) -> position in text2
+  c. TextDecomposer.decompose(serialized_before, serialized_after) -> 3 parts
+  d. Map each part to DiffCharRange objects at correct line/col positions
+  e. Store char_ranges on DiffNode
+  f. Compute line_range_before, line_range_after from char_ranges
+----
+
+=== DiffLineBuilder
+
+*Location*: `lib/canon/diff/diff_line_builder.rb`
+
+Assembles DiffLines from enriched DiffNodes. This is Phase 2 -- NO LCS, NO computation.
+
+**Input**: `DiffNode[]` (enriched), `text1`, `text2`
+**Output**: `DiffLine[]` (each carrying `DiffCharRange[]`)
+
+**Algorithm**:
+----
+Step 1: Walk DiffNodes in document order (sorted by line_range_before)
+Step 2: For each DiffNode, create DiffLines from its char_ranges:
+  - char_ranges with side: :old -> DiffLine.char_ranges
+  - char_ranges with side: :new -> DiffLine.new_char_ranges
+  - Determine DiffLine type from the DiffNode's dimension and line ranges
+Step 3: Fill in unchanged lines between DiffNodes
+  - Use cumulative offset from line_range differences
+  - Detect reflow (lines that moved but content unchanged)
+Step 4: Return DiffLine[] in document order
+----
+
+**Reflow detection**: Lines that exist in text1 but whose content appears within an adjacent changed line in text2 (e.g., closing tag moved to previous line) are detected by checking if the stripped content is a substring of the adjacent line. These become formatting-only DiffLines (`[`/`]` markers), NOT deletions.
+
+== Per-Dimension Strategies
+
+[cols="2,4"]
+|===
+| Dimension | Strategy
+
+| `:text_content` | Locate serialized_before/after, decompose into prefix/changed/suffix
+| `:attribute_values` | Find `key="old_value"` in old line, `key="new_value"` in new line
+| `:attribute_presence` | Find `key="value"` for added/removed attributes
+| `:attribute_order` | Highlight entire attribute section as formatting
+| `:comments` | Locate `<!--...-->`, decompose if changed
+| `:structural_whitespace` | Mark affected lines as formatting-only
+| `:element_structure` | Full-element deletion/insertion (all lines)
+|===
+
+== Modified Classes
+
+=== DiffNode
+
+Added enrichment attributes:
+
+* `attr_accessor :char_ranges` -- `Array<DiffCharRange>`
+* `attr_accessor :line_range_before` -- `[start_line, end_line]` in text1
+* `attr_accessor :line_range_after` -- `[start_line, end_line]` in text2
+
+=== DiffLine
+
+Added:
+
+* `attr_reader :char_ranges` (text1 side DiffCharRange[])
+* `attr_reader :new_char_ranges` (text2 side DiffCharRange[])
+* `attr_reader :new_content` (text2 line text, for :changed lines)
+* `add_char_range(cr)`, `add_new_char_range(cr)`, `has_char_ranges?`
+
+== The 3-Part Decomposition
+
+When a text node changes (e.g., "Hello World" -> "Hello Universe"), the change is decomposed into 3 logical parts:
+
+[source]
+----
+"Hello World"  ->  "Hello Universe"
+^^^^^^^^         ^^^^^^^^ ^^^^^^^^
+  :before          :before  :changed
+                            (the actual diff)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^
+                            ^^^^^^^^
+                             :after (empty in this case)
+
+Each part produces DiffCharRange objects:
+  :before  -> status: :unchanged   (white/default)
+  :changed -> status: :changed_old (red)  / :changed_new (green)
+  :after   -> status: :unchanged   (white/default)
+----
+
+Each part can map to **multiple DiffCharRanges** across **multiple source lines** when the content spans line boundaries.
+
+== Mixed Change Detection
+
+A "mixed" change (`*` marker) occurs when a line has **multiple separate changed regions**. The detection counts contiguous changed regions, not total ranges:
+
+* Simple replacement "John Doe" -> "Jane Doe": 3 ranges but 1 changed region -> `-`/`+`
+* True mixed "foo bar baz" -> "foo qux baz quux": 2+ separate changed regions -> `*`
+
+The `count_changed_regions` method in `XmlFormatter` walks the ranges array counting transitions into `:changed_old`/`:changed_new` status.
+
+== Deleted Files
+
+The following file was removed and replaced by this pipeline:
+
+* `lib/canon/diff/diff_node_mapper.rb` -- replaced by `DiffNodeEnricher` + `DiffLineBuilder`
+
+== See Also
+
+* link:diffnode-enrichment[DiffNode Enrichment] -- How metadata is attached to DiffNodes
+* link:../advanced/diff-pipeline[Diff Pipeline Architecture] -- The 6-layer pipeline overview
+* link:../features/diff-formatting/colors-and-symbols[Colors and Symbols] -- How char ranges are rendered with color

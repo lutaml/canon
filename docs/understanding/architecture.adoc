@@ -889,6 +889,11 @@ class DiffNode
   attr_accessor :serialized_after      # Serialized "after" content
   attr_accessor :attributes_before     # Normalized "before" attributes
   attr_accessor :attributes_after      # Normalized "after" attributes
+
+  # Character-level enrichment (populated by DiffNodeEnricher)
+  attr_accessor :char_ranges           # Array<DiffCharRange> char positions
+  attr_accessor :line_range_before     # [start_line, end_line] in text1
+  attr_accessor :line_range_after      # [start_line, end_line] in text2
 end
 ----
 

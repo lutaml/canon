@@ -49,6 +49,13 @@ Green (added)
 | Semantic differences that affect match results. +
 Requires developer attention. +
 Represents actual content changes.
+
+h| Mixed
+| `*`
+| Yellow
+| Line contains multiple separate changed regions. +
+Both old and new lines are modified. +
+Appears on both OLD and NEW lines.
 |===
 
 === Classification hierarchy
@@ -140,6 +147,13 @@ Normative changes use red/green for high visual priority:
 
 * `-` - Line removed (normative difference, red)
 * `+` - Line added (normative difference, green)
+
+==== Mixed Marker (Yellow)
+
+* `*` - Line with multiple separate changed regions (yellow)
+** Appears on BOTH old and new lines when changes are interleaved.
+** A simple word replacement (e.g., "John" → "Jane") uses `-`/`+`, not `*`.
+** Only used when there are 2+ separate changed regions in the same line.
 
 ==== Context Marker
 
@@ -521,6 +535,63 @@ canon diff file1.xml file2.xml
 ----
 
 The `NO_COLOR` variable always takes precedence over other color settings.
+
+== Diff Display Modes
+
+Canon supports two display modes for changed lines, controlled by the `diff_mode` option:
+
+=== Separate-Line Mode (default)
+
+Each changed line is shown as two lines — old on top, new on bottom:
+
+[source]
+----
+   2|    - | <p>John░Doe</p>
+    |   2+ | <p>Jane░Doe</p>
+----
+
+* Old line: line number on left, `-` marker, full content
+* New line: line number on right, `+` marker, full content
+* Changes are highlighted with colors (red for old, green for new)
+
+=== Inline Mode
+
+Old and new content shown on the same line, with inline highlighting:
+
+* When color is ON: removed text appears in red, added text in green
+* When color is OFF: removed text has strikethrough (`\e[9m`), added text has underline (`\e[4m`)
+* Both sides of the change are visible simultaneously
+
+[source,ruby]
+----
+result = Canon::Comparison.equivalent?(xml1, xml2,
+  verbose: true,
+  diff_mode: :inline
+)
+----
+
+=== Legacy Terminal Mode
+
+For terminals without ANSI support, Canon forces separate-line mode with no color codes:
+
+[source,ruby]
+----
+result = Canon::Comparison.equivalent?(xml1, xml2,
+  verbose: true,
+  legacy_terminal: true
+)
+----
+
+Legacy terminal mode automatically sets `diff_mode: :separate` and disables all color output.
+
+=== Color-Off Effects (Separate-Line Mode)
+
+When colors are disabled but ANSI is supported, Canon uses text effects to distinguish changes:
+
+* **Strikethrough** (`\e[9m`): Removed text
+* **Underline** (`\e[4m`): Added text
+
+These provide visual distinction even without color support.
 
 === Environment Variables
 

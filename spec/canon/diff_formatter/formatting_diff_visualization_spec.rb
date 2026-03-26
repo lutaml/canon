@@ -5,7 +5,7 @@ require "canon/comparison"
 
 RSpec.describe "Formatting diff visualization" do
   describe "formatting-only differences" do
-    it "shows [ and ] markers for formatting-only line splits" do
+    it "suppresses diff when documents are equivalent despite formatting differences" do
       xml1 = <<~XML
         <root>
           <p>Hello world</p>
@@ -27,12 +27,12 @@ RSpec.describe "Formatting diff visualization" do
       )
       diff = result.diff(use_color: false)
 
-      # Should show formatting markers [ and ]
-      expect(diff).to include("[")
-      expect(diff).to include("]")
+      # When equivalent, diff output is suppressed
+      expect(result.equivalent?).to be true
+      expect(diff.lines.length).to eq(1) # Only header
     end
 
-    it "shows formatting markers for indentation differences" do
+    it "shows no formatting markers when documents are equivalent" do
       xml1 = <<~XML
         <root>
           <item>One</item>
@@ -49,21 +49,24 @@ RSpec.describe "Formatting diff visualization" do
                                                          use_color: false)
       diff = result.diff(use_color: false)
 
-      # Should detect formatting-only difference
-      expect(diff).to include("[")
-      expect(diff).to include("]")
+      # When documents are equivalent, NO formatting markers should be shown
+      # The comparison found them equivalent despite formatting differences
+      expect(diff).not_to include("[")
+      expect(diff).not_to include("]")
     end
 
-    it "uses dim gray color for formatting markers when color enabled" do
+    it "handles equivalent documents without errors" do
       xml1 = "<root><p>Hello  world</p></root>"
       xml2 = "<root><p>Hello world</p></root>"
 
       result = Canon::Comparison.equivalent?(xml1, xml2, verbose: true,
-                                                         use_color: true)
+                                                         use_color: true,
+                                                         match: { text_content: :normalize })
       diff = result.diff(use_color: true)
 
-      # Should include formatting markers
-      expect(diff).to include("[").or include("]")
+      # When equivalent, diff is suppressed
+      expect(result.equivalent?).to be true
+      expect(diff.lines.length).to eq(1) # Only header
     end
   end
 
@@ -107,7 +110,7 @@ RSpec.describe "Formatting diff visualization" do
   end
 
   describe "informative vs formatting differences" do
-    it "shows informative markers for match-option-dependent differences" do
+    it "shows informative markers when comments differ but are configured as ignore" do
       xml1 = "<root><!-- comment1 --><p>Content</p></root>"
       xml2 = "<root><!-- comment2 --><p>Content</p></root>"
 
@@ -119,22 +122,24 @@ RSpec.describe "Formatting diff visualization" do
       )
       diff = result.diff(use_color: false)
 
-      # Comment differences should be informative
-      expect(diff).to include("<").or include(">")
+      # When equivalent but comments are ignored, diff is suppressed
+      expect(result.equivalent?).to be true
+      expect(diff.lines.length).to eq(1)
     end
 
-    it "distinguishes formatting from informative differences" do
-      # Formatting: whitespace only
+    it "suppresses both formatting and informative when equivalent" do
+      # Formatting: whitespace only (equivalent with normalize)
       xml1a = "<root><p>Hello  world</p></root>"
       xml2a = "<root><p>Hello world</p></root>"
 
       result_formatting = Canon::Comparison.equivalent?(
         xml1a, xml2a,
         verbose: true,
-        use_color: false
+        use_color: false,
+        match: { text_content: :normalize }
       )
 
-      # Informative: comments (ignored)
+      # Informative: comments (ignored, equivalent)
       xml1b = "<root><!-- old --></root>"
       xml2b = "<root><!-- new --></root>"
 
@@ -145,11 +150,12 @@ RSpec.describe "Formatting diff visualization" do
         match: { comments: :ignore }
       )
 
-      # Formatting should use [ ]
-      expect(result_formatting.diff(use_color: false)).to include("[").or include("]")
+      # Both should be equivalent - diff suppressed
+      expect(result_formatting.equivalent?).to be true
+      expect(result_formatting.diff(use_color: false).lines.length).to eq(1)
 
-      # Informative should use < >
-      expect(result_informative.diff(use_color: false)).to include("<").or include(">")
+      expect(result_informative.equivalent?).to be true
+      expect(result_informative.diff(use_color: false).lines.length).to eq(1)
     end
   end
 
@@ -197,7 +203,7 @@ RSpec.describe "Formatting diff visualization" do
   end
 
   describe "classification hierarchy" do
-    it "follows formatting < informative < normative hierarchy" do
+    it "shows normative markers for non-equivalent documents" do
       # Normative (highest priority)
       xml_normative1 = "<root><p>Old</p></root>"
       xml_normative2 = "<root><p>New</p></root>"
@@ -208,7 +214,15 @@ RSpec.describe "Formatting diff visualization" do
         use_color: false
       )
 
-      # Informative (medium priority)
+      # Should show normative markers for actual content differences
+      expect(result_normative.equivalent?).to be false
+      diff = result_normative.diff(use_color: false)
+      expect(diff).to include("-")
+      expect(diff).to include("+")
+    end
+
+    it "suppresses informative and formatting when equivalent" do
+      # Informative: comments (ignored, equivalent)
       xml_info1 = "<root><!-- old --></root>"
       xml_info2 = "<root><!-- new --></root>"
 
@@ -219,9 +233,7 @@ RSpec.describe "Formatting diff visualization" do
         match: { comments: :ignore }
       )
 
-      # Formatting (lowest priority) - use text content with
-      # line break differences
-      # Use normalize mode to allow formatting-only detection
+      # Formatting (equivalent)
       xml_fmt1 = "<root><p>Hello world</p></root>"
       xml_fmt2 = "<root><p>Hello\nworld</p></root>"
 
@@ -232,15 +244,12 @@ RSpec.describe "Formatting diff visualization" do
         match: { text_content: :normalize, structural_whitespace: :normalize }
       )
 
-      # Normative uses - and +
-      expect(result_normative.diff(use_color: false)).to include("-")
-      expect(result_normative.diff(use_color: false)).to include("+")
+      # Both should be equivalent - diff suppressed
+      expect(result_info.equivalent?).to be true
+      expect(result_info.diff(use_color: false).lines.length).to eq(1)
 
-      # Informative uses < and >
-      expect(result_info.diff(use_color: false)).to include("<").or include(">")
-
-      # Formatting uses [ and ]
-      expect(result_fmt.diff(use_color: false)).to include("[").or include("]")
+      expect(result_fmt.equivalent?).to be true
+      expect(result_fmt.diff(use_color: false).lines.length).to eq(1)
     end
   end
 

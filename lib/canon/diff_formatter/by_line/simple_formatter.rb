@@ -15,6 +15,7 @@ module Canon
         # @param doc2 [String] Second document
         # @return [String] Formatted diff
         def format(doc1, doc2)
+          compute_line_num_width(doc1, doc2)
           output = []
           # Use split with -1 to preserve trailing empty strings (from trailing \n)
           lines1 = doc1.split("\n", -1)
@@ -102,22 +103,25 @@ module Canon
           old_visualized = apply_visualization(old_text, :red)
           new_visualized = apply_visualization(new_text, :green)
 
+          fmt = "%#{@line_num_width}d"
+          blank = " " * @line_num_width
+
           # Format both lines with yellow line numbers and pipes
           if @use_color
-            yellow_old = colorize("%4d" % line_num, :yellow)
+            yellow_old = colorize(fmt % line_num, :yellow)
             yellow_pipe1 = colorize("|", :yellow)
-            yellow_new = colorize("%4d" % line_num, :yellow)
+            yellow_new = colorize(fmt % line_num, :yellow)
             yellow_pipe2 = colorize("|", :yellow)
             red_marker = colorize("-", :red)
             green_marker = colorize("+", :green)
 
-            output << "#{yellow_old}#{yellow_pipe1}    #{red_marker} #{yellow_pipe2} #{old_visualized}"
-            output << "    #{yellow_pipe1}#{yellow_new}#{green_marker} #{yellow_pipe2} #{new_visualized}"
+            output << "#{yellow_old}#{yellow_pipe1}#{blank}#{red_marker} #{yellow_pipe2} #{old_visualized}"
+            output << "#{blank}#{yellow_pipe1}#{yellow_new}#{green_marker} #{yellow_pipe2} #{new_visualized}"
           else
-            old_str = "%4d" % line_num
-            new_str = "%4d" % line_num
-            output << "#{old_str}|    - | #{old_visualized}"
-            output << "    |#{new_str}+ | #{new_visualized}"
+            old_str = fmt % line_num
+            new_str = fmt % line_num
+            output << "#{old_str}|#{blank}- | #{old_visualized}"
+            output << "#{blank}|#{new_str}+ | #{new_visualized}"
           end
 
           output.join("\n")
@@ -136,8 +140,8 @@ module Canon
 
           # Apply color if provided and color is enabled
           if color && @use_color
-            require "paint"
-            Paint[visual, color, :bold]
+            require "rainbow"
+            Rainbow(visual).send(color).bright.to_s
           else
             visual
           end

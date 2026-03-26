@@ -42,6 +42,13 @@ diff_node: nil)
         !normative?
       end
 
+      # @return [Boolean] true if all lines in this block are formatting-only
+      def formatting?
+        return false if diff_lines.empty?
+
+        diff_lines.all?(&:formatting?)
+      end
+
       # Check if this block contains a specific type of change
       def includes_type?(type)
         types.include?(type)
