@@ -5,16 +5,20 @@ module Canon
     # Represents a single line in the diff output
     # Links textual representation to semantic DiffNode
     class DiffLine
-      attr_reader :line_number, :content, :type, :diff_node
+      attr_reader :line_number, :new_position, :content, :type, :diff_node
+      attr_writer :formatting
 
-      # @param line_number [Integer] The line number in the original text
+      # @param line_number [Integer] The 0-based line number in text1 (old text)
+      # @param new_position [Integer, nil] The 0-based line number in text2 (new text),
+      #   used for :changed lines where old and new positions differ
       # @param content [String] The text content of the line
       # @param type [Symbol] The type of line (:unchanged, :added, :removed, :changed)
       # @param diff_node [DiffNode, nil] The semantic diff node this line belongs to
       # @param formatting [Boolean] Whether this is a formatting-only difference
       def initialize(line_number:, content:, type:, diff_node: nil,
-formatting: false)
+                     formatting: false, new_position: nil)
         @line_number = line_number
+        @new_position = new_position
         @content = content
         @type = type
         @diff_node = diff_node
@@ -71,6 +75,7 @@ formatting: false)
       def to_h
         {
           line_number: line_number,
+          new_position: new_position,
           content: content,
           type: type,
           diff_node: diff_node&.to_h,
@@ -83,6 +88,7 @@ formatting: false)
       def ==(other)
         other.is_a?(DiffLine) &&
           line_number == other.line_number &&
+          new_position == other.new_position &&
           content == other.content &&
           type == other.type &&
           diff_node == other.diff_node &&

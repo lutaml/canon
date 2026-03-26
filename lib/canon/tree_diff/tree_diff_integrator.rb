@@ -55,11 +55,16 @@ module Canon
       # @param doc2 [Object] Second document (format-specific)
       # @return [Hash] Diff results with :operations, :matching, :statistics
       def diff(doc1, doc2)
-        # Convert documents to tree nodes
         tree1 = @adapter.to_tree(doc1)
         tree2 = @adapter.to_tree(doc2)
 
-        # Check node count limits
+        # Filter comment nodes when comments are ignored to prevent
+        # them from disrupting sibling alignment in the matcher
+        if @match_options[:comments] == :ignore
+          filter_comments_from_tree!(tree1)
+          filter_comments_from_tree!(tree2)
+        end
+
         check_node_count_limit(tree1)
         check_node_count_limit(tree2)
 
@@ -91,6 +96,56 @@ module Canon
       end
 
       private
+
+      # Recursively remove comment nodes and merge adjacent text nodes.
+      # When comments: :ignore is set, comment nodes in the tree disrupt
+      # sibling alignment in the matcher, producing false normative diffs.
+      #
+      # @param tree [TreeNode, nil] Root of tree to filter
+      def filter_comments_from_tree!(tree)
+        return unless tree
+
+        comment_indices = []
+        tree.children.each_with_index do |child, idx|
+          if child.label == "comment"
+            comment_indices << idx
+          else
+            filter_comments_from_tree!(child)
+          end
+        end
+
+        return if comment_indices.empty?
+
+        comment_indices.reverse_each do |idx|
+          tree.remove_child(tree.children[idx])
+        end
+
+        merge_adjacent_text_nodes!(tree)
+      end
+
+      # Merge consecutive text children into one.
+      # When a comment between two text nodes is removed, the text
+      # segments should be re-joined to match the non-comment tree.
+      #
+      # @param node [TreeNode] Parent node whose children to merge
+      def merge_adjacent_text_nodes!(node)
+        return if node.children.size < 2
+
+        merged = []
+        node.children.each do |child|
+          if child.label == "text" && !merged.empty? && merged.last.label == "text"
+            merged.last.value = "#{merged.last.value}#{child.value}"
+            child.parent = nil
+          else
+            merged << child
+          end
+        end
+
+        return if merged.size == node.children.size
+
+        node.children = merged
+        merged.each { |c| c.parent = node }
+      end
 
       # Create format-specific adapter
       #

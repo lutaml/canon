@@ -61,107 +61,196 @@ module Canon
                                   end
 
         diff_lines = []
-        line_num = 0
 
         lcs_diffs.each do |change|
           diff_line = case change.action
                       when "="
                         DiffLine.new(
-                          line_number: line_num,
+                          line_number: change.old_position,
                           content: change.old_element,
                           type: :unchanged,
                           diff_node: nil,
                         )
                       when "-"
-                        # Find the diff node for this line
-                        # Check comment range first (handles multi-line comments),
-                        # then fall back to element name matching
                         node = shared_informative_node ||
                           find_diff_node_for_line(
-                            line_num, lines1, :removed,
+                            change.old_position, lines1, :removed,
                             comment_lines: @comment_lines1
                           )
 
-                        # Check if this is formatting-only:
-                        # 1. First check if the DiffNode itself is marked as formatting-only
-                        # 2. Otherwise, check line-level formatting
-                        formatting = if node.respond_to?(:formatting?) && node.formatting?
-                                       true
-                                     else
-                                       formatting_only_line?(
-                                         change.old_element, ""
-                                       )
-                                     end
+                        formatting = formatting?(node, change.old_element, "")
 
                         DiffLine.new(
-                          line_number: line_num,
+                          line_number: change.old_position,
                           content: change.old_element,
                           type: :removed,
                           diff_node: node,
                           formatting: formatting,
                         )
                       when "+"
-                        # Find the diff node for this line
                         node = shared_informative_node ||
                           find_diff_node_for_line(
-                            line_num, lines2, :added,
+                            change.new_position, lines2, :added,
                             comment_lines: @comment_lines2
                           )
 
-                        # Check if this is formatting-only:
-                        # 1. First check if the DiffNode itself is marked as formatting-only
-                        # 2. Otherwise, check line-level formatting
-                        formatting = if node.respond_to?(:formatting?) && node.formatting?
-                                       true
-                                     else
-                                       formatting_only_line?("",
-                                                             change.new_element)
-                                     end
+                        formatting = formatting?(node, "", change.new_element)
 
                         DiffLine.new(
-                          line_number: line_num,
+                          line_number: change.new_position,
                           content: change.new_element,
                           type: :added,
                           diff_node: node,
                           formatting: formatting,
                         )
                       when "!"
-                        # Find the diff node for this line
                         node = shared_informative_node ||
                           find_diff_node_for_line(
-                            line_num, lines2, :changed,
+                            change.new_position, lines2, :changed,
                             comment_lines: @comment_lines2,
                             old_content: change.old_element
                           )
 
-                        # Check if this is formatting-only:
-                        # 1. First check if the DiffNode itself is marked as formatting-only
-                        # 2. Otherwise, check line-level formatting
-                        formatting = if node.respond_to?(:formatting?) && node.formatting?
-                                       true
-                                     else
-                                       formatting_only_line?(
-                                         change.old_element, change.new_element
-                                       )
-                                     end
+                        formatting = formatting?(node,
+                                                 change.old_element,
+                                                 change.new_element)
 
                         DiffLine.new(
-                          line_number: line_num,
+                          line_number: change.old_position,
                           content: change.new_element,
                           type: :changed,
                           diff_node: node,
                           formatting: formatting,
+                          new_position: change.new_position,
                         )
                       end
 
           diff_lines << diff_line
-          line_num += 1
         end
+
+        # Post-process: detect multi-line formatting changes that
+        # per-line comparison misses (e.g., tag wrapping from 2 lines to 1,
+        # element reflow with different line counts).
+        apply_block_formatting!(diff_lines, lcs_diffs)
 
         diff_lines
       end
 
       private
+
+      # Post-process consecutive change blocks to detect multi-line
+      # formatting changes that per-line comparison misses.
+      #
+      # When a tag wraps across different numbers of lines (e.g., 2 old lines
+      # → 1 new line), individual line pairs can't be compared. By joining
+      # all old parts and all new parts within a consecutive change block,
+      # we can detect formatting-only changes at the block level.
+      #
+      # For blocks containing multiple elements (e.g., list-item a reflow
+      # followed by list-item b), we greedily find formatting prefix sub-blocks.
+      #
+      # @param diff_lines [Array<DiffLine>] The diff lines to update
+      # @param lcs_diffs [Array<Diff::LCS::Change>] The LCS changes
+      def apply_block_formatting!(diff_lines, lcs_diffs)
+        require_relative "formatting_detector"
+
+        blocks = group_change_blocks(lcs_diffs)
+
+        blocks.each do |block|
+          next if block[:old_parts].empty? || block[:new_parts].empty?
+
+          # Try simple join-and-compare (handles single-element blocks)
+          if FormattingDetector.formatting_block?(block[:old_parts],
+                                                  block[:new_parts])
+            mark_block_lines_formatting!(diff_lines, block,
+                                         block[:old_parts].length,
+                                         block[:new_parts].length)
+            next
+          end
+
+          # Try finding a formatting prefix sub-block
+          match = FormattingDetector.formatting_prefix(block[:old_parts],
+                                                       block[:new_parts])
+          if match
+            mark_block_lines_formatting!(diff_lines, block,
+                                         match[:old_end], match[:new_end])
+          end
+        end
+      end
+
+      # Group consecutive non-unchanged LCS changes into blocks.
+      #
+      # @param lcs_diffs [Array<Diff::LCS::Change>] The LCS changes
+      # @return [Array<Hash>] Blocks with :indices, :old_parts, :new_parts
+      def group_change_blocks(lcs_diffs)
+        blocks = []
+        current_block = nil
+
+        lcs_diffs.each_with_index do |change, idx|
+          if change.action == "="
+            current_block = nil
+            next
+          end
+
+          current_block ||=
+            { indices: [], old_parts: [], new_parts: [] }
+          current_block[:indices] << idx
+
+          case change.action
+          when "-"
+            current_block[:old_parts] << change.old_element
+          when "+"
+            current_block[:new_parts] << change.new_element
+          when "!"
+            current_block[:old_parts] << change.old_element
+            current_block[:new_parts] << change.new_element
+          end
+        end
+
+        blocks << current_block if current_block
+        blocks
+      end
+
+      # Mark lines within a block as formatting-only.
+      # Only marks lines that don't already have a non-formatting DiffNode.
+      #
+      # @param diff_lines [Array<DiffLine>] The diff lines to update
+      # @param block [Hash] The change block from group_change_blocks
+      # @param old_count [Integer] Number of old parts to mark
+      # @param new_count [Integer] Number of new parts to mark
+      def mark_block_lines_formatting!(diff_lines, block, old_count,
+                                       new_count)
+        old_marked = 0
+        new_marked = 0
+
+        block[:indices].each do |idx|
+          dl = diff_lines[idx]
+          next if dl.type == :unchanged
+          next if dl.diff_node && !dl.formatting?
+
+          case dl.type
+          when :removed
+            if old_marked < old_count
+              dl.formatting = true
+              old_marked += 1
+            end
+          when :added
+            if new_marked < new_count
+              dl.formatting = true
+              new_marked += 1
+            end
+          when :changed
+            if old_marked < old_count
+              dl.formatting = true
+              old_marked += 1
+            end
+            if new_marked < new_count
+              dl.formatting = true
+              new_marked += 1
+            end
+          end
+        end
+      end
 
       # Check if two lines differ only in formatting (whitespace)
       # @param line1 [String] First line
@@ -170,6 +259,34 @@ module Canon
       def formatting_only_line?(line1, line2)
         require_relative "formatting_detector"
         FormattingDetector.formatting_only?(line1, line2)
+      end
+
+      # Determine formatting status for a changed line.
+      # Checks: DiffNode formatting flag → line-level formatting → comment-only heuristic
+      #
+      # @param node [DiffNode, nil] Associated diff node
+      # @param line1 [String] Old line content (for -/!)
+      # @param line2 [String] New line content (for +/!)
+      # @return [Boolean] true if formatting-only
+      def formatting?(node, line1, line2)
+        return true if node.respond_to?(:formatting?) && node.formatting?
+        return false if node
+        return true if comment_only_line?(line1) || comment_only_line?(line2)
+
+        formatting_only_line?(line1, line2)
+      end
+
+      # Check if a line is entirely an XML comment (possibly with whitespace).
+      # Used as heuristic: comment-only lines with no DiffNode are likely
+      # filtered/ignored comments, not normative differences.
+      #
+      # @param line [String, nil] Line content
+      # @return [Boolean] true if line is comment-only
+      def comment_only_line?(line)
+        return false if line.nil?
+
+        stripped = line.strip
+        stripped.start_with?("<!--") && stripped.end_with?("-->")
       end
 
       # Find the DiffNode associated with a line

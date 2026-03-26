@@ -273,7 +273,7 @@ module Canon
           # Handle TextNode specially
           if node.is_a?(Canon::Xml::Nodes::TextNode)
             content = node.value.to_s
-            if content&.length && content.length > 30
+            if content.length > 30
               "\"#{content[0..27]}...\""
             else
               "\"#{content}\""
@@ -287,14 +287,14 @@ module Canon
             "<#{node.name}>"
           elsif node.respond_to?(:content)
             content = node.content.to_s
-            if content&.length && content.length > 30
+            if content.length > 30
               "\"#{content[0..27]}...\""
             else
               "\"#{content || ''}\""
             end
           elsif node.respond_to?(:text)
             text = node.text.to_s
-            if text&.length && text.length > 30
+            if text.length > 30
               "\"#{text[0..27]}...\""
             else
               "\"#{text || ''}\""

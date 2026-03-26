@@ -5,6 +5,7 @@ require_relative "../core/node_signature"
 require_relative "../core/node_weight"
 require_relative "../core/matching"
 require_relative "../core/attribute_comparator"
+require_relative "../core/xml_entity_decoder"
 
 module Canon
   module TreeDiff
@@ -50,15 +51,12 @@ module Canon
         #
         # @return [Core::Matching] The resulting matching
         def match
-          # Step 1: Build signature map for tree1
           build_signature_map
 
-          # Step 2: Get all nodes from tree2 sorted by weight (heaviest first)
           tree2_nodes = collect_nodes(tree2).sort_by do |node|
             -Core::NodeWeight.for(node).value
           end
 
-          # Step 3: Match nodes from tree2 to tree1 via signatures
           tree2_nodes.each do |node2|
             next if @matched_tree2.include?(node2)
 
@@ -70,9 +68,6 @@ module Canon
 
         private
 
-        # Build signature map for tree1
-        #
-        # Maps signatures to arrays of nodes (multiple nodes can share signature)
         def build_signature_map
           collect_nodes(tree1).each do |node|
             sig = Core::NodeSignature.for(node)
@@ -91,120 +86,58 @@ module Canon
           nodes
         end
 
-        # Try to match a node from tree2 to tree1
-        #
-        # @param node2 [TreeNode] Node from tree2
         def match_node(node2)
           sig2 = Core::NodeSignature.for(node2)
-
-          # Find candidate nodes in tree1 with same signature
-          candidates = @signature_map[sig2] || []
-
-          # Filter to unmatched candidates
-          candidates = candidates.reject { |n| @matched_tree1.include?(n) }
-
+          candidates = (@signature_map[sig2] || []).reject { |n| @matched_tree1.include?(n) }
           return if candidates.empty?
 
-          # Find best match among candidates
-          best_match = find_best_match(node2, candidates)
+          # Try each candidate until one passes both subtree matching
+          # AND the prefix closure constraint in matching.add.
+          # When multiple candidates have identical subtrees (e.g., labels
+          # with the same text child), the first may fail prefix closure
+          # due to ancestor cross-matching, but a later candidate succeeds.
+          candidates.each do |candidate|
+            next unless subtrees_match?(candidate, node2)
 
-          return unless best_match
-
-          # Add match if it satisfies constraints
-          if @matching.add(best_match, node2)
-            @matched_tree1 << best_match
-            @matched_tree2 << node2
-
-            # Try to propagate match to ancestors
-            propagate_to_ancestors(best_match, node2)
+            if @matching.add(candidate, node2)
+              @matched_tree1 << candidate
+              @matched_tree2 << node2
+              propagate_to_ancestors(candidate, node2)
+              return
+            end
           end
         end
 
-        # Find best match among candidates
-        #
-        # For exact matching, we need:
-        # 1. Same signature (already filtered)
-        # 2. Matching subtrees (same structure and values)
-        #
-        # @param node2 [TreeNode] Node from tree2
-        # @param candidates [Array<TreeNode>] Candidate nodes from tree1
-        # @return [TreeNode, nil]
-        def find_best_match(node2, candidates)
-          # For hash matching, we want exact subtree equality
-          # Find first candidate that has matching subtree
-          candidates.find do |node1|
-            subtrees_match?(node1, node2)
-          end
-        end
-
-        # Check if two subtrees match exactly
-        #
-        # @param node1 [TreeNode] Node from tree1
-        # @param node2 [TreeNode] Node from tree2
-        # @return [Boolean]
         def subtrees_match?(node1, node2)
-          # Check root nodes match
           return false unless nodes_match?(node1, node2)
-
-          # Check children count
           return false unless node1.children.size == node2.children.size
 
-          # Check each child subtree matches
           node1.children.zip(node2.children).all? do |child1, child2|
             subtrees_match?(child1, child2)
           end
         end
 
-        # Check if two nodes match (not including subtrees)
-        #
-        # Uses normalized text comparison based on match_options.
-        #
-        # IMPORTANT: For hash matching, we check STRUCTURAL equality:
-        # - Same label
-        # - Same text content (normalized)
-        # - Same attribute KEYS (values can differ)
-        #
-        # This allows nodes with same structure but different attribute values to be
-        # matched during hash matching. The attribute VALUE differences will be
-        # detected by OperationDetector and reported as UPDATE operations.
-        #
-        # @param node1 [TreeNode] Node from tree1
-        # @param node2 [TreeNode] Node from tree2
-        # @return [Boolean]
         def nodes_match?(node1, node2)
           return false unless node1.label == node2.label
-
-          # CRITICAL FIX: Use normalized text comparison
           return false unless text_equivalent?(node1, node2)
 
-          # CRITICAL FIX: Check attribute KEYS match, not values
-          # This allows nodes with same attribute keys but different values to match
+          # Check attribute KEYS match, not values — value diffs are reported as UPDATE
           return false unless node1.attributes.keys == node2.attributes.keys
 
           true
         end
 
-        # Check if text values are equivalent according to match options
-        #
-        # Same logic as in OperationDetector for consistency.
-        #
-        # @param node1 [TreeNode] First node
-        # @param node2 [TreeNode] Second node
-        # @return [Boolean] True if text values are equivalent
         def text_equivalent?(node1, node2)
           text1 = node1.value
           text2 = node2.value
 
-          # Both nil or empty = equivalent
           return true if (text1.nil? || text1.empty?) && (text2.nil? || text2.empty?)
           return false if (text1.nil? || text1.empty?) || (text2.nil? || text2.empty?)
 
-          # If both normalize to empty (whitespace-only), treat as equivalent
           norm1 = normalize_text(text1)
           norm2 = normalize_text(text2)
           return true if norm1.empty? && norm2.empty?
 
-          # Apply normalization based on match_options
           text_content_mode = @match_options[:text_content] || :normalize
 
           case text_content_mode
@@ -217,103 +150,13 @@ module Canon
           end
         end
 
-        # Normalize text for comparison
-        #
-        # @param text [String, nil] Text to normalize
-        # @return [String] Normalized text
         def normalize_text(text)
           return "" if text.nil? || text.empty?
 
-          # First decode XML entity references
-          normalized = decode_xml_entities(text)
-
-          # Collapse multiple whitespace (including newlines) into single space
-          # Then strip leading/trailing whitespace
+          normalized = Core::XmlEntityDecoder.decode_xml_entities(text)
           normalized.gsub(/\s+/, " ").strip
         end
 
-        # Decode XML entity references to Unicode characters
-        #
-        # Handles:
-        # - Named entities: &amp; &lt; &gt; &quot; &apos; and custom entities
-        # - Decimal numeric entities: &#digits;
-        # - Hexadecimal numeric entities: &#xH+;
-        #
-        # @param text [String] Text with potential entity references
-        # @return [String] Text with entities decoded to Unicode characters
-        def decode_xml_entities(text)
-          return text if text.nil? || text.empty?
-
-          # Skip decoding if text doesn't contain any entity-like patterns
-          return text unless text.include?("&")
-
-          # Pattern for XML entities:
-          # 1. Named entities (amp, lt, gt, quot, apos, and custom ones)
-          # 2. Decimal numeric entities: &#digits;
-          # 3. Hexadecimal numeric entities: &#xH+;
-          entity_pattern = /&(?:amp|lt|gt|quot|apos|#[0-9]+|#[xX][0-9a-fA-F]+|#[0-9a-zA-Z]+);/
-
-          # Only decode if text looks like it contains entity patterns
-          return text unless entity_pattern.match?(text)
-
-          text.gsub(entity_pattern) do |match|
-            decode_entity(match)
-          end
-        end
-
-        # Decode a single XML entity to its Unicode character
-        #
-        # @param entity [String] Entity string including & and ;
-        # @return [String] Decoded Unicode character or original string if not decodable
-        def decode_entity(entity)
-          # Remove leading & and trailing ;
-          inner = entity[1..-2]
-
-          case inner
-          when "amp"
-            "&"
-          when "lt"
-            "<"
-          when "gt"
-            ">"
-          when "quot"
-            '"'
-          when "apos"
-            "'"
-          when /\A#([0-9]+)\z/ # Decimal numeric entity
-            code_point = Regexp.last_match(1).to_i
-            decode_codepoint(code_point)
-          when /\A#x([0-9a-fA-F]+)\z/, /\A#X([0-9a-fA-F]+)\z/ # Hex numeric entity
-            code_point = Regexp.last_match(1).to_i(16)
-            decode_codepoint(code_point)
-          else
-            # Unknown entity - keep as-is
-            entity
-          end
-        end
-
-        # Decode a Unicode code point to its character
-        #
-        # @param code_point [Integer] Unicode code point
-        # @return [String] Character or empty string if invalid
-        def decode_codepoint(code_point)
-          if code_point.positive? && code_point <= 0x10FFFF
-            [code_point].pack("U")
-          else
-            ""
-          end
-        end
-
-        # Propagate match to ancestors if possible
-        #
-        # If both nodes have parents and:
-        # - Parents have same signature
-        # - Parents are not yet matched
-        # - All matched children align
-        # Then match the parents too
-        #
-        # @param node1 [TreeNode] Matched node from tree1
-        # @param node2 [TreeNode] Matched node from tree2
         def propagate_to_ancestors(node1, node2)
           parent1 = node1.parent
           parent2 = node2.parent
@@ -322,20 +165,15 @@ module Canon
           return if @matched_tree1.include?(parent1)
           return if @matched_tree2.include?(parent2)
 
-          # Check if parents have same signature
           sig1 = Core::NodeSignature.for(parent1)
           sig2 = Core::NodeSignature.for(parent2)
           return unless sig1 == sig2
 
-          # Check if parents match structurally
           return unless nodes_match?(parent1, parent2)
 
-          # Try to match parents
           if @matching.add(parent1, parent2)
             @matched_tree1 << parent1
             @matched_tree2 << parent2
-
-            # Recursively propagate upward
             propagate_to_ancestors(parent1, parent2)
           end
         end
