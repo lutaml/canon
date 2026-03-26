@@ -158,7 +158,7 @@ module Canon
           # CRITICAL FIX: Return original text without stripping
           # Normalization will be applied during comparison based on match_options
           # Only return nil for truly empty text or whitespace-only text
-          text.strip.empty? ? nil : text
+          text.match?(/\A[\s\p{Zs}]*\z/) ? nil : text
         end
 
         # Build Nokogiri element from TreeNode
@@ -241,7 +241,9 @@ module Canon
           text_value = text_node.value.to_s
 
           # Return nil for whitespace-only text
-          return nil if text_value.strip.empty?
+          # Use \p{Zs} for Unicode space separators (covers em space U+2003,
+          # thin space U+2009, en space U+2002, etc.) plus ASCII whitespace
+          return nil if text_value.match?(/\A[\s\p{Zs}]*\z/)
 
           Core::TreeNode.new(
             label: "text",

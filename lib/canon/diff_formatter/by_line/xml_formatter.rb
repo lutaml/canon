@@ -144,37 +144,37 @@ module Canon
                                               :green)
                         end
             when :changed
-              line_num = diff_line.line_number + 1
+              old_line_num = diff_line.line_number + 1
+              new_line_num = (diff_line.new_position || diff_line.line_number) + 1
               formatting = diff_line.formatting?
               informative = diff_line.informative?
               # For changed lines, we need both old and new content
-              # For now, show as removed + added
               old_content = lines1[diff_line.line_number]
               new_content = diff_line.content
 
               if formatting
-                output << format_unified_line(line_num, nil, "[",
+                output << format_unified_line(old_line_num, nil, "[",
                                               old_content,
                                               :black,
                                               formatting: true)
-                output << format_unified_line(nil, line_num, "]",
+                output << format_unified_line(nil, new_line_num, "]",
                                               new_content,
                                               :white,
                                               formatting: true)
               elsif informative
-                output << format_unified_line(line_num, nil, "<",
+                output << format_unified_line(old_line_num, nil, "<",
                                               old_content,
                                               :blue,
                                               informative: true)
-                output << format_unified_line(nil, line_num, ">",
+                output << format_unified_line(nil, new_line_num, ">",
                                               new_content,
                                               :cyan,
                                               informative: true)
               else
-                output << format_unified_line(line_num, nil, "-",
+                output << format_unified_line(old_line_num, nil, "-",
                                               old_content,
                                               :red)
-                output << format_unified_line(nil, line_num, "+",
+                output << format_unified_line(nil, new_line_num, "+",
                                               new_content,
                                               :green)
               end
@@ -548,6 +548,9 @@ module Canon
         def format_context(context, diffs, base_line1, base_line2)
           require_relative "../../diff/formatting_detector"
 
+          # Pre-compute block-level formatting for multi-line changes
+          formatting_indices = detect_block_formatting(context, diffs)
+
           output = []
 
           (context.start_idx..context.end_idx).each do |idx|
@@ -556,15 +559,14 @@ module Canon
             line1 = change.old_position ? base_line1 + change.old_position + 1 : nil
             line2 = change.new_position ? base_line2 + change.new_position + 1 : nil
 
+            is_formatting = formatting_indices.include?(idx)
+
             case change.action
             when "="
               output << format_unified_line(line1, line2, " ",
                                             change.old_element)
             when "-"
-              # Check if removal is formatting-only
-              output << if Canon::Diff::FormattingDetector.formatting_only?(
-                change.old_element, ""
-              )
+              output << if is_formatting
                           format_unified_line(line1, nil, "[",
                                               change.old_element, :black,
                                               formatting: true)
@@ -573,9 +575,7 @@ module Canon
                                               change.old_element, :red)
                         end
             when "+"
-              # Check if addition is formatting-only
-              output << if Canon::Diff::FormattingDetector.formatting_only?("",
-                                                                            change.new_element)
+              output << if is_formatting
                           format_unified_line(nil, line2, "]",
                                               change.new_element, :white,
                                               formatting: true)
@@ -584,10 +584,7 @@ module Canon
                                               change.new_element, :green)
                         end
             when "!"
-              # Check if change is formatting-only
-              if Canon::Diff::FormattingDetector.formatting_only?(
-                change.old_element, change.new_element
-              )
+              if is_formatting
                 output << format_unified_line(line1, nil, "[",
                                               change.old_element, :black,
                                               formatting: true)
@@ -747,6 +744,89 @@ informative: false, formatting: false)
           else
             visual
           end
+        end
+
+        # Pre-compute which diff indices are formatting-only at the block level.
+        # Groups consecutive non-= changes within the context range, joins
+        # old/new parts, and checks via FormattingDetector. This catches
+        # multi-line tag wrapping that per-line comparison misses.
+        #
+        # @param context [DiffContext] The diff context
+        # @param diffs [Array] The LCS diff changes
+        # @return [Set<Integer>] Indices that are formatting-only
+        def detect_block_formatting(context, diffs)
+          formatting_indices = Set.new
+          blocks = []
+          current_block = nil
+
+          (context.start_idx..context.end_idx).each do |idx|
+            change = diffs[idx]
+            if change.action == "="
+              if current_block
+                blocks << current_block
+                current_block = nil
+              end
+              next
+            end
+
+            current_block ||=
+              { indices: [], old_parts: [], new_parts: [] }
+            current_block[:indices] << idx
+
+            case change.action
+            when "-", "!"
+              current_block[:old_parts] << change.old_element
+            end
+            case change.action
+            when "+", "!"
+              current_block[:new_parts] << change.new_element
+            end
+          end
+          blocks << current_block if current_block
+
+          fd = Canon::Diff::FormattingDetector
+
+          blocks.each do |block|
+            next if block[:old_parts].empty? || block[:new_parts].empty?
+
+            if fd.formatting_block?(block[:old_parts], block[:new_parts])
+              block[:indices].each { |i| formatting_indices.add(i) }
+              next
+            end
+
+            match = fd.formatting_prefix(block[:old_parts], block[:new_parts])
+            next unless match
+
+            # Mark the prefix entries
+            old_marked = 0
+            new_marked = 0
+            block[:indices].each do |i|
+              action = diffs[i].action
+              case action
+              when "-"
+                if old_marked < match[:old_end]
+                  formatting_indices.add(i)
+                  old_marked += 1
+                end
+              when "+"
+                if new_marked < match[:new_end]
+                  formatting_indices.add(i)
+                  new_marked += 1
+                end
+              when "!"
+                if old_marked < match[:old_end]
+                  formatting_indices.add(i)
+                  old_marked += 1
+                end
+                if new_marked < match[:new_end]
+                  formatting_indices.add(i)
+                  new_marked += 1
+                end
+              end
+            end
+          end
+
+          formatting_indices
         end
       end
     end

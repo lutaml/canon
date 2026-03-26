@@ -208,6 +208,23 @@ differently depending on the operation:
 This means documents with and without XML declarations are considered
 equivalent when using the comparison API.
 
+==== Case-insensitive declaration attributes
+
+Per the XML specification, certain XML declaration attributes have
+case-insensitive values. Canon normalizes these during formatting
+comparison so that differences in letter casing are treated as
+formatting-only rather than normative differences.
+
+**Case-insensitive attributes:**
+
+* `encoding` — e.g., `encoding="UTF-8"` equals `encoding="utf-8"`
+* `standalone` — e.g., `standalone="Yes"` equals `standalone="yes"`
+
+These attributes are normalized to lowercase during formatting-level
+comparison in `Canon::Diff::FormattingDetector`. This applies when
+determining whether a line-level difference is formatting-only (e.g.,
+in `by_line` diff mode).
+
 === Comment handling
 
 XML comments are preserved in canonical form unless `--with-comments` is explicitly set.
