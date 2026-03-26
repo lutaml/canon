@@ -24,6 +24,9 @@ These documents are intended for:
 link:diffnode-enrichment[**DiffNode Enrichment**]::
 How DiffNode objects carry location, serialized content, and attribute metadata through the comparison pipeline. Covers PathBuilder (canonical paths with ordinal indices), NodeSerializer (library-agnostic serialization), and how Layer 2 algorithms populate metadata for Layer 4 rendering.
 
+link:diff-char-range-pipeline[**DiffCharRange Pipeline**]::
+How enriched DiffNodes are processed into character-level diff ranges for precise rendering. Covers DiffNodeEnricher (Phase 1: locating serialized content and decomposing changes), DiffLineBuilder (Phase 2: assembling DiffLines from enriched DiffNodes), DiffCharRange (character position value objects), TextDecomposer (prefix/suffix decomposition), and SourceLocator (finding content positions in source text).
+
 link:../advanced/dom-diff-internals[**DOM Diff Internals**]::
 Deep dive into Canon's default DOM diff algorithm: position-based matching, operation detection, and diff generation.
 
@@ -80,17 +83,23 @@ graph LR
     B -->|Enriches| D[DiffNode.path]
     C -->|Enriches| E[DiffNode.serialized_before/after]
     C -->|Enriches| F[DiffNode.attributes_before/after]
-    D --> G[Layer 4: Rendering]
+    D --> G[Phase 1: DiffNodeEnricher]
     E --> G
     F --> G
-    G --> H[Accurate diff output]
+    G -->|Enriches| H[DiffNode.char_ranges]
+    G -->|Enriches| I[DiffNode.line_range_before/after]
+    H --> J[Phase 2: DiffLineBuilder]
+    I --> J
+    J --> K[DiffLine with DiffCharRange[]]
+    K --> L[Layer 4: Rendering]
 
     style A fill:#fff4e1
     style D fill:#e1f5ff
-    style G fill:#e1ffe1
+    style G fill:#ffe1f5
+    style K fill:#e1ffe1
 ----
 
-Key insight: Metadata is captured at diff creation time (Layer 2) and carried through to rendering (Layer 4), ensuring accurate display even if nodes are modified during comparison.
+Key insight: Metadata is captured at diff creation time (Layer 2), enriched with character positions (Phase 1), assembled into display lines (Phase 2), and rendered without further computation (Layer 4).
 
 == Data Structures
 
@@ -112,10 +121,49 @@ class DiffNode
   attr_accessor :serialized_after      # Serialized "after" content
   attr_accessor :attributes_before     # Normalized "before" attributes
   attr_accessor :attributes_after      # Normalized "after" attributes
+
+  # Character-level enrichment (Phase 1 enrichment pipeline)
+  attr_accessor :char_ranges           # Array<DiffCharRange>
+  attr_accessor :line_range_before     # [start_line, end_line] in text1
+  attr_accessor :line_range_after      # [start_line, end_line] in text2
 end
 ----
 
 See link:diffnode-enrichment[DiffNode Enrichment] for details.
+
+=== DiffLine
+
+Represents a single line in the diff output, linked to semantic DiffNode and character-level DiffCharRanges:
+
+[source,ruby]
+----
+class DiffLine
+  attr_reader :line_number, :new_position, :content, :type, :diff_node,
+              :char_ranges, :new_char_ranges, :new_content
+  attr_accessor :old_content, :formatting
+
+  # type: :unchanged, :added, :removed, :changed
+  # char_ranges: text1 side DiffCharRange[]
+  # new_char_ranges: text2 side DiffCharRange[]
+  # new_content: text2 line text (for :changed lines)
+end
+----
+
+=== DiffCharRange
+
+Character-level position within a source line, linked to a DiffNode:
+
+[source,ruby]
+----
+class DiffCharRange
+  attr_reader :line_number, :start_col, :end_col, :side, :status, :role,
+              :diff_node
+
+  # side: :old (text1) or :new (text2)
+  # status: :unchanged, :removed, :added, :changed_old, :changed_new
+  # role: :before, :changed, :after
+end
+----
 
 === TreeNode (Semantic Diff)
 

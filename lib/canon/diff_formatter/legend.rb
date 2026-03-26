@@ -173,8 +173,10 @@ module Canon
       def self.colorize(text, *colors, use_color)
         return text unless use_color
 
-        require "paint"
-        "\e[0m#{Paint[text, *colors]}"
+        require "rainbow"
+        presenter = Rainbow(text)
+        colors.each { |c| presenter = presenter.send(c) }
+        presenter.to_s
       end
 
       private_class_method :format_name, :format_original_char, :colorize

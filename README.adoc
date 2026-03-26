@@ -586,10 +586,15 @@ See link:docs/ENV_CONFIG#size-limits[ENV_CONFIG] for details on size limit confi
 
 **By-line mode**: Traditional line-by-line diff with:
 
+* **DiffCharRange pipeline**: DiffNodes are enriched with character-level positions (Phase 1: DiffNodeEnricher using SourceLocator + TextDecomposer), then assembled into display lines (Phase 2: DiffLineBuilder). The formatter only reads pre-computed positions — no tokenization or LCS during rendering.
+* **Character-level highlighting**: Within changed lines, only the specific changed characters are highlighted, not entire lines. A text change like "Hello World" → "Hello Universe" shows "World" in red and "Universe" in green, with "Hello " in default color.
+* **Inline and separate-line display modes**: Changed lines can be displayed inline (old→new on same line with effects) or as separate lines (traditional `-`/`+` format).
+* **Mixed change detection**: The `*` marker identifies lines with multiple separate changed regions, distinguishing them from simple word replacements.
+* **Legacy terminal support**: For terminals without ANSI support, forces separate-line mode with no color codes.
 * DOM-guided semantic matching for XML
-* Syntax-aware token highlighting
-* Context lines around changes
-* Whitespace visualization
+* Context lines around changes with configurable grouping
+* Whitespace visualization (`░` for spaces, `⇥` for tabs)
+* Three-tier classification with directional colors
 
 **By-object mode**: Tree-based semantic diff with:
 

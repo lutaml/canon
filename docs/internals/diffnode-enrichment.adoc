@@ -609,3 +609,4 @@ The old API still works for backwards compatibility, but enriched properties pro
 * link:../understanding/architecture.adoc[Architecture] - 4-layer architecture overview
 * link:../understanding/algorithms/[Algorithms] - DOM and Semantic algorithm details
 * link:../features/diff-formatting/[Diff Formatting] - Layer 4 rendering options
+* link:diff-char-range-pipeline[DiffCharRange Pipeline] - How enriched DiffNodes are processed into character-level display positions

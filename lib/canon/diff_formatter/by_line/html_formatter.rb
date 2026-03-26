@@ -14,11 +14,15 @@ module Canon
 
         def initialize(use_color: true, context_lines: 3,
                        diff_grouping_lines: nil, visualization_map: nil,
-                       html_version: :html4, show_diffs: :all, differences: [])
+                       html_version: :html4, show_diffs: :all, differences: [],
+                       diff_mode: :separate, legacy_terminal: false,
+                       equivalent: nil)
           super(use_color: use_color, context_lines: context_lines,
                 diff_grouping_lines: diff_grouping_lines,
                 visualization_map: visualization_map,
-                show_diffs: show_diffs, differences: differences)
+                show_diffs: show_diffs, differences: differences,
+                diff_mode: diff_mode, legacy_terminal: legacy_terminal,
+                equivalent: equivalent)
           @html_version = html_version
         end
 
@@ -28,6 +32,7 @@ module Canon
         # @param doc2 [String] Second HTML document
         # @return [String] Formatted diff
         def format(doc1, doc2)
+          compute_line_num_width(doc1, doc2)
           # If we have DiffNodes from comparison, use the new pipeline
           if @differences&.any?(Canon::Diff::DiffNode)
             # Check if we should skip based on show_diffs setting

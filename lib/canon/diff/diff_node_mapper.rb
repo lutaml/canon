@@ -67,6 +67,7 @@ module Canon
                       when "="
                         DiffLine.new(
                           line_number: change.old_position,
+                          new_position: change.new_position,
                           content: change.old_element,
                           type: :unchanged,
                           diff_node: nil,
@@ -133,6 +134,12 @@ module Canon
         # element reflow with different line counts).
         apply_block_formatting!(diff_lines, lcs_diffs)
 
+        # Post-process: merge adjacent "-" lines into preceding "!" changes
+        # when the removed content already appears in the new line.
+        # This handles the case where N old lines map to 1 new line
+        # (e.g., closing tag on its own line merged into previous line).
+        merge_adjacent_removals!(diff_lines, lines1)
+
         diff_lines
       end
 
@@ -188,6 +195,7 @@ module Canon
 
         lcs_diffs.each_with_index do |change, idx|
           if change.action == "="
+            blocks << current_block if current_block
             current_block = nil
             next
           end
@@ -259,6 +267,52 @@ module Canon
       def formatting_only_line?(line1, line2)
         require_relative "formatting_detector"
         FormattingDetector.formatting_only?(line1, line2)
+      end
+
+      # Merge adjacent "-" lines into a preceding "!" change when the
+      # removed content already appears in the changed line's new content.
+      #
+      # This handles the common case where N old lines map to 1 new line
+      # (e.g., a closing tag on its own line gets merged into the previous
+      # line in the reformatted document). Without this merge, the closing
+      # tag would appear as a spurious deletion even though it still exists.
+      #
+      # @param diff_lines [Array<DiffLine>] The diff lines to update in place
+      # @param lines1 [Array<String>] Lines from text1 for content lookup
+      def merge_adjacent_removals!(diff_lines, lines1)
+        i = 0
+        while i < diff_lines.length
+          dl = diff_lines[i]
+          unless dl.changed?
+            i += 1
+            next
+          end
+
+          j = i + 1
+          while j < diff_lines.length && diff_lines[j].removed?
+            removed = diff_lines[j]
+            removed_stripped = removed.content.strip
+
+            # Only merge if the removed content actually appears in the
+            # new line — it's not a real deletion, just a line-wrap change
+            if removed_stripped.empty? || !dl.content.include?(removed_stripped)
+              j += 1
+              next
+            end
+
+            # Extend old_content to span multiple old lines
+            dl.old_content ||= lines1[dl.line_number]
+            dl.old_content += "\n#{lines1[removed.line_number]}"
+
+            # Remove the absorbed line
+            diff_lines[j] = nil
+            j += 1
+          end
+
+          i = j
+        end
+
+        diff_lines.compact!
       end
 
       # Determine formatting status for a changed line.

@@ -17,7 +17,11 @@ module Canon
                     :serialized_before,  # Serialized content for display (before)
                     :serialized_after,   # Serialized content for display (after)
                     :attributes_before,  # Normalized attributes hash (before)
-                    :attributes_after    # Normalized attributes hash (after)
+                    :attributes_after,   # Normalized attributes hash (after)
+                    # Character range enrichment (populated by DiffNodeEnricher)
+                    :char_ranges,        # Array<DiffCharRange> for this node (attr_accessor)
+                    :line_range_before,  # [start_line, end_line] in text1
+                    :line_range_after    # [start_line, end_line] in text2
 
       # @param node1 [Object] The first node being compared
       # @param node2 [Object] The second node being compared

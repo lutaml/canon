@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<doc>
+  <item
+    id="a"
+    type="x"
+    status="active">
+    <title>First</title>
+  </item>
+  <item
+    id="b"
+    type="y"
+    status="active">
+    <title>Second</title>
+  </item>
+</doc>

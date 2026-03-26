@@ -287,8 +287,13 @@ show_diffs: :all)
         def colorize(text, *colors)
           return text unless @use_color
 
-          require "paint"
-          "\e[0m#{Paint[text, *colors]}"
+          require "rainbow"
+          # Use a local Rainbow instance that ignores global TTY detection
+          rainbow = Rainbow.new
+          rainbow.enabled = true
+          presenter = rainbow.wrap(text)
+          colors.each { |c| presenter = presenter.send(c) }
+          presenter.to_s
         end
 
         # Get max diff lines limit
