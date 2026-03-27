@@ -490,8 +490,8 @@ module Canon
             return Comparison::UNEQUAL_NODES_TYPES
           end
 
-          content1 = n1.content.to_s.strip
-          content2 = n2.content.to_s.strip
+          content1 = n1.respond_to?(:content) ? n1.content.to_s.strip : ""
+          content2 = n2.respond_to?(:content) ? n2.content.to_s.strip : ""
 
           if content1 == content2
             Comparison::EQUIVALENT
