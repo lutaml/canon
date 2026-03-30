@@ -1,0 +1,353 @@
+---
+layout: default
+title: Diff Display Themes
+parent: Diff Formatting
+grand_parent: Features
+nav_order: 6
+---
+
+:toc:
+:toclevels: 3
+
+== Purpose
+
+Canon provides a theme system for diff display that controls colors, backgrounds, text effects, and visual markers. Themes make diffs readable on different terminal backgrounds and allow personalizing the visual style.
+
+== Available themes
+
+Canon ships with four predefined themes:
+
+[cols="1,2,3"]
+|===
+| Theme | Best For | Key Characteristics
+
+| `:light`
+| Light terminal backgrounds
+| Light marker backgrounds (`light_red`, `light_green`), dark text, `:black` structure elements
+
+| `:dark`
+| Dark terminal backgrounds (default)
+| Saturated foreground colors, no backgrounds, `:cyan` informative, `:bright_blue` formatting
+
+| `:retro`
+| Amber CRT / low blue light / accessibility
+| Monochromatic amber/yellow, inverse video for removed, `:bright_yellow` text on `:yellow` background
+
+| `:claude`
+| Maximum visual contrast (Claude Code style)
+| `:white` on `:red` background for removed, `:black` on `:green` background for added
+|===
+
+== Theme structure
+
+Each theme is a nested hash with these top-level sections:
+
+[cols="1,3"]
+|===
+| Section | Controls
+
+| `diff`
+| Colors for removed, added, changed, unchanged, formatting, and informative diffs
+
+| `xml`
+| Colors for XML syntax elements: tags, attribute names, attribute values, text, comments, CDATA
+
+| `html`
+| Same as `xml` but for HTML output
+
+| `structure`
+| Colors for line numbers, pipe separators, context lines
+
+| `visualization`
+| Unicode characters for invisible whitespace (space, tab, newline, nbsp)
+
+| `display_mode`
+| How changed lines display: `:separate`, `:inline`, or `:mixed`
+|===
+
+=== Styling properties
+
+Each styled element supports these properties:
+
+[cols="1,1,3"]
+|===
+| Property | Type | Description
+
+| `color`
+| Symbol
+| ANSI foreground color
+
+| `bg`
+| Symbol or nil
+| ANSI background color (nil = no background)
+
+| `bold`
+| Boolean
+| Bold text
+
+| `underline`
+| Boolean
+| Underlined text
+
+| `strikethrough`
+| Boolean
+| Strikethrough text
+
+| `italic`
+| Boolean
+| Italic text (terminal support varies)
+|===
+
+=== Valid color values
+
+.Standard ANSI colors (universally supported)
+[cols="2,1"]
+|===
+| Color | ANSI Code
+
+| `:black` | 30
+| `:red` | 31
+| `:green` | 32
+| `:yellow` | 33
+| `:blue` | 34
+| `:magenta` | 35
+| `:cyan` | 36
+| `:white` | 37
+|===
+
+.Bright variants (supported by most terminals)
+[cols="2,1"]
+|===
+| Color | ANSI Code
+
+| `:bright_red` | 91
+| `:bright_green` | 92
+| `:bright_yellow` | 93
+| `:bright_blue` | 94
+| `:bright_magenta` | 95
+| `:bright_cyan` | 96
+| `:default` | Default terminal color
+|===
+
+NOTE: The Rainbow gem (Canon's terminal color library) doesn't support `:bright_black` or `:bright_white` directly. Themes use `:white` or `:black` as substitutes.
+
+== Diff color sections
+
+Each theme defines colors for six diff categories:
+
+[cols="1,2,2"]
+|===
+| Category | Markers | Description
+
+| `removed`
+| `-` (normative), `[` (formatting), `<` (informative)
+| Lines or content present in the old document but not the new
+
+| `added`
+| `+` (normative), `]` (formatting), `>` (informative)
+| Lines or content present in the new document but not the old
+
+| `changed`
+| `*` (mixed)
+| Lines with both old and new content; has `content_old` and `content_new` sub-sections
+
+| `unchanged`
+| ` ` (space)
+| Context lines with no differences
+
+| `formatting`
+| `[` / `]`
+| Pure whitespace/formatting differences (no semantic change)
+
+| `informative`
+| `<` / `>`
+| Tracked differences that don't affect equivalence
+|===
+
+== Theme specifications
+
+=== Light theme (`:light`)
+
+Designed for light terminal backgrounds (white/light gray).
+
+* Removed: `:red` text with `:light_red` background on markers, `:strikethrough` on content
+* Added: `:green` text with `:light_green` background on markers
+* Changed: `:bright_red` old / `:bright_green` new, bold
+* Formatting: `:bright_blue` (visible on light backgrounds)
+* Informative: `:bright_magenta`
+* Structure: `:black` line numbers and pipes
+* Comments: `:magenta` italic
+
+=== Dark theme (`:dark`, default)
+
+Designed for dark terminal backgrounds.
+
+* Removed: `:red` text, `:strikethrough` on content
+* Added: `:green` text
+* Changed: `:yellow` marker, `:bright_red` old / `:bright_green` new
+* Formatting: `:bright_blue` (subtle but visible on dark backgrounds)
+* Informative: `:cyan` (distinct from formatting)
+* Structure: `:white` line numbers and pipes
+* Comments: `:cyan` italic
+
+=== Retro theme (`:retro`)
+
+Amber CRT phosphor look. Monochromatic amber/yellow, good for low blue light and accessibility.
+
+* Removed: Inverse video - `:bright_yellow` on `:yellow` background, bold
+* Added: `:bright_white` (less emphasis than removed)
+* Changed: `:bright_yellow` old with strikethrough / `:bright_white` new with underline
+* Formatting: `:yellow` (subtle)
+* Informative: `:bright_yellow` bold (stands out)
+* Structure: `:yellow` throughout
+* Comments: `:yellow` italic
+
+=== Claude theme (`:claude`)
+
+Claude Code diff style. Maximum visual contrast with colored backgrounds.
+
+* Removed: `:white` text on `:red` background
+* Added: `:black` text on `:green` background
+* Changed: `:white` on `:magenta` background for marker
+* Formatting: `:yellow`
+* Informative: `:bright_cyan`
+* Structure: `:yellow` line numbers and pipes
+* Comments: `:cyan` italic
+
+== Configuration
+
+=== Setting theme by name
+
+.Ruby API
+[source,ruby]
+----
+Canon::Config.configure do |config|
+  config.xml.diff.theme = :claude
+end
+----
+
+.ENV variable
+[source,bash]
+----
+export CANON_DIFF_THEME=claude
+----
+
+Valid values: `light`, `dark`, `retro`, `claude`
+
+=== Resolution priority
+
+Theme is resolved in this order (highest to lowest):
+
+. `CANON_DIFF_THEME` environment variable
+. `config.xml.diff.theme_inheritance` (base theme + overrides)
+. `config.xml.diff.custom_theme` (complete custom theme hash)
+. `config.xml.diff.theme` (theme name)
+. `:dark` (default)
+
+=== Theme inheritance
+
+Create a custom theme by inheriting from a base theme and overriding specific properties:
+
+[source,ruby]
+----
+Canon::Config.configure do |config|
+  config.xml.diff.theme_inheritance = {
+    base: :dark,
+    overrides: {
+      diff: {
+        removed: { content: { bg: :light_red } }
+      }
+    }
+  }
+end
+----
+
+Only the overridden properties change; everything else inherits from the base theme.
+
+.Programmatic theme building
+[source,ruby]
+----
+custom_theme = Canon::DiffFormatter::Theme.inherit_from(:dark)
+  .merge(diff: { removed: { content: { bg: :light_red } } })
+  .build
+
+Canon::Config.configure do |config|
+  config.xml.diff.custom_theme = custom_theme
+end
+----
+
+=== Full custom theme
+
+Provide a complete theme hash with all required keys:
+
+[source,ruby]
+----
+Canon::Config.configure do |config|
+  config.xml.diff.custom_theme = Canon::DiffFormatter::Theme.inherit_from(:light)
+    .merge(diff: { removed: { content: { color: :magenta } } })
+    .build
+end
+----
+
+== Example script
+
+Canon includes an example script that demonstrates all themes with a sample XML diff:
+
+[source,bash]
+----
+bundle exec ruby examples/show_themes.rb
+----
+
+This shows each theme's color output side-by-side, plus plain text output and usage examples.
+
+== Theme validation
+
+All themes (built-in and custom) are validated for:
+
+* **Completeness**: All required sections and keys present
+* **Valid values**: Colors are valid ANSI, booleans are true/false
+* **MECE**: No missing or extra keys
+
+[source,ruby]
+----
+result = Canon::DiffFormatter::Theme.validate(my_theme)
+result.valid?          # => true/false
+result.missing_keys    # => ["diff.removed.content.color", ...]
+result.invalid_values  # => ["diff.removed.content.color must be one of ..."]
+----
+
+== Rainbow gem compatibility
+
+Canon uses the https://github.com/kucaahbe/rainbow[Rainbow] gem for terminal colors. Some color names that Canon's theme system accepts are translated internally:
+
+[cols="2,2"]
+|===
+| Theme Color | Rainbow Method Chain
+
+| `:bright_red`
+| `.red.bright`
+
+| `:bright_blue`
+| `.blue.bright`
+
+| `:bright_green`
+| `.green.bright`
+
+| `:bright_cyan`
+| `.cyan.bright`
+
+| `:bright_magenta`
+| `.magenta.bright`
+
+| `:bright_yellow`
+| `.yellow.bright`
+|===
+
+Colors `:bright_black` and `:bright_white` are not supported by Rainbow in 16-color mode. Themes use `:white`, `:black`, or `:cyan` as substitutes.
+
+== See also
+
+* link:colors-and-symbols.adoc[Colors and symbols] - Diff markers and classification
+* link:display-filtering.adoc[Display filtering] - Control which diff types appear
+* link:../environment-configuration/index.html[Environment configuration] - ENV variable setup
+* link:../../reference/environment-variables.html[Environment variables reference] - Complete variable listing

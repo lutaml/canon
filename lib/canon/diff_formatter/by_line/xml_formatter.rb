@@ -114,41 +114,38 @@ module Canon
               informative = diff_line.informative?
 
               output << if formatting
-                          # Formatting-only removal: [ marker in dark gray
+                          # Formatting-only removal: use theme formatting style
                           format_unified_line(line_num, nil, "[",
                                               diff_line.content,
-                                              :black,
+                                              theme_color(:formatting, :content),
                                               formatting: true)
                         elsif informative
-                          # Informative removal: < marker in blue
+                          # Informative removal: use theme informative style
                           format_unified_line(line_num, nil, "<",
                                               diff_line.content,
-                                              :blue,
+                                              theme_color(:informative, :content),
                                               informative: true)
                         elsif diff_line.has_char_ranges?
                           # Use character-level highlighting when char_ranges available.
-                          # The highlighted content already has colors applied by
-                          # render_line_from_char_ranges. We manually construct the
-                          # line so the marker is red but content uses embedded colors.
                           highlighted = render_line_from_char_ranges(
                             diff_line.content, diff_line.char_ranges, :old
                           )
                           old_str = "%#{@line_num_width}d" % line_num
                           blank = " " * @line_num_width
                           if @use_color
-                            yellow_old = colorize(old_str, :yellow)
-                            yellow_pipe1 = colorize("|", :yellow)
-                            yellow_pipe2 = colorize("|", :yellow)
-                            red_marker = colorize("-", :red)
+                            yellow_old = colorize(old_str, structure_color(:line_number) || :yellow)
+                            yellow_pipe1 = colorize("|", structure_color(:pipe) || :yellow)
+                            yellow_pipe2 = colorize("|", structure_color(:pipe) || :yellow)
+                            red_marker = styled_marker("-", :removed)
                             "#{yellow_old}#{yellow_pipe1}#{blank}#{red_marker} #{yellow_pipe2} #{highlighted}"
                           else
                             "#{old_str}|#{blank}- | #{highlighted}"
                           end
                         else
-                          # Normative removal: - marker in red
+                          # Normative removal: use theme removed style
                           format_unified_line(line_num, nil, "-",
                                               diff_line.content,
-                                              :red)
+                                              theme_color(:removed, :content))
                         end
             when :added
               line_num = (diff_line.new_position || diff_line.line_number) + 1
@@ -156,22 +153,22 @@ module Canon
               informative = diff_line.informative?
 
               output << if formatting
-                          # Formatting-only addition: ] marker in light gray
+                          # Formatting-only addition: use theme formatting style
                           format_unified_line(nil, line_num, "]",
                                               diff_line.content,
-                                              :white,
+                                              theme_color(:formatting, :content),
                                               formatting: true)
                         elsif informative
-                          # Informative addition: > marker in cyan
+                          # Informative addition: use theme informative style
                           format_unified_line(nil, line_num, ">",
                                               diff_line.content,
-                                              :cyan,
+                                              theme_color(:informative, :content),
                                               informative: true)
                         else
-                          # Normative addition: + marker in green
+                          # Normative addition: use theme added style
                           format_unified_line(nil, line_num, "+",
                                               diff_line.content,
-                                              :green)
+                                              theme_color(:added, :content))
                         end
             when :changed
               output << format_changed_line(diff_line, lines1)
@@ -283,14 +280,14 @@ module Canon
                                   apply_visualization(old_content)),
               # NEW line: marker on NEW side indicating what changed
               format_unified_line(nil, new_line_num, marker, new_content,
-                                  :white, formatting: true),
+                                  theme_color(:formatting, :content), formatting: true),
             ].join("\n")
           elsif informative
             [
               format_unified_line(old_line_num, nil, "<", old_content,
-                                  :magenta, informative: true),
+                                  theme_color(:informative, :content_old), informative: true),
               format_unified_line(nil, new_line_num, ">", new_content,
-                                  :cyan, informative: true),
+                                  theme_color(:informative, :content_new), informative: true),
             ].join("\n")
           elsif diff_line.has_char_ranges?
             # Check if this is a mixed change (both old and new have changed content
@@ -309,27 +306,44 @@ module Canon
             is_mixed = has_old_change && has_new_change &&
               (old_changed_regions > 1 || new_changed_regions > 1)
 
+            # Always compute highlighted versions when we have char_ranges
+            old_highlighted = render_line_from_char_ranges(
+              old_content, diff_line.char_ranges, :old
+            )
+            new_highlighted = render_line_from_char_ranges(
+              new_content, diff_line.new_char_ranges, :new
+            )
+
             if is_mixed
               # Mixed change: use * marker
               format_mixed_changed_line(old_line_num, new_line_num,
                                         diff_line.char_ranges, diff_line.new_char_ranges,
                                         old_content, new_content)
+            elsif @diff_mode == :inline
+              # Inline mode for token changes: show OLD → NEW on same line
+              format_token_diff_line_inline(old_line_num, new_line_num,
+                                            old_highlighted, new_highlighted)
             else
-              # Render from DiffCharRanges — the correct approach
-              old_highlighted = render_line_from_char_ranges(
-                old_content, diff_line.char_ranges, :old
-              )
-              new_highlighted = render_line_from_char_ranges(
-                new_content, diff_line.new_char_ranges, :new
-              )
+              # Separate mode: show OLD and NEW on different lines
               format_token_diff_line(old_line_num, new_line_num, old_highlighted,
                                      new_highlighted)
             end
+          elsif @diff_mode == :inline
+            # Inline mode: show OLD → NEW on same line
+            separator = " → "
+            marker = @use_color ? colorize("*", theme_color(:changed, :marker)) : "*"
+            [
+              format_unified_line(old_line_num, new_line_num, marker,
+                                  "#{old_content}#{separator}#{new_content}",
+                                  theme_color(:changed, :content)),
+            ].join("\n")
           else
             # Fallback: whole-line highlighting (no char ranges available)
             [
-              format_unified_line(old_line_num, nil, "-", old_content, :red),
-              format_unified_line(nil, new_line_num, "+", new_content, :green),
+              format_unified_line(old_line_num, nil, "-", old_content,
+                                  theme_color(:removed, :content)),
+              format_unified_line(nil, new_line_num, "+", new_content,
+                                  theme_color(:added, :content)),
             ].join("\n")
           end
         end
@@ -364,34 +378,38 @@ module Canon
             decoded_segment = Canon::TreeDiff::Core::XmlEntityDecoder.decode_xml_entities(segment)
 
             parts << if cr.diff_node&.informative?
-                       # Informative change: use magenta for deletions, bright cyan for additions
-                       # Magenta (ANSI 35) is bright and visible on both light and dark terminals
+                       # Informative change: use theme informative colors
+                       informative_old = theme_color(:informative, :content_old)
+                       informative_new = theme_color(:informative, :content_new)
                        case cr.status
                        when :unchanged
                          apply_visualization(decoded_segment)
                        when :changed_old
-                         (side == :old ? apply_visualization(decoded_segment, :magenta) : apply_visualization(decoded_segment))
+                         (side == :old ? apply_visualization(decoded_segment, informative_old) : apply_visualization(decoded_segment))
                        when :changed_new
-                         (side == :new ? apply_visualization(decoded_segment, :cyan) : apply_visualization(decoded_segment))
+                         (side == :new ? apply_visualization(decoded_segment, informative_new) : apply_visualization(decoded_segment))
                        when :removed
-                         apply_visualization(decoded_segment, :magenta)
+                         apply_visualization(decoded_segment, informative_old)
                        when :added
-                         apply_visualization(decoded_segment, :cyan)
+                         apply_visualization(decoded_segment, informative_new)
                        else
                          apply_visualization(decoded_segment)
                        end
                      else
+                       # Normative change: use theme removed/added colors
+                       removed_color = theme_color(:removed, :content)
+                       added_color = theme_color(:added, :content)
                        case cr.status
                        when :unchanged
                          apply_visualization(decoded_segment)
                        when :changed_old
-                         (side == :old ? apply_visualization(decoded_segment, :red) : apply_visualization(decoded_segment))
+                         (side == :old ? apply_visualization(decoded_segment, removed_color) : apply_visualization(decoded_segment))
                        when :changed_new
-                         (side == :new ? apply_visualization(decoded_segment, :green) : apply_visualization(decoded_segment))
+                         (side == :new ? apply_visualization(decoded_segment, added_color) : apply_visualization(decoded_segment))
                        when :removed
-                         apply_visualization(decoded_segment, :red)
+                         apply_visualization(decoded_segment, removed_color)
                        when :added
-                         apply_visualization(decoded_segment, :green)
+                         apply_visualization(decoded_segment, added_color)
                        else
                          apply_visualization(decoded_segment)
                        end
@@ -418,16 +436,20 @@ module Canon
           output = []
           fmt = "%#{@line_num_width}d"
           blank = " " * @line_num_width
+          line_num_color = structure_color(:line_number) || :yellow
+          pipe_color = structure_color(:pipe) || :yellow
+          removed_marker_color = theme_color(:removed, :marker)
+          added_marker_color = theme_color(:added, :marker)
 
           # Split old highlighted content by newlines and show each line
           old_lines = old_highlighted.split("\n")
           old_lines.each_with_index do |line, idx|
             line_num = old_start_num + idx
             if @use_color
-              yellow_old = colorize(fmt % line_num, :yellow)
-              yellow_pipe1 = colorize("|", :yellow)
-              red_marker = colorize("-", :red)
-              yellow_pipe2 = colorize("|", :yellow)
+              yellow_old = colorize(fmt % line_num, line_num_color)
+              yellow_pipe1 = colorize("|", pipe_color)
+              red_marker = colorize("-", removed_marker_color)
+              yellow_pipe2 = colorize("|", pipe_color)
               output << "#{yellow_old}#{yellow_pipe1}#{blank}#{red_marker} #{yellow_pipe2} #{line}"
             else
               output << "#{fmt % line_num}|#{blank}- | #{line}"
@@ -436,10 +458,10 @@ module Canon
 
           # Show new content once
           if @use_color
-            yellow_pipe1 = colorize("|", :yellow)
-            yellow_new = colorize(fmt % new_num, :yellow)
-            green_marker = colorize("+", :green)
-            yellow_pipe2 = colorize("|", :yellow)
+            yellow_pipe1 = colorize("|", pipe_color)
+            yellow_new = colorize(fmt % new_num, line_num_color)
+            green_marker = colorize("+", added_marker_color)
+            yellow_pipe2 = colorize("|", pipe_color)
             output << "#{blank}#{yellow_pipe1}#{yellow_new}#{green_marker} #{yellow_pipe2} #{new_highlighted}"
           else
             output << "#{blank}|#{fmt % new_num}+ | #{new_highlighted}"
@@ -631,11 +653,13 @@ module Canon
 
           output = []
           path_str = match.path.join("/")
-          output << colorize("Element: #{path_str} [DELETED]", :red, :bold)
+          removed_marker_color = theme_color(:removed, :marker)
+          removed_content_color = theme_color(:removed, :content)
+          output << colorize("Element: #{path_str} [DELETED]", removed_marker_color, :bold)
 
           # Show all lines as deleted
           (range1.start_line..range1.end_line).each do |i|
-            output << format_unified_line(i + 1, nil, "-", lines1[i], :red)
+            output << format_unified_line(i + 1, nil, "-", lines1[i], removed_content_color)
           end
 
           output.join("\n")
@@ -648,11 +672,13 @@ module Canon
 
           output = []
           path_str = match.path.join("/")
-          output << colorize("Element: #{path_str} [INSERTED]", :green, :bold)
+          added_marker_color = theme_color(:added, :marker)
+          added_content_color = theme_color(:added, :content)
+          output << colorize("Element: #{path_str} [INSERTED]", added_marker_color, :bold)
 
           # Show all lines as inserted
           (range2.start_line..range2.end_line).each do |i|
-            output << format_unified_line(nil, i + 1, "+", lines2[i], :green)
+            output << format_unified_line(nil, i + 1, "+", lines2[i], added_content_color)
           end
 
           output.join("\n")
@@ -764,28 +790,34 @@ module Canon
             when "-"
               output << if is_formatting
                           format_unified_line(line1, nil, "[",
-                                              change.old_element, :black,
+                                              change.old_element,
+                                              theme_color(:formatting, :content),
                                               formatting: true)
                         else
                           format_unified_line(line1, nil, "-",
-                                              change.old_element, :red)
+                                              change.old_element,
+                                              theme_color(:removed, :content))
                         end
             when "+"
               output << if is_formatting
                           format_unified_line(nil, line2, "]",
-                                              change.new_element, :white,
+                                              change.new_element,
+                                              theme_color(:formatting, :content),
                                               formatting: true)
                         else
                           format_unified_line(nil, line2, "+",
-                                              change.new_element, :green)
+                                              change.new_element,
+                                              theme_color(:added, :content))
                         end
             when "!"
               if is_formatting
                 output << format_unified_line(line1, nil, "[",
-                                              change.old_element, :black,
+                                              change.old_element,
+                                              theme_color(:formatting, :content),
                                               formatting: true)
                 output << format_unified_line(nil, line2, "]",
-                                              change.new_element, :white,
+                                              change.new_element,
+                                              theme_color(:formatting, :content),
                                               formatting: true)
               else
                 # Token-level highlighting
@@ -815,7 +847,7 @@ module Canon
           content = diff_line.content
 
           if @use_color
-            "#{old_str}|#{new_str} | #{colorize(content, :black)}"
+            "#{old_str}|#{new_str} | #{colorize(content, :yellow)}"
           else
             "#{old_str}|#{new_str} | #{content}"
           end
@@ -835,10 +867,12 @@ informative: false, formatting: false)
                                end
 
           if @use_color
-            yellow_old = colorize(old_str, :yellow)
-            yellow_pipe1 = colorize("|", :yellow)
-            yellow_new = colorize(new_str, :yellow)
-            yellow_pipe2 = colorize("|", :yellow)
+            line_num_color = structure_color(:line_number) || :yellow
+            pipe_color = structure_color(:pipe) || :yellow
+            yellow_old = colorize(old_str, line_num_color)
+            yellow_pipe1 = colorize("|", pipe_color)
+            yellow_new = colorize(new_str, line_num_color)
+            yellow_pipe2 = colorize("|", pipe_color)
 
             if color
               colored_marker = colorize(marker, color)
@@ -878,13 +912,16 @@ informative: false, formatting: false)
           output = []
           old_highlighted = render_line_from_char_ranges(old_content, char_ranges, :old)
           new_highlighted = render_line_from_char_ranges(new_content, new_char_ranges, :new)
+          line_num_color = structure_color(:line_number) || :yellow
+          pipe_color = structure_color(:pipe) || :yellow
+          changed_marker_color = theme_color(:changed, :marker)
 
           if @use_color
-            yellow_old = colorize(fmt % old_line_num, :yellow)
-            yellow_pipe1 = colorize("|", :yellow)
-            yellow_new = colorize(fmt % new_line_num, :yellow)
-            yellow_pipe2 = colorize("|", :yellow)
-            mixed_marker = colorize("*", :magenta)
+            yellow_old = colorize(fmt % old_line_num, line_num_color)
+            yellow_pipe1 = colorize("|", pipe_color)
+            yellow_new = colorize(fmt % new_line_num, line_num_color)
+            yellow_pipe2 = colorize("|", pipe_color)
+            mixed_marker = colorize("*", changed_marker_color)
 
             # OLD line: show line number with * marker
             output << "#{yellow_old}#{yellow_pipe1}#{blank}#{mixed_marker} #{yellow_pipe2} #{old_highlighted}"
@@ -908,15 +945,20 @@ informative: false, formatting: false)
           old_highlighted = render_line_for_inline(old_content, char_ranges, :old)
           new_highlighted = render_line_for_inline(new_content, new_char_ranges, :new)
 
+          line_num_color = structure_color(:line_number) || :yellow
+          pipe_color = structure_color(:pipe) || :yellow
+          changed_marker_color = theme_color(:changed, :marker)
+          separator_color = theme_color(:informative, :content) || :cyan
+
           # Separator between OLD and NEW content in inline mode
-          separator = @use_color ? colorize(" → ", :cyan) : " → "
+          separator = @use_color ? colorize(" → ", separator_color) : " → "
 
           if @use_color
-            yellow_old = colorize(fmt % old_line_num, :yellow)
-            yellow_pipe1 = colorize("|", :yellow)
-            yellow_new = colorize(fmt % new_line_num, :yellow)
-            yellow_pipe2 = colorize("|", :yellow)
-            mixed_marker = colorize("*", :magenta)
+            yellow_old = colorize(fmt % old_line_num, line_num_color)
+            yellow_pipe1 = colorize("|", pipe_color)
+            yellow_new = colorize(fmt % new_line_num, line_num_color)
+            yellow_pipe2 = colorize("|", pipe_color)
+            mixed_marker = colorize("*", changed_marker_color)
 
             "#{yellow_old}#{yellow_pipe1}#{yellow_new}#{mixed_marker} #{yellow_pipe2} #{old_highlighted}#{separator}#{new_highlighted}"
           else
@@ -932,6 +974,8 @@ informative: false, formatting: false)
 
           parts = []
           cursor = 0
+          removed_color = theme_color(:removed, :content)
+          added_color = theme_color(:added, :content)
 
           ranges.each do |cr|
             # Fill in any gap before this range as unchanged text
@@ -950,13 +994,13 @@ informative: false, formatting: false)
                      when :unchanged
                        apply_visualization(decoded_segment)
                      when :changed_old
-                       apply_effect(decoded_segment, :strikethrough, :red)
+                       apply_effect(decoded_segment, :strikethrough, removed_color)
                      when :changed_new
-                       apply_effect(decoded_segment, :underline, :green)
+                       apply_effect(decoded_segment, :underline, added_color)
                      when :removed
-                       apply_effect(decoded_segment, :strikethrough, :red)
+                       apply_effect(decoded_segment, :strikethrough, removed_color)
                      when :added
-                       apply_effect(decoded_segment, :underline, :green)
+                       apply_effect(decoded_segment, :underline, added_color)
                      else
                        apply_visualization(decoded_segment)
                      end
@@ -980,14 +1024,18 @@ informative: false, formatting: false)
           output = []
           fmt = "%#{@line_num_width}d"
           blank = " " * @line_num_width
+          line_num_color = structure_color(:line_number) || :yellow
+          pipe_color = structure_color(:pipe) || :yellow
+          removed_marker_color = theme_color(:removed, :marker)
+          added_marker_color = theme_color(:added, :marker)
 
           if @use_color
-            yellow_old = colorize(fmt % old_line, :yellow)
-            yellow_pipe1 = colorize("|", :yellow)
-            yellow_new = colorize(fmt % new_line, :yellow)
-            yellow_pipe2 = colorize("|", :yellow)
-            red_marker = colorize("-", :red)
-            green_marker = colorize("+", :green)
+            yellow_old = colorize(fmt % old_line, line_num_color)
+            yellow_pipe1 = colorize("|", pipe_color)
+            yellow_new = colorize(fmt % new_line, line_num_color)
+            yellow_pipe2 = colorize("|", pipe_color)
+            red_marker = colorize("-", removed_marker_color)
+            green_marker = colorize("+", added_marker_color)
 
             output << "#{yellow_old}#{yellow_pipe1}#{blank}#{red_marker} #{yellow_pipe2} #{old_highlighted}"
             output << "#{blank}#{yellow_pipe1}#{yellow_new}#{green_marker} #{yellow_pipe2} #{new_highlighted}"
@@ -997,6 +1045,29 @@ informative: false, formatting: false)
           end
 
           output.join("\n")
+        end
+
+        # Inline format for token diff lines: OLD → NEW on same line
+        def format_token_diff_line_inline(old_line, new_line, old_highlighted,
+                                         new_highlighted)
+          fmt = "%#{@line_num_width}d"
+          line_num_color = structure_color(:line_number) || :yellow
+          pipe_color = structure_color(:pipe) || :yellow
+          changed_marker_color = theme_color(:changed, :marker)
+          separator_color = theme_color(:informative, :content) || :cyan
+
+          separator = @use_color ? colorize(" → ", separator_color) : " → "
+
+          if @use_color
+            yellow_old = colorize(fmt % old_line, line_num_color)
+            yellow_pipe = colorize("|", pipe_color)
+            yellow_new = colorize(fmt % new_line, line_num_color)
+            mixed_marker = colorize("*", changed_marker_color)
+
+            "#{yellow_old}#{yellow_pipe}#{yellow_new}#{mixed_marker} #{yellow_pipe} #{old_highlighted}#{separator}#{new_highlighted}"
+          else
+            "#{fmt % old_line}|#{fmt % new_line}*| #{old_highlighted}#{separator}#{new_highlighted}"
+          end
         end
 
         # Tokenize XML line
@@ -1030,6 +1101,8 @@ informative: false, formatting: false)
         # Build highlighted text from token diff
         def build_token_highlighted_text(token_diffs, side)
           parts = []
+          removed_color = theme_color(:removed, :content)
+          added_color = theme_color(:added, :content)
 
           token_diffs.each do |change|
             case change.action
@@ -1046,17 +1119,17 @@ informative: false, formatting: false)
                        end
             when "-"
               if side == :old
-                parts << apply_visualization(change.old_element, :red)
+                parts << apply_visualization(change.old_element, removed_color)
               end
             when "+"
               if side == :new
-                parts << apply_visualization(change.new_element, :green)
+                parts << apply_visualization(change.new_element, added_color)
               end
             when "!"
               parts << if side == :old
-                         apply_visualization(change.old_element, :red)
+                         apply_visualization(change.old_element, removed_color)
                        else
-                         apply_visualization(change.new_element, :green)
+                         apply_visualization(change.new_element, added_color)
                        end
             end
           end

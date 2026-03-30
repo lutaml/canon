@@ -68,12 +68,14 @@ module Canon
             when "-"
               # Deletion
               output << format_unified_line(old_line, nil, "-",
-                                            change.old_element, :red)
+                                            change.old_element,
+                                            theme_color(:removed, :content) || :red)
               old_line += 1
             when "+"
               # Addition
               output << format_unified_line(nil, new_line, "+",
-                                            change.new_element, :green)
+                                            change.new_element,
+                                            theme_color(:added, :content) || :green)
               new_line += 1
             when "!"
               # Change - show both with inline diff highlighting
@@ -100,20 +102,26 @@ module Canon
           output = []
 
           # Apply visualization
-          old_visualized = apply_visualization(old_text, :red)
-          new_visualized = apply_visualization(new_text, :green)
+          old_visualized = apply_visualization(old_text,
+                                               theme_color(:removed, :content) || :red)
+          new_visualized = apply_visualization(new_text,
+                                               theme_color(:added, :content) || :green)
 
           fmt = "%#{@line_num_width}d"
           blank = " " * @line_num_width
 
           # Format both lines with yellow line numbers and pipes
           if @use_color
-            yellow_old = colorize(fmt % line_num, :yellow)
-            yellow_pipe1 = colorize("|", :yellow)
-            yellow_new = colorize(fmt % line_num, :yellow)
-            yellow_pipe2 = colorize("|", :yellow)
-            red_marker = colorize("-", :red)
-            green_marker = colorize("+", :green)
+            ln_color = structure_color(:line_number) || :yellow
+            pipe_color = structure_color(:pipe) || :yellow
+            removed_color = theme_color(:removed, :content) || :red
+            added_color = theme_color(:added, :content) || :green
+            yellow_old = colorize(fmt % line_num, ln_color)
+            yellow_pipe1 = colorize("|", pipe_color)
+            yellow_new = colorize(fmt % line_num, ln_color)
+            yellow_pipe2 = colorize("|", pipe_color)
+            red_marker = colorize("-", removed_color)
+            green_marker = colorize("+", added_color)
 
             output << "#{yellow_old}#{yellow_pipe1}#{blank}#{red_marker} #{yellow_pipe2} #{old_visualized}"
             output << "#{blank}#{yellow_pipe1}#{yellow_new}#{green_marker} #{yellow_pipe2} #{new_visualized}"

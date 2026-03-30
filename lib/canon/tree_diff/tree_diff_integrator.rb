@@ -188,7 +188,7 @@ module Canon
       # @return [Integer, nil] Max node count
       def get_max_node_count
         # Get from options if provided, otherwise use default
-        @options[:max_node_count] || 10_000
+        @options[:max_node_count] || 30_000
       end
     end
   end

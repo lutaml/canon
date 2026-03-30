@@ -20,9 +20,11 @@ module Canon
 
           # Show full path if available (path in cyan, no color on tree structure)
           path_display = if diff[:path] && !diff[:path].empty?
-                           colorize(diff[:path].to_s, :cyan, :bold)
+                           colorize(diff[:path].to_s,
+                                    theme_color(:informative, :content) || :cyan, :bold)
                          else
-                           colorize(key.to_s, :cyan)
+                           colorize(key.to_s,
+                                    theme_color(:informative, :content) || :cyan)
                          end
 
           output << "#{prefix}#{connector}#{path_display}:"
@@ -64,14 +66,16 @@ module Canon
               output.concat(render_added_hash(diff[:value2], prefix))
             else
               value_str = format_value_for_diff(diff[:value2])
-              output << "#{prefix}└── + #{colorize(value_str, :green)}"
+              output << "#{prefix}└── + #{colorize(value_str,
+                                                   theme_color(:added, :content) || :green)}"
             end
           elsif diff[:value1].is_a?(Hash) && !diff[:value1].empty?
             # Key removed in file2
             output.concat(render_removed_hash(diff[:value1], prefix))
           else
             value_str = format_value_for_diff(diff[:value1])
-            output << "#{prefix}└── - #{colorize(value_str, :red)}"
+            output << "#{prefix}└── - #{colorize(value_str,
+                                                 theme_color(:removed, :content) || :red)}"
           end
         end
 
@@ -103,11 +107,11 @@ module Canon
         def render_unequal_types(diff, prefix, output)
           output << "#{prefix}├── - #{colorize(
             "#{diff[:value1].class.name}: #{format_value_for_diff(diff[:value1])}",
-            :red,
+            theme_color(:removed, :content) || :red,
           )}"
           output << "#{prefix}└── + #{colorize(
             "#{diff[:value2].class.name}: #{format_value_for_diff(diff[:value2])}",
-            :green,
+            theme_color(:added, :content) || :green,
           )}"
         end
 
@@ -118,10 +122,12 @@ module Canon
                                             prefix))
           elsif diff[:value1]
             value_str = format_value_for_diff(diff[:value1])
-            output << "#{prefix}└── - #{colorize(value_str, :red)}"
+            output << "#{prefix}└── - #{colorize(value_str,
+                                                 theme_color(:removed, :content) || :red)}"
           elsif diff[:value2]
             value_str = format_value_for_diff(diff[:value2])
-            output << "#{prefix}└── + #{colorize(value_str, :green)}"
+            output << "#{prefix}└── + #{colorize(value_str,
+                                                 theme_color(:added, :content) || :green)}"
           else
             output << "#{prefix}└── [UNKNOWN CHANGE]"
           end
@@ -140,14 +146,16 @@ module Canon
             value = hash[key]
             if value.is_a?(Hash) && !value.empty?
               # Nested hash - recurse
-              output << "#{prefix}#{connector} + #{colorize(key.to_s, :green)}:"
+              output << "#{prefix}#{connector} + #{colorize(key.to_s,
+                                                            theme_color(:added, :content) || :green)}:"
               output.concat(render_added_hash(value, prefix + continuation))
             else
               # Leaf value
               value_str = format_value_for_diff(value)
               output << "#{prefix}#{connector} + #{colorize(key.to_s,
-                                                            :green)}: #{colorize(
-                                                              value_str, :green
+                                                            theme_color(:added, :content) || :green)}: #{colorize(
+                                                              value_str,
+                                                              theme_color(:added, :content) || :green,
                                                             )}"
             end
           end
@@ -168,14 +176,16 @@ module Canon
             value = hash[key]
             if value.is_a?(Hash) && !value.empty?
               # Nested hash - recurse
-              output << "#{prefix}#{connector} - #{colorize(key.to_s, :red)}:"
+              output << "#{prefix}#{connector} - #{colorize(key.to_s,
+                                                            theme_color(:removed, :content) || :red)}:"
               output.concat(render_removed_hash(value, prefix + continuation))
             else
               # Leaf value
               value_str = format_value_for_diff(value)
               output << "#{prefix}#{connector} - #{colorize(key.to_s,
-                                                            :red)}: #{colorize(
-                                                              value_str, :red
+                                                            theme_color(:removed, :content) || :red)}: #{colorize(
+                                                              value_str,
+                                                              theme_color(:removed, :content) || :red,
                                                             )}"
             end
           end
@@ -194,14 +204,18 @@ module Canon
             # For hashes, show summary (detailed comparison happens recursively)
             val1_str = format_value_for_diff(val1)
             val2_str = format_value_for_diff(val2)
-            output << "#{prefix}├── - #{colorize(val1_str, :red)}"
-            output << "#{prefix}└── + #{colorize(val2_str, :green)}"
+            output << "#{prefix}├── - #{colorize(val1_str,
+                                                 theme_color(:removed, :content) || :red)}"
+            output << "#{prefix}└── + #{colorize(val2_str,
+                                                 theme_color(:added, :content) || :green)}"
           else
             # Primitives - show actual values
             val1_str = format_value_for_diff(val1)
             val2_str = format_value_for_diff(val2)
-            output << "#{prefix}├── - #{colorize(val1_str, :red)}"
-            output << "#{prefix}└── + #{colorize(val2_str, :green)}"
+            output << "#{prefix}├── - #{colorize(val1_str,
+                                                 theme_color(:removed, :content) || :red)}"
+            output << "#{prefix}└── + #{colorize(val2_str,
+                                                 theme_color(:added, :content) || :green)}"
           end
 
           output
@@ -243,23 +257,23 @@ module Canon
             case change[:type]
             when :add
               output << "#{prefix}#{connector} [#{change[:index]}] + #{colorize(
-                change[:value], :green
+                change[:value], theme_color(:added, :content) || :green
               )}"
             when :remove
               output << "#{prefix}#{connector} [#{change[:index]}] - #{colorize(
-                change[:value], :red
+                change[:value], theme_color(:removed, :content) || :red
               )}"
             when :change
               output << "#{prefix}├── [#{change[:index]}] - #{colorize(
-                change[:old], :red
+                change[:old], theme_color(:removed, :content) || :red
               )}"
               output << if is_last
                           "#{prefix}└── [#{change[:index]}] + #{colorize(
-                            change[:new], :green
+                            change[:new], theme_color(:added, :content) || :green
                           )}"
                         else
                           "#{prefix}├── [#{change[:index]}] + #{colorize(
-                            change[:new], :green
+                            change[:new], theme_color(:added, :content) || :green
                           )}"
                         end
             end

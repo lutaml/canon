@@ -18,6 +18,7 @@ module Canon
         show_preprocessed_inputs: :boolean,
         show_line_numbered_inputs: :boolean,
         display_format: :symbol,
+        theme: :symbol,
 
         # MatchConfig attributes
         profile: :symbol,
@@ -47,7 +48,8 @@ module Canon
         def all_diff_attributes
           %i[mode use_color context_lines grouping_lines show_diffs
              verbose_diff algorithm show_raw_inputs show_preprocessed_inputs
-             show_line_numbered_inputs display_format max_file_size max_node_count max_diff_lines]
+             show_line_numbered_inputs display_format max_file_size max_node_count max_diff_lines
+             theme]
         end
 
         def all_match_attributes

@@ -99,6 +99,29 @@ export CANON_HTML_DIFF_USE_COLOR=true
 
 Valid values: `true`, `false`, `1`, `0`, `yes`, `no`
 
+=== Diff display theme
+
+Choose a color theme for diff output. Themes control foreground/background colors, text effects, and visual markers.
+
+[source,bash]
+----
+# Set theme for dark terminal
+export CANON_DIFF_THEME=dark
+
+# Set theme for light terminal
+export CANON_DIFF_THEME=light
+
+# Amber CRT retro look
+export CANON_DIFF_THEME=retro
+
+# Claude Code style (red/green backgrounds)
+export CANON_DIFF_THEME=claude
+----
+
+Valid values: `light`, `dark`, `retro`, `claude`
+
+See link:../diff-formatting/themes.adoc[Diff display themes] for complete theme documentation.
+
 === Context and grouping
 
 [source,bash]

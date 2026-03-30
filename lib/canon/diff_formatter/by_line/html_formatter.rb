@@ -181,22 +181,25 @@ module Canon
               informative = diff_line.informative?
 
               output << if formatting
-                          # Formatting-only removal: [ marker in dark gray
+                          # Formatting-only removal: [ marker
                           format_unified_line(line_num, nil, "[",
                                               diff_line.content,
-                                              :black,
+                                              theme_color(:formatting,
+                                                          :marker) || :black,
                                               formatting: true)
                         elsif informative
-                          # Informative removal: < marker in blue
+                          # Informative removal: < marker
                           format_unified_line(line_num, nil, "<",
                                               diff_line.content,
-                                              :blue,
+                                              theme_color(:informative,
+                                                          :marker) || :blue,
                                               informative: true)
                         else
-                          # Normative removal: - marker in red
+                          # Normative removal: - marker
                           format_unified_line(line_num, nil, "-",
                                               diff_line.content,
-                                              :red)
+                                              theme_color(:removed,
+                                                          :marker) || :red)
                         end
             when :added
               line_num = diff_line.line_number + 1
@@ -204,22 +207,25 @@ module Canon
               informative = diff_line.informative?
 
               output << if formatting
-                          # Formatting-only addition: ] marker in light gray
+                          # Formatting-only addition: ] marker
                           format_unified_line(nil, line_num, "]",
                                               diff_line.content,
-                                              :white,
+                                              theme_color(:formatting,
+                                                          :marker) || :white,
                                               formatting: true)
                         elsif informative
-                          # Informative addition: > marker in cyan
+                          # Informative addition: > marker
                           format_unified_line(nil, line_num, ">",
                                               diff_line.content,
-                                              :cyan,
+                                              theme_color(:informative,
+                                                          :marker) || :cyan,
                                               informative: true)
                         else
-                          # Normative addition: + marker in green
+                          # Normative addition: + marker
                           format_unified_line(nil, line_num, "+",
                                               diff_line.content,
-                                              :green)
+                                              theme_color(:added,
+                                                          :marker) || :green)
                         end
             when :changed
               line_num = diff_line.line_number + 1
@@ -229,30 +235,34 @@ module Canon
               new_content = diff_line.content
 
               if formatting
+                fmt_color = theme_color(:formatting, :marker) || :black
                 output << format_unified_line(line_num, nil, "[",
                                               old_content,
-                                              :black,
+                                              fmt_color,
                                               formatting: true)
                 output << format_unified_line(nil, line_num, "]",
                                               new_content,
-                                              :white,
+                                              fmt_color,
                                               formatting: true)
               elsif informative
+                inf_color = theme_color(:informative, :marker) || :blue
                 output << format_unified_line(line_num, nil, "<",
                                               old_content,
-                                              :blue,
+                                              inf_color,
                                               informative: true)
                 output << format_unified_line(nil, line_num, ">",
                                               new_content,
-                                              :cyan,
+                                              inf_color,
                                               informative: true)
               else
                 output << format_unified_line(line_num, nil, "-",
                                               old_content,
-                                              :red)
+                                              theme_color(:removed,
+                                                          :marker) || :red)
                 output << format_unified_line(nil, line_num, "+",
                                               new_content,
-                                              :green)
+                                              theme_color(:added,
+                                                          :marker) || :green)
               end
             end
           end

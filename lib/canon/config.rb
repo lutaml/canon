@@ -262,6 +262,15 @@ module Canon
         @resolver.set_programmatic(:algorithm, value)
       end
 
+      # Theme name (:light, :dark, :retro, :claude)
+      def theme
+        @resolver.resolve(:theme)
+      end
+
+      def theme=(value)
+        @resolver.set_programmatic(:theme, value)
+      end
+
       # File size limit in bytes (default 5MB)
       def max_file_size
         @resolver.resolve(:max_file_size)
@@ -306,6 +315,7 @@ module Canon
           max_file_size: max_file_size,
           max_node_count: max_node_count,
           max_diff_lines: max_diff_lines,
+          theme: theme,
         }
       end
 
@@ -327,6 +337,7 @@ module Canon
           max_file_size: 5_242_880, # 5MB in bytes
           max_node_count: 10_000,   # Maximum nodes in tree
           max_diff_lines: 10_000,   # Maximum diff output lines
+          theme: :dark,              # Default theme
         }
 
         env = format ? EnvProvider.load_diff_for_format(format) : {}
