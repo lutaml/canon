@@ -142,6 +142,12 @@ export CANON_JSON_FORMAT_PREPROCESSING=normalize
 |`10000`
 |Maximum number of diff output lines
 |All formats
+
+|`CANON_DIFF_THEME`
+|symbol
+|`:dark`
+|Diff display theme: `light`, `dark`, `retro`, `claude`, `cyberpunk`
+|All formats
 |===
 
 === Match Configuration Variables

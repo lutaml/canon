@@ -3,6 +3,7 @@
 require "diff/lcs"
 require "diff/lcs/hunk"
 require_relative "../debug_output"
+require_relative "../theme"
 
 module Canon
   class DiffFormatter
@@ -48,7 +49,7 @@ module Canon
                        diff_grouping_lines: nil, visualization_map: nil,
                        show_diffs: :all, differences: [],
                        diff_mode: :separate, legacy_terminal: false,
-                       equivalent: nil)
+                       equivalent: nil, theme: nil)
           @use_color = use_color
           @context_lines = context_lines
           @diff_grouping_lines = diff_grouping_lines
@@ -59,12 +60,194 @@ module Canon
           @diff_mode = legacy_terminal ? :separate : diff_mode
           @legacy_terminal = legacy_terminal
           @equivalent = equivalent
+          @theme = theme
+        end
+
+        # Get the resolved theme hash
+        # @return [Hash] Theme hash
+        def theme
+          @theme ||= Theme.resolver(Canon::Config.instance).resolve
+        end
+
+        # Get theme by section and type
+        # @param section [Symbol] e.g., :diff, :xml, :structure
+        # @param diff_type [Symbol] e.g., :removed, :added, :changed
+        # @param element [Symbol] e.g., :marker, :content
+        # @return [Hash] Style properties
+        def theme_style(section, diff_type, element)
+          theme.dig(section, diff_type, element) || {}
+        end
+
+        # Apply full theme styling to text
+        # @param text [String] Text to style
+        # @param style [Hash] Style properties from theme (color, bg, bold, underline, strikethrough)
+        # @return [String] Styled text
+        def apply_theme_style(text, style)
+          return text if style.empty? || !@use_color
+
+          color = style[:color]
+          bg = style[:bg]
+          bold = style[:bold]
+          underline = style[:underline]
+          strikethrough = style[:strikethrough]
+
+          # Apply visualization first
+          visual = apply_visualization(text)
+
+          return visual unless color || bg || bold || underline || strikethrough
+
+          require "rainbow"
+          rainbow = Rainbow.new
+          rainbow.enabled = true
+          presenter = rainbow.wrap(visual)
+
+          presenter = apply_color(presenter, color) if color && color != :default
+          presenter = apply_bg(presenter, bg) if bg
+          presenter = presenter.bold if bold
+          presenter = presenter.underline if underline
+          presenter = presenter.cross_out if strikethrough
+
+          presenter.to_s
         end
 
         # Compute line number column width from document line counts
         def compute_line_num_width(doc1, doc2)
           max_lines = [doc1.count("\n"), doc2.count("\n")].max
           @line_num_width = [max_lines.to_s.length, 4].max
+        end
+
+        # =====================================================================
+        # Theme Style Helpers
+        # These methods look up theme styles for different diff types
+        # =====================================================================
+
+        # Get marker style for a diff type
+        # @param diff_type [Symbol] :removed, :added, :changed, :formatting, :informative
+        # @return [Hash] Style properties
+        def marker_style(diff_type)
+          theme_style(:diff, diff_type, :marker)
+        end
+
+        # Get content style for a diff type
+        # @param diff_type [Symbol] :removed, :added, :formatting, :informative
+        # @return [Hash] Style properties
+        def content_style(diff_type)
+          theme_style(:diff, diff_type, :content)
+        end
+
+        # Get changed content styles (old and new)
+        # @return [Hash] Keys: :content_old, :content_new
+        def changed_content_styles
+          {
+            content_old: theme_style(:diff, :changed, :content_old),
+            content_new: theme_style(:diff, :changed, :content_new),
+          }
+        end
+
+        # Get style for unchanged content
+        # @return [Hash] Style properties
+        def unchanged_content_style
+          theme_style(:diff, :unchanged, :content)
+        end
+
+        # Get structure styles
+        # @return [Hash] Keys: :line_number, :pipe, :context
+        def structure_styles
+          theme[:structure] || {}
+        end
+
+        # Get visualization characters
+        # @return [Hash] Keys: :space, :tab, :newline, :nbsp
+        def visualization_chars
+          theme[:visualization] || {}
+        end
+
+        # Get display mode
+        # @return [Symbol] :separate, :inline, :mixed
+        def display_mode
+          theme[:display_mode] || :separate
+        end
+
+        # Apply marker styling using theme
+        # @param text [String] Marker text (e.g., "-", "+", "*")
+        # @param diff_type [Symbol] Type of diff
+        # @return [String] Styled marker
+        def styled_marker(text, diff_type)
+          style = marker_style(diff_type)
+          return text unless @use_color && style[:color]
+
+          apply_theme_style(text, style)
+        end
+
+        # Get theme color for a specific diff type and element
+        # @param diff_type [Symbol] :removed, :added, :changed, :formatting, :informative
+        # @param element [Symbol] :marker, :content, :content_old, :content_new
+        # @return [Symbol, nil] Color value
+        def theme_color(diff_type, element)
+          theme_style(:diff, diff_type, element)[:color]
+        end
+
+        # Get structure color
+        # @param element [Symbol] :line_number, :pipe, :context
+        # @return [Symbol, nil] Color value
+        def structure_color(element)
+          theme.dig(:structure, element, :color)
+        end
+
+        # Normalize a color symbol for Rainbow presenter.
+        # Rainbow doesn't support :bright_blue directly - instead it uses
+        # chained methods like .blue.bright or .bright.blue.
+        # This returns an array of method symbols to chain.
+        #
+        # @param color [Symbol] Color like :bright_blue, :light_red, etc.
+        # @return [Array<Symbol>] Method chain for Rainbow
+        def normalize_color_for_rainbow(color)
+          return [] if color.nil?
+
+          case color.to_s
+          when /^bright_(.+)$/
+            # :bright_blue -> [:blue, :bright]
+            base = $1.to_sym
+            [base, :bright]
+          when /^light_(.+)$/
+            # :light_red -> Rainbow doesn't support light_, treat as white
+            [:white]
+          when "default", "black", "red", "green", "yellow", "blue", "magenta", "cyan", "white"
+            [color]
+          else
+            # Unknown color, return as-is and let Rainbow raise
+            [color]
+          end
+        end
+
+        # Apply a color to a Rainbow presenter, normalizing bright_/light_ colors.
+        # @param presenter [Rainbow::Presenter] The presenter to colorize
+        # @param color [Symbol] Color like :bright_blue, :red, etc.
+        # @return [Rainbow::Presenter] Colorized presenter
+        def apply_color(presenter, color)
+          valid_colors = normalize_color_for_rainbow(color)
+          valid_colors.each { |c| presenter = presenter.send(c) }
+          presenter
+        end
+
+        # Apply a background color to a Rainbow presenter.
+        # @param presenter [Rainbow::Presenter] The presenter to colorize
+        # @param bg_color [Symbol] Background color like :red, :light_blue, etc.
+        # @return [Rainbow::Presenter] Colorized presenter
+        def apply_bg(presenter, bg_color)
+          return presenter unless bg_color
+
+          case bg_color.to_s
+          when /^light_(.+)$/
+            # Rainbow doesn't support light_ backgrounds, use the base color
+            base = $1.to_sym
+            presenter.background(base)
+          when "default", "black", "red", "green", "yellow", "blue", "magenta", "cyan", "white"
+            presenter.background(bg_color)
+          else
+            # Try as-is and let Rainbow handle unknown colors
+            presenter.background(bg_color)
+          end
         end
 
         # Format line-by-line diff
@@ -184,12 +367,16 @@ module Canon
         def colorize(text, *colors)
           return text unless @use_color
 
+          # Filter out nil colors and normalize bright_/light_ colors
+          valid_colors = colors.compact.flat_map { |c| normalize_color_for_rainbow(c) }
+          return text if valid_colors.empty?
+
           require "rainbow"
           # Use a local Rainbow instance that ignores global TTY detection
           rainbow = Rainbow.new
           rainbow.enabled = true
           presenter = rainbow.wrap(text)
-          colors.each { |c| presenter = presenter.send(c) }
+          valid_colors.each { |c| presenter = presenter.send(c) }
           presenter.to_s
         end
 
@@ -381,16 +568,18 @@ module Canon
                                end
 
           if @use_color
-            yellow_old = colorize(old_str, :yellow)
-            yellow_pipe1 = colorize("|", :yellow)
-            yellow_new = colorize(new_str, :yellow)
-            yellow_pipe2 = colorize("|", :yellow)
+            ln_color = structure_color(:line_number) || :yellow
+            pipe_color = structure_color(:pipe) || :yellow
+            ln_old = colorize(old_str, ln_color)
+            pipe1 = colorize("|", pipe_color)
+            ln_new = colorize(new_str, ln_color)
+            pipe2 = colorize("|", pipe_color)
 
             if effective_color
               colored_marker = colorize(marker, effective_color)
-              "#{yellow_old}#{yellow_pipe1}#{yellow_new}#{colored_marker} #{yellow_pipe2} #{visualized_content}"
+              "#{ln_old}#{pipe1}#{ln_new}#{colored_marker} #{pipe2} #{visualized_content}"
             else
-              "#{yellow_old}#{yellow_pipe1}#{yellow_new}#{marker} #{yellow_pipe2} #{visualized_content}"
+              "#{ln_old}#{pipe1}#{ln_new}#{marker} #{pipe2} #{visualized_content}"
             end
           else
             "#{old_str}|#{new_str}#{marker_part}| #{visualized_content}"
@@ -429,15 +618,17 @@ module Canon
           blank = " " * @line_num_width
 
           if @use_color
-            yellow_old = colorize(fmt % old_line, :yellow)
-            yellow_pipe1 = colorize("|", :yellow)
-            yellow_new = colorize(fmt % new_line, :yellow)
-            yellow_pipe2 = colorize("|", :yellow)
+            ln_color = structure_color(:line_number) || :yellow
+            pipe_color = structure_color(:pipe) || :yellow
+            ln_old = colorize(fmt % old_line, ln_color)
+            pipe1 = colorize("|", pipe_color)
+            ln_new = colorize(fmt % new_line, ln_color)
+            pipe2 = colorize("|", pipe_color)
             old_marker_colored = colorize(old_marker, old_color)
             new_marker_colored = colorize(new_marker, new_color)
 
-            output << "#{yellow_old}#{yellow_pipe1}#{blank}#{old_marker_colored} #{yellow_pipe2} #{old_visualized}"
-            output << "#{blank}#{yellow_pipe1}#{yellow_new}#{new_marker_colored} #{yellow_pipe2} #{new_visualized}"
+            output << "#{ln_old}#{pipe1}#{blank}#{old_marker_colored} #{pipe2} #{old_visualized}"
+            output << "#{blank}#{pipe1}#{ln_new}#{new_marker_colored} #{pipe2} #{new_visualized}"
           else
             output << "#{fmt % old_line}|#{blank}#{old_marker} | #{old_visualized}"
             output << "#{blank}|#{fmt % new_line}#{new_marker} | #{new_visualized}"
@@ -462,7 +653,21 @@ module Canon
             require "rainbow"
             rainbow = Rainbow.new
             rainbow.enabled = true
-            rainbow.wrap(visual).send(color).bright.to_s
+            presenter = rainbow.wrap(visual)
+
+            # Handle Rainbow color methods - :bright_blue -> .blue.bright, etc.
+            if color.to_s.start_with?("bright_")
+              base_color = color.to_s.sub(/^bright_/, "").to_sym
+              presenter = presenter.send(base_color).bright
+            elsif color.to_s.start_with?("light_")
+              # Rainbow doesn't have light_ versions, treat as white on bg
+              base_color = color.to_s.sub(/^light_/, "").to_sym
+              presenter = presenter.send(base_color)
+            else
+              presenter = presenter.send(color)
+            end
+
+            presenter.to_s
           else
             visual
           end

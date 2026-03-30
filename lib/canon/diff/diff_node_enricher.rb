@@ -263,9 +263,22 @@ module Canon
           new_val = attrs_after[key]
 
           # Find in text1: key="old_val"
+          # Use element_name to scope the search and avoid matching
+          # attributes in the XML declaration (e.g., version="1.0" in
+          # <?xml version="1.0"?> vs <element version="1.0">)
+          element_name = diff_node.node1&.name
           if old_val
             pattern = build_attr_pattern(key, old_val)
-            loc = SourceLocator.locate(pattern, @text1, @line_map1)
+            start_from = xml_declaration_end_offset(@text1)
+            loc = SourceLocator.locate(pattern, @text1, @line_map1,
+                                       start_from: start_from)
+            # If not found after XML decl, try with element-scoped pattern
+            if loc.nil? && element_name
+              scoped = "#{element_name} #{pattern}"
+              loc = SourceLocator.locate(scoped, @text1, @line_map1)
+              # Adjust col to point to the attribute, not the element name
+              loc = loc.merge(col: loc[:col] + element_name.length + 1) if loc
+            end
             if loc
               line1_num ||= loc[:line_number]
               ranges << DiffCharRange.new(
@@ -281,9 +294,17 @@ module Canon
           end
 
           # Find in text2: key="new_val"
+          element_name2 = diff_node.node2&.name
           if new_val
             pattern = build_attr_pattern(key, new_val)
-            loc = SourceLocator.locate(pattern, @text2, @line_map2)
+            start_from = xml_declaration_end_offset(@text2)
+            loc = SourceLocator.locate(pattern, @text2, @line_map2,
+                                       start_from: start_from)
+            if loc.nil? && element_name2
+              scoped = "#{element_name2} #{pattern}"
+              loc = SourceLocator.locate(scoped, @text2, @line_map2)
+              loc = loc.merge(col: loc[:col] + element_name2.length + 1) if loc
+            end
             if loc
               line2_num ||= loc[:line_number]
               ranges << DiffCharRange.new(
@@ -322,7 +343,9 @@ module Canon
         removed_keys.each do |key|
           val = attrs_before[key]
           pattern = build_attr_pattern(key, val)
-          loc = SourceLocator.locate(pattern, @text1, @line_map1)
+          start_from = xml_declaration_end_offset(@text1)
+          loc = SourceLocator.locate(pattern, @text1, @line_map1,
+                                     start_from: start_from)
           next unless loc
 
           line1_num ||= loc[:line_number]
@@ -341,7 +364,9 @@ module Canon
         added_keys.each do |key|
           val = attrs_after[key]
           pattern = build_attr_pattern(key, val)
-          loc = SourceLocator.locate(pattern, @text2, @line_map2)
+          start_from = xml_declaration_end_offset(@text2)
+          loc = SourceLocator.locate(pattern, @text2, @line_map2,
+                                     start_from: start_from)
           next unless loc
 
           line2_num ||= loc[:line_number]
@@ -835,6 +860,24 @@ module Canon
       # Build an attribute pattern string: key="value"
       def build_attr_pattern(key, value)
         "#{key}=\"#{value}\""
+      end
+
+      # Return the character offset just past the XML declaration `?>`,
+      # or 0 if there is no XML declaration.
+      #
+      # The XML declaration can contain attributes like version, encoding
+      # that may collide with element attributes. Skipping past it prevents
+      # false matches when locating attribute patterns.
+      #
+      # @param text [String] the source text
+      # @return [Integer] character offset past the XML declaration, or 0
+      def xml_declaration_end_offset(text)
+        if text.start_with?("<?xml")
+          idx = text.index("?>")
+          idx ? idx + 2 : 0
+        else
+          0
+        end
       end
 
       # Find the last line that content starting at start_line spans.

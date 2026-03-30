@@ -23,6 +23,7 @@ Canon's diff formatting includes:
 * **Display filtering**: Control which differences appear in output based on
   whether they affect equivalence
 * **Colors and symbols**: Visual indicators for different types of changes
+* **Diff display themes**: Choose from light, dark, retro, or claude color schemes
 * **Character visualization**: Make invisible characters visible
 * **Context and grouping**: Control how much surrounding context to show
 * **Algorithm-specific output**: Different output styles for different diff
@@ -51,6 +52,17 @@ Canon uses color-coded output to distinguish different types of changes:
 * Cyan: Informative differences
 
 See link:colors-and-symbols.adoc[Colors and symbols] for details.
+
+=== Diff display themes
+
+Choose from 4 predefined color themes (light, dark, retro, claude) or create custom themes:
+
+* Light theme: Light terminal backgrounds
+* Dark theme: Dark terminals (default)
+* Retro theme: Amber CRT, low blue light
+* Claude theme: Maximum contrast with colored backgrounds
+
+See link:themes.adoc[Themes] for complete theme documentation.
 
 === Character visualization
 

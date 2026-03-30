@@ -84,11 +84,13 @@ module Canon
             when "-"
               # Deletion
               output << format_unified_line(old_line, nil, "-",
-                                            change.old_element, :red)
+                                            change.old_element,
+                                            theme_color(:removed, :content) || :red)
             when "+"
               # Addition
               output << format_unified_line(nil, new_line, "+",
-                                            change.new_element, :green)
+                                            change.new_element,
+                                            theme_color(:added, :content) || :green)
             when "!"
               # Change - show with semantic token highlighting
               old_text = change.old_element
@@ -129,15 +131,19 @@ module Canon
           blank = " " * @line_num_width
 
           if @use_color
-            yellow_old = colorize(fmt % old_line, :yellow)
-            yellow_pipe1 = colorize("|", :yellow)
-            yellow_new = colorize(fmt % new_line, :yellow)
-            yellow_pipe2 = colorize("|", :yellow)
-            red_marker = colorize("-", :red)
-            green_marker = colorize("+", :green)
+            ln_color = structure_color(:line_number) || :yellow
+            pipe_color = structure_color(:pipe) || :yellow
+            ln_old = colorize(fmt % old_line, ln_color)
+            pipe1 = colorize("|", pipe_color)
+            ln_new = colorize(fmt % new_line, ln_color)
+            pipe2 = colorize("|", pipe_color)
+            removed_color = theme_color(:removed, :content) || :red
+            added_color = theme_color(:added, :content) || :green
+            red_marker = colorize("-", removed_color)
+            green_marker = colorize("+", added_color)
 
-            output << "#{yellow_old}#{yellow_pipe1}#{blank}#{red_marker} #{yellow_pipe2} #{old_highlighted}"
-            output << "#{blank}#{yellow_pipe1}#{yellow_new}#{green_marker} #{yellow_pipe2} #{new_highlighted}"
+            output << "#{ln_old}#{pipe1}#{blank}#{red_marker} #{pipe2} #{old_highlighted}"
+            output << "#{blank}#{pipe1}#{ln_new}#{green_marker} #{pipe2} #{new_highlighted}"
           else
             output << "#{fmt % old_line}|#{blank}- | #{old_highlighted}"
             output << "#{blank}|#{fmt % new_line}+ | #{new_highlighted}"
@@ -204,22 +210,26 @@ module Canon
               # Deleted token (only show on old side)
               if side == :old
                 token = change.old_element
-                parts << apply_visualization(token, :red)
+                parts << apply_visualization(token,
+                                             theme_color(:removed, :content) || :red)
               end
             when "+"
               # Added token (only show on new side)
               if side == :new
                 token = change.new_element
-                parts << apply_visualization(token, :green)
+                parts << apply_visualization(token,
+                                             theme_color(:added, :content) || :green)
               end
             when "!"
               # Changed token
               if side == :old
                 token = change.old_element
-                parts << apply_visualization(token, :red)
+                parts << apply_visualization(token,
+                                             theme_color(:removed, :content) || :red)
               else
                 token = change.new_element
-                parts << apply_visualization(token, :green)
+                parts << apply_visualization(token,
+                                             theme_color(:added, :content) || :green)
               end
             end
           end

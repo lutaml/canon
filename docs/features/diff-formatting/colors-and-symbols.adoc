@@ -471,6 +471,17 @@ The whitespace difference is informative because `structural_whitespace: :ignore
 
 == Color Control
 
+=== Theme System
+
+Canon supports multiple color themes that adapt the diff display to your terminal background and personal preference. Four built-in themes are available:
+
+* `:light` -- Light terminal backgrounds
+* `:dark` -- Dark terminals (default)
+* `:retro` -- Amber CRT, low blue light, accessibility
+* `:claude` -- Claude Code diff style with red/green backgrounds
+
+See link:themes.adoc[Diff display themes] for full theme documentation.
+
 === Automatic Color Detection
 
 Canon automatically detects whether the terminal supports color output:

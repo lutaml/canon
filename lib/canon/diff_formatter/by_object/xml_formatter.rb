@@ -20,9 +20,11 @@ module Canon
 
           # Show full path if available (path in cyan, no color on tree structure)
           path_display = if diff.is_a?(Hash) && diff[:path] && !diff[:path].empty?
-                           colorize(diff[:path].to_s, :cyan, :bold)
+                           colorize(diff[:path].to_s,
+                                    theme_color(:informative, :content) || :cyan, :bold)
                          else
-                           colorize(key.to_s, :cyan)
+                           colorize(key.to_s,
+                                    theme_color(:informative, :content) || :cyan)
                          end
 
           output << "#{prefix}#{connector}#{path_display}:"
@@ -91,12 +93,13 @@ module Canon
               text1 = extract_text(node1)
               text2 = extract_text(node2)
               output << "#{prefix}├── - #{colorize(format_text_inline(text1),
-                                                   :red)}"
+                                                   theme_color(:removed, :content) || :red)}"
               output << "#{prefix}└── + #{colorize(format_text_inline(text2),
-                                                   :green)}"
+                                                   theme_color(:added, :content) || :green)}"
             else
               output << "#{prefix}└── #{colorize(
-                "[#{diff_node.dimension}: #{diff_node.reason}]", :yellow
+                "[#{diff_node.dimension}: #{diff_node.reason}]",
+                theme_color(:changed, :marker) || :yellow,
               )}"
             end
           when :comments
@@ -105,34 +108,41 @@ module Canon
               content1 = extract_text(node1)
               content2 = extract_text(node2)
               output << "#{prefix}├── - #{colorize(
-                "<!-- #{format_text_inline(content1)} -->", :red
+                "<!-- #{format_text_inline(content1)} -->",
+                theme_color(:removed, :content) || :red,
               )}"
               output << "#{prefix}└── + #{colorize(
-                "<!-- #{format_text_inline(content2)} -->", :green
+                "<!-- #{format_text_inline(content2)} -->",
+                theme_color(:added, :content) || :green,
               )}"
             elsif node1
               content1 = extract_text(node1)
               output << "#{prefix}└── - #{colorize(
-                "<!-- #{format_text_inline(content1)} --> [deleted]", :red
+                "<!-- #{format_text_inline(content1)} --> [deleted]",
+                theme_color(:removed, :content) || :red,
               )}"
             elsif node2
               content2 = extract_text(node2)
               output << "#{prefix}└── + #{colorize(
-                "<!-- #{format_text_inline(content2)} --> [added]", :green
+                "<!-- #{format_text_inline(content2)} --> [added]",
+                theme_color(:added, :content) || :green,
               )}"
             else
               output << "#{prefix}└── #{colorize(
-                "[#{diff_node.dimension}: #{diff_node.reason}]", :yellow
+                "[#{diff_node.dimension}: #{diff_node.reason}]",
+                theme_color(:changed, :marker) || :yellow,
               )}"
             end
           when :structural_whitespace, :attribute_whitespace, :attribute_values
             output << "#{prefix}└── #{colorize(
-              "[#{diff_node.dimension}: #{diff_node.reason}]", :yellow
+              "[#{diff_node.dimension}: #{diff_node.reason}]",
+              theme_color(:changed, :marker) || :yellow,
             )}"
           else
             # Fallback
             output << "#{prefix}└── #{colorize(
-              "[#{diff_node.dimension}: #{diff_node.reason}]", :cyan
+              "[#{diff_node.dimension}: #{diff_node.reason}]",
+              theme_color(:informative, :content) || :cyan,
             )}"
           end
         end
@@ -141,8 +151,10 @@ module Canon
         def render_unequal_elements(diff, prefix, output)
           node1 = diff[:node1]
           node2 = diff[:node2]
-          output << "#{prefix}├── - #{colorize("<#{node1.name}>", :red)}"
-          output << "#{prefix}└── + #{colorize("<#{node2.name}>", :green)}"
+          output << "#{prefix}├── - #{colorize("<#{node1.name}>",
+                                               theme_color(:removed, :content) || :red)}"
+          output << "#{prefix}└── + #{colorize("<#{node2.name}>",
+                                               theme_color(:added, :content) || :green)}"
         end
 
         # Render unequal text contents
@@ -156,21 +168,23 @@ module Canon
           # Show parent element if available
           if node1.respond_to?(:parent) && node1.parent.respond_to?(:name)
             output << "#{prefix}    #{colorize(
-              "Element: <#{node1.parent.name}>", :blue
+              "Element: <#{node1.parent.name}>",
+              theme_color(:informative, :content) || :blue,
             )}"
           end
 
           output << "#{prefix}├── - #{colorize(format_text_inline(text1),
-                                               :red)}"
+                                               theme_color(:removed, :content) || :red)}"
           output << "#{prefix}└── + #{colorize(format_text_inline(text2),
-                                               :green)}"
+                                               theme_color(:added, :content) || :green)}"
         end
 
         # Render unequal attributes
         def render_unequal_attributes(diff, prefix, output)
           node1 = diff[:node1]
           output << "#{prefix}└── #{colorize(
-            "Element: <#{node1.name}> [attributes differ]", :yellow
+            "Element: <#{node1.name}> [attributes differ]",
+            theme_color(:changed, :marker) || :yellow,
           )}"
         end
 
@@ -178,7 +192,8 @@ module Canon
         def render_missing_attribute(diff, prefix, output)
           node1 = diff[:node1]
           output << "#{prefix}└── #{colorize(
-            "Element: <#{node1.name}> [attribute mismatch]", :yellow
+            "Element: <#{node1.name}> [attribute mismatch]",
+            theme_color(:changed, :marker) || :yellow,
           )}"
         end
 
@@ -191,35 +206,45 @@ module Canon
           content2 = extract_text(node2)
 
           output << "#{prefix}├── - #{colorize(
-            "<!-- #{format_text_inline(content1)} -->", :red
+            "<!-- #{format_text_inline(content1)} -->",
+            theme_color(:removed, :content) || :red,
           )}"
           output << "#{prefix}└── + #{colorize(
-            "<!-- #{format_text_inline(content2)} -->", :green
+            "<!-- #{format_text_inline(content2)} -->",
+            theme_color(:added, :content) || :green,
           )}"
         end
 
         # Render missing node
-        def render_missing_node(diff, prefix, output)
-          output << if diff[:node1] && !diff[:node2]
-                      "#{prefix}└── - #{colorize('[node deleted]', :red)}"
-                    elsif diff[:node2] && !diff[:node1]
-                      "#{prefix}└── + #{colorize('[node inserted]', :green)}"
-                    else
-                      "#{prefix}└── #{colorize('[node mismatch]', :yellow)}"
-                    end
+        def render_missing_node(diff, prefix, _output)
+          if diff[:node1] && !diff[:node2]
+            "#{prefix}└── - #{colorize('[node deleted]',
+                                       theme_color(:removed, :content) || :red)}"
+          elsif diff[:node2] && !diff[:node1]
+            "#{prefix}└── + #{colorize('[node inserted]',
+                                       theme_color(:added, :content) || :green)}"
+          else
+            "#{prefix}└── #{colorize('[node mismatch]',
+                                     theme_color(:changed, :marker) || :yellow)}"
+          end
         end
 
         # Render fallback for unknown diff types
         def render_fallback(diff, prefix, output)
           if diff[:node1] && diff[:node2]
-            output << "#{prefix}├── - #{colorize('[file1 node]', :red)}"
-            output << "#{prefix}└── + #{colorize('[file2 node]', :green)}"
+            output << "#{prefix}├── - #{colorize('[file1 node]',
+                                                 theme_color(:removed, :content) || :red)}"
+            output << "#{prefix}└── + #{colorize('[file2 node]',
+                                                 theme_color(:added, :content) || :green)}"
           elsif diff[:node1]
-            output << "#{prefix}└── - #{colorize('[file1 only]', :red)}"
+            output << "#{prefix}└── - #{colorize('[file1 only]',
+                                                 theme_color(:removed, :content) || :red)}"
           elsif diff[:node2]
-            output << "#{prefix}└── + #{colorize('[file2 only]', :green)}"
+            output << "#{prefix}└── + #{colorize('[file2 only]',
+                                                 theme_color(:added, :content) || :green)}"
           else
-            output << "#{prefix}└── #{colorize('[unknown change]', :yellow)}"
+            output << "#{prefix}└── #{colorize('[unknown change]',
+                                               theme_color(:changed, :marker) || :yellow)}"
           end
         end
 

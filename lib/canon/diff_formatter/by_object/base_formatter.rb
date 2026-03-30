@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+require "set"
+require_relative "../theme"
+
 module Canon
   class DiffFormatter
     module ByObject
@@ -9,11 +12,12 @@ module Canon
         attr_reader :use_color, :visualization_map
 
         def initialize(use_color: true, visualization_map: nil,
-show_diffs: :all)
+show_diffs: :all, theme: nil)
           @use_color = use_color
           @visualization_map = visualization_map ||
             Canon::DiffFormatter::DEFAULT_VISUALIZATION_MAP
           @show_diffs = show_diffs
+          @theme = theme
         end
 
         # Format differences for display
@@ -35,7 +39,7 @@ show_diffs: :all)
           end
 
           output = []
-          output << colorize("Visual Diff:", :cyan, :bold)
+          output << colorize("Visual Diff:", theme_color(:informative, :content) || :cyan, :bold)
 
           # Filter differences for display based on show_diffs setting
           filtered_diffs = filter_differences_for_display(diffs_array)
@@ -50,13 +54,14 @@ show_diffs: :all)
 
           # Add truncation notice if needed
           if @truncated
+            trunc_color = structure_color(:line_number) || :yellow
             rendered += "\n\n"
             rendered += colorize(
-              "... Output truncated at #{@max_lines} lines ...", :yellow, :bold
+              "... Output truncated at #{@max_lines} lines ...", trunc_color, :bold
             )
             rendered += "\n"
             rendered += colorize(
-              "Increase limit via CANON_MAX_DIFF_LINES or config.diff.max_diff_lines", :yellow
+              "Increase limit via CANON_MAX_DIFF_LINES or config.diff.max_diff_lines", trunc_color
             )
           end
 
@@ -67,30 +72,54 @@ show_diffs: :all)
 
         # Factory method to create format-specific formatter
         def self.for_format(format, use_color: true, visualization_map: nil,
-show_diffs: :all)
+show_diffs: :all, theme: nil)
           case format
           when :xml, :html
             require_relative "xml_formatter"
             XmlFormatter.new(use_color: use_color,
                              visualization_map: visualization_map,
-                             show_diffs: show_diffs)
+                             show_diffs: show_diffs,
+                             theme: theme)
           when :json
             require_relative "json_formatter"
             JsonFormatter.new(use_color: use_color,
                               visualization_map: visualization_map,
-                              show_diffs: show_diffs)
+                              show_diffs: show_diffs,
+                              theme: theme)
           when :yaml
             require_relative "yaml_formatter"
             YamlFormatter.new(use_color: use_color,
                               visualization_map: visualization_map,
-                              show_diffs: show_diffs)
+                              show_diffs: show_diffs,
+                              theme: theme)
           else
             new(use_color: use_color, visualization_map: visualization_map,
-                show_diffs: show_diffs)
+                show_diffs: show_diffs, theme: theme)
           end
         end
 
         private
+
+        # Get the resolved theme hash
+        # @return [Hash] Theme hash
+        def theme
+          @theme ||= Theme.resolver(Canon::Config.instance).resolve
+        end
+
+        # Get theme color for a specific diff type and element
+        # @param diff_type [Symbol] :removed, :added, :changed, :formatting, :informative
+        # @param element [Symbol] :marker, :content
+        # @return [Symbol, nil] Color value
+        def theme_color(diff_type, element)
+          theme.dig(:diff, diff_type, element, :color)
+        end
+
+        # Get structure color
+        # @param element [Symbol] :line_number, :pipe
+        # @return [Symbol, nil] Color value
+        def structure_color(element)
+          theme.dig(:structure, element, :color)
+        end
 
         # Filter differences for display based on show_diffs setting
         #
@@ -125,7 +154,7 @@ show_diffs: :all)
         def success_message
           emoji = @use_color ? "✅ " : ""
           message = "Files are semantically equivalent"
-          colorize("#{emoji}#{message}\n", :green, :bold)
+          colorize("#{emoji}#{message}\n", theme_color(:added, :content) || :green, :bold)
         end
 
         # Build a tree structure from differences
@@ -257,7 +286,8 @@ show_diffs: :all)
               end
             else
               # Render intermediate path
-              line = colorize("#{prefix}#{connector}#{key}:", :cyan)
+              line = colorize("#{prefix}#{connector}#{key}:",
+                              theme_color(:informative, :content) || :cyan)
               output << line
               @line_count += 1
 
@@ -292,7 +322,19 @@ show_diffs: :all)
           rainbow = Rainbow.new
           rainbow.enabled = true
           presenter = rainbow.wrap(text)
-          colors.each { |c| presenter = presenter.send(c) }
+          colors.each do |c|
+            # Handle bright_ colors: :bright_blue -> .blue.bright
+            if c.to_s.start_with?("bright_")
+              base = c.to_s.sub(/^bright_/, "").to_sym
+              presenter = presenter.send(base).bright
+            elsif c.to_s.start_with?("light_")
+              # Rainbow doesn't have light_ versions
+              base = c.to_s.sub(/^light_/, "").to_sym
+              presenter = presenter.send(base)
+            else
+              presenter = presenter.send(c)
+            end
+          end
           presenter.to_s
         end
 
