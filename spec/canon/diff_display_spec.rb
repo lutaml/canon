@@ -300,9 +300,11 @@ RSpec.describe "Line-by-line diff display" do
 
       # Should NOT show all 14+ document lines
       # Context should be limited to a few lines around the change
-      content_lines = lines.select { |l| l =~ /\|/ && l !~ /diff|Diff|Legend|━/ }
+      content_lines = lines.select do |l|
+        l.include?("|") && l !~ /diff|Diff|Legend|━/
+      end
       expect(content_lines.length).to be < 12,
-                                        "Expected limited context lines, got #{content_lines.length}"
+                                      "Expected limited context lines, got #{content_lines.length}"
     end
 
     it "shows separate context blocks for far-apart changes" do
@@ -353,8 +355,8 @@ RSpec.describe "Line-by-line diff display" do
 
   describe "marker correctness" do
     it "uses -/+ for simple word replacements, not * mixed marker" do
-      xml1 = '<root><p>John Doe</p></root>'
-      xml2 = '<root><p>Jane Doe</p></root>'
+      xml1 = "<root><p>John Doe</p></root>"
+      xml2 = "<root><p>Jane Doe</p></root>"
 
       result = Canon::Comparison.equivalent?(xml1, xml2, verbose: true)
       diff = result.diff(use_color: false)
@@ -402,7 +404,7 @@ RSpec.describe "Line-by-line diff display" do
       has_normative = lines.any? { |l| l.include?("- |") || l.include?("+ |") }
 
       expect(has_normative).to be_truthy,
-                              "Text change should show normative markers -/+"
+                               "Text change should show normative markers -/+"
     end
   end
 
@@ -412,11 +414,11 @@ RSpec.describe "Line-by-line diff display" do
       xml2 = "<doc>\n  <p>Hello</p>\n</doc>"
 
       result = Canon::Comparison.equivalent?(xml1, xml2, verbose: true)
-      diff = result.diff(use_color: false)
+      result.diff(use_color: false)
 
       # When equivalent, no diff output is shown, so no visualization applies
       # (visualization only matters when diff lines are actually shown)
-      expect(result.equivalent?).to be_truthy
+      expect(result).to be_equivalent
     end
 
     it "visualizes spaces as ░ in diff output" do
@@ -424,10 +426,10 @@ RSpec.describe "Line-by-line diff display" do
       xml2 = "<doc>\n  <p>Hello</p>\n</doc>"
 
       result = Canon::Comparison.equivalent?(xml1, xml2, verbose: true)
-      diff = result.diff(use_color: false)
+      result.diff(use_color: false)
 
       # When equivalent, no diff output is shown, so no visualization applies
-      expect(result.equivalent?).to be_truthy
+      expect(result).to be_equivalent
     end
   end
 end

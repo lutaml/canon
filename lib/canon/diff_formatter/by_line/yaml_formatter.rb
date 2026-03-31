@@ -219,25 +219,29 @@ module Canon
               if side == :old
                 token = change.old_element
                 parts << apply_visualization(token,
-                                             theme_color(:removed, :content) || :red)
+                                             theme_color(:removed,
+                                                         :content) || :red)
               end
             when "+"
               # Added token (only show on new side)
               if side == :new
                 token = change.new_element
                 parts << apply_visualization(token,
-                                             theme_color(:added, :content) || :green)
+                                             theme_color(:added,
+                                                         :content) || :green)
               end
             when "!"
               # Changed token
               if side == :old
                 token = change.old_element
                 parts << apply_visualization(token,
-                                             theme_color(:removed, :content) || :red)
+                                             theme_color(:removed,
+                                                         :content) || :red)
               else
                 token = change.new_element
                 parts << apply_visualization(token,
-                                             theme_color(:added, :content) || :green)
+                                             theme_color(:added,
+                                                         :content) || :green)
               end
             end
           end

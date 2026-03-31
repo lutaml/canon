@@ -103,9 +103,11 @@ module Canon
 
           # Apply visualization
           old_visualized = apply_visualization(old_text,
-                                               theme_color(:removed, :content) || :red)
+                                               theme_color(:removed,
+                                                           :content) || :red)
           new_visualized = apply_visualization(new_text,
-                                               theme_color(:added, :content) || :green)
+                                               theme_color(:added,
+                                                           :content) || :green)
 
           fmt = "%#{@line_num_width}d"
           blank = " " * @line_num_width

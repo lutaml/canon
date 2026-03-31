@@ -39,7 +39,8 @@ show_diffs: :all, theme: nil)
           end
 
           output = []
-          output << colorize("Visual Diff:", theme_color(:informative, :content) || :cyan, :bold)
+          output << colorize("Visual Diff:",
+                             theme_color(:informative, :content) || :cyan, :bold)
 
           # Filter differences for display based on show_diffs setting
           filtered_diffs = filter_differences_for_display(diffs_array)
@@ -154,7 +155,8 @@ show_diffs: :all, theme: nil)
         def success_message
           emoji = @use_color ? "✅ " : ""
           message = "Files are semantically equivalent"
-          colorize("#{emoji}#{message}\n", theme_color(:added, :content) || :green, :bold)
+          colorize("#{emoji}#{message}\n",
+                   theme_color(:added, :content) || :green, :bold)
         end
 
         # Build a tree structure from differences

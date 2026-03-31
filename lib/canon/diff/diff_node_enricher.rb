@@ -89,9 +89,11 @@ module Canon
 
         # One side is nil = pure insertion/deletion
         if before.nil?
-          loc = locate_at_element_index(after, @text2, @line_map2, diff_node.path)
+          loc = locate_at_element_index(after, @text2, @line_map2,
+                                        diff_node.path)
           loc ||= locate_via_parent_element(diff_node.path, @text2, @line_map2)
-          loc ||= locate_via_node_tree(diff_node.node2, after, @text2, @line_map2, :new)
+          loc ||= locate_via_node_tree(diff_node.node2, after, @text2,
+                                       @line_map2, :new)
           # Final fallback: when tree-based location in text2 fails because the
           # leaf element is self-closing (text moved OUTSIDE the element in text2),
           # search in text1 (original) using path-based location. The original
@@ -115,9 +117,11 @@ module Canon
         end
 
         if after.nil?
-          loc = locate_at_element_index(before, @text1, @line_map1, diff_node.path)
+          loc = locate_at_element_index(before, @text1, @line_map1,
+                                        diff_node.path)
           loc ||= locate_via_parent_element(diff_node.path, @text1, @line_map1)
-          loc ||= locate_via_node_tree(diff_node.node1, before, @text1, @line_map1, :old)
+          loc ||= locate_via_node_tree(diff_node.node1, before, @text1,
+                                       @line_map1, :old)
           return unless loc
 
           cr = DiffCharRange.new(
@@ -136,8 +140,10 @@ module Canon
         end
 
         # Both sides exist: locate and decompose
-        loc1 = locate_at_element_index(before, @text1, @line_map1, diff_node.path)
-        loc2 = locate_at_element_index(after, @text2, @line_map2, diff_node.path)
+        loc1 = locate_at_element_index(before, @text1, @line_map1,
+                                       diff_node.path)
+        loc2 = locate_at_element_index(after, @text2, @line_map2,
+                                       diff_node.path)
 
         unless loc1 && loc2
           # Cannot locate - element_structure changes can't be located without exact match
@@ -421,8 +427,14 @@ module Canon
         end
 
         diff_node.char_ranges = ranges
-        diff_node.line_range_before = loc1 ? [loc1[:line_number], loc1[:line_number]] : nil
-        diff_node.line_range_after = loc2 ? [loc2[:line_number], loc2[:line_number]] : nil
+        diff_node.line_range_before = if loc1
+                                        [loc1[:line_number],
+                                         loc1[:line_number]]
+                                      end
+        diff_node.line_range_after = if loc2
+                                       [loc2[:line_number],
+                                        loc2[:line_number]]
+                                     end
       end
 
       # Comment change: locate and decompose comment content.
@@ -580,8 +592,14 @@ module Canon
         end
 
         diff_node.char_ranges = ranges
-        diff_node.line_range_before = loc1 ? [loc1[:line_number], loc1[:line_number]] : nil
-        diff_node.line_range_after = loc2 ? [loc2[:line_number], loc2[:line_number]] : nil
+        diff_node.line_range_before = if loc1
+                                        [loc1[:line_number],
+                                         loc1[:line_number]]
+                                      end
+        diff_node.line_range_after = if loc2
+                                       [loc2[:line_number],
+                                        loc2[:line_number]]
+                                     end
       end
 
       # Element structure change: full element deletion/insertion.
@@ -654,7 +672,8 @@ module Canon
             diff_node.line_range_after = nil
           else
             # Try using node1's parent element as anchor for text nodes
-            loc = locate_textnode_parent(diff_node.node1, before, @text1, @line_map1)
+            loc = locate_textnode_parent(diff_node.node1, before, @text1,
+                                         @line_map1)
             if loc
               end_line = find_end_line(loc[:line_number], @line_map1, before)
               diff_node.char_ranges = [
@@ -717,8 +736,14 @@ module Canon
         end
 
         diff_node.char_ranges = ranges
-        diff_node.line_range_before = loc1 ? [loc1[:line_number], loc1[:line_number]] : nil
-        diff_node.line_range_after = loc2 ? [loc2[:line_number], loc2[:line_number]] : nil
+        diff_node.line_range_before = if loc1
+                                        [loc1[:line_number],
+                                         loc1[:line_number]]
+                                      end
+        diff_node.line_range_after = if loc2
+                                       [loc2[:line_number],
+                                        loc2[:line_number]]
+                                     end
       end
 
       # Fallback for element_structure when exact location fails.
@@ -820,8 +845,14 @@ module Canon
             )
           end
           diff_node.char_ranges = ranges
-          diff_node.line_range_before = loc1 ? [loc1[:line_number], loc1[:line_number]] : nil
-          diff_node.line_range_after = loc2 ? [loc2[:line_number], loc2[:line_number]] : nil
+          diff_node.line_range_before = if loc1
+                                          [loc1[:line_number],
+                                           loc1[:line_number]]
+                                        end
+          diff_node.line_range_after = if loc2
+                                         [loc2[:line_number],
+                                          loc2[:line_number]]
+                                       end
         elsif before
           loc = SourceLocator.locate(before, @text1, @line_map1)
           return unless loc
@@ -907,7 +938,10 @@ module Canon
         # and the second-to-last is the element whose text changed.
         # We need to find "item[1]" not "unknown[0]".
         segments = path.split("/").reject(&:empty?)
-        return SourceLocator.locate(value, text, line_map) if segments.length < 2
+        if segments.length < 2
+          return SourceLocator.locate(value, text,
+                                      line_map)
+        end
 
         # Start from segments[-2] (skip the last segment which is the text node)
         # and walk backwards to find a segment with a bracket index.
@@ -917,12 +951,15 @@ module Canon
         element_segment = nil
         (segments.length - 2).downto(1) do |i|
           seg = segments[i]
-          if /\[/.match?(seg)
+          if seg.include?("[")
             element_segment = seg
             break
           end
         end
-        return SourceLocator.locate(value, text, line_map) unless element_segment
+        unless element_segment
+          return SourceLocator.locate(value, text,
+                                      line_map)
+        end
 
         element_match = element_segment.match(/([a-zA-Z0-9_:-]+)\[(\d+)\]/)
         return SourceLocator.locate(value, text, line_map) unless element_match
@@ -940,7 +977,8 @@ module Canon
         occurrences = SourceLocator.locate_all(value, text, line_map)
 
         occurrences.each do |occ|
-          element_index = count_elements_before_position(text, occ[:char_offset], element_name)
+          element_index = count_elements_before_position(text,
+                                                         occ[:char_offset], element_name)
           return occ if element_index == target_index
         end
 
@@ -970,7 +1008,7 @@ module Canon
           seg = segments[i]
           next if seg.start_with?("text()", "comment()", "unknown")
 
-          if /\[/.match?(seg)
+          if seg.include?("[")
             element_segments.unshift(seg) # maintain top-down order
           end
         end
@@ -1009,7 +1047,8 @@ module Canon
         end
 
         # search_start now points inside the innermost element
-        line_idx = SourceLocator.send(:find_line_for_offset, search_start, line_map)
+        line_idx = SourceLocator.send(:find_line_for_offset, search_start,
+                                      line_map)
         return nil unless line_idx
 
         col = search_start - line_map[line_idx][:start_offset]
@@ -1025,7 +1064,8 @@ module Canon
       #
       # This method tracks XML depth: it skips <element> tags inside child
       # elements (depth > 1) and only counts at depth == 1.
-      def find_nth_element_in_range(text, element_name, target_index, range_start, range_end)
+      def find_nth_element_in_range(text, element_name, target_index,
+range_start, range_end)
         offset = range_start
         current_index = 0
         depth = 0
@@ -1048,7 +1088,7 @@ module Canon
             tag_end = text.index(">", open_pos)
             break unless tag_end
 
-            if depth == 0
+            if depth.zero?
               return open_pos if current_index == target_index
 
               current_index += 1
@@ -1066,7 +1106,7 @@ module Canon
             # Find actual > of closing tag
             actual_close = text.index(">", close_pos)
             close_tag_end = actual_close + 1 if actual_close
-            depth -= 1 if depth > 0
+            depth -= 1 if depth.positive?
             offset = close_tag_end
           end
         end
@@ -1093,7 +1133,7 @@ module Canon
         # Walk up ancestors to find one with an "id" attribute
         ancestors = []
         current = node
-        while current && current.respond_to?(:parent)
+        while current.respond_to?(:parent)
           ancestors << current if current.respond_to?(:name)
           current = current.parent
         end
@@ -1154,7 +1194,9 @@ module Canon
             break unless tag_end_pos && tag_end_pos < anchor_close
 
             tag_text = text[pos..tag_end_pos]
-            if leaf_attrs.empty? || leaf_attrs.all? { |k, v| tag_text.include?("#{k}=\"#{v}\"") }
+            if leaf_attrs.empty? || leaf_attrs.all? do |k, v|
+              tag_text.include?("#{k}=\"#{v}\"")
+            end
               leaf_pos = pos
               break
             end
@@ -1177,11 +1219,13 @@ module Canon
               # Search for value inside leaf element
               value_pos = text.index(value, leaf_tag_end + 1)
               if value_pos && value_pos < leaf_close
-                line_idx = SourceLocator.send(:find_line_for_offset, value_pos, line_map)
+                line_idx = SourceLocator.send(:find_line_for_offset, value_pos,
+                                              line_map)
                 return nil unless line_idx
 
                 col = value_pos - line_map[line_idx][:start_offset]
-                return { char_offset: value_pos, line_number: line_idx, col: col }
+                return { char_offset: value_pos, line_number: line_idx,
+                         col: col }
               end
             end
           end
@@ -1190,7 +1234,8 @@ module Canon
         # Direct search: value might be directly in the anchor's content
         value_pos = text.index(value, anchor_tag_end + 1)
         if value_pos && value_pos < anchor_close
-          line_idx = SourceLocator.send(:find_line_for_offset, value_pos, line_map)
+          line_idx = SourceLocator.send(:find_line_for_offset, value_pos,
+                                        line_map)
           return nil unless line_idx
 
           col = value_pos - line_map[line_idx][:start_offset]
@@ -1241,7 +1286,8 @@ module Canon
             # Search for value within this element
             value_pos = text.index(value, anchor_tag_end + 1)
             if value_pos && value_pos < anchor_close
-              line_idx = SourceLocator.send(:find_line_for_offset, value_pos, line_map)
+              line_idx = SourceLocator.send(:find_line_for_offset, value_pos,
+                                            line_map)
               return nil unless line_idx
 
               col = value_pos - line_map[line_idx][:start_offset]
@@ -1294,18 +1340,22 @@ module Canon
 
             if is_self_closing
               # Self-closing element - return position of <
-              line_idx = SourceLocator.send(:find_line_for_offset, anchor_pos, line_map)
+              line_idx = SourceLocator.send(:find_line_for_offset, anchor_pos,
+                                            line_map)
               return nil unless line_idx
 
               col = anchor_pos - line_map[line_idx][:start_offset]
-              return { char_offset: anchor_pos, line_number: line_idx, col: col }
+              return { char_offset: anchor_pos, line_number: line_idx,
+                       col: col }
             else
               # Regular element - return position of >
-              line_idx = SourceLocator.send(:find_line_for_offset, tag_end_pos, line_map)
+              line_idx = SourceLocator.send(:find_line_for_offset, tag_end_pos,
+                                            line_map)
               return nil unless line_idx
 
               col = tag_end_pos - line_map[line_idx][:start_offset]
-              return { char_offset: tag_end_pos, line_number: line_idx, col: col }
+              return { char_offset: tag_end_pos, line_number: line_idx,
+                       col: col }
             end
           end
 

@@ -24,7 +24,8 @@ module Canon
                                     theme_color(:informative, :content) || :cyan, :bold)
                          else
                            colorize(key.to_s,
-                                    theme_color(:informative, :content) || :cyan)
+                                    theme_color(:informative,
+                                                :content) || :cyan)
                          end
 
           output << "#{prefix}#{connector}#{path_display}:"
@@ -67,7 +68,8 @@ module Canon
             else
               value_str = format_value_for_diff(diff[:value2])
               output << "#{prefix}└── + #{colorize(value_str,
-                                                   theme_color(:added, :content) || :green)}"
+                                                   theme_color(:added,
+                                                               :content) || :green)}"
             end
           elsif diff[:value1].is_a?(Hash) && !diff[:value1].empty?
             # Key removed in file2
@@ -75,7 +77,8 @@ module Canon
           else
             value_str = format_value_for_diff(diff[:value1])
             output << "#{prefix}└── - #{colorize(value_str,
-                                                 theme_color(:removed, :content) || :red)}"
+                                                 theme_color(:removed,
+                                                             :content) || :red)}"
           end
         end
 
@@ -123,11 +126,13 @@ module Canon
           elsif diff[:value1]
             value_str = format_value_for_diff(diff[:value1])
             output << "#{prefix}└── - #{colorize(value_str,
-                                                 theme_color(:removed, :content) || :red)}"
+                                                 theme_color(:removed,
+                                                             :content) || :red)}"
           elsif diff[:value2]
             value_str = format_value_for_diff(diff[:value2])
             output << "#{prefix}└── + #{colorize(value_str,
-                                                 theme_color(:added, :content) || :green)}"
+                                                 theme_color(:added,
+                                                             :content) || :green)}"
           else
             output << "#{prefix}└── [UNKNOWN CHANGE]"
           end
@@ -147,16 +152,20 @@ module Canon
             if value.is_a?(Hash) && !value.empty?
               # Nested hash - recurse
               output << "#{prefix}#{connector} + #{colorize(key.to_s,
-                                                            theme_color(:added, :content) || :green)}:"
+                                                            theme_color(:added,
+                                                                        :content) || :green)}:"
               output.concat(render_added_hash(value, prefix + continuation))
             else
               # Leaf value
               value_str = format_value_for_diff(value)
               output << "#{prefix}#{connector} + #{colorize(key.to_s,
-                                                            theme_color(:added, :content) || :green)}: #{colorize(
-                                                              value_str,
-                                                              theme_color(:added, :content) || :green,
-                                                            )}"
+                                                            theme_color(:added,
+                                                                        :content) || :green)}: #{colorize(
+                                                                          value_str,
+                                                                          theme_color(
+                                                                            :added, :content
+                                                                          ) || :green,
+                                                                        )}"
             end
           end
 
@@ -177,15 +186,21 @@ module Canon
             if value.is_a?(Hash) && !value.empty?
               # Nested hash - recurse
               output << "#{prefix}#{connector} - #{colorize(key.to_s,
-                                                            theme_color(:removed, :content) || :red)}:"
+                                                            theme_color(
+                                                              :removed, :content
+                                                            ) || :red)}:"
               output.concat(render_removed_hash(value, prefix + continuation))
             else
               # Leaf value
               value_str = format_value_for_diff(value)
               output << "#{prefix}#{connector} - #{colorize(key.to_s,
-                                                            theme_color(:removed, :content) || :red)}: #{colorize(
+                                                            theme_color(
+                                                              :removed, :content
+                                                            ) || :red)}: #{colorize(
                                                               value_str,
-                                                              theme_color(:removed, :content) || :red,
+                                                              theme_color(
+                                                                :removed, :content
+                                                              ) || :red,
                                                             )}"
             end
           end
@@ -205,17 +220,21 @@ module Canon
             val1_str = format_value_for_diff(val1)
             val2_str = format_value_for_diff(val2)
             output << "#{prefix}├── - #{colorize(val1_str,
-                                                 theme_color(:removed, :content) || :red)}"
+                                                 theme_color(:removed,
+                                                             :content) || :red)}"
             output << "#{prefix}└── + #{colorize(val2_str,
-                                                 theme_color(:added, :content) || :green)}"
+                                                 theme_color(:added,
+                                                             :content) || :green)}"
           else
             # Primitives - show actual values
             val1_str = format_value_for_diff(val1)
             val2_str = format_value_for_diff(val2)
             output << "#{prefix}├── - #{colorize(val1_str,
-                                                 theme_color(:removed, :content) || :red)}"
+                                                 theme_color(:removed,
+                                                             :content) || :red)}"
             output << "#{prefix}└── + #{colorize(val2_str,
-                                                 theme_color(:added, :content) || :green)}"
+                                                 theme_color(:added,
+                                                             :content) || :green)}"
           end
 
           output
@@ -269,11 +288,13 @@ module Canon
               )}"
               output << if is_last
                           "#{prefix}└── [#{change[:index]}] + #{colorize(
-                            change[:new], theme_color(:added, :content) || :green
+                            change[:new], theme_color(:added,
+                                                      :content) || :green
                           )}"
                         else
                           "#{prefix}├── [#{change[:index]}] + #{colorize(
-                            change[:new], theme_color(:added, :content) || :green
+                            change[:new], theme_color(:added,
+                                                      :content) || :green
                           )}"
                         end
             end

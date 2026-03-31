@@ -50,7 +50,9 @@ module Canon
 
       def build
         # Sort DiffNodes by their position in text1 (or text2 if no text1 range)
-        sorted = @diff_nodes.select { |dn| dn.char_ranges && !dn.char_ranges.empty? }
+        sorted = @diff_nodes.select do |dn|
+          dn.char_ranges && !dn.char_ranges.empty?
+        end
           .sort_by { |dn| sort_key(dn) }
 
         result = []
@@ -78,7 +80,8 @@ module Canon
           emit_unchanged(result, cursor1, node_start1, cursor2, node_start2)
 
           # Detect and handle reflow before this change
-          handle_reflow(result, cursor1, node_start1, cursor2, node_start2, diff_node)
+          handle_reflow(result, cursor1, node_start1, cursor2, node_start2,
+                        diff_node)
 
           # Emit changed lines for this DiffNode
           emit_changed(result, diff_node)
@@ -179,9 +182,13 @@ module Canon
         return false if slice1.empty? || slice2.empty?
 
         # Check if slice1 content exists anywhere in text2
-        slice1_all_in_text2 = slice1.all? { |line| @line_to_indices2.key?(line) }
+        slice1_all_in_text2 = slice1.all? do |line|
+          @line_to_indices2.key?(line)
+        end
         # Check if slice2 content exists anywhere in text1
-        slice2_all_in_text1 = slice2.all? { |line| @line_to_indices1.key?(line) }
+        slice2_all_in_text1 = slice2.all? do |line|
+          @line_to_indices1.key?(line)
+        end
 
         # If either slice has no presence in the other text, it's orphaned
         !slice1_all_in_text2 || !slice2_all_in_text1
@@ -205,7 +212,8 @@ module Canon
                 @line_to_indices2.key?(@lines1[line_idx])
             end
             if all_exist_in_text2
-              emit_orphaned_unchanged(result, from1, to1, from2, @line_to_indices2, true)
+              emit_orphaned_unchanged(result, from1, to1, from2,
+                                      @line_to_indices2, true)
               # Also emit extra lines from text2 as :added (text2 has more lines)
               emit_extra_added_lines(result, from1, to1, from2, count1, count2)
             else
@@ -223,7 +231,9 @@ module Canon
               content = @lines1[line_idx]
               if @line_to_indices2.key?(content)
                 # Found in text2: emit as :unchanged with correct position
-                new_pos = @line_to_indices2[content].min_by { |idx| (idx - from2).abs }
+                new_pos = @line_to_indices2[content].min_by do |idx|
+                  (idx - from2).abs
+                end
                 result << DiffLine.new(
                   line_number: line_idx,
                   new_position: new_pos,
@@ -250,7 +260,9 @@ module Canon
               content = @lines2[line_idx]
               if @line_to_indices1.key?(content)
                 # Found in text1: emit as :unchanged with TEXT1 line number
-                text1_pos = @line_to_indices1[content].min_by { |idx| (idx - from1).abs }
+                text1_pos = @line_to_indices1[content].min_by do |idx|
+                  (idx - from1).abs
+                end
                 result << DiffLine.new(
                   line_number: text1_pos, # Use text1 position as primary
                   new_position: line_idx, # Use text2 position as secondary
@@ -280,7 +292,9 @@ module Canon
 
               content = @lines2[line_idx]
               if @line_to_indices1.key?(content)
-                new_pos = @line_to_indices1[content].min_by { |idx| (idx - from1).abs }
+                new_pos = @line_to_indices1[content].min_by do |idx|
+                  (idx - from1).abs
+                end
                 result << DiffLine.new(
                   line_number: line_idx,
                   new_position: new_pos,
@@ -308,7 +322,9 @@ module Canon
           extra_count -= 1
           next if extra_count.negative?
 
-          line_idx = @line_to_indices2[content].min_by { |idx| (idx - from2).abs }
+          line_idx = @line_to_indices2[content].min_by do |idx|
+            (idx - from2).abs
+          end
           result << DiffLine.new(
             line_number: line_idx,
             new_position: line_idx,
@@ -348,7 +364,8 @@ module Canon
 
         # Find common suffix
         suffix_len = 0
-        max_suffix = [slice1.length - prefix_len, slice2.length - prefix_len].min
+        max_suffix = [slice1.length - prefix_len,
+                      slice2.length - prefix_len].min
         while suffix_len < max_suffix &&
             strip_for_compare(slice1[slice1.length - 1 - suffix_len]) ==
                 strip_for_compare(slice2[slice2.length - 1 - suffix_len])
@@ -375,7 +392,8 @@ module Canon
 
         if mid_count1 + mid_count2 >= REFLOW_SUMMARY_THRESHOLD
           # Too many reflow lines — emit summary instead of listing each
-          emit_reflow_summary(result, mid_start1, mid_end1, mid_start2, mid_end2)
+          emit_reflow_summary(result, mid_start1, mid_end1, mid_start2,
+                              mid_end2)
         else
           # Few enough to show individually
           # Lines only in text1 (removed by reflow)
@@ -455,7 +473,8 @@ module Canon
       # actually exist in the other text. Lines that are truly orphaned
       # (don't exist in the other text) are NOT emitted as individual lines
       # since that would be "inventing" diffs without diff_nodes.
-      def emit_reflow_summary(result, mid_start1, mid_end1, mid_start2, mid_end2)
+      def emit_reflow_summary(result, mid_start1, mid_end1, mid_start2,
+mid_end2)
         mid_count1 = mid_end1 - mid_start1
         mid_count2 = mid_end2 - mid_start2
 
@@ -516,7 +535,8 @@ module Canon
       # @param from2 [Integer] start line in text2
       # @param to2 [Integer] end line (exclusive) in text2
       # @param text1_orphaned [Boolean] true if text1 has the orphaned lines
-      def emit_orphaned_unchanged(result, from1, to1, from2, to2, text1_orphaned)
+      def emit_orphaned_unchanged(result, from1, to1, from2, to2,
+text1_orphaned)
         if text1_orphaned
           count = to1 - from1
           count.times do |i|
@@ -527,7 +547,9 @@ module Canon
             next unless content
 
             if @line_to_indices2.key?(content)
-              new_pos = @line_to_indices2[content].min_by { |idx| (idx - from2).abs }
+              new_pos = @line_to_indices2[content].min_by do |idx|
+                (idx - from2).abs
+              end
               result << DiffLine.new(
                 line_number: line_idx,
                 new_position: new_pos,
@@ -546,7 +568,9 @@ module Canon
             next unless content
 
             if @line_to_indices1.key?(content)
-              new_pos = @line_to_indices1[content].min_by { |idx| (idx - from1).abs }
+              new_pos = @line_to_indices1[content].min_by do |idx|
+                (idx - from1).abs
+              end
               result << DiffLine.new(
                 line_number: line_idx,
                 new_position: new_pos,
@@ -560,7 +584,8 @@ module Canon
 
       # Detect reflow: lines that exist in text1 but whose content is absorbed
       # into an adjacent changed line in text2 (or vice versa).
-      def handle_reflow(result, cursor1, node_start1, _cursor2, _node_start2, diff_node)
+      def handle_reflow(result, cursor1, node_start1, _cursor2, _node_start2,
+diff_node)
         # Check if there are "extra" lines in text1 before the change
         # that are absorbed into the changed line in text2
         extra_lines1 = node_start1 - cursor1
@@ -624,7 +649,8 @@ module Canon
 
         if has_old && has_new
           # Changed: exists in both texts
-          emit_changed_lines(result, diff_node, old_line_ranges, new_line_ranges)
+          emit_changed_lines(result, diff_node, old_line_ranges,
+                             new_line_ranges)
         elsif has_old
           # Removed: only in text1
           emit_removed_lines(result, diff_node, old_line_ranges)
@@ -635,7 +661,8 @@ module Canon
       end
 
       # Emit DiffLines for a change that exists in both texts.
-      def emit_changed_lines(result, diff_node, old_line_ranges, new_line_ranges)
+      def emit_changed_lines(result, diff_node, old_line_ranges,
+new_line_ranges)
         old_lines = old_line_ranges.keys.sort
         new_lines = new_line_ranges.keys.sort
 
