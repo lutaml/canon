@@ -24,7 +24,8 @@ module Canon
                                     theme_color(:informative, :content) || :cyan, :bold)
                          else
                            colorize(key.to_s,
-                                    theme_color(:informative, :content) || :cyan)
+                                    theme_color(:informative,
+                                                :content) || :cyan)
                          end
 
           output << "#{prefix}#{connector}#{path_display}:"
@@ -93,9 +94,11 @@ module Canon
               text1 = extract_text(node1)
               text2 = extract_text(node2)
               output << "#{prefix}├── - #{colorize(format_text_inline(text1),
-                                                   theme_color(:removed, :content) || :red)}"
+                                                   theme_color(:removed,
+                                                               :content) || :red)}"
               output << "#{prefix}└── + #{colorize(format_text_inline(text2),
-                                                   theme_color(:added, :content) || :green)}"
+                                                   theme_color(:added,
+                                                               :content) || :green)}"
             else
               output << "#{prefix}└── #{colorize(
                 "[#{diff_node.dimension}: #{diff_node.reason}]",
@@ -152,9 +155,11 @@ module Canon
           node1 = diff[:node1]
           node2 = diff[:node2]
           output << "#{prefix}├── - #{colorize("<#{node1.name}>",
-                                               theme_color(:removed, :content) || :red)}"
+                                               theme_color(:removed,
+                                                           :content) || :red)}"
           output << "#{prefix}└── + #{colorize("<#{node2.name}>",
-                                               theme_color(:added, :content) || :green)}"
+                                               theme_color(:added,
+                                                           :content) || :green)}"
         end
 
         # Render unequal text contents
@@ -174,9 +179,11 @@ module Canon
           end
 
           output << "#{prefix}├── - #{colorize(format_text_inline(text1),
-                                               theme_color(:removed, :content) || :red)}"
+                                               theme_color(:removed,
+                                                           :content) || :red)}"
           output << "#{prefix}└── + #{colorize(format_text_inline(text2),
-                                               theme_color(:added, :content) || :green)}"
+                                               theme_color(:added,
+                                                           :content) || :green)}"
         end
 
         # Render unequal attributes
@@ -219,13 +226,16 @@ module Canon
         def render_missing_node(diff, prefix, _output)
           if diff[:node1] && !diff[:node2]
             "#{prefix}└── - #{colorize('[node deleted]',
-                                       theme_color(:removed, :content) || :red)}"
+                                       theme_color(:removed,
+                                                   :content) || :red)}"
           elsif diff[:node2] && !diff[:node1]
             "#{prefix}└── + #{colorize('[node inserted]',
-                                       theme_color(:added, :content) || :green)}"
+                                       theme_color(:added,
+                                                   :content) || :green)}"
           else
             "#{prefix}└── #{colorize('[node mismatch]',
-                                     theme_color(:changed, :marker) || :yellow)}"
+                                     theme_color(:changed,
+                                                 :marker) || :yellow)}"
           end
         end
 
@@ -233,18 +243,23 @@ module Canon
         def render_fallback(diff, prefix, output)
           if diff[:node1] && diff[:node2]
             output << "#{prefix}├── - #{colorize('[file1 node]',
-                                                 theme_color(:removed, :content) || :red)}"
+                                                 theme_color(:removed,
+                                                             :content) || :red)}"
             output << "#{prefix}└── + #{colorize('[file2 node]',
-                                                 theme_color(:added, :content) || :green)}"
+                                                 theme_color(:added,
+                                                             :content) || :green)}"
           elsif diff[:node1]
             output << "#{prefix}└── - #{colorize('[file1 only]',
-                                                 theme_color(:removed, :content) || :red)}"
+                                                 theme_color(:removed,
+                                                             :content) || :red)}"
           elsif diff[:node2]
             output << "#{prefix}└── + #{colorize('[file2 only]',
-                                                 theme_color(:added, :content) || :green)}"
+                                                 theme_color(:added,
+                                                             :content) || :green)}"
           else
             output << "#{prefix}└── #{colorize('[unknown change]',
-                                               theme_color(:changed, :marker) || :yellow)}"
+                                               theme_color(:changed,
+                                                           :marker) || :yellow)}"
           end
         end
 

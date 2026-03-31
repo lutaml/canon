@@ -13,11 +13,13 @@ RSpec.describe Canon::DiffFormatter::Theme do
     end
 
     it "defines valid display modes" do
-      expect(described_class::VALID_DISPLAY_MODES).to eq(%i[separate inline mixed])
+      expect(described_class::VALID_DISPLAY_MODES).to eq(%i[separate inline
+                                                            mixed])
     end
 
     it "defines styling properties" do
-      expect(described_class::STYLING_PROPERTIES).to eq(%i[color bg bold underline strikethrough italic])
+      expect(described_class::STYLING_PROPERTIES).to eq(%i[color bg bold
+                                                           underline strikethrough italic])
     end
   end
 
@@ -34,7 +36,8 @@ RSpec.describe Canon::DiffFormatter::Theme do
     end
 
     it "returns theme names" do
-      expect(described_class.names).to match_array(%i[light dark retro claude cyberpunk])
+      expect(described_class.names).to match_array(%i[light dark retro claude
+                                                      cyberpunk])
     end
 
     it "returns true for known theme" do
@@ -54,8 +57,8 @@ RSpec.describe Canon::DiffFormatter::Theme do
       expect(results.keys).to match_array(described_class.names)
 
       results.each do |name, result|
-        expect(result.valid).to eq(true),
-          "Theme :#{name} invalid - missing: #{result.missing_keys}, extra: #{result.extra_keys}, invalid: #{result.invalid_values}"
+        expect(result.valid).to be(true),
+                                "Theme :#{name} invalid - missing: #{result.missing_keys}, extra: #{result.extra_keys}, invalid: #{result.invalid_values}"
       end
     end
   end
@@ -65,8 +68,8 @@ RSpec.describe Canon::DiffFormatter::Theme do
 
     it "is complete and valid" do
       result = described_class.validate(theme)
-      expect(result.valid).to eq(true),
-        "Missing: #{result.missing_keys}, Extra: #{result.extra_keys}, Invalid: #{result.invalid_values}"
+      expect(result.valid).to be(true),
+                              "Missing: #{result.missing_keys}, Extra: #{result.extra_keys}, Invalid: #{result.invalid_values}"
     end
 
     it "has name and description" do
@@ -110,8 +113,8 @@ RSpec.describe Canon::DiffFormatter::Theme do
 
     it "is complete and valid" do
       result = described_class.validate(theme)
-      expect(result.valid).to eq(true),
-        "Missing: #{result.missing_keys}, Extra: #{result.extra_keys}, Invalid: #{result.invalid_values}"
+      expect(result.valid).to be(true),
+                              "Missing: #{result.missing_keys}, Extra: #{result.extra_keys}, Invalid: #{result.invalid_values}"
     end
 
     it "has no backgrounds for diff content" do
@@ -141,8 +144,8 @@ RSpec.describe Canon::DiffFormatter::Theme do
 
     it "is complete and valid" do
       result = described_class.validate(theme)
-      expect(result.valid).to eq(true),
-        "Missing: #{result.missing_keys}, Extra: #{result.extra_keys}, Invalid: #{result.invalid_values}"
+      expect(result.valid).to be(true),
+                              "Missing: #{result.missing_keys}, Extra: #{result.extra_keys}, Invalid: #{result.invalid_values}"
     end
 
     it "uses yellow monochromatic palette (ANSI amber approximation)" do
@@ -179,8 +182,8 @@ RSpec.describe Canon::DiffFormatter::Theme do
 
     it "is complete and valid" do
       result = described_class.validate(theme)
-      expect(result.valid).to eq(true),
-        "Missing: #{result.missing_keys}, Extra: #{result.extra_keys}, Invalid: #{result.invalid_values}"
+      expect(result.valid).to be(true),
+                              "Missing: #{result.missing_keys}, Extra: #{result.extra_keys}, Invalid: #{result.invalid_values}"
     end
 
     it "uses red background for removed" do
@@ -218,9 +221,9 @@ RSpec.describe Canon::DiffFormatter::Theme do
       inherited = described_class.inherit_from(:dark).merge(
         diff: {
           removed: {
-            content: { bg: :light_red }
-          }
-        }
+            content: { bg: :light_red },
+          },
+        },
       ).build
 
       # Inherits all dark theme properties
@@ -249,9 +252,9 @@ RSpec.describe Canon::DiffFormatter::Theme do
       inherited = described_class.inherit_from(:dark).merge(
         diff: {
           removed: {
-            marker: { color: :bright_red } # Only override color, keep bg
-          }
-        }
+            marker: { color: :bright_red }, # Only override color, keep bg
+          },
+        },
       ).build
 
       # Only color should be overridden, bg should remain nil from dark theme
@@ -260,9 +263,9 @@ RSpec.describe Canon::DiffFormatter::Theme do
     end
 
     it "raises error for unknown base theme" do
-      expect {
+      expect do
         described_class.inherit_from(:nonexistent).build
-      }.to raise_error(ArgumentError, /Unknown theme/)
+      end.to raise_error(ArgumentError, /Unknown theme/)
     end
   end
 

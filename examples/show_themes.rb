@@ -24,7 +24,7 @@ require "canon/diff_formatter"
 # - Whitespace-only change (formatting)
 # - An informative comment difference
 
-XML1 = <<~XML.freeze
+XML1 = <<~XML
   <?xml version="1.0" encoding="UTF-8"?>
   <document version="1.0">
     <header>
@@ -42,7 +42,7 @@ XML1 = <<~XML.freeze
   </document>
 XML
 
-XML2 = <<~XML.freeze
+XML2 = <<~XML
   <?xml version="1.0" encoding="UTF-8"?>
   <document version="2.0">
     <header>
@@ -70,7 +70,8 @@ def run_diff_with_theme(theme_name, xml1, xml2, display_mode: :separate)
 
   # Use semantic diff to get all differences reported, even when documents
   # are not equivalent. DOM diff stops at the first difference.
-  result = Canon::Comparison.equivalent?(xml1, xml2, diff_algorithm: :semantic, verbose: true)
+  result = Canon::Comparison.equivalent?(xml1, xml2, diff_algorithm: :semantic,
+                                                     verbose: true)
 
   formatter = Canon::DiffFormatter.new(
     use_color: true,

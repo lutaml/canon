@@ -72,7 +72,7 @@ RSpec.describe "Reflow explosion" do
       # Diff should be minimal - no explosion of lines
       # Just the header since these are all informative (attribute_order) differences
       expect(lines.length).to eq(1),
-        "Expected 1 line (header only), got #{lines.length}. Reflow should be suppressed for equivalent docs."
+                              "Expected 1 line (header only), got #{lines.length}. Reflow should be suppressed for equivalent docs."
     end
   end
 

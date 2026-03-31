@@ -28,7 +28,8 @@ module Canon
       VALID_DISPLAY_MODES = %i[separate inline mixed].freeze
 
       # Base properties for any styled element
-      STYLING_PROPERTIES = %i[color bg bold underline strikethrough italic].freeze
+      STYLING_PROPERTIES = %i[color bg bold underline strikethrough
+                              italic].freeze
 
       # =====================================================================
       # LIGHT THEME - Light terminal backgrounds, professional use
@@ -40,34 +41,43 @@ module Canon
         diff: {
           removed: {
             marker: { color: :red, bg: :light_red, bold: false },
-            content: { color: :red, bg: nil, bold: false, underline: false, strikethrough: true },
+            content: { color: :red, bg: nil, bold: false, underline: false,
+                       strikethrough: true },
           },
           added: {
             marker: { color: :green, bg: :light_green, bold: false },
-            content: { color: :green, bg: nil, bold: false, underline: false, strikethrough: false },
+            content: { color: :green, bg: nil, bold: false, underline: false,
+                       strikethrough: false },
           },
           changed: {
             marker: { color: :bright_red, bg: nil, bold: true },
-            content_old: { color: :bright_red,   bg: nil, bold: true, underline: false, strikethrough: true },
-            content_new: { color: :bright_green, bg: nil, bold: true, underline: true, strikethrough: false },
+            content_old: { color: :bright_red,   bg: nil, bold: true,
+                           underline: false, strikethrough: true },
+            content_new: { color: :bright_green, bg: nil, bold: true,
+                           underline: true, strikethrough: false },
           },
           unchanged: {
-            content: { color: :default, bg: nil, bold: false, underline: false, strikethrough: false },
+            content: { color: :default, bg: nil, bold: false, underline: false,
+                       strikethrough: false },
           },
           formatting: {
             marker: { color: :bright_blue, bg: nil, bold: false },
-            content: { color: :bright_blue, bg: nil, bold: false, underline: false, strikethrough: false },
+            content: { color: :bright_blue, bg: nil, bold: false,
+                       underline: false, strikethrough: false },
           },
           informative: {
             marker: { color: :bright_magenta, bg: nil, bold: false },
-            content: { color: :bright_magenta, bg: nil, bold: false, underline: false, strikethrough: false },
+            content: { color: :bright_magenta, bg: nil, bold: false,
+                       underline: false, strikethrough: false },
           },
         },
 
         xml: {
           tag: { color: :bright_blue, bg: nil, bold: true, italic: false },
-          attribute_name: { color: :magenta, bg: nil, bold: false, italic: false },
-          attribute_value: { color: :green, bg: nil, bold: false, italic: false },
+          attribute_name: { color: :magenta, bg: nil, bold: false,
+                            italic: false },
+          attribute_value: { color: :green, bg: nil, bold: false,
+                             italic: false },
           text: { color: :default, bg: nil, bold: false, italic: false },
           comment: { color: :magenta, bg: nil, bold: false, italic: true },
           cdata: { color: :yellow, bg: nil, bold: false, italic: false },
@@ -75,8 +85,10 @@ module Canon
 
         html: {
           tag: { color: :bright_blue, bg: nil, bold: true, italic: false },
-          attribute_name: { color: :magenta, bg: nil, bold: false, italic: false },
-          attribute_value: { color: :green, bg: nil, bold: false, italic: false },
+          attribute_name: { color: :magenta, bg: nil, bold: false,
+                            italic: false },
+          attribute_value: { color: :green, bg: nil, bold: false,
+                             italic: false },
           text: { color: :default, bg: nil, bold: false, italic: false },
           comment: { color: :magenta, bg: nil, bold: false, italic: true },
           cdata: { color: :yellow, bg: nil, bold: false, italic: false },
@@ -108,34 +120,43 @@ module Canon
         diff: {
           removed: {
             marker: { color: :red, bg: nil, bold: false },
-            content: { color: :red, bg: nil, bold: false, underline: false, strikethrough: true },
+            content: { color: :red, bg: nil, bold: false, underline: false,
+                       strikethrough: true },
           },
           added: {
             marker: { color: :green, bg: nil, bold: false },
-            content: { color: :green,       bg: nil, bold: false, underline: false, strikethrough: false },
+            content: { color: :green,       bg: nil, bold: false,
+                       underline: false, strikethrough: false },
           },
           changed: {
             marker: { color: :yellow,       bg: nil, bold: true },
-            content_old: { color: :bright_red,   bg: nil, bold: false, underline: false, strikethrough: true },
-            content_new: { color: :bright_green, bg: nil, bold: false, underline: true, strikethrough: false },
+            content_old: { color: :bright_red,   bg: nil, bold: false,
+                           underline: false, strikethrough: true },
+            content_new: { color: :bright_green, bg: nil, bold: false,
+                           underline: true, strikethrough: false },
           },
           unchanged: {
-            content: { color: :default, bg: nil, bold: false, underline: false, strikethrough: false },
+            content: { color: :default, bg: nil, bold: false, underline: false,
+                       strikethrough: false },
           },
           formatting: {
             marker: { color: :bright_blue, bg: nil, bold: false },
-            content: { color: :bright_blue, bg: nil, bold: false, underline: false, strikethrough: false },
+            content: { color: :bright_blue, bg: nil, bold: false,
+                       underline: false, strikethrough: false },
           },
           informative: {
             marker: { color: :cyan, bg: nil, bold: false },
-            content: { color: :cyan, bg: nil, bold: false, underline: false, strikethrough: false },
+            content: { color: :cyan, bg: nil, bold: false, underline: false,
+                       strikethrough: false },
           },
         },
 
         xml: {
           tag: { color: :bright_blue, bg: nil, bold: true, italic: false },
-          attribute_name: { color: :magenta, bg: nil, bold: false, italic: false },
-          attribute_value: { color: :green, bg: nil, bold: false, italic: false },
+          attribute_name: { color: :magenta, bg: nil, bold: false,
+                            italic: false },
+          attribute_value: { color: :green, bg: nil, bold: false,
+                             italic: false },
           text: { color: :default, bg: nil, bold: false, italic: false },
           comment: { color: :cyan, bg: nil, bold: false, italic: true },
           cdata: { color: :yellow, bg: nil, bold: false, italic: false },
@@ -143,8 +164,10 @@ module Canon
 
         html: {
           tag: { color: :bright_blue, bg: nil, bold: true, italic: false },
-          attribute_name: { color: :magenta, bg: nil, bold: false, italic: false },
-          attribute_value: { color: :green, bg: nil, bold: false, italic: false },
+          attribute_name: { color: :magenta, bg: nil, bold: false,
+                            italic: false },
+          attribute_value: { color: :green, bg: nil, bold: false,
+                             italic: false },
           text: { color: :default, bg: nil, bold: false, italic: false },
           comment: { color: :cyan, bg: nil, bold: false, italic: true },
           cdata: { color: :yellow, bg: nil, bold: false, italic: false },
@@ -177,38 +200,49 @@ module Canon
           removed: {
             # Bright amber on amber background = inverse video, highest emphasis
             marker: { color: :bright_yellow, bg: :yellow, bold: true },
-            content: { color: :bright_yellow, bg: :yellow, bold: true, underline: false, strikethrough: false },
+            content: { color: :bright_yellow, bg: :yellow, bold: true,
+                       underline: false, strikethrough: false },
           },
           added: {
             # Bright white = less emphasis than removed, but distinct from normal text
             marker: { color: :bright_white, bg: nil, bold: true },
-            content: { color: :bright_white, bg: nil, bold: false, underline: false, strikethrough: false },
+            content: { color: :bright_white, bg: nil, bold: false,
+                       underline: false, strikethrough: false },
           },
           changed: {
             marker: { color: :bright_yellow, bg: :yellow, bold: true },
-            content_old: { color: :bright_yellow, bg: :yellow, bold: true, underline: false, strikethrough: true },
-            content_new: { color: :bright_white, bg: nil, bold: false, underline: true, strikethrough: false },
+            content_old: { color: :bright_yellow, bg: :yellow, bold: true,
+                           underline: false, strikethrough: true },
+            content_new: { color: :bright_white, bg: nil, bold: false,
+                           underline: true, strikethrough: false },
           },
           unchanged: {
-            content: { color: :yellow, bg: nil, bold: false, underline: false, strikethrough: false },
+            content: { color: :yellow, bg: nil, bold: false, underline: false,
+                       strikethrough: false },
           },
           formatting: {
             # Dimmer amber + strikethrough = clearly different from normal text
-            marker: { color: :yellow, bg: nil, bold: false, strikethrough: true },
-            content: { color: :yellow, bg: nil, bold: false, underline: false, strikethrough: true },
+            marker: { color: :yellow, bg: nil, bold: false,
+                      strikethrough: true },
+            content: { color: :yellow, bg: nil, bold: false, underline: false,
+                       strikethrough: true },
           },
           informative: {
             # Bright amber + underline = distinct from formatting and normal
-            marker: { color: :bright_yellow, bg: nil, bold: true, underline: true },
-            content: { color: :bright_yellow, bg: nil, bold: true, underline: true, strikethrough: false },
+            marker: { color: :bright_yellow, bg: nil, bold: true,
+                      underline: true },
+            content: { color: :bright_yellow, bg: nil, bold: true,
+                       underline: true, strikethrough: false },
           },
         },
 
         xml: {
           # Amber monochrome for all XML elements
           tag: { color: :bright_yellow, bg: nil, bold: true, italic: false },
-          attribute_name: { color: :bright_yellow, bg: nil, bold: false, italic: false },
-          attribute_value: { color: :bright_yellow, bg: nil, bold: false, italic: false },
+          attribute_name: { color: :bright_yellow, bg: nil, bold: false,
+                            italic: false },
+          attribute_value: { color: :bright_yellow, bg: nil, bold: false,
+                             italic: false },
           text: { color: :yellow, bg: nil, bold: false, italic: false },
           comment: { color: :yellow, bg: nil, bold: false, italic: true },
           cdata: { color: :bright_yellow, bg: nil, bold: false, italic: false },
@@ -216,8 +250,10 @@ module Canon
 
         html: {
           tag: { color: :bright_yellow, bg: nil, bold: true, italic: false },
-          attribute_name: { color: :bright_yellow, bg: nil, bold: false, italic: false },
-          attribute_value: { color: :bright_yellow, bg: nil, bold: false, italic: false },
+          attribute_name: { color: :bright_yellow, bg: nil, bold: false,
+                            italic: false },
+          attribute_value: { color: :bright_yellow, bg: nil, bold: false,
+                             italic: false },
           text: { color: :yellow, bg: nil, bold: false, italic: false },
           comment: { color: :yellow, bg: nil, bold: false, italic: true },
           cdata: { color: :bright_yellow, bg: nil, bold: false, italic: false },
@@ -250,35 +286,44 @@ module Canon
           removed: {
             # Red background + white text = immediate visual pop
             marker: { color: :white, bg: :red, bold: true },
-            content: { color: :white, bg: :red, bold: false, underline: false, strikethrough: false },
+            content: { color: :white, bg: :red, bold: false, underline: false,
+                       strikethrough: false },
           },
           added: {
             # Green background + white text (black invisible on dark terminals)
             marker: { color: :white, bg: :green, bold: true },
-            content: { color: :white, bg: :green, bold: false, underline: false, strikethrough: false },
+            content: { color: :white, bg: :green, bold: false,
+                       underline: false, strikethrough: false },
           },
           changed: {
             marker: { color: :white, bg: :magenta, bold: true },
-            content_old: { color: :bright_red,   bg: nil, bold: false, underline: false, strikethrough: true },
-            content_new: { color: :bright_green, bg: nil, bold: false, underline: true, strikethrough: false },
+            content_old: { color: :bright_red,   bg: nil, bold: false,
+                           underline: false, strikethrough: true },
+            content_new: { color: :bright_green, bg: nil, bold: false,
+                           underline: true, strikethrough: false },
           },
           unchanged: {
-            content: { color: :default, bg: nil, bold: false, underline: false, strikethrough: false },
+            content: { color: :default, bg: nil, bold: false, underline: false,
+                       strikethrough: false },
           },
           formatting: {
             marker: { color: :yellow, bg: nil, bold: false },
-            content: { color: :yellow, bg: nil, bold: false, underline: false, strikethrough: false },
+            content: { color: :yellow, bg: nil, bold: false, underline: false,
+                       strikethrough: false },
           },
           informative: {
             marker: { color: :bright_cyan, bg: nil, bold: false },
-            content: { color: :bright_cyan, bg: nil, bold: false, underline: false, strikethrough: false },
+            content: { color: :bright_cyan, bg: nil, bold: false,
+                       underline: false, strikethrough: false },
           },
         },
 
         xml: {
           tag: { color: :bright_blue, bg: nil, bold: true, italic: false },
-          attribute_name: { color: :magenta, bg: nil, bold: false, italic: false },
-          attribute_value: { color: :green, bg: nil, bold: false, italic: false },
+          attribute_name: { color: :magenta, bg: nil, bold: false,
+                            italic: false },
+          attribute_value: { color: :green, bg: nil, bold: false,
+                             italic: false },
           text: { color: :default, bg: nil, bold: false, italic: false },
           comment: { color: :cyan, bg: nil, bold: false, italic: true },
           cdata: { color: :yellow, bg: nil, bold: false, italic: false },
@@ -286,8 +331,10 @@ module Canon
 
         html: {
           tag: { color: :bright_blue, bg: nil, bold: true, italic: false },
-          attribute_name: { color: :magenta, bg: nil, bold: false, italic: false },
-          attribute_value: { color: :green, bg: nil, bold: false, italic: false },
+          attribute_name: { color: :magenta, bg: nil, bold: false,
+                            italic: false },
+          attribute_value: { color: :green, bg: nil, bold: false,
+                             italic: false },
           text: { color: :default, bg: nil, bold: false, italic: false },
           comment: { color: :cyan, bg: nil, bold: false, italic: true },
           cdata: { color: :yellow, bg: nil, bold: false, italic: false },
@@ -320,39 +367,48 @@ module Canon
           removed: {
             # Hot pink/magenta neon for deletions
             marker: { color: :bright_magenta, bg: nil, bold: true },
-            content: { color: :bright_magenta, bg: nil, bold: true, underline: false, strikethrough: true },
+            content: { color: :bright_magenta, bg: nil, bold: true,
+                       underline: false, strikethrough: true },
           },
           added: {
             # Electric cyan neon for additions
             marker: { color: :bright_cyan, bg: nil, bold: true },
-            content: { color: :bright_cyan, bg: nil, bold: true, underline: false, strikethrough: false },
+            content: { color: :bright_cyan, bg: nil, bold: true,
+                       underline: false, strikethrough: false },
           },
           changed: {
             # Yellow warning neon for change markers
             marker: { color: :bright_yellow, bg: nil, bold: true },
-            content_old: { color: :bright_magenta, bg: nil, bold: false, underline: false, strikethrough: true },
-            content_new: { color: :bright_cyan,    bg: nil, bold: false, underline: true, strikethrough: false },
+            content_old: { color: :bright_magenta, bg: nil, bold: false,
+                           underline: false, strikethrough: true },
+            content_new: { color: :bright_cyan,    bg: nil, bold: false,
+                           underline: true, strikethrough: false },
           },
           unchanged: {
-            content: { color: :default, bg: nil, bold: false, underline: false, strikethrough: false },
+            content: { color: :default, bg: nil, bold: false, underline: false,
+                       strikethrough: false },
           },
           formatting: {
             # Dim green for low-priority formatting
             marker: { color: :green, bg: nil, bold: false },
-            content: { color: :green, bg: nil, bold: false, underline: false, strikethrough: false },
+            content: { color: :green, bg: nil, bold: false, underline: false,
+                       strikethrough: false },
           },
           informative: {
             # Bright yellow neon for informative
             marker: { color: :bright_yellow, bg: nil, bold: true },
-            content: { color: :bright_yellow, bg: nil, bold: false, underline: false, strikethrough: false },
+            content: { color: :bright_yellow, bg: nil, bold: false,
+                       underline: false, strikethrough: false },
           },
         },
 
         xml: {
           # Tags in bright cyan, attributes in hot magenta
           tag: { color: :bright_cyan, bg: nil, bold: true, italic: false },
-          attribute_name: { color: :bright_magenta, bg: nil, bold: false, italic: false },
-          attribute_value: { color: :bright_green, bg: nil, bold: false, italic: false },
+          attribute_name: { color: :bright_magenta, bg: nil, bold: false,
+                            italic: false },
+          attribute_value: { color: :bright_green, bg: nil, bold: false,
+                             italic: false },
           text: { color: :default, bg: nil, bold: false, italic: false },
           comment: { color: :green, bg: nil, bold: false, italic: true },
           cdata: { color: :bright_yellow, bg: nil, bold: false, italic: false },
@@ -360,8 +416,10 @@ module Canon
 
         html: {
           tag: { color: :bright_cyan, bg: nil, bold: true, italic: false },
-          attribute_name: { color: :bright_magenta, bg: nil, bold: false, italic: false },
-          attribute_value: { color: :bright_green, bg: nil, bold: false, italic: false },
+          attribute_name: { color: :bright_magenta, bg: nil, bold: false,
+                            italic: false },
+          attribute_value: { color: :bright_green, bg: nil, bold: false,
+                             italic: false },
           text: { color: :default, bg: nil, bold: false, italic: false },
           comment: { color: :green, bg: nil, bold: false, italic: true },
           cdata: { color: :bright_yellow, bg: nil, bold: false, italic: false },
@@ -407,7 +465,8 @@ module Canon
       class ThemeInheritance
         def initialize(base_name)
           unless THEMES.key?(base_name)
-            raise ArgumentError, "Unknown theme: #{base_name}. Valid: #{THEMES.keys}"
+            raise ArgumentError,
+                  "Unknown theme: #{base_name}. Valid: #{THEMES.keys}"
           end
 
           @base_name = base_name
@@ -472,7 +531,8 @@ module Canon
       # =====================================================================
 
       # Validation result
-      ValidationResult = Struct.new(:valid, :missing_keys, :extra_keys, :invalid_values, keyword_init: true)
+      ValidationResult = Struct.new(:valid, :missing_keys, :extra_keys,
+                                    :invalid_values, keyword_init: true)
 
       # Validate a theme hash has all required keys and valid values
       # @param theme [Hash] Theme hash to validate
@@ -483,34 +543,40 @@ module Canon
         invalid_values = []
 
         # Check top-level keys
-        required_toplevel = %i[name description diff xml html structure visualization display_mode]
+        required_toplevel = %i[name description diff xml html structure
+                               visualization display_mode]
         required_toplevel.each do |key|
           missing_keys << "top-level.#{key}" unless theme.key?(key)
         end
 
         # Validate diff section
         if theme[:diff]
-          validate_diff_section(theme[:diff], missing_keys, extra_keys, invalid_values)
+          validate_diff_section(theme[:diff], missing_keys, extra_keys,
+                                invalid_values)
         end
 
         # Validate xml section
         if theme[:xml]
-          validate_xml_section(theme[:xml], missing_keys, extra_keys, invalid_values)
+          validate_xml_section(theme[:xml], missing_keys, extra_keys,
+                               invalid_values)
         end
 
         # Validate html section
         if theme[:html]
-          validate_xml_section(theme[:html], missing_keys, extra_keys, invalid_values)
+          validate_xml_section(theme[:html], missing_keys, extra_keys,
+                               invalid_values)
         end
 
         # Validate structure
         if theme[:structure]
-          validate_structure_section(theme[:structure], missing_keys, extra_keys, invalid_values)
+          validate_structure_section(theme[:structure], missing_keys,
+                                     extra_keys, invalid_values)
         end
 
         # Validate visualization
         if theme[:visualization]
-          validate_visualization_section(theme[:visualization], missing_keys, extra_keys, invalid_values)
+          validate_visualization_section(theme[:visualization], missing_keys,
+                                         extra_keys, invalid_values)
         end
 
         # Validate display_mode
@@ -541,7 +607,8 @@ module Canon
       # @return [Hash] Theme hash
       # @raise [ArgumentError] if theme not found
       def self.[](name)
-        THEMES[name] || raise(ArgumentError, "Unknown theme: #{name}. Valid: #{THEMES.keys}")
+        THEMES[name] || raise(ArgumentError,
+                              "Unknown theme: #{name}. Valid: #{THEMES.keys}")
       end
 
       # List available theme names
@@ -564,8 +631,10 @@ module Canon
       class << self
         private
 
-        def validate_diff_section(diff, missing_keys, extra_keys, invalid_values)
-          required_types = %i[removed added changed unchanged formatting informative]
+        def validate_diff_section(diff, missing_keys, extra_keys,
+invalid_values)
+          required_types = %i[removed added changed unchanged formatting
+                              informative]
 
           required_types.each do |type|
             unless diff.key?(type)
@@ -574,7 +643,8 @@ module Canon
             end
 
             section = diff[type]
-            validate_styling_section(section, "diff.#{type}", missing_keys, extra_keys, invalid_values)
+            validate_styling_section(section, "diff.#{type}", missing_keys,
+                                     extra_keys, invalid_values)
           end
 
           # Check for extra keys
@@ -583,7 +653,8 @@ module Canon
         end
 
         def validate_xml_section(xml, missing_keys, extra_keys, invalid_values)
-          required_types = %i[tag attribute_name attribute_value text comment cdata]
+          required_types = %i[tag attribute_name attribute_value text comment
+                              cdata]
 
           required_types.each do |type|
             unless xml.key?(type)
@@ -592,39 +663,46 @@ module Canon
             end
 
             section = xml[type]
-            validate_styling_section(section, "xml.#{type}", missing_keys, extra_keys, invalid_values)
+            validate_styling_section(section, "xml.#{type}", missing_keys,
+                                     extra_keys, invalid_values)
           end
         end
 
-        def validate_styling_section(section, path, missing_keys, _extra_keys, invalid_values)
+        def validate_styling_section(section, path, missing_keys, _extra_keys,
+invalid_values)
           # Marker sections only need color, bg, bold
           marker_props = %i[color bg bold]
 
           if section.key?(:marker)
-            validate_style_properties(section[:marker], "#{path}.marker", missing_keys, invalid_values, marker_props)
+            validate_style_properties(section[:marker], "#{path}.marker",
+                                      missing_keys, invalid_values, marker_props)
           end
 
           # Content sections need all styling properties except italic (not universally supported)
           content_props = %i[color bg bold underline strikethrough]
 
           if section.key?(:content)
-            validate_style_properties(section[:content], "#{path}.content", missing_keys, invalid_values, content_props)
+            validate_style_properties(section[:content], "#{path}.content",
+                                      missing_keys, invalid_values, content_props)
           end
 
           # changed section has content_old, content_new
           if section.key?(:content_old)
-            validate_style_properties(section[:content_old], "#{path}.content_old", missing_keys, invalid_values, content_props)
+            validate_style_properties(section[:content_old],
+                                      "#{path}.content_old", missing_keys, invalid_values, content_props)
           end
 
           if section.key?(:content_new)
-            validate_style_properties(section[:content_new], "#{path}.content_new", missing_keys, invalid_values, content_props)
+            validate_style_properties(section[:content_new],
+                                      "#{path}.content_new", missing_keys, invalid_values, content_props)
           end
         end
 
         # Required properties for structure elements (just color)
         STRUCTURE_PROPERTIES = %i[color].freeze
 
-        def validate_structure_section(structure, missing_keys, _extra_keys, invalid_values)
+        def validate_structure_section(structure, missing_keys, _extra_keys,
+invalid_values)
           required = %i[line_number pipe context]
 
           required.each do |key|
@@ -634,11 +712,13 @@ module Canon
             end
 
             section = structure[key]
-            validate_style_properties(section, "structure.#{key}", missing_keys, invalid_values, STRUCTURE_PROPERTIES)
+            validate_style_properties(section, "structure.#{key}",
+                                      missing_keys, invalid_values, STRUCTURE_PROPERTIES)
           end
         end
 
-        def validate_style_properties(style, path, missing_keys, invalid_values, required_props = STYLING_PROPERTIES)
+        def validate_style_properties(style, path, missing_keys,
+invalid_values, required_props = STYLING_PROPERTIES)
           unless style.is_a?(Hash)
             invalid_values << "#{path} must be a Hash, got #{style.class}"
             return
@@ -670,7 +750,8 @@ module Canon
           end
         end
 
-        def validate_visualization_section(vis, missing_keys, _extra_keys, _invalid_values)
+        def validate_visualization_section(vis, missing_keys, _extra_keys,
+_invalid_values)
           required = %i[space tab newline nbsp]
 
           required.each do |key|

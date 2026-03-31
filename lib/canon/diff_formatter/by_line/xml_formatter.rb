@@ -55,7 +55,8 @@ module Canon
           Canon::Diff::DiffNodeEnricher.build(@differences, doc1, doc2)
 
           # Phase 2: Assemble DiffLines from enriched DiffNodes
-          diff_lines = Canon::Diff::DiffLineBuilder.build(@differences, doc1, doc2)
+          diff_lines = Canon::Diff::DiffLineBuilder.build(@differences, doc1,
+                                                          doc2)
 
           # Layers 3-5: Build report through pipeline
           report = Canon::Diff::DiffReportBuilder.build(
@@ -133,9 +134,12 @@ module Canon
                           old_str = "%#{@line_num_width}d" % line_num
                           blank = " " * @line_num_width
                           if @use_color
-                            yellow_old = colorize(old_str, structure_color(:line_number) || :yellow)
-                            yellow_pipe1 = colorize("|", structure_color(:pipe) || :yellow)
-                            yellow_pipe2 = colorize("|", structure_color(:pipe) || :yellow)
+                            yellow_old = colorize(old_str,
+                                                  structure_color(:line_number) || :yellow)
+                            yellow_pipe1 = colorize("|",
+                                                    structure_color(:pipe) || :yellow)
+                            yellow_pipe2 = colorize("|",
+                                                    structure_color(:pipe) || :yellow)
                             red_marker = styled_marker("-", :removed)
                             "#{yellow_old}#{yellow_pipe1}#{blank}#{red_marker} #{yellow_pipe2} #{highlighted}"
                           else
@@ -301,8 +305,10 @@ module Canon
             # MULTIPLE separate changed regions (not just prefix+change+suffix).
             # Count contiguous changed regions — a simple word replacement has
             # ONE changed region even though it produces 3 ranges (prefix+change+suffix).
-            old_changed_regions = count_changed_regions(old_ranges, :changed_old)
-            new_changed_regions = count_changed_regions(new_ranges, :changed_new)
+            old_changed_regions = count_changed_regions(old_ranges,
+                                                        :changed_old)
+            new_changed_regions = count_changed_regions(new_ranges,
+                                                        :changed_new)
             is_mixed = has_old_change && has_new_change &&
               (old_changed_regions > 1 || new_changed_regions > 1)
 
@@ -331,7 +337,12 @@ module Canon
           elsif @diff_mode == :inline
             # Inline mode: show OLD → NEW on same line
             separator = " → "
-            marker = @use_color ? colorize("*", theme_color(:changed, :marker)) : "*"
+            marker = if @use_color
+                       colorize("*",
+                                theme_color(:changed, :marker))
+                     else
+                       "*"
+                     end
             [
               format_unified_line(old_line_num, new_line_num, marker,
                                   "#{old_content}#{separator}#{new_content}",
@@ -385,9 +396,19 @@ module Canon
                        when :unchanged
                          apply_visualization(decoded_segment)
                        when :changed_old
-                         (side == :old ? apply_visualization(decoded_segment, informative_old) : apply_visualization(decoded_segment))
+                         (if side == :old
+                            apply_visualization(decoded_segment,
+                                                informative_old)
+                          else
+                            apply_visualization(decoded_segment)
+                          end)
                        when :changed_new
-                         (side == :new ? apply_visualization(decoded_segment, informative_new) : apply_visualization(decoded_segment))
+                         (if side == :new
+                            apply_visualization(decoded_segment,
+                                                informative_new)
+                          else
+                            apply_visualization(decoded_segment)
+                          end)
                        when :removed
                          apply_visualization(decoded_segment, informative_old)
                        when :added
@@ -403,9 +424,19 @@ module Canon
                        when :unchanged
                          apply_visualization(decoded_segment)
                        when :changed_old
-                         (side == :old ? apply_visualization(decoded_segment, removed_color) : apply_visualization(decoded_segment))
+                         (if side == :old
+                            apply_visualization(decoded_segment,
+                                                removed_color)
+                          else
+                            apply_visualization(decoded_segment)
+                          end)
                        when :changed_new
-                         (side == :new ? apply_visualization(decoded_segment, added_color) : apply_visualization(decoded_segment))
+                         (if side == :new
+                            apply_visualization(decoded_segment,
+                                                added_color)
+                          else
+                            apply_visualization(decoded_segment)
+                          end)
                        when :removed
                          apply_visualization(decoded_segment, removed_color)
                        when :added
@@ -655,11 +686,13 @@ module Canon
           path_str = match.path.join("/")
           removed_marker_color = theme_color(:removed, :marker)
           removed_content_color = theme_color(:removed, :content)
-          output << colorize("Element: #{path_str} [DELETED]", removed_marker_color, :bold)
+          output << colorize("Element: #{path_str} [DELETED]",
+                             removed_marker_color, :bold)
 
           # Show all lines as deleted
           (range1.start_line..range1.end_line).each do |i|
-            output << format_unified_line(i + 1, nil, "-", lines1[i], removed_content_color)
+            output << format_unified_line(i + 1, nil, "-", lines1[i],
+                                          removed_content_color)
           end
 
           output.join("\n")
@@ -674,11 +707,13 @@ module Canon
           path_str = match.path.join("/")
           added_marker_color = theme_color(:added, :marker)
           added_content_color = theme_color(:added, :content)
-          output << colorize("Element: #{path_str} [INSERTED]", added_marker_color, :bold)
+          output << colorize("Element: #{path_str} [INSERTED]",
+                             added_marker_color, :bold)
 
           # Show all lines as inserted
           (range2.start_line..range2.end_line).each do |i|
-            output << format_unified_line(nil, i + 1, "+", lines2[i], added_content_color)
+            output << format_unified_line(nil, i + 1, "+", lines2[i],
+                                          added_content_color)
           end
 
           output.join("\n")
@@ -910,8 +945,10 @@ informative: false, formatting: false)
                                                char_ranges, new_char_ranges,
                                                old_content, new_content, fmt, blank)
           output = []
-          old_highlighted = render_line_from_char_ranges(old_content, char_ranges, :old)
-          new_highlighted = render_line_from_char_ranges(new_content, new_char_ranges, :new)
+          old_highlighted = render_line_from_char_ranges(old_content,
+                                                         char_ranges, :old)
+          new_highlighted = render_line_from_char_ranges(new_content,
+                                                         new_char_ranges, :new)
           line_num_color = structure_color(:line_number) || :yellow
           pipe_color = structure_color(:pipe) || :yellow
           changed_marker_color = theme_color(:changed, :marker)
@@ -941,9 +978,11 @@ informative: false, formatting: false)
         # Shows: OLD line with removed parts in red/strikethrough, NEW line with added parts in green/underline
         def format_mixed_changed_line_inline(old_line_num, new_line_num,
                                              char_ranges, new_char_ranges,
-                                             old_content, new_content, fmt, blank)
-          old_highlighted = render_line_for_inline(old_content, char_ranges, :old)
-          new_highlighted = render_line_for_inline(new_content, new_char_ranges, :new)
+                                             old_content, new_content, fmt, _blank)
+          old_highlighted = render_line_for_inline(old_content, char_ranges,
+                                                   :old)
+          new_highlighted = render_line_for_inline(new_content,
+                                                   new_char_ranges, :new)
 
           line_num_color = structure_color(:line_number) || :yellow
           pipe_color = structure_color(:pipe) || :yellow
@@ -969,7 +1008,7 @@ informative: false, formatting: false)
         # Render a line segment for inline mode with proper styling
         # Uses red for removed (changed_old), green for added (changed_new)
         # Falls back to strikethrough/underline when color is off
-        def render_line_for_inline(line_text, ranges, side)
+        def render_line_for_inline(line_text, ranges, _side)
           return apply_visualization(line_text) if ranges.nil? || ranges.empty?
 
           parts = []
@@ -994,11 +1033,13 @@ informative: false, formatting: false)
                      when :unchanged
                        apply_visualization(decoded_segment)
                      when :changed_old
-                       apply_effect(decoded_segment, :strikethrough, removed_color)
+                       apply_effect(decoded_segment, :strikethrough,
+                                    removed_color)
                      when :changed_new
                        apply_effect(decoded_segment, :underline, added_color)
                      when :removed
-                       apply_effect(decoded_segment, :strikethrough, removed_color)
+                       apply_effect(decoded_segment, :strikethrough,
+                                    removed_color)
                      when :added
                        apply_effect(decoded_segment, :underline, added_color)
                      else
@@ -1175,7 +1216,6 @@ informative: false, formatting: false)
             visual
           end
         end
-
 
         def detect_block_formatting(context, diffs)
           formatting_indices = Set.new

@@ -101,7 +101,10 @@ module Canon
           rainbow.enabled = true
           presenter = rainbow.wrap(visual)
 
-          presenter = apply_color(presenter, color) if color && color != :default
+          if color && color != :default
+            presenter = apply_color(presenter,
+                                    color)
+          end
           presenter = apply_bg(presenter, bg) if bg
           presenter = presenter.bold if bold
           presenter = presenter.underline if underline
@@ -368,7 +371,9 @@ module Canon
           return text unless @use_color
 
           # Filter out nil colors and normalize bright_/light_ colors
-          valid_colors = colors.compact.flat_map { |c| normalize_color_for_rainbow(c) }
+          valid_colors = colors.compact.flat_map do |c|
+            normalize_color_for_rainbow(c)
+          end
           return text if valid_colors.empty?
 
           require "rainbow"
