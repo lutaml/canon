@@ -88,24 +88,37 @@ module Canon
 
         def match_node(node2)
           sig2 = Core::NodeSignature.for(node2)
-          candidates = (@signature_map[sig2] || []).reject do |n|
-            @matched_tree1.include?(n)
-          end
+          candidates = (@signature_map[sig2] || []).reject { |n| @matched_tree1.include?(n) }
           return if candidates.empty?
 
-          best_match = find_best_match(node2, candidates)
-          return unless best_match
-
-          if @matching.add(best_match, node2)
-            @matched_tree1 << best_match
-            @matched_tree2 << node2
-            propagate_to_ancestors(best_match, node2)
+          # When multiple candidates have identical signatures (common with
+          # duplicate subtrees like MathML formulas), sort by sibling position
+          # proximity to prefer matching nodes at the same position within
+          # their parent. This reduces cross-matching that causes cascading
+          # prefix closure failures.
+          if candidates.size > 1
+            pos2 = node2.position || 0
+            candidates = candidates.sort_by do |c|
+              pos1 = c.position || 0
+              (pos1 - pos2).abs
+            end
           end
-        end
 
-        # @return [TreeNode, nil]
-        def find_best_match(node2, candidates)
-          candidates.find { |node1| subtrees_match?(node1, node2) }
+          # Try each candidate until one passes both subtree matching
+          # AND the prefix closure constraint in matching.add.
+          # When multiple candidates have identical subtrees (e.g., labels
+          # with the same text child), the first may fail prefix closure
+          # due to ancestor cross-matching, but a later candidate succeeds.
+          candidates.each do |candidate|
+            next unless subtrees_match?(candidate, node2)
+
+            if @matching.add(candidate, node2)
+              @matched_tree1 << candidate
+              @matched_tree2 << node2
+              propagate_to_ancestors(candidate, node2)
+              return
+            end
+          end
         end
 
         def subtrees_match?(node1, node2)
