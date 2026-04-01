@@ -31,7 +31,9 @@ RSpec.describe "HashMatcher candidate iteration regression" do
 
     it "does not cause exponential diff explosion on documents with many duplicates" do
       # Generate a document with many duplicate <label>x</label> entries
-      items = (1..50).map { |i| "  <label>x</label>\n  <value>#{i}</value>" }.join("\n")
+      items = (1..50).map do |i|
+        "  <label>x</label>\n  <value>#{i}</value>"
+      end.join("\n")
       xml1 = "<root>\n#{items}\n</root>"
 
       # Change only the first value
