@@ -88,7 +88,9 @@ module Canon
 
         def match_node(node2)
           sig2 = Core::NodeSignature.for(node2)
-          candidates = (@signature_map[sig2] || []).reject { |n| @matched_tree1.include?(n) }
+          candidates = (@signature_map[sig2] || []).reject do |n|
+            @matched_tree1.include?(n)
+          end
           return if candidates.empty?
 
           # When multiple candidates have identical signatures (common with
