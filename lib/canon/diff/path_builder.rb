@@ -52,7 +52,9 @@ module Canon
 
         # Traverse up to root
         while current && depth < max_depth
-          segments.unshift(segment_for_node(current))
+          segment = segment_for_node(current)
+          # Skip unidentifiable nodes (don't add "unknown" garbage segments)
+          segments.unshift(segment) if segment
 
           # Move to parent if available
           break unless current.respond_to?(:parent)
@@ -69,16 +71,20 @@ module Canon
       # Handles both TreeNodes (with label) and raw nodes (with name)
       #
       # @param tree_node [Object] Node (TreeNode, Canon::Xml::Node, or Nokogiri)
-      # @return [String] Path segment with ordinal index
+      # @return [String, nil] Path segment with ordinal index, or nil if unidentifiable
       def self.segment_for_node(tree_node)
         # Handle both TreeNodes (with label) and raw nodes (with name)
-        label = if tree_node.respond_to?(:label)
-                  tree_node.label
-                elsif tree_node.respond_to?(:name)
-                  tree_node.name
-                else
-                  "unknown"
-                end
+        found_label = nil
+        if tree_node.respond_to?(:label)
+          found_label = tree_node.label
+        elsif tree_node.respond_to?(:name)
+          found_label = tree_node.name
+        end
+
+        # If no label found, skip this node (don't use fallback "unknown")
+        return nil if found_label.nil? || found_label.to_s.empty?
+
+        label = found_label
 
         # Get ordinal index (position among siblings with same label)
         index = ordinal_index(tree_node)

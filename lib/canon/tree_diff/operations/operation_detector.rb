@@ -547,8 +547,16 @@ module Canon
         def extract_node_content(node)
           parts = []
 
-          # Add label
-          parts << "<#{node.label}>"
+          # Add label - use parentheses for non-element nodes (text, comment, etc.)
+          # to distinguish from XML elements which use angle brackets
+          parts << case node.label
+                   when "text"
+                     "(text)"
+                   when "comment"
+                     "(comment)"
+                   else
+                     "<#{node.label}>"
+                   end
 
           # Add attributes if present
           unless node.attributes.empty?

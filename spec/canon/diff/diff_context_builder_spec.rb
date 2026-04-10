@@ -389,5 +389,189 @@ RSpec.describe Canon::Diff::DiffContextBuilder do
         expect(contexts[0].end_idx).to eq(6)   # 5 + 1
       end
     end
+
+    context "context range overlap merging" do
+      it "merges contexts whose ranges overlap" do
+        all_lines = Array.new(20) do |i|
+          Canon::Diff::DiffLine.new(
+            line_number: i,
+            type: [5, 10].include?(i) ? :removed : :unchanged,
+            content: "line #{i}",
+            diff_node: [5, 10].include?(i) ? diff_node_normative : nil,
+          )
+        end
+
+        blocks = [
+          Canon::Diff::DiffBlock.new(
+            start_idx: 5,
+            end_idx: 5,
+            types: ["-"],
+            diff_lines: [all_lines[5]],
+          ).tap { |b| b.normative = true },
+          Canon::Diff::DiffBlock.new(
+            start_idx: 10,
+            end_idx: 10,
+            types: ["-"],
+            diff_lines: [all_lines[10]],
+          ).tap { |b| b.normative = true },
+        ]
+
+        # Block 5 with context_lines=3 => [2, 8]
+        # Block 10 with context_lines=3 => [7, 13]
+        # Ranges [2,8] and [7,13] overlap, should merge to [2, 13]
+        contexts = described_class.build_contexts(blocks, all_lines,
+                                                  context_lines: 3, grouping_lines: nil)
+
+        expect(contexts.length).to eq(1)
+        expect(contexts[0].start_idx).to eq(2)
+        expect(contexts[0].end_idx).to eq(13)
+        expect(contexts[0].blocks.length).to eq(2)
+      end
+
+      it "merges touching contexts (end + 1 = start)" do
+        all_lines = Array.new(20) do |i|
+          Canon::Diff::DiffLine.new(
+            line_number: i,
+            type: [5, 10].include?(i) ? :removed : :unchanged,
+            content: "line #{i}",
+            diff_node: [5, 10].include?(i) ? diff_node_normative : nil,
+          )
+        end
+
+        blocks = [
+          Canon::Diff::DiffBlock.new(
+            start_idx: 5,
+            end_idx: 5,
+            types: ["-"],
+            diff_lines: [all_lines[5]],
+          ).tap { |b| b.normative = true },
+          Canon::Diff::DiffBlock.new(
+            start_idx: 10,
+            end_idx: 10,
+            types: ["-"],
+            diff_lines: [all_lines[10]],
+          ).tap { |b| b.normative = true },
+        ]
+
+        # Block 5 with context_lines=3 => [2, 8]
+        # Block 10 with context_lines=2 => [8, 12]
+        # Ranges [2,8] and [8,12] touch at 8, should merge to [2, 12]
+        contexts = described_class.build_contexts(blocks, all_lines,
+                                                  context_lines: 3, grouping_lines: nil)
+
+        expect(contexts.length).to eq(1)
+        expect(contexts[0].start_idx).to eq(2)
+        expect(contexts[0].end_idx).to eq(13)
+      end
+
+      it "does not merge non-overlapping contexts when grouping_lines is small" do
+        all_lines = Array.new(20) do |i|
+          Canon::Diff::DiffLine.new(
+            line_number: i,
+            type: [5, 10].include?(i) ? :removed : :unchanged,
+            content: "line #{i}",
+            diff_node: [5, 10].include?(i) ? diff_node_normative : nil,
+          )
+        end
+
+        blocks = [
+          Canon::Diff::DiffBlock.new(
+            start_idx: 5,
+            end_idx: 5,
+            types: ["-"],
+            diff_lines: [all_lines[5]],
+          ).tap { |b| b.normative = true },
+          Canon::Diff::DiffBlock.new(
+            start_idx: 10,
+            end_idx: 10,
+            types: ["-"],
+            diff_lines: [all_lines[10]],
+          ).tap { |b| b.normative = true },
+        ]
+
+        # With context_lines=1, ranges are [4,6] and [9,11]
+        # Gap between blocks is 10-5-1=4
+        # With grouping_lines=2, gap > 2 so not grouped
+        # Ranges [4,6] and [9,11] do NOT overlap
+        contexts = described_class.build_contexts(blocks, all_lines,
+                                                  context_lines: 1, grouping_lines: 2)
+
+        expect(contexts.length).to eq(2)
+        expect(contexts[0].blocks.length).to eq(1)
+        expect(contexts[1].blocks.length).to eq(1)
+      end
+
+      it "produces no duplicate lines when contexts merge" do
+        all_lines = Array.new(20) do |i|
+          Canon::Diff::DiffLine.new(
+            line_number: i,
+            type: [5, 10].include?(i) ? :removed : :unchanged,
+            content: "line #{i}",
+            diff_node: [5, 10].include?(i) ? diff_node_normative : nil,
+          )
+        end
+
+        blocks = [
+          Canon::Diff::DiffBlock.new(
+            start_idx: 5,
+            end_idx: 5,
+            types: ["-"],
+            diff_lines: [all_lines[5]],
+          ).tap { |b| b.normative = true },
+          Canon::Diff::DiffBlock.new(
+            start_idx: 10,
+            end_idx: 10,
+            types: ["-"],
+            diff_lines: [all_lines[10]],
+          ).tap { |b| b.normative = true },
+        ]
+
+        contexts = described_class.build_contexts(blocks, all_lines,
+                                                  context_lines: 3, grouping_lines: nil)
+
+        all_displayed_lines = contexts.flat_map(&:lines)
+        expect(all_displayed_lines.uniq.length).to eq(all_displayed_lines.length)
+      end
+
+      it "correctly combines blocks from merged contexts" do
+        all_lines = Array.new(20) do |i|
+          Canon::Diff::DiffLine.new(
+            line_number: i,
+            type: [5, 10, 15].include?(i) ? :removed : :unchanged,
+            content: "line #{i}",
+            diff_node: [5, 10, 15].include?(i) ? diff_node_normative : nil,
+          )
+        end
+
+        blocks = [
+          Canon::Diff::DiffBlock.new(
+            start_idx: 5,
+            end_idx: 5,
+            types: ["-"],
+            diff_lines: [all_lines[5]],
+          ).tap { |b| b.normative = true },
+          Canon::Diff::DiffBlock.new(
+            start_idx: 10,
+            end_idx: 10,
+            types: ["-"],
+            diff_lines: [all_lines[10]],
+          ).tap { |b| b.normative = true },
+          Canon::Diff::DiffBlock.new(
+            start_idx: 15,
+            end_idx: 15,
+            types: ["-"],
+            diff_lines: [all_lines[15]],
+          ).tap { |b| b.normative = true },
+        ]
+
+        # All blocks with context_lines=3 have overlapping ranges
+        # Should merge into single context with all 3 blocks
+        contexts = described_class.build_contexts(blocks, all_lines,
+                                                  context_lines: 3, grouping_lines: nil)
+
+        expect(contexts.length).to eq(1)
+        expect(contexts[0].blocks.length).to eq(3)
+      end
+    end
   end
 end

@@ -39,6 +39,9 @@ module Canon
       # @return [Symbol] :before, :changed, :after
       attr_reader :role
 
+      # @return [String, nil] actual text content (including whitespace)
+      attr_reader :text_content
+
       # @return [DiffNode, nil] the originating DiffNode
       attr_reader :diff_node
 
@@ -49,8 +52,9 @@ module Canon
       # @param status [Symbol] :unchanged, :removed, :added, :changed_old, :changed_new
       # @param role [Symbol] :before, :changed, :after
       # @param diff_node [DiffNode, nil] originating DiffNode
+      # @param text_content [String, nil] actual text content for this range
       def initialize(line_number:, start_col:, end_col:, side:, status:,
-                     role: nil, diff_node: nil)
+                     role: nil, diff_node: nil, text_content: nil)
         @line_number = line_number
         @start_col = start_col
         @end_col = end_col
@@ -58,6 +62,7 @@ module Canon
         @status = status
         @role = role
         @diff_node = diff_node
+        @text_content = text_content
       end
 
       # @return [Boolean] true if this range has zero length

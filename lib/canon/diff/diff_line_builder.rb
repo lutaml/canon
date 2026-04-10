@@ -1,7 +1,9 @@
 # frozen_string_literal: true
 
 require_relative "diff_line"
+require_relative "diff_char_range"
 require_relative "formatting_detector"
+require_relative "text_decomposer"
 
 module Canon
   module Diff
@@ -484,31 +486,122 @@ mid_end2)
         first_added_content = mid_count2.positive? && mid_start2 < @lines2.length ? @lines2[mid_start2] : nil
 
         # Check if first lines exist in the other text (not truly orphaned)
+        # For formatting-only changes, show added content even if orphaned (informative)
         show_first_removed = first_removed_content && @line_to_indices2.key?(first_removed_content)
         show_first_added = first_added_content && @line_to_indices1.key?(first_added_content)
+        # Always show representative lines for formatting-only reflow if content exists
+        # The orphaned check is too strict for informative formatting changes
+        # Check mid_count2 directly (not first_added_content) since first_added_content
+        # may be nil when mid_start2 >= @lines2.length but mid_count2 is still positive
+        show_first_added ||= mid_count2.positive?
+
+        # Track if we showed all lines (orphaned case) or just first (matched case)
+        showed_all_added = false
+        showed_all_removed = false
 
         if show_first_removed
-          result << DiffLine.new(
-            line_number: mid_start1,
-            content: first_removed_content,
-            type: :removed,
-            formatting: true,
-          )
+          if first_removed_content && @line_to_indices2.key?(first_removed_content)
+            # Content exists in text2 at different position - just show first line
+            # Compute char_ranges by finding the matching position in text2
+            char_ranges = compute_char_ranges_for_formatting_line(
+              first_removed_content, mid_start1, @lines2, @line_to_indices2, :old
+            )
+            result << DiffLine.new(
+              line_number: mid_start1,
+              content: first_removed_content,
+              type: :removed,
+              formatting: true,
+              char_ranges: char_ranges,
+            )
+          elsif mid_start1 >= @lines1.length
+            # mid_start1 is past the end of text1 - all content is orphaned
+            # but we can't emit lines that don't exist in text1
+            showed_all_removed = true
+          else
+            # Truly orphaned content - show all lines
+            # Try to compute char_ranges for formatting-only differentiation
+            mid_count1.times do |i|
+              line_idx = mid_start1 + i
+              next if line_idx >= @lines1.length
+
+              content = @lines1[line_idx]
+              # Try to find char_ranges even for orphaned content
+              # (handles formatting-only changes where content differs by whitespace)
+              char_ranges = compute_char_ranges_for_formatting_line(
+                content, line_idx, @lines2, @line_to_indices2, :old
+              )
+              result << DiffLine.new(
+                line_number: line_idx,
+                content: content,
+                type: :removed,
+                formatting: true,
+                char_ranges: char_ranges,
+              )
+            end
+            showed_all_removed = true
+          end
         end
 
         if show_first_added
-          result << DiffLine.new(
-            line_number: mid_start2,
-            new_position: mid_start2,
-            content: first_added_content,
-            type: :added,
-            formatting: true,
-          )
+          if first_added_content && @line_to_indices1.key?(first_added_content)
+            # Content exists in text1 at different position - just show first line
+            # Compute char_ranges by finding the matching position in text1
+            char_ranges = compute_char_ranges_for_formatting_line(
+              first_added_content, mid_start2, @lines1, @line_to_indices1, :new
+            )
+            result << DiffLine.new(
+              line_number: mid_start2,
+              new_position: mid_start2,
+              content: first_added_content,
+              type: :added,
+              formatting: true,
+              new_char_ranges: char_ranges, # :added uses new_char_ranges
+            )
+          elsif mid_start2 >= @lines2.length
+            # mid_start2 is past the end of text2 - all content is orphaned
+            # but we can't emit lines that don't exist in text2
+            showed_all_added = true
+          else
+            # Truly orphaned content - show all lines
+            # Try to compute char_ranges for formatting-only differentiation
+            mid_count2.times do |i|
+              line_idx = mid_start2 + i
+              next if line_idx >= @lines2.length
+
+              content = @lines2[line_idx]
+              # Try to find char_ranges even for orphaned content
+              # (handles formatting-only changes where content differs by whitespace)
+              char_ranges = compute_char_ranges_for_formatting_line(
+                content, line_idx, @lines1, @line_to_indices1, :new
+              )
+              result << DiffLine.new(
+                line_number: line_idx,
+                new_position: line_idx,
+                content: content,
+                type: :added,
+                formatting: true,
+                new_char_ranges: char_ranges, # :added uses new_char_ranges
+              )
+            end
+            showed_all_added = true
+          end
         end
 
         # Summary line when there are more than the first-shown pair
-        extra1 = show_first_removed ? [mid_count1 - 1, 0].max : mid_count1
-        extra2 = show_first_added ? [mid_count2 - 1, 0].max : mid_count2
+        extra1 = if showed_all_removed
+                   0
+                 elsif show_first_removed
+                   [mid_count1 - 1, 0].max
+                 else
+                   mid_count1
+                 end
+        extra2 = if showed_all_added
+                   0
+                 elsif show_first_added
+                   [mid_count2 - 1, 0].max
+                 else
+                   mid_count2
+                 end
 
         if extra1.positive? || extra2.positive?
           parts = []
@@ -525,6 +618,145 @@ mid_end2)
         end
       end
 
+      # Compute char_ranges for a formatting-only line by finding its matching
+      # position in the other text and decomposing the differences.
+      #
+      # @param content [String] the line content
+      # @param line_number [Integer] the line number in this text
+      # @param other_lines [Array<String>] the lines from the other text
+      # @param other_index [Hash{String => Array<Integer>}] content -> line indices map
+      # @param side [Symbol] :old or :new (which text this line is from)
+      # @return [Array<DiffCharRange>] computed char_ranges
+      def compute_char_ranges_for_formatting_line(content, line_number, other_lines,
+                                                   other_index, side)
+        # Try exact match first
+        if other_index.key?(content)
+          other_positions = other_index[content]
+          return nil if other_positions.empty?
+
+          other_pos = other_positions.min_by { |p| (p - line_number).abs }
+          return nil if other_pos >= other_lines.length
+
+          other_content = other_lines[other_pos]
+          return nil if other_content.nil?
+
+          return decompose_for_char_ranges(content, line_number, other_content,
+                                           other_pos, side)
+        end
+
+        # No exact match found. For formatting-only changes, try to find a line
+        # with matching non-whitespace content and use that for decomposition.
+        # This handles cases where content exists in both docs but with different
+        # whitespace (e.g., tabs vs spaces, or reflowed content).
+        return nil if other_lines.empty?
+
+        stripped_content = content.gsub(/\s+/, "")
+        return nil if stripped_content.empty?
+
+        # Build index by non-whitespace content to find matching lines
+        stripped_to_positions = {}
+        other_lines.each_with_index do |line, idx|
+          next if line.nil? || line.empty?
+
+          stripped_line = line.gsub(/\s+/, "")
+          next if stripped_line.empty?
+
+          if stripped_line == stripped_content
+            stripped_to_positions[stripped_line] ||= []
+            stripped_to_positions[stripped_line] << idx
+          end
+        end
+
+        positions = stripped_to_positions[stripped_content]
+        return nil if positions.nil? || positions.empty?
+
+        # Find the closest position
+        other_pos = positions.min_by { |p| (p - line_number).abs }
+        other_content = other_lines[other_pos]
+        return nil if other_content.nil? || other_content.empty?
+
+        decompose_for_char_ranges(content, line_number, other_content,
+                                  other_pos, side)
+      end
+
+      # Decompose two lines and compute char_ranges
+      # @return [Array<DiffCharRange>]
+      def decompose_for_char_ranges(content, line_number, other_content,
+other_pos, side)
+        parts = TextDecomposer.decompose(content, other_content)
+
+        ranges = []
+        # For formatting-only changes, the content is typically the same
+        # Just mark the entire line as unchanged formatting
+        if parts[:changed_old].empty? && parts[:changed_new].empty?
+          # No actual changes - entire line is unchanged (formatting only)
+          ranges << DiffCharRange.new(
+            line_number: line_number,
+            start_col: 0,
+            end_col: content.length,
+            side: side,
+            status: :unchanged,
+            role: :changed,
+          )
+        else
+          # Something actually changed - create ranges for each part
+          prefix_len = parts[:common_prefix].length
+          suffix_len = parts[:common_suffix].length
+          changed_old_len = parts[:changed_old].length
+          changed_new_len = parts[:changed_new].length
+
+          # Prefix (unchanged)
+          unless prefix_len.zero?
+            ranges << DiffCharRange.new(
+              line_number: line_number,
+              start_col: 0,
+              end_col: prefix_len,
+              side: side,
+              status: :unchanged,
+              role: :changed,
+            )
+          end
+
+          # Changed portion (old side)
+          unless changed_old_len.zero?
+            ranges << DiffCharRange.new(
+              line_number: line_number,
+              start_col: prefix_len,
+              end_col: prefix_len + changed_old_len,
+              side: :old,
+              status: :changed_old,
+              role: :changed,
+            )
+          end
+
+          # Changed portion (new side) - only for :new side
+          unless changed_new_len.zero?
+            ranges << DiffCharRange.new(
+              line_number: other_pos,
+              start_col: prefix_len,
+              end_col: prefix_len + changed_new_len,
+              side: :new,
+              status: :changed_new,
+              role: :changed,
+            )
+          end
+
+          # Suffix (unchanged)
+          unless suffix_len.zero?
+            ranges << DiffCharRange.new(
+              line_number: line_number,
+              start_col: prefix_len + changed_old_len,
+              end_col: content.length,
+              side: side,
+              status: :unchanged,
+              role: :changed,
+            )
+          end
+        end
+
+        ranges
+      end
+
       # Emit orphaned lines that exist in both texts but at different positions.
       # This handles the case where structural changes cause content to be
       # repositioned rather than added/removed.
@@ -536,7 +768,7 @@ mid_end2)
       # @param to2 [Integer] end line (exclusive) in text2
       # @param text1_orphaned [Boolean] true if text1 has the orphaned lines
       def emit_orphaned_unchanged(result, from1, to1, from2, to2,
-text1_orphaned)
+                                  text1_orphaned)
         if text1_orphaned
           count = to1 - from1
           count.times do |i|
@@ -704,12 +936,21 @@ new_line_ranges)
               next if cont_line_idx >= @lines2.length
 
               cont_content = @lines2[cont_line_idx]
+              old_content = @lines1[cont_line_idx] if cont_line_idx < @lines1.length
+
+              # Compute char_ranges by comparing old and new content
+              old_ranges, new_ranges = compute_continuation_char_ranges(
+                old_content, cont_content, cont_line_idx
+              )
+
               result << DiffLine.new(
                 line_number: cont_line_idx,
                 new_position: cont_line_idx,
                 content: cont_content,
                 type: :added,
                 formatting: true, # Continuation lines are formatting-only
+                char_ranges: old_ranges,
+                new_char_ranges: new_ranges,
               )
             end
           end
@@ -719,11 +960,20 @@ new_line_ranges)
               next if cont_line_idx >= @lines1.length
 
               cont_content = @lines1[cont_line_idx]
+              new_content = @lines2[cont_line_idx] if cont_line_idx < @lines2.length
+
+              # Compute char_ranges by comparing old and new content
+              old_ranges, new_ranges = compute_continuation_char_ranges(
+                cont_content, new_content, cont_line_idx
+              )
+
               result << DiffLine.new(
                 line_number: cont_line_idx,
                 content: cont_content,
                 type: :removed,
                 formatting: true, # Continuation lines are formatting-only
+                char_ranges: old_ranges,
+                new_char_ranges: new_ranges,
               )
             end
           end
@@ -785,11 +1035,20 @@ new_line_ranges)
             next if cont_line_idx >= @lines1.length
 
             cont_content = @lines1[cont_line_idx]
+            new_content = @lines2[cont_line_idx] if cont_line_idx < @lines2.length
+
+            # Compute char_ranges by comparing old and new content
+            old_ranges, new_ranges = compute_continuation_char_ranges(
+              cont_content, new_content, cont_line_idx
+            )
+
             result << DiffLine.new(
               line_number: cont_line_idx,
               content: cont_content,
               type: :removed,
               formatting: true, # Continuation lines are formatting-only
+              char_ranges: old_ranges,
+              new_char_ranges: new_ranges,
             )
           end
         end
@@ -821,12 +1080,21 @@ new_line_ranges)
             next if cont_line_idx >= @lines2.length
 
             cont_content = @lines2[cont_line_idx]
+            old_content = @lines1[cont_line_idx] if cont_line_idx < @lines1.length
+
+            # Compute char_ranges by comparing old and new content
+            old_ranges, new_ranges = compute_continuation_char_ranges(
+              old_content, cont_content, cont_line_idx
+            )
+
             result << DiffLine.new(
               line_number: cont_line_idx,
               new_position: cont_line_idx,
               content: cont_content,
               type: :added,
               formatting: true, # Continuation lines are formatting-only
+              char_ranges: old_ranges,
+              new_char_ranges: new_ranges,
             )
           end
         end
@@ -846,6 +1114,125 @@ new_line_ranges)
       # Sort char ranges by start_col for consistent rendering.
       def sort_ranges(ranges)
         (ranges || []).sort_by(&:start_col)
+      end
+
+      # Compute DiffCharRange for continuation lines by comparing old and new content.
+      # Returns arrays of [old_ranges, new_ranges] for the given line pair.
+      #
+      # @param old_content [String, nil] Content from old version
+      # @param new_content [String, nil] Content from new version
+      # @param line_idx [Integer] Line index (used for line_number in ranges)
+      # @return [Array<Array<DiffCharRange>, Array<DiffCharRange>>] Old and new char ranges
+      def compute_continuation_char_ranges(old_content, new_content, line_idx)
+        return [[], []] if old_content.nil? && new_content.nil?
+
+        if new_content.nil?
+          # Entire line was removed - all is changed_old
+          return [
+            [DiffCharRange.new(
+              line_number: line_idx,
+              start_col: 0,
+              end_col: old_content.length,
+              side: :old,
+              status: :changed_old,
+              role: :changed,
+            )],
+            [],
+          ]
+        end
+
+        if old_content.nil?
+          # Entire line was added - all is changed_new
+          return [
+            [],
+            [DiffCharRange.new(
+              line_number: line_idx,
+              start_col: 0,
+              end_col: new_content.length,
+              side: :new,
+              status: :changed_new,
+              role: :changed,
+            )],
+          ]
+        end
+
+        # Both exist - decompose to find common prefix/suffix
+        parts = Canon::Diff::TextDecomposer.decompose(old_content, new_content)
+
+        old_ranges = []
+        new_ranges = []
+
+        # Common prefix (unchanged)
+        unless parts[:common_prefix].empty?
+          prefix_len = parts[:common_prefix].length
+          old_ranges << DiffCharRange.new(
+            line_number: line_idx,
+            start_col: 0,
+            end_col: prefix_len,
+            side: :old,
+            status: :unchanged,
+            role: :before,
+          )
+          new_ranges << DiffCharRange.new(
+            line_number: line_idx,
+            start_col: 0,
+            end_col: prefix_len,
+            side: :new,
+            status: :unchanged,
+            role: :before,
+          )
+        end
+
+        # Changed old (removed portion)
+        unless parts[:changed_old].empty?
+          prefix_offset = parts[:common_prefix].length
+          old_ranges << DiffCharRange.new(
+            line_number: line_idx,
+            start_col: prefix_offset,
+            end_col: prefix_offset + parts[:changed_old].length,
+            side: :old,
+            status: :changed_old,
+            role: :changed,
+          )
+        end
+
+        # Changed new (added portion)
+        unless parts[:changed_new].empty?
+          prefix_offset = parts[:common_prefix].length
+          new_ranges << DiffCharRange.new(
+            line_number: line_idx,
+            start_col: prefix_offset,
+            end_col: prefix_offset + parts[:changed_new].length,
+            side: :new,
+            status: :changed_new,
+            role: :changed,
+          )
+        end
+
+        # Common suffix (unchanged)
+        unless parts[:common_suffix].empty?
+          suffix_len = parts[:common_suffix].length
+          suffix_offset_old = old_content.length - suffix_len
+          suffix_offset_new = new_content.length - suffix_len
+          old_ranges << DiffCharRange.new(
+            line_number: line_idx,
+            start_col: suffix_offset_old,
+            end_col: suffix_offset_old + suffix_len,
+            side: :old,
+            status: :unchanged,
+            role: :after,
+          )
+          new_ranges << DiffCharRange.new(
+            line_number: line_idx,
+            start_col: suffix_offset_new,
+            end_col: suffix_offset_new + suffix_len,
+            side: :new,
+            status: :unchanged,
+            role: :after,
+          )
+        end
+
+        [old_ranges, new_ranges]
       end
 
       # Strip a line for comparison purposes (handles whitespace-only differences).
