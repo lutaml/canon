@@ -97,7 +97,7 @@ module Canon
         when :informative
           blocks.select { |b| b.informative? && !b.formatting? }
         else # :all
-          blocks.reject(&:formatting?)
+          blocks # Show all blocks including formatting-only
         end
       end
     end

@@ -97,7 +97,7 @@ module Canon
         structure: {
           line_number: { color: :black },
           pipe: { color: :black },
-          context: { color: :default },
+          context: { color: :black },
         },
 
         visualization: {
@@ -176,7 +176,7 @@ module Canon
         structure: {
           line_number: { color: :white },
           pipe: { color: :white },
-          context: { color: :default },
+          context: { color: :white },
         },
 
         visualization: {
@@ -343,7 +343,7 @@ module Canon
         structure: {
           line_number: { color: :yellow },
           pipe: { color: :yellow },
-          context: { color: :default },
+          context: { color: :white },
         },
 
         visualization: {
@@ -428,7 +428,7 @@ module Canon
         structure: {
           line_number: { color: :bright_cyan },
           pipe: { color: :bright_cyan },
-          context: { color: :default },
+          context: { color: :bright_white },
         },
 
         visualization: {

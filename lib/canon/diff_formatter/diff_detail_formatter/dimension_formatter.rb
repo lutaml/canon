@@ -173,12 +173,37 @@ module Canon
           name1 = NodeUtils.get_element_name_for_display(node1)
           name2 = NodeUtils.get_element_name_for_display(node2)
 
-          detail1 = "<#{ColorHelper.colorize(name1, :red, use_color)}>"
-          detail2 = "<#{ColorHelper.colorize(name2, :green, use_color)}>"
+          # For text/comment nodes, include the actual content in the display
+          text1 = NodeUtils.get_node_text(node1) if node1
+          text2 = NodeUtils.get_node_text(node2) if node2
 
-          changes = "Element differs: #{ColorHelper.colorize(name1, :red,
-                                                             use_color)} → " \
-                    "#{ColorHelper.colorize(name2, :green, use_color)}"
+          # Use parentheses for non-element nodes (text, comment) to distinguish
+          # from XML elements which use angle brackets
+          detail1 = if name1.start_with?("(")
+                      # Text/comment node - show just quoted content in Expected/Actual
+                      ColorHelper.colorize(
+                        format_json_value(text1), :red, use_color
+                      )
+                    elsif name1.empty?
+                      # Node is nil - show empty
+                      ColorHelper.colorize("\"\"", :red, use_color)
+                    else
+                      "<#{ColorHelper.colorize(name1, :red, use_color)}>"
+                    end
+
+          detail2 = if name2.start_with?("(")
+                      # Text/comment node - show just quoted content in Expected/Actual
+                      ColorHelper.colorize(
+                        format_json_value(text2), :green, use_color
+                      )
+                    elsif name2.empty?
+                      # Node is nil - show empty
+                      ColorHelper.colorize("\"\"", :green, use_color)
+                    else
+                      "<#{ColorHelper.colorize(name2, :green, use_color)}>"
+                    end
+
+          changes = nil # Suppress Changes since Reason already has full info
 
           [detail1, detail2, changes]
         end

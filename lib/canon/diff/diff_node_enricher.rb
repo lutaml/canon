@@ -109,6 +109,7 @@ module Canon
             status: :added,
             role: :changed,
             diff_node: diff_node,
+            text_content: after,
           )
           diff_node.char_ranges = [cr]
           diff_node.line_range_before = nil
@@ -132,6 +133,7 @@ module Canon
             status: :removed,
             role: :changed,
             diff_node: diff_node,
+            text_content: before,
           )
           diff_node.char_ranges = [cr]
           diff_node.line_range_before = [loc[:line_number], loc[:line_number]]
@@ -166,6 +168,7 @@ module Canon
             status: :unchanged,
             role: :before,
             diff_node: diff_node,
+            text_content: parts[:common_prefix],
           )
 
           ranges << DiffCharRange.new(
@@ -176,6 +179,7 @@ module Canon
             status: :unchanged,
             role: :before,
             diff_node: diff_node,
+            text_content: parts[:common_prefix],
           )
         end
 
@@ -192,6 +196,7 @@ module Canon
               status: :changed_old,
               role: :changed,
               diff_node: diff_node,
+              text_content: parts[:changed_old],
             )
           end
 
@@ -204,6 +209,7 @@ module Canon
               status: :changed_new,
               role: :changed,
               diff_node: diff_node,
+              text_content: parts[:changed_new],
             )
           end
         end
@@ -222,6 +228,7 @@ module Canon
             status: :unchanged,
             role: :after,
             diff_node: diff_node,
+            text_content: parts[:common_suffix],
           )
 
           ranges << DiffCharRange.new(
@@ -232,6 +239,7 @@ module Canon
             status: :unchanged,
             role: :after,
             diff_node: diff_node,
+            text_content: parts[:common_suffix],
           )
         end
 
@@ -295,6 +303,7 @@ module Canon
                 status: :changed_old,
                 role: :changed,
                 diff_node: diff_node,
+                text_content: old_val,
               )
             end
           end
@@ -321,6 +330,7 @@ module Canon
                 status: :changed_new,
                 role: :changed,
                 diff_node: diff_node,
+                text_content: new_val,
               )
             end
           end
@@ -363,6 +373,7 @@ module Canon
             status: :removed,
             role: :changed,
             diff_node: diff_node,
+            text_content: pattern,
           )
         end
 
@@ -384,6 +395,7 @@ module Canon
             status: :added,
             role: :changed,
             diff_node: diff_node,
+            text_content: pattern,
           )
         end
 
@@ -411,6 +423,7 @@ module Canon
             status: :unchanged,
             role: :changed,
             diff_node: diff_node,
+            text_content: before,
           )
         end
 
@@ -423,6 +436,7 @@ module Canon
             status: :unchanged,
             role: :changed,
             diff_node: diff_node,
+            text_content: after,
           )
         end
 
@@ -460,6 +474,7 @@ module Canon
               status: :added,
               role: :changed,
               diff_node: diff_node,
+              text_content: after,
             ),
           ]
           diff_node.line_range_after = [loc[:line_number], loc[:line_number]]
@@ -479,6 +494,7 @@ module Canon
               status: :removed,
               role: :changed,
               diff_node: diff_node,
+              text_content: before,
             ),
           ]
           diff_node.line_range_before = [loc[:line_number], loc[:line_number]]
@@ -503,12 +519,14 @@ module Canon
           ranges << DiffCharRange.new(
             line_number: loc1[:line_number], start_col: loc1[:col],
             end_col: loc1[:col] + prefix_len,
-            side: :old, status: :unchanged, role: :before, diff_node: diff_node
+            side: :old, status: :unchanged, role: :before, diff_node: diff_node,
+            text_content: parts[:common_prefix]
           )
           ranges << DiffCharRange.new(
             line_number: loc2[:line_number], start_col: loc2[:col],
             end_col: loc2[:col] + prefix_len,
-            side: :new, status: :unchanged, role: :before, diff_node: diff_node
+            side: :new, status: :unchanged, role: :before, diff_node: diff_node,
+            text_content: parts[:common_prefix]
           )
         end
 
@@ -521,7 +539,8 @@ module Canon
               line_number: loc1[:line_number],
               start_col: loc1[:col] + prefix_offset,
               end_col: loc1[:col] + prefix_offset + parts[:changed_old].length,
-              side: :old, status: :changed_old, role: :changed, diff_node: diff_node
+              side: :old, status: :changed_old, role: :changed, diff_node: diff_node,
+              text_content: parts[:changed_old]
             )
           end
 
@@ -530,7 +549,8 @@ module Canon
               line_number: loc2[:line_number],
               start_col: loc2[:col] + prefix_offset,
               end_col: loc2[:col] + prefix_offset + parts[:changed_new].length,
-              side: :new, status: :changed_new, role: :changed, diff_node: diff_node
+              side: :new, status: :changed_new, role: :changed, diff_node: diff_node,
+              text_content: parts[:changed_new]
             )
           end
         end
@@ -543,12 +563,14 @@ module Canon
           ranges << DiffCharRange.new(
             line_number: loc1[:line_number], start_col: s_off_old,
             end_col: s_off_old + s_len,
-            side: :old, status: :unchanged, role: :after, diff_node: diff_node
+            side: :old, status: :unchanged, role: :after, diff_node: diff_node,
+            text_content: parts[:common_suffix]
           )
           ranges << DiffCharRange.new(
             line_number: loc2[:line_number], start_col: s_off_new,
             end_col: s_off_new + s_len,
-            side: :new, status: :unchanged, role: :after, diff_node: diff_node
+            side: :new, status: :unchanged, role: :after, diff_node: diff_node,
+            text_content: parts[:common_suffix]
           )
         end
 
@@ -557,7 +579,8 @@ module Canon
         diff_node.line_range_after = [loc2[:line_number], loc2[:line_number]]
       end
 
-      # Structural whitespace: mark affected lines as formatting-only.
+      # Structural whitespace: decompose into prefix/suffix/changed to allow highlighting.
+      # Uses TextDecomposer to find actual character-level differences.
       def enrich_structural_whitespace(diff_node)
         before = diff_node.serialized_before
         after = diff_node.serialized_after
@@ -565,41 +588,102 @@ module Canon
         loc1 = SourceLocator.locate(before, @text1, @line_map1) if before
         loc2 = SourceLocator.locate(after, @text2, @line_map2) if after
 
+        return unless loc1 && loc2
+
+        # Decompose to find what actually changed
+        parts = TextDecomposer.decompose(before, after)
         ranges = []
 
-        if loc1 && before
+        # Before-text (unchanged prefix)
+        unless parts[:common_prefix].empty?
+          prefix_len = parts[:common_prefix].length
+
           ranges << DiffCharRange.new(
             line_number: loc1[:line_number],
             start_col: loc1[:col],
-            end_col: loc1[:col] + before.length,
+            end_col: loc1[:col] + prefix_len,
             side: :old,
             status: :unchanged,
-            role: :changed,
+            role: :before,
             diff_node: diff_node,
+            text_content: parts[:common_prefix],
           )
-        end
 
-        if loc2 && after
           ranges << DiffCharRange.new(
             line_number: loc2[:line_number],
             start_col: loc2[:col],
-            end_col: loc2[:col] + after.length,
+            end_col: loc2[:col] + prefix_len,
             side: :new,
             status: :unchanged,
-            role: :changed,
+            role: :before,
             diff_node: diff_node,
+            text_content: parts[:common_prefix],
+          )
+        end
+
+        # Changed-text (the actual difference)
+        unless parts[:changed_old].empty? && parts[:changed_new].empty?
+          prefix_offset = parts[:common_prefix].length
+
+          unless parts[:changed_old].empty?
+            ranges << DiffCharRange.new(
+              line_number: loc1[:line_number],
+              start_col: loc1[:col] + prefix_offset,
+              end_col: loc1[:col] + prefix_offset + parts[:changed_old].length,
+              side: :old,
+              status: :changed_old,
+              role: :changed,
+              diff_node: diff_node,
+              text_content: parts[:changed_old],
+            )
+          end
+
+          unless parts[:changed_new].empty?
+            ranges << DiffCharRange.new(
+              line_number: loc2[:line_number],
+              start_col: loc2[:col] + prefix_offset,
+              end_col: loc2[:col] + prefix_offset + parts[:changed_new].length,
+              side: :new,
+              status: :changed_new,
+              role: :changed,
+              diff_node: diff_node,
+              text_content: parts[:changed_new],
+            )
+          end
+        end
+
+        # After-text (unchanged suffix)
+        unless parts[:common_suffix].empty?
+          suffix_len = parts[:common_suffix].length
+          suffix_offset_old = loc1[:col] + before.length - suffix_len
+          suffix_offset_new = loc2[:col] + after.length - suffix_len
+
+          ranges << DiffCharRange.new(
+            line_number: loc1[:line_number],
+            start_col: suffix_offset_old,
+            end_col: suffix_offset_old + suffix_len,
+            side: :old,
+            status: :unchanged,
+            role: :after,
+            diff_node: diff_node,
+            text_content: parts[:common_suffix],
+          )
+
+          ranges << DiffCharRange.new(
+            line_number: loc2[:line_number],
+            start_col: suffix_offset_new,
+            end_col: suffix_offset_new + suffix_len,
+            side: :new,
+            status: :unchanged,
+            role: :after,
+            diff_node: diff_node,
+            text_content: parts[:common_suffix],
           )
         end
 
         diff_node.char_ranges = ranges
-        diff_node.line_range_before = if loc1
-                                        [loc1[:line_number],
-                                         loc1[:line_number]]
-                                      end
-        diff_node.line_range_after = if loc2
-                                       [loc2[:line_number],
-                                        loc2[:line_number]]
-                                     end
+        diff_node.line_range_before = [loc1[:line_number], loc1[:line_number]]
+        diff_node.line_range_after = [loc2[:line_number], loc2[:line_number]]
       end
 
       # Element structure change: full element deletion/insertion.
@@ -636,6 +720,7 @@ module Canon
                 status: :added,
                 role: :changed,
                 diff_node: diff_node,
+                text_content: after,
               ),
             ]
             diff_node.line_range_before = nil
@@ -666,6 +751,7 @@ module Canon
                 status: :changed_old,
                 role: :changed,
                 diff_node: diff_node,
+                text_content: before,
               ),
             ]
             diff_node.line_range_before = [loc[:line_number], end_line]
@@ -685,6 +771,7 @@ module Canon
                   status: :changed_old,
                   role: :changed,
                   diff_node: diff_node,
+                  text_content: before,
                 ),
               ]
               diff_node.line_range_before = [loc[:line_number], end_line]
@@ -720,6 +807,7 @@ module Canon
             status: :changed_old,
             role: :changed,
             diff_node: diff_node,
+            text_content: before,
           )
         end
 
@@ -732,6 +820,7 @@ module Canon
             status: :changed_new,
             role: :changed,
             diff_node: diff_node,
+            text_content: after,
           )
         end
 
@@ -766,6 +855,7 @@ module Canon
               status: :removed,
               role: :changed,
               diff_node: diff_node,
+              text_content: @lines1[line_idx],
             )
           end
           diff_node.line_range_before = old_lines.any? ? old_lines.minmax : nil
@@ -783,6 +873,7 @@ module Canon
               status: :added,
               role: :changed,
               diff_node: diff_node,
+              text_content: @lines2[line_idx],
             )
           end
           diff_node.line_range_after = new_lines.any? ? new_lines.minmax : nil
@@ -831,6 +922,7 @@ module Canon
               status: :changed_old,
               role: :changed,
               diff_node: diff_node,
+              text_content: before,
             )
           end
           if loc2
@@ -842,6 +934,7 @@ module Canon
               status: :changed_new,
               role: :changed,
               diff_node: diff_node,
+              text_content: after,
             )
           end
           diff_node.char_ranges = ranges
@@ -866,6 +959,7 @@ module Canon
               status: :removed,
               role: :changed,
               diff_node: diff_node,
+              text_content: before,
             ),
           ]
           diff_node.line_range_before = [loc[:line_number], loc[:line_number]]
@@ -882,6 +976,7 @@ module Canon
               status: :added,
               role: :changed,
               diff_node: diff_node,
+              text_content: after,
             ),
           ]
           diff_node.line_range_after = [loc[:line_number], loc[:line_number]]

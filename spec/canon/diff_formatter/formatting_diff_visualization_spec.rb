@@ -27,9 +27,9 @@ RSpec.describe "Formatting diff visualization" do
       )
       diff = result.diff(use_color: false)
 
-      # When equivalent, diff output is suppressed
+      # Formatting diffs are shown with show_diffs: :all even when equivalent
       expect(result.equivalent?).to be true
-      expect(diff.lines.length).to eq(1) # Only header
+      expect(diff.lines.length).to be > 1 # Shows formatting diff
     end
 
     it "shows no formatting markers when documents are equivalent" do
@@ -55,7 +55,7 @@ RSpec.describe "Formatting diff visualization" do
       expect(diff).not_to include("]")
     end
 
-    it "handles equivalent documents without errors" do
+    it "handles equivalent documents without errors and shows formatting diffs" do
       xml1 = "<root><p>Hello  world</p></root>"
       xml2 = "<root><p>Hello world</p></root>"
 
@@ -64,9 +64,9 @@ RSpec.describe "Formatting diff visualization" do
                                                          match: { text_content: :normalize })
       diff = result.diff(use_color: true)
 
-      # When equivalent, diff is suppressed
+      # With show_diffs: :all (default), formatting-only diffs are shown even when equivalent
       expect(result.equivalent?).to be true
-      expect(diff.lines.length).to eq(1) # Only header
+      expect(diff.lines.length).to be > 1 # Shows formatting diff
     end
   end
 
@@ -127,7 +127,8 @@ RSpec.describe "Formatting diff visualization" do
       expect(diff.lines.length).to eq(1)
     end
 
-    it "suppresses both formatting and informative when equivalent" do
+    # Formatting diffs ARE shown with show_diffs: :all when equivalent
+    it "shows formatting but suppresses informative when equivalent" do
       # Formatting: whitespace only (equivalent with normalize)
       xml1a = "<root><p>Hello  world</p></root>"
       xml2a = "<root><p>Hello world</p></root>"
@@ -150,10 +151,11 @@ RSpec.describe "Formatting diff visualization" do
         match: { comments: :ignore }
       )
 
-      # Both should be equivalent - diff suppressed
+      # Formatting diffs ARE shown with show_diffs: :all when equivalent
       expect(result_formatting.equivalent?).to be true
-      expect(result_formatting.diff(use_color: false).lines.length).to eq(1)
+      expect(result_formatting.diff(use_color: false).lines.length).to be > 1
 
+      # Informative diffs are suppressed when equivalent
       expect(result_informative.equivalent?).to be true
       expect(result_informative.diff(use_color: false).lines.length).to eq(1)
     end
@@ -221,7 +223,8 @@ RSpec.describe "Formatting diff visualization" do
       expect(diff).to include("+")
     end
 
-    it "suppresses informative and formatting when equivalent" do
+    # Formatting diffs ARE shown with show_diffs: :all when equivalent
+    it "shows formatting but suppresses informative when equivalent" do
       # Informative: comments (ignored, equivalent)
       xml_info1 = "<root><!-- old --></root>"
       xml_info2 = "<root><!-- new --></root>"
@@ -244,12 +247,13 @@ RSpec.describe "Formatting diff visualization" do
         match: { text_content: :normalize, structural_whitespace: :normalize }
       )
 
-      # Both should be equivalent - diff suppressed
+      # Informative diffs are suppressed when equivalent
       expect(result_info.equivalent?).to be true
       expect(result_info.diff(use_color: false).lines.length).to eq(1)
 
+      # Formatting diffs ARE shown with show_diffs: :all when equivalent
       expect(result_fmt.equivalent?).to be true
-      expect(result_fmt.diff(use_color: false).lines.length).to eq(1)
+      expect(result_fmt.diff(use_color: false).lines.length).to be > 1
     end
   end
 

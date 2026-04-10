@@ -93,9 +93,10 @@ module Canon
           elsif node.is_a?(Canon::Xml::Nodes::ElementNode)
             serialize_element_node(node)
           elsif node.is_a?(Canon::Xml::Nodes::TextNode)
-            # Use original text (with entity references) if available,
-            # otherwise fall back to value (decoded text)
-            node.original || node.value
+            # Use value (decoded text) so the serialized form can be found
+            # in the document text for character-level diff enrichment.
+            # The actual display uses preprocessed line content, not this field.
+            node.value
           elsif node.is_a?(Canon::Xml::Nodes::CommentNode)
             "<!--#{node.value}-->"
           elsif node.is_a?(Canon::Xml::Nodes::ProcessingInstructionNode)

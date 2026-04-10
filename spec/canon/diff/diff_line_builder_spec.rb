@@ -259,4 +259,306 @@ RSpec.describe Canon::Diff::DiffLineBuilder do
       expect(added_lines.map(&:content)).to include("gamma")
     end
   end
+
+  describe "continuation line char_ranges differentiation" do
+    # Tests that continuation lines have char_ranges computed that correctly
+    # differentiate unchanged vs changed_old vs changed_new portions
+
+    it "creates char_ranges for changed continuation lines with unchanged content" do
+      old_text = "prefix some  text\ncontinuation line\n"
+      new_text = "prefix some   text\ncontinuation line\n"
+
+      diff_node = Canon::Diff::DiffNode.new(node1: nil, node2: nil,
+                                            dimension: :text_content, reason: "text changed")
+      diff_node.normative = true
+
+      diff_node.char_ranges = [
+        Canon::Diff::DiffCharRange.new(line_number: 0, start_col: 0, end_col: 14,
+                                       side: :old, status: :changed_old, role: :changed,
+                                       diff_node: diff_node),
+        Canon::Diff::DiffCharRange.new(line_number: 0, start_col: 0, end_col: 15,
+                                       side: :new, status: :changed_new, role: :changed,
+                                       diff_node: diff_node),
+      ]
+      diff_node.line_range_before = [0, 1]
+      diff_node.line_range_after = [0, 1]
+
+      lines = described_class.build([diff_node], old_text, new_text)
+
+      cont_line = lines.find { |l| l.formatting? && l.type == :added }
+      expect(cont_line).to be_a(Canon::Diff::DiffLine)
+      expect(cont_line.has_char_ranges?).to be(true),
+                                            "Continuation line should have char_ranges"
+
+      old_ranges = cont_line.char_ranges
+      new_ranges = cont_line.new_char_ranges
+
+      expect(old_ranges).not_to be_empty
+      expect(new_ranges).not_to be_empty
+
+      old_ranges.each { |r| expect(r.status).to eq(:unchanged) }
+      new_ranges.each { |r| expect(r.status).to eq(:unchanged) }
+    end
+
+    it "creates char_ranges for removed continuation lines" do
+      # When a line is removed but continuation lines exist within line_range,
+      # they should have char_ranges computed
+      old_text = "line 0\nline 1 content\nline 2\n"
+      new_text = "line 0\nline 1 content\n" # line 2 removed
+
+      diff_node = Canon::Diff::DiffNode.new(
+        node1: nil,
+        node2: nil,
+        dimension: :element_structure,
+        reason: "element deleted",
+      )
+      diff_node.normative = true
+
+      # char_ranges for line 1, but line_range_before spans lines 1-2
+      diff_node.char_ranges = [
+        Canon::Diff::DiffCharRange.new(
+          line_number: 1,
+          start_col: 0,
+          end_col: 13,
+          side: :old,
+          status: :changed_old,
+          role: :changed,
+          diff_node: diff_node,
+        ),
+      ]
+      diff_node.line_range_before = [1, 2]
+
+      lines = described_class.build([diff_node], old_text, new_text)
+
+      # Find the removed continuation line (line 2 is within line_range but not in new_text)
+      cont_lines = lines.select { |l| l.type == :removed && l.formatting? }
+      expect(cont_lines.length).to eq(1)
+
+      cont_line = cont_lines.first
+      expect(cont_line.has_char_ranges?).to be(true),
+                                            "Removed continuation line should have char_ranges"
+
+      # Since new_content is nil for line 2, the entire line is :changed_old
+      old_ranges = cont_line.char_ranges
+      expect(old_ranges).not_to be_empty
+      old_ranges.each do |r|
+        expect(r.status).to eq(:changed_old)
+      end
+    end
+
+    it "creates char_ranges for added continuation lines" do
+      # When a line is added and continuation lines exist, they should have char_ranges
+      old_text = "line 0\nline 1 content\n"
+      new_text = "line 0\nline 1 content\nline 2\n" # line 2 added
+
+      diff_node = Canon::Diff::DiffNode.new(
+        node1: nil,
+        node2: nil,
+        dimension: :element_structure,
+        reason: "element added",
+      )
+      diff_node.normative = true
+
+      diff_node.char_ranges = [
+        Canon::Diff::DiffCharRange.new(
+          line_number: 1,
+          start_col: 0,
+          end_col: 13,
+          side: :new,
+          status: :changed_new,
+          role: :changed,
+          diff_node: diff_node,
+        ),
+      ]
+      diff_node.line_range_after = [1, 2]
+
+      lines = described_class.build([diff_node], old_text, new_text)
+
+      # Find the added continuation line
+      cont_lines = lines.select { |l| l.type == :added && l.formatting? }
+      expect(cont_lines.length).to eq(1)
+
+      cont_line = cont_lines.first
+      expect(cont_line.has_char_ranges?).to be(true),
+                                            "Added continuation line should have char_ranges"
+
+      # Since old_content is nil for line 2, the entire line is :changed_new
+      new_ranges = cont_line.new_char_ranges
+      expect(new_ranges).not_to be_empty
+      new_ranges.each do |r|
+        expect(r.status).to eq(:changed_new)
+      end
+    end
+
+    it "differentiates unchanged vs changed portions in continuation with partial differences" do
+      # When continuation content differs partially between old and new,
+      # char_ranges should show common_prefix/:unchanged and changed portions
+      # Note: This tests the TextDecomposer path where old and new both exist
+      old_text = "prefix old continuation\nrest\n"
+      new_text = "prefix new continuation\nrest\n" # only "continuation" changed
+
+      diff_node = Canon::Diff::DiffNode.new(
+        node1: nil,
+        node2: nil,
+        dimension: :text_content,
+        reason: "text changed",
+      )
+      diff_node.normative = true
+
+      diff_node.char_ranges = [
+        Canon::Diff::DiffCharRange.new(
+          line_number: 0,
+          start_col: 0,
+          end_col: 18,
+          side: :old,
+          status: :changed_old,
+          role: :changed,
+          diff_node: diff_node,
+        ),
+        Canon::Diff::DiffCharRange.new(
+          line_number: 0,
+          start_col: 0,
+          end_col: 17,
+          side: :new,
+          status: :changed_new,
+          role: :changed,
+          diff_node: diff_node,
+        ),
+      ]
+      diff_node.line_range_before = [0, 1]
+      diff_node.line_range_after = [0, 1]
+
+      lines = described_class.build([diff_node], old_text, new_text)
+
+      # Find continuation lines
+      removed_cont = lines.find { |l| l.type == :removed && l.formatting? }
+      added_cont = lines.find { |l| l.type == :added && l.formatting? }
+
+      expect(removed_cont).to be_a(Canon::Diff::DiffLine)
+      expect(added_cont).to be_a(Canon::Diff::DiffLine)
+
+      # Both should have char_ranges for proper differentiation
+      expect(removed_cont.has_char_ranges?).to be(true)
+      expect(added_cont.has_char_ranges?).to be(true)
+
+      # "rest" is common prefix and suffix, so should be :unchanged
+      # (The actual changed portion depends on TextDecomposer output)
+      removed_cont.char_ranges.each do |r|
+        expect(r.status).to be(:unchanged).or(be(:changed_old))
+      end
+      added_cont.new_char_ranges.each do |r|
+        expect(r.status).to be(:unchanged).or(be(:changed_new))
+      end
+    end
+
+    it "has char_ranges for continuation when both sides have content at same index" do
+      # Continuation content exists at same index in both old and new
+      old_text = "line 0\nchanged line\nline 2\n"
+      new_text = "line 0\nchanged line\nline 2\n" # line 1 changed, line 2 unchanged
+
+      diff_node = Canon::Diff::DiffNode.new(
+        node1: nil,
+        node2: nil,
+        dimension: :text_content,
+        reason: "text changed",
+      )
+      diff_node.normative = true
+
+      diff_node.char_ranges = [
+        Canon::Diff::DiffCharRange.new(
+          line_number: 1,
+          start_col: 0,
+          end_col: 12,
+          side: :old,
+          status: :changed_old,
+          role: :changed,
+          diff_node: diff_node,
+        ),
+        Canon::Diff::DiffCharRange.new(
+          line_number: 1,
+          start_col: 0,
+          end_col: 12,
+          side: :new,
+          status: :changed_new,
+          role: :changed,
+          diff_node: diff_node,
+        ),
+      ]
+      diff_node.line_range_before = [1, 2]
+      diff_node.line_range_after = [1, 2]
+
+      lines = described_class.build([diff_node], old_text, new_text)
+
+      # Find continuation lines (line 2 is unchanged but within line_range)
+      removed_cont = lines.find { |l| l.type == :removed && l.formatting? }
+      added_cont = lines.find { |l| l.type == :added && l.formatting? }
+
+      expect(removed_cont).to be_a(Canon::Diff::DiffLine)
+      expect(added_cont).to be_a(Canon::Diff::DiffLine)
+
+      # Both should have char_ranges
+      expect(removed_cont.has_char_ranges?).to be(true)
+      expect(added_cont.has_char_ranges?).to be(true)
+
+      # "line 2" exists at index 2 in both, so should be :unchanged
+      removed_cont.char_ranges.each do |r|
+        expect(r.status).to eq(:unchanged)
+      end
+      added_cont.new_char_ranges.each do |r|
+        expect(r.status).to eq(:unchanged)
+      end
+    end
+
+    it "differentiates leading whitespace in continuation lines when old has more leading spaces" do
+      # When continuation has different leading whitespace (old has 18, new has 16),
+      # char_ranges should show changed_old for the 2 removed leading spaces
+      old_text = "prefix text\n                  be reviewed...\n"
+      new_text = "prefix text\n                be reviewed...\n"
+
+      diff_node = Canon::Diff::DiffNode.new(node1: nil, node2: nil,
+                                            dimension: :text_content, reason: "text changed")
+      diff_node.normative = true
+
+      diff_node.char_ranges = [
+        Canon::Diff::DiffCharRange.new(line_number: 0, start_col: 0, end_col: 12,
+                                       side: :old, status: :changed_old, role: :changed,
+                                       diff_node: diff_node),
+        Canon::Diff::DiffCharRange.new(line_number: 0, start_col: 0, end_col: 12,
+                                       side: :new, status: :changed_new, role: :changed,
+                                       diff_node: diff_node),
+      ]
+      diff_node.line_range_before = [0, 1]
+      diff_node.line_range_after = [0, 1]
+
+      lines = described_class.build([diff_node], old_text, new_text)
+
+      removed_cont = lines.find { |l| l.type == :removed && l.formatting? }
+      added_cont = lines.find { |l| l.type == :added && l.formatting? }
+
+      expect(removed_cont).to be_a(Canon::Diff::DiffLine)
+      expect(added_cont).to be_a(Canon::Diff::DiffLine)
+      expect(removed_cont.has_char_ranges?).to be(true)
+      expect(added_cont.has_char_ranges?).to be(true)
+
+      # Old continuation: 18 leading spaces, new has 16
+      # First 16 spaces are common prefix (unchanged)
+      # Last 2 spaces are "removed" (changed_old)
+      old_changed_spaces = removed_cont.char_ranges.find do |r|
+        r.status == :changed_old
+      end
+      expect(old_changed_spaces).not_to be_nil,
+                                        "Old continuation should have changed_old status for removed leading spaces"
+      expect(old_changed_spaces.start_col).to eq(16),
+                                              "Changed_old should start after the 16 common spaces"
+
+      # New continuation: 16 leading spaces
+      # All 16 spaces are common prefix (unchanged) because new has FEWER spaces
+      # No changed_new for leading spaces since new version has no extra spaces
+      new_changed_spaces = added_cont.new_char_ranges.find do |r|
+        r.status == :changed_new && r.start_col.zero?
+      end
+      expect(new_changed_spaces).to be_nil,
+                                    "New continuation should NOT have changed_new for leading spaces when new has fewer"
+    end
+  end
 end
