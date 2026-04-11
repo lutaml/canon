@@ -324,7 +324,7 @@ html2 = '<code>indented</code><p>text</p>'
 Canon::Comparison.equivalent?(html1, html2,
   format: :html,
   match: {
-    whitespace_insensitive_elements: [:code],
+    strip_whitespace_elements: [:code],
   }
 )
 # => true
@@ -423,9 +423,10 @@ def classify(diff_node)
   end
 
   # SECOND: Handle content-level formatting for text_content with :normalize
+  # Skipped for :preserve elements (<pre>, <code>, etc.) where whitespace is always normative
   if diff_node.dimension == :text_content &&
       profile.send(:behavior_for, :text_content) == :normalize &&
-      !inside_whitespace_sensitive_element?(diff_node) &&
+      !inside_preserve_element?(diff_node) &&
       formatting_only_diff?(diff_node)
     diff_node.formatting = true
     diff_node.normative = false

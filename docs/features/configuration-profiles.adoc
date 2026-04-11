@@ -46,6 +46,65 @@ Canon::Config::ProfileLoader.available_profiles
 # => [:metanorma, :metanorma_debug]
 ----
 
+== Element-level whitespace classification
+
+The metanorma profile's key feature is its **element-level whitespace classification**.
+This controls how whitespace differences within specific elements are treated:
+
+**Three-way classification:**
+
+* **Preserve** (`:preserve`) — Every whitespace character is significant. Use for elements
+  where exact whitespace matters (like `<pre>`, `<code>`).
+
+* **Collapse** (`:collapse`) — Presence matters but whitespace form doesn't.
+  `"  hello  "` equals `"hello"`. Differences are formatting-only (informative).
+  Use for elements like `<p>`, `<li>`, `<td>` in prose documents.
+
+* **Strip** (`:strip`) — Whitespace is structural noise, dropped entirely.
+  The default for XML elements not in any list.
+
+**Metanorma profile element lists:**
+
+[source,ruby]
+----
+# In metanorma profile
+Canon::Config.instance.profile = :metanorma
+Canon::Config.instance.xml.match.collapse_whitespace_elements
+# => ["p", "title", "name", "td", "th", "dt", "dd", "li", ...]
+
+Canon::Config.instance.xml.match.preserve_whitespace_elements
+# => ["body", "passthrough"]
+----
+
+**How it works with `text_content: :normalize`:**
+
+[source,ruby]
+----
+# With metanorma profile: <p> is in collapse_whitespace_elements
+Canon::Config.instance.profile = :metanorma
+
+# These are EQUIVALENT (whitespace in <p> is formatting-only)
+Canon::Comparison.equivalent?('<p>  hello  </p>', '<p>hello</p>')
+# => true
+
+# But <body> is in preserve_whitespace_elements — every character matters
+# These are NOT EQUIVALENT (whitespace in <body> is normative)
+Canon::Comparison.equivalent?('<body>  hello  </body>', '<body>hello</body>')
+# => false
+----
+
+**Why this matters:**
+
+In Metanorma/DocBook documents, elements like `<p>`, `<li>`, `<td>` contain prose
+where whitespace formatting (extra spaces, line breaks) is irrelevant. But `<body>`
+or `<passthrough>` contain code or exact whitespace that matters.
+
+Without element-level classification, you'd have to choose:
+- `text_content: :normalize` — ignores ALL whitespace, too permissive
+- `text_content: :strict` — requires exact match everywhere, too strict
+
+Element-level classification gives you fine-grained control.
+
 == Usage
 
 === Programmatic (Ruby API)
@@ -179,12 +238,12 @@ shared:                        # <4>
 
 formats:                       # <5>
   xml:
-    diff:
-      normalize_whitespace_elements:
+    match:
+      collapse_whitespace_elements:
         - p
         - title
         - td
-      strict_whitespace_elements:
+      preserve_whitespace_elements:
         - body
         - passthrough
   html:

@@ -66,14 +66,14 @@ purely structural elements such as `<formattedref>` or `<bibdata>`.
 
 For mixed-content elements where whitespace *presence* is meaningful (e.g. the
 word-boundary space in `<p>See <xref/>`), opt in with
-`normalize_whitespace_elements`:
+`collapse_whitespace_elements`:
 
 [source,ruby]
 ----
 formatter = Canon::DiffFormatter.new(
   mode: :pretty_diff,
   display_preprocessing: :normalize_pretty_print,
-  normalize_whitespace_elements: %w[p li td th],
+  collapse_whitespace_elements: %w[p li td th],
   context_lines: 3,
   use_color: true,
 )
@@ -86,12 +86,12 @@ Or via `Canon::Config` (recommended in `spec_helper.rb`):
 Canon::Config.configure do |cfg|
   cfg.xml.diff.mode = :pretty_diff
   cfg.xml.diff.display_preprocessing = :normalize_pretty_print
-  cfg.xml.diff.normalize_whitespace_elements = %w[p li td th]
+  cfg.xml.diff.collapse_whitespace_elements = %w[p li td th]
 end
 ----
 
 For preformatted elements where every whitespace character is significant, use
-`strict_whitespace_elements` instead (e.g. `%w[pre code]`).
+`preserve_whitespace_elements` instead (e.g. `%w[pre code]`).
 
 See
 link:display-preprocessing.adoc#_controlling_whitespace_visualization_with_element_classification[display-preprocessing:

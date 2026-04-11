@@ -225,8 +225,8 @@ diff_children, differences)
         end
 
         # Strip whitespace-only text nodes based on parent element configuration.
-        # Use sensitive_elements / insensitive_elements to control.
-        # Blacklist (insensitive) > whitelist (sensitive) > format defaults.
+        # Use preserve_whitespace_elements / strip_whitespace_elements to control.
+        # Blacklist (strip) > preserve > collapse > format defaults.
         return false unless text_node?(node) && node.parent
         return false unless MatchOptions.normalize_text(node_text(node)).empty?
 
@@ -236,13 +236,13 @@ diff_children, differences)
 
         # When the pretty-print-side flag is active (set by opts_for_side in
         # ChildComparison.compare), drop whitespace-only text nodes that start
-        # with "\n" inside :normalize elements — they are structural indentation
+        # with "\n" inside :collapse elements — they are structural indentation
         # from the pretty-printer, not content.  Space-only nodes (no "\n") are
         # real inline content and are kept for normalised comparison.
-        # :strict elements are always left unchanged.
+        # :preserve elements are always left unchanged.
         if match_opts[:_pretty_print_side_active]
           ws_class = WhitespaceSensitivity.classify_text_node(node, opts)
-          return true if ws_class == :normalize && node_text(node).start_with?("\n")
+          return true if ws_class == :collapse && node_text(node).start_with?("\n")
         end
 
         false

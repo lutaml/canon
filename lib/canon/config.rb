@@ -194,6 +194,34 @@ module Canon
         @resolver.set_programmatic(:profile, value)
       end
 
+      # Return all profile-sourced values from the resolver, excluding
+      # the :profile key itself (which is accessed via #profile).
+      # These are the YAML-profile settings (e.g., preserve_whitespace_elements)
+      # that are stored in the resolver's profile layer but not exposed
+      # through the built-in MATCH_PROFILES system.
+      #
+      # @return [Hash] Profile option key-values (excluding :profile)
+      def profile_options
+        @resolver.profile.except(:profile)
+      end
+
+      # Element names where whitespace is PRESERVED exactly (no manipulation).
+      # All whitespace characters are significant in these elements.
+      def preserve_whitespace_elements
+        @resolver.resolve(:preserve_whitespace_elements) || []
+      end
+
+      # Element names where whitespace is COLLAPSED (HTML-style behavior).
+      # Multiple whitespace chars collapse to single space; boundaries preserved.
+      def collapse_whitespace_elements
+        @resolver.resolve(:collapse_whitespace_elements) || []
+      end
+
+      # Element names where whitespace-only text nodes are STRIPPED.
+      def strip_whitespace_elements
+        @resolver.resolve(:strip_whitespace_elements) || []
+      end
+
       # Build match options from profile and options
       def to_h
         result = {}
@@ -486,39 +514,39 @@ module Canon
         @resolver.set_programmatic(:display_preprocessing, value)
       end
 
-      # Element names where every whitespace character is significant
-      # (e.g. pre, code, textarea). Used with normalize_pretty_print mode.
-      # ENV variable: +CANON_<FORMAT>_DIFF_STRICT_WHITESPACE_ELEMENTS+
-      def strict_whitespace_elements
-        @resolver.resolve(:strict_whitespace_elements)
+      # Element names where whitespace is PRESERVED exactly (no manipulation).
+      # All whitespace characters are significant in these elements.
+      # ENV variable: +CANON_<FORMAT>_DIFF_PRESERVE_WHITESPACE_ELEMENTS+
+      def preserve_whitespace_elements
+        @resolver.resolve(:preserve_whitespace_elements) || []
       end
 
-      def strict_whitespace_elements=(value)
-        @resolver.set_programmatic(:strict_whitespace_elements, Array(value).map(&:to_s))
+      def preserve_whitespace_elements=(value)
+        @resolver.set_programmatic(:preserve_whitespace_elements, Array(value).map(&:to_s))
       end
 
-      # Element names where whitespace presence matters but all forms are
-      # equivalent (e.g. p, li, td). Used with normalize_pretty_print mode.
-      # ENV variable: +CANON_<FORMAT>_DIFF_NORMALIZE_WHITESPACE_ELEMENTS+
-      def normalize_whitespace_elements
-        @resolver.resolve(:normalize_whitespace_elements)
+      # Element names where whitespace is COLLAPSED (HTML-style behavior).
+      # Multiple whitespace chars collapse to single space; boundaries preserved.
+      # ENV variable: +CANON_<FORMAT>_DIFF_COLLAPSE_WHITESPACE_ELEMENTS+
+      def collapse_whitespace_elements
+        @resolver.resolve(:collapse_whitespace_elements) || []
       end
 
-      def normalize_whitespace_elements=(value)
-        @resolver.set_programmatic(:normalize_whitespace_elements, Array(value).map(&:to_s))
+      def collapse_whitespace_elements=(value)
+        @resolver.set_programmatic(:collapse_whitespace_elements, Array(value).map(&:to_s))
       end
 
-      # Element names where all whitespace is dropped (explicit blacklist).
-      # ENV variable: +CANON_<FORMAT>_DIFF_INSENSITIVE_WHITESPACE_ELEMENTS+
-      def insensitive_whitespace_elements
-        @resolver.resolve(:insensitive_whitespace_elements)
+      # Element names where whitespace-only text nodes are STRIPPED.
+      # ENV variable: +CANON_<FORMAT>_DIFF_STRIP_WHITESPACE_ELEMENTS+
+      def strip_whitespace_elements
+        @resolver.resolve(:strip_whitespace_elements) || []
       end
 
-      def insensitive_whitespace_elements=(value)
-        @resolver.set_programmatic(:insensitive_whitespace_elements, Array(value).map(&:to_s))
+      def strip_whitespace_elements=(value)
+        @resolver.set_programmatic(:strip_whitespace_elements, Array(value).map(&:to_s))
       end
 
-      # When true, whitespace-only text nodes starting with "\n" in :normalize
+      # When true, whitespace-only text nodes starting with "\n" in :collapse
       # elements of the **expected** (fixture) document are treated as structural
       # indentation and dropped from both comparison and display.  Use this when
       # fixture files are indented but received XML is compact.
@@ -554,18 +582,6 @@ module Canon
 
       def pretty_printer_sort_attributes=(value)
         @resolver.set_programmatic(:pretty_printer_sort_attributes, value)
-      end
-
-      # @deprecated Use strict_whitespace_elements and normalize_whitespace_elements instead
-      def normalize_pretty_print_ignore_structural_newlines
-        warn "[Canon] Config: normalize_pretty_print_ignore_structural_newlines is deprecated. " \
-             "Use strict_whitespace_elements and normalize_whitespace_elements instead."
-        nil
-      end
-
-      def normalize_pretty_print_ignore_structural_newlines=(_value)
-        warn "[Canon] Config: normalize_pretty_print_ignore_structural_newlines is deprecated. " \
-             "Use strict_whitespace_elements and normalize_whitespace_elements instead."
       end
 
       # Render element nodes in the Semantic Diff Report as compact inline XML
@@ -689,9 +705,9 @@ module Canon
           display_preprocessing: display_preprocessing,
           pretty_printer_indent: pretty_printer.indent,
           pretty_printer_indent_type: pretty_printer.indent_type,
-          strict_whitespace_elements: strict_whitespace_elements,
-          normalize_whitespace_elements: normalize_whitespace_elements,
-          insensitive_whitespace_elements: insensitive_whitespace_elements,
+          preserve_whitespace_elements: preserve_whitespace_elements,
+          collapse_whitespace_elements: collapse_whitespace_elements,
+          strip_whitespace_elements: strip_whitespace_elements,
           pretty_printed_expected: pretty_printed_expected,
           pretty_printed_received: pretty_printed_received,
           compact_semantic_report: compact_semantic_report,
@@ -729,9 +745,9 @@ module Canon
           display_preprocessing: :none,  # :none, :pretty_print, :c14n
           pretty_printer_indent: 2,
           pretty_printer_indent_type: :space, # :space or :tab
-          strict_whitespace_elements: [],
-          normalize_whitespace_elements: [],
-          insensitive_whitespace_elements: [],
+          preserve_whitespace_elements: [],
+          collapse_whitespace_elements: [],
+          strip_whitespace_elements: [],
           pretty_printed_expected: false,
           pretty_printed_received: false,
           pretty_printer_sort_attributes: false,

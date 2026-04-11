@@ -147,7 +147,7 @@ Canon::Config.instance.tap do |cfg|
   cfg.xml.diff.display_preprocessing = :normalize_pretty_print
   cfg.xml.diff.pretty_printer.indent = 2                             # default: 2
   cfg.xml.diff.pretty_printer.indent_type = :space                   # :space or :tab
-  cfg.xml.diff.normalize_whitespace_elements = %w[p li td th]        # opt-in for mixed-content elements
+  cfg.xml.diff.collapse_whitespace_elements = %w[p li td th]        # opt-in for mixed-content elements
 end
 ----
 
@@ -158,7 +158,7 @@ end
 export CANON_XML_DIFF_DISPLAY_PREPROCESSING=normalize_pretty_print
 export CANON_XML_DIFF_PRETTY_PRINTER_INDENT=2
 export CANON_XML_DIFF_PRETTY_PRINTER_INDENT_TYPE=space
-export CANON_XML_NORMALIZE_WHITESPACE_ELEMENTS=p,li,td,th
+export CANON_XML_COLLAPSE_WHITESPACE_ELEMENTS=p,li,td,th
 ----
 
 == Pretty-printer format
@@ -502,16 +502,16 @@ that governs how the pretty-printer renders whitespace in mixed-content
 elements.  Classification is *ancestor-based*: the closest matching ancestor
 determines the class for all text nodes within it.
 
-`strict_whitespace_elements`::
+`preserve_whitespace_elements`::
   Every whitespace character is significant and is visualized verbatim:
   `" "` → `░`, `"\n  "` → `↵░░`.
   Suitable for preformatted elements such as `<pre>` or `<code>`.
   XML default: none.
   HTML default: `pre`, `code`, `textarea`, `script`, `style`.
-  Configure via `cfg.xml.diff.strict_whitespace_elements = %w[pre code]`
-  or the environment variable `CANON_XML_STRICT_WHITESPACE_ELEMENTS=pre,code`.
+  Configure via `cfg.xml.diff.preserve_whitespace_elements = %w[pre code]`
+  or the environment variable `CANON_XML_PRESERVE_WHITESPACE_ELEMENTS=pre,code`.
 
-`normalize_whitespace_elements`::
+`collapse_whitespace_elements`::
   Whitespace presence matters but all forms are equivalent: both `" "`
   and `"\n  "` collapse to a single `░`.
   Suitable for inline mixed-content elements where a word-boundary space
@@ -520,8 +520,8 @@ determines the class for all text nodes within it.
   HTML default: `p`, `li`, `dt`, `dd`, `td`, `th`, `h1`–`h6`,
   `caption`, `figcaption`, `label`, `legend`, `summary`,
   `blockquote`, `address`, `button`.
-  Configure via `cfg.xml.diff.normalize_whitespace_elements = %w[p li td]`
-  or the environment variable `CANON_XML_NORMALIZE_WHITESPACE_ELEMENTS=p,li,td`.
+  Configure via `cfg.xml.diff.collapse_whitespace_elements = %w[p li td]`
+  or the environment variable `CANON_XML_COLLAPSE_WHITESPACE_ELEMENTS=p,li,td`.
 
 Default (neither list — XML)::
   All inter-element whitespace is dropped entirely.  Both compact and
@@ -530,14 +530,14 @@ Default (neither list — XML)::
   containers such as `<bibdata>`.
 
 Format defaults (HTML) can be overridden by listing an element in
-`insensitive_whitespace_elements`, which acts as a blacklist and wins over any
+`strip_whitespace_elements`, which acts as a blacklist and wins over any
 sensitive ancestor:
 
 [source,ruby]
 ----
 Canon::Config.configure do |cfg|
   # Force <p> to be treated as insensitive despite the HTML default
-  cfg.html.diff.insensitive_whitespace_elements = %w[p]
+  cfg.html.diff.strip_whitespace_elements = %w[p]
 end
 ----
 
@@ -546,7 +546,7 @@ end
 ----
 Canon::Config.configure do |cfg|
   cfg.xml.diff.display_preprocessing = :normalize_pretty_print
-  cfg.xml.diff.normalize_whitespace_elements = %w[p li td th]
+  cfg.xml.diff.collapse_whitespace_elements = %w[p li td th]
 end
 ----
 
@@ -583,7 +583,7 @@ end
 === Purpose
 
 The `pretty_printed_expected` and `pretty_printed_received` flags are companion
-settings to `normalize_whitespace_elements` / `strict_whitespace_elements` that
+settings to `collapse_whitespace_elements` / `preserve_whitespace_elements` that
 solve an asymmetric formatting problem: fixture files are typically
 hand-indented heredocs, while received XML is compact.
 
@@ -594,8 +594,8 @@ link:../match-options/pretty-printed-fixtures.adoc[Pretty-printed fixture suppor
 
 `pretty_printed_expected`::
   When `true`, whitespace-only text nodes that start with `"\n"` inside
-  `:normalize` elements are dropped from the **expected (fixture)** document
-  before it reaches the by-line diff.  `:strict` elements are always preserved.
+  `:collapse` elements are dropped from the **expected (fixture)** document
+  before it reaches the by-line diff.  `:preserve` elements are always preserved.
   Default: `false`.
 
 `pretty_printed_received`::
@@ -609,7 +609,7 @@ link:../match-options/pretty-printed-fixtures.adoc[Pretty-printed fixture suppor
 ----
 Canon::Config.configure do |cfg|
   cfg.xml.diff.display_preprocessing       = :normalize_pretty_print
-  cfg.xml.diff.normalize_whitespace_elements = %w[fmt-title semx p]
+  cfg.xml.diff.collapse_whitespace_elements = %w[fmt-title semx p]
   cfg.xml.diff.pretty_printed_expected     = true   # fixture is indented
   cfg.xml.diff.pretty_printed_received     = false  # received is compact
 end
@@ -630,14 +630,14 @@ described in <<_controlling_whitespace_visualization_with_element_classification
 |===
 |Classification |Effect when `pretty_printed_*` is `true`
 
-|`:insensitive`
+|`:strip`
 |No change — whitespace is already dropped for both sides
 
-|`:normalize`
+|`:collapse`
 |Whitespace-only nodes starting with `"\n"` are dropped from the flagged side.
  Nodes starting with a space (no initial `"\n"`) are kept and normalized.
 
-|`:strict`
+|`:preserve`
 |No change — every whitespace character is preserved regardless of flags
 
 |===

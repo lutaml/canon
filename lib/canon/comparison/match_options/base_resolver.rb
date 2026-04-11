@@ -95,6 +95,24 @@ module Canon
 
           protected
 
+          # Valid match behaviors per dimension for this format.
+          # Override in subclasses to provide format-specific behaviors.
+          # Used for per-dimension validation in validate_match_options!
+          #
+          # @return [Hash{Symbol => Array<Symbol>}] Dimension to valid behaviors mapping
+          def dimension_behaviors
+            # Default: XML/HTML behaviors (override in JSON/YAML resolvers)
+            {
+              text_content: %i[strict normalize ignore].freeze,
+              structural_whitespace: %i[strict normalize ignore].freeze,
+              attribute_presence: %i[strict ignore].freeze,
+              attribute_order: %i[strict ignore].freeze,
+              attribute_values: %i[strict strip compact normalize ignore].freeze,
+              element_position: %i[strict ignore].freeze,
+              comments: %i[strict ignore].freeze,
+            }
+          end
+
           # Validate preprocessing option
           #
           # @param preprocessing [Symbol] Preprocessing option
@@ -107,7 +125,7 @@ module Canon
             end
           end
 
-          # Validate match options
+          # Validate match options using per-dimension behavior validation
           #
           # @param match_options [Hash] Options to validate
           # @raise [Canon::Error] If invalid dimension or behavior
@@ -121,12 +139,9 @@ module Canon
               hash_matching
               similarity_matching
               propagation
-              sensitive_elements
-              insensitive_elements
-              whitespace_sensitive_elements
-              whitespace_insensitive_elements
-              strict_whitespace_elements
-              normalize_whitespace_elements
+              preserve_whitespace_elements
+              collapse_whitespace_elements
+              strip_whitespace_elements
               respect_xml_space
               pretty_printed_expected
               pretty_printed_received
@@ -142,10 +157,12 @@ module Canon
                       "Valid dimensions: #{match_dimensions.join(', ')}"
               end
 
-              unless MatchOptions::MATCH_BEHAVIORS.include?(behavior)
+              # Per-dimension behavior validation using overridable method
+              valid_behaviors = dimension_behaviors[dimension]
+              unless valid_behaviors&.include?(behavior)
                 raise Canon::Error,
                       "Unknown match behavior: #{behavior} for #{dimension}. " \
-                      "Valid behaviors: #{MatchOptions::MATCH_BEHAVIORS.join(', ')}"
+                      "Valid behaviors for #{dimension}: #{valid_behaviors&.join(', ')}"
               end
             end
           end

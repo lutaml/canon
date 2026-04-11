@@ -10,8 +10,8 @@ RSpec.describe Canon::Comparison::WhitespaceSensitivity do
         match_opts: {
           format: :xml,
           structural_whitespace: :strict,
-          whitespace_sensitive_elements: nil,
-          whitespace_insensitive_elements: nil,
+          preserve_whitespace_elements: nil,
+          strip_whitespace_elements: nil,
           respect_xml_space: true,
         },
       }
@@ -63,7 +63,7 @@ RSpec.describe Canon::Comparison::WhitespaceSensitivity do
 
         whitelist_opts = opts.dup
         whitelist_opts[:match_opts] = opts[:match_opts].merge(
-          whitespace_sensitive_elements: [:code],
+          preserve_whitespace_elements: [:code],
         )
 
         doc = Canon::Xml::DataModel.from_xml(xml)
@@ -81,7 +81,7 @@ RSpec.describe Canon::Comparison::WhitespaceSensitivity do
 
         whitelist_opts = opts.dup
         whitelist_opts[:match_opts] = opts[:match_opts].merge(
-          whitespace_sensitive_elements: [:code],
+          preserve_whitespace_elements: [:code],
         )
 
         doc = Canon::Xml::DataModel.from_xml(xml)
@@ -102,7 +102,7 @@ RSpec.describe Canon::Comparison::WhitespaceSensitivity do
         blacklist_opts = opts.dup
         blacklist_opts[:match_opts] = opts[:match_opts].merge(
           format: :html,
-          whitespace_insensitive_elements: [:pre],
+          strip_whitespace_elements: [:pre],
         )
 
         doc = Canon::Xml::DataModel.from_xml(xml, preserve_whitespace: true)
@@ -266,8 +266,8 @@ RSpec.describe Canon::Comparison::WhitespaceSensitivity do
         match_opts: {
           format: :xml,
           structural_whitespace: :strict,
-          whitespace_sensitive_elements: nil,
-          whitespace_insensitive_elements: nil,
+          preserve_whitespace_elements: nil,
+          strip_whitespace_elements: nil,
           respect_xml_space: true,
         },
       }
@@ -280,7 +280,7 @@ RSpec.describe Canon::Comparison::WhitespaceSensitivity do
 
       whitelist_opts = opts.dup
       whitelist_opts[:match_opts] = opts[:match_opts].merge(
-        whitespace_sensitive_elements: [:pre],
+        preserve_whitespace_elements: [:pre],
       )
 
       doc = Canon::Xml::DataModel.from_xml(xml, preserve_whitespace: true)

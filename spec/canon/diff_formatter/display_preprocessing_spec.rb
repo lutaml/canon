@@ -246,13 +246,13 @@ RSpec.describe "DiffFormatter display preprocessing" do
 
     it "visualizes trailing boundary space from compact mixed content" do
       # "See <xref/>" — the space between "See" and the xref is real content.
-      # With normalize_whitespace_elements: ["p"], it is visualized as ░.
+      # With collapse_whitespace_elements: ["p"], it is visualized as ░.
       compact_mixed = '<root><p>See <xref target="M"/></p></root>'
       require "canon/pretty_printer/xml_normalized"
       printer = Canon::PrettyPrinter::XmlNormalized.new(
         indent: 2,
         visualization_map: Canon::DiffFormatter::DEFAULT_VISUALIZATION_MAP,
-        normalize_whitespace_elements: ["p"],
+        collapse_whitespace_elements: ["p"],
       )
       normalized = printer.format(compact_mixed)
       expect(normalized).to include("See░")
@@ -260,14 +260,14 @@ RSpec.describe "DiffFormatter display preprocessing" do
 
     it "visualizes fixture formatting whitespace on the expected side" do
       # The fixture (expected) XML has indentation inside the <p> element.
-      # With strict_whitespace_elements: ["p"], that whitespace appears as ↵░░
+      # With preserve_whitespace_elements: ["p"], that whitespace appears as ↵░░
       # at the end of lines, making it visible in the diff output.
       fixture_xml = "<root><p id=\"A\">\n  See\n  <xref target=\"M\"/>\n</p></root>"
       require "canon/pretty_printer/xml_normalized"
       printer = Canon::PrettyPrinter::XmlNormalized.new(
         indent: 2,
         visualization_map: Canon::DiffFormatter::DEFAULT_VISUALIZATION_MAP,
-        strict_whitespace_elements: ["p"],
+        preserve_whitespace_elements: ["p"],
       )
       normalized = printer.format(fixture_xml)
       expect(normalized).to include("↵")

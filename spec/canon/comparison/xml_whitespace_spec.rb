@@ -40,7 +40,7 @@ RSpec.describe "XML whitespace handling" do
       xml2 = "<custom> text </custom>"
       # With sensitive_elements, whitespace in <custom> is preserved
       expect(Canon::Comparison.equivalent?(xml1, xml2,
-                                           match: { sensitive_elements: [:custom] })).to be false
+                                           match: { preserve_whitespace_elements: [:custom] })).to be false
     end
 
     it "uses whitespace_insensitive_elements to override element sensitivity" do
@@ -48,7 +48,7 @@ RSpec.describe "XML whitespace handling" do
       xml2 = "<pre> text </pre>"
       # whitespace_insensitive_elements overrides default sensitivity
       expect(Canon::Comparison.equivalent?(xml1, xml2,
-                                           match: { format: :html, whitespace_insensitive_elements: [:pre], text_content: :normalize })).to be true
+                                           match: { format: :html, strip_whitespace_elements: [:pre], text_content: :normalize })).to be true
     end
 
     it "compares attributes with strict mode by default" do

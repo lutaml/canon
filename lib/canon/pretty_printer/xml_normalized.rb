@@ -22,18 +22,18 @@ module Canon
     # This serializer distinguishes three categories of element-level whitespace
     # behaviour, configured via element-name lists:
     #
-    # * **Strict** (`strict_whitespace_elements`) — every whitespace character is
+    # * **Preserve** (`preserve_whitespace_elements`) — every whitespace character is
     #   significant. `" "` ≠ `"\n"`. Typical: `<pre>`, `<code>`, `<textarea>`.
     #   Whitespace-only text nodes are visualized character-by-character.
     #
-    # * **Normalize** (`normalize_whitespace_elements`) — presence ≠ absence,
+    # * **Collapse** (`collapse_whitespace_elements`) — presence ≠ absence,
     #   but all whitespace forms are equivalent: `" "` == `"\n  "` == `"\t"`.
     #   Typical: `<p>`, `<li>`, `<td>`, heading elements.
     #   Whitespace-only text nodes are collapsed to a single `░` visualization,
     #   so `<p>\n  <em>` (indented fixture) and `<p> <em>` (compact source)
     #   both render as `<p>░<em>` — identical display lines, no spurious diff.
     #
-    # * **Insensitive** (everything else, or explicit `insensitive_elements`) —
+    # * **Strip** (everything else, or explicit `strip_whitespace_elements`) —
     #   all whitespace between child elements is structural formatting noise.
     #   `" "` == `"\n  "` == nothing. Whitespace-only text nodes are silently
     #   dropped. Typical: `<section>`, `<ul>`, `<formattedref>`, `<bibitem>`.
@@ -48,8 +48,8 @@ module Canon
     #   Whitespace sensitivity is opt-in, consistent with XML's data-first usage.
     #
     # * **HTML**: built-in defaults are provided (but overridable):
-    #   - strict: `pre`, `code`, `textarea`, `script`, `style`
-    #   - normalize: `p`, `li`, `dt`, `dd`, `td`, `th`, `h1`–`h6`, `caption`,
+    #   - preserve: `pre`, `code`, `textarea`, `script`, `style`
+    #   - collapse: `p`, `li`, `dt`, `dd`, `td`, `th`, `h1`–`h6`, `caption`,
     #     `figcaption`, `label`, `legend`, `summary`, `blockquote`, `address`
     #
     # == Structural vs. content whitespace
@@ -107,54 +107,42 @@ module Canon
     #
     #   # With element lists (XML):
     #   printer = Canon::PrettyPrinter::XmlNormalized.new(
-    #     normalize_whitespace_elements: %w[p formattedref title],
-    #     strict_whitespace_elements: %w[sourcecode pre],
+    #     collapse_whitespace_elements: %w[p formattedref title],
+    #     preserve_whitespace_elements: %w[sourcecode pre],
     #   )
     #
     class XmlNormalized
       # @param indent [Integer] number of indent characters per level (default 2)
       # @param indent_type [String] "space" or "tab"
       # @param visualization_map [Hash, nil] character visualization map
-      # @param strict_whitespace_elements [Array<String>] element names where
-      #   every whitespace character is significant (e.g. pre, code). Alias:
-      #   +sensitive_elements+ accepted for backward compatibility.
-      # @param normalize_whitespace_elements [Array<String>] element names where
+      # @param preserve_whitespace_elements [Array<String>] element names where
+      #   every whitespace character is significant (e.g. pre, code).
+      # @param collapse_whitespace_elements [Array<String>] element names where
       #   presence of whitespace matters but all forms are equivalent (e.g. p, li).
-      # @param insensitive_elements [Array<String>] explicit blacklist — these
+      # @param strip_whitespace_elements [Array<String>] explicit blacklist — these
       #   elements and their children always have whitespace dropped, even if an
-      #   ancestor would otherwise be strict or normalize.
+      #   ancestor would otherwise be preserve or collapse.
       # @param pretty_printed [Boolean] when true, whitespace-only text nodes
-      #   that begin with "\n" inside +:normalize+ elements are treated as
+      #   that begin with "\n" inside +:collapse+ elements are treated as
       #   structural indentation and silently dropped.  This matches the
       #   comparison-side behaviour activated by +pretty_printed_expected+ /
-      #   +pretty_printed_received+ match options.  Nodes under +:strict+ elements
-      #   are always preserved; nodes under +:drop+ elements are already dropped.
+      #   +pretty_printed_received+ match options.  Nodes under +:preserve+ elements
+      #   are always preserved; nodes under +:strip+ elements are already dropped.
       def initialize(indent: 2, indent_type: "space", visualization_map: nil,
-                     strict_whitespace_elements: [],
-                     sensitive_elements: nil, # backward-compat alias
-                     normalize_whitespace_elements: [],
-                     insensitive_elements: [],
+                     preserve_whitespace_elements: [],
+                     collapse_whitespace_elements: [],
+                     strip_whitespace_elements: [],
                      pretty_printed: false,
-                     sort_attributes: false,
-                     # deprecated — kept for backward compatibility only
-                     ignore_structural_newlines: nil)
+                     sort_attributes: false)
         @indent = indent.to_i
         @indent_char = indent_type == "tab" ? "\t" : " "
         @vis_map = visualization_map || default_vis_map
         @pretty_printed = pretty_printed
         @sort_attributes = sort_attributes
 
-        # Backward compat: sensitive_elements was the old name for strict.
-        raw_strict = sensitive_elements || strict_whitespace_elements
-        @strict_ws  = Set.new((raw_strict || []).map(&:to_s))
-        @norm_ws    = Set.new((normalize_whitespace_elements || []).map(&:to_s))
-        @insens_ws  = Set.new((insensitive_elements || []).map(&:to_s))
-
-        if !ignore_structural_newlines.nil?
-          warn "[Canon] XmlNormalized: ignore_structural_newlines: is deprecated " \
-               "and has no effect. Use normalize_whitespace_elements: or " \
-               "strict_whitespace_elements: instead."
-        end
+        @strict_ws  = Set.new((preserve_whitespace_elements || []).map(&:to_s))
+        @norm_ws    = Set.new((collapse_whitespace_elements || []).map(&:to_s))
+        @insens_ws  = Set.new((strip_whitespace_elements || []).map(&:to_s))
       end
 
       # Format an XML string with mixed-content-aware serialization.

@@ -189,34 +189,25 @@ Canon::Comparison.equivalent?(xml1, xml2,
 ----
 ====
 
-==== Whitelist and blacklist options
+==== Element classification options
 
-You can explicitly specify which elements are whitespace-sensitive using either short or long option names:
+You can explicitly classify elements for whitespace handling:
 
 [source,ruby]
 ----
-# Short names (preferred)
 Canon::Comparison.equivalent?(xml1, xml2,
   match: {
     structural_whitespace: :strict,
-    sensitive_elements: ["pre", "code", "sample"],
-    insensitive_elements: ["div", "span"]
-  }
-)
-
-# Long names (backward-compatible)
-Canon::Comparison.equivalent?(xml1, xml2,
-  match: {
-    structural_whitespace: :strict,
-    whitespace_sensitive_elements: ["pre", "code", "sample"],
-    whitespace_insensitive_elements: ["div", "span"]
+    preserve_whitespace_elements: ["pre", "code", "sample"],
+    collapse_whitespace_elements: ["p", "li", "td"],
+    strip_whitespace_elements: ["div", "span"]
   }
 )
 ----
 
 **Element names are strings** (not symbols) for consistency with XML/HTML conventions.
 
-**Blacklist takes precedence over whitelist** — if an element appears in both lists, whitespace is stripped.
+**Priority order**: strip > preserve > collapse > format defaults.
 
 ==== respect_xml_space option
 
@@ -249,21 +240,19 @@ When determining if an element is whitespace-sensitive, Canon uses this priority
 ----
 1. respect_xml_space: false → User config only (ignore xml:space)
    ↓
-2. User whitelist → Use whitelist (user explicitly declared)
+2. Ancestor walk (strip wins; then preserve; then collapse)
    ↓
-3. Format defaults → HTML: [:pre, :textarea, :script, :style], XML: []
+3. xml:space="preserve" → Element classified as :preserve
    ↓
-4. User blacklist → Remove from defaults/whitelist
+4. xml:space="default" → Use configured behaviour
    ↓
-5. xml:space="preserve" → Element is sensitive
-   ↓
-6. xml:space="default" → Use steps 1-4
-----
+5. Format defaults (HTML: preserve + collapse; XML: strip)
 
 ==== Format-specific defaults
 
-**HTML**:: `["pre", "textarea", "script", "style"]` - These elements preserve whitespace by HTML specification
-**XML**:: `[]` - No default whitespace-sensitive elements, purely user-controlled
+**HTML preserve**:: `["pre", "textarea", "script", "style"]` - Every whitespace character significant
+**HTML collapse**:: `["p", "li", "td", "th", "dt", "dd", "h1"-"h6", ...]` - Whitespace collapsed
+**XML**:: No defaults — all elements are :strip unless explicitly configured
 
 ==== Two types of whitespace sensitivity
 
@@ -273,28 +262,28 @@ Canon handles two distinct whitespace concerns:
 
 **2. Text content comparison** — how non-whitespace text content is compared. Controlled by `structural_whitespace` and `text_content` dimension behaviors (`:strict`, `:normalize`, `:ignore`).
 
-The `sensitive_elements` / `insensitive_elements` options control both concerns:
+The `preserve_whitespace_elements`, `collapse_whitespace_elements`, and `strip_whitespace_elements` options control both concerns:
 
 [source,ruby]
 ----
 # For XML: structural whitespace is stripped by default
-# Use sensitive_elements to preserve whitespace in specific elements
+# Use preserve_whitespace_elements to preserve whitespace in specific elements
 xml1 = "<root><item>Test</item></root>"
 xml2 = "<root>\n  <item>Test</item>\n</root>"
 
-# With sensitive_elements, whitespace inside <item> is preserved
+# With preserve_whitespace_elements, whitespace inside <item> is preserved
 Canon::Comparison.equivalent?(xml1, xml2,
   match: {
     structural_whitespace: :strict,
-    sensitive_elements: ["item"]
+    preserve_whitespace_elements: ["item"]
   }
 )
 # => true
 ----
 
-**Precedence**: blacklist (`insensitive_elements`) > whitelist (`sensitive_elements`) > format defaults
+**Precedence**: `strip_whitespace_elements` > `preserve_whitespace_elements` > `collapse_whitespace_elements` > format defaults
 
-**No inheritance**: Only the immediate parent element's name is checked — not ancestor elements.
+**Ancestor-based**: The closest matching ancestor determines classification.
 
 ==== Examples
 
@@ -322,17 +311,17 @@ Canon::Comparison.equivalent?(xml1, xml2,
 # => false
 ----
 
-.Using sensitive_elements whitelist
+.Using preserve_whitespace_elements
 [source,ruby]
 ----
-# Make <sample> elements whitespace-sensitive (strings, not symbols)
+# Make <sample> elements preserve whitespace exactly (strings, not symbols)
 xml1 = "<sample>\n  content\n</sample>"
 xml2 = "<sample>content</sample>"
 
 Canon::Comparison.equivalent?(xml1, xml2,
   match: {
     structural_whitespace: :strict,
-    sensitive_elements: ["sample"]
+    preserve_whitespace_elements: ["sample"]
   }
 )
 # => false (structural whitespace differs in <sample>)
@@ -341,30 +330,30 @@ Canon::Comparison.equivalent?(xml1, xml2,
 .Overriding HTML defaults
 [source,ruby]
 ----
-# Make <script> NOT whitespace-sensitive (override HTML default)
+# Make <script> NOT whitespace-preserved (override HTML default)
 Canon::Comparison.equivalent?(html1, html2,
   format: :html,
   match: {
     structural_whitespace: :strict,
-    insensitive_elements: ["script"]
+    strip_whitespace_elements: ["script"]
   }
 )
 ----
 
-.Using text_content: :normalize with whitespace_insensitive_elements
+.Using text_content: :normalize with strip_whitespace_elements
 [source,ruby]
 ----
-# HTML defaults: [:pre, :code, :textarea, :script, :style]
-# Excluding :code means it's no longer whitespace-sensitive
+# HTML defaults: pre, code, textarea, script, style are :preserve
+# Adding code to strip list removes it from preserve
 html1 = '<root><pre>  indented  </pre><code>  code  </code></root>'
 html2 = '<root><pre>  indented  </pre><code>code</code></root>'
 
-# With :code blacklisted, whitespace in <code> is normalized (formatting-only)
+# With :code in strip list, whitespace in <code> is normalized (formatting-only)
 # HTML uses text_content: :normalize by default
 Canon::Comparison.equivalent?(html1, html2,
   format: :html,
   match: {
-    whitespace_insensitive_elements: [:code],
+    strip_whitespace_elements: [:code],
   }
 )
 # => true (whitespace differences in <code> are formatting-only)
@@ -738,7 +727,7 @@ expect(actual).to be_xml_equivalent_to(expected,
   match: { structural_whitespace: :strict }
 )
   .with_options(
-    sensitive_elements: ["pre", "code", "sample"],
+    preserve_whitespace_elements: ["pre", "code", "sample"],
     respect_xml_space: true
   )
 
@@ -747,7 +736,7 @@ expect(html).to be_html_equivalent_to(expected,
   match: { structural_whitespace: :strict }
 )
   .with_options(
-    insensitive_elements: ["script", "style"]
+    strip_whitespace_elements: ["script", "style"]
   )
 ====
 

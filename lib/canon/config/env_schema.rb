@@ -29,9 +29,9 @@ module Canon
         display_preprocessing: :symbol,       # :none, :pretty_print, :normalize_pretty_print, :c14n
         pretty_printer_indent: :integer,
         pretty_printer_indent_type: :symbol,  # :space or :tab
-        strict_whitespace_elements: :string_array,        # comma-separated element names
-        normalize_whitespace_elements: :string_array,     # comma-separated element names
-        insensitive_whitespace_elements: :string_array,   # comma-separated element names
+        preserve_whitespace_elements: :string_array,
+        collapse_whitespace_elements: :string_array,
+        strip_whitespace_elements: :string_array,
         pretty_printed_expected: :boolean,
         pretty_printed_received: :boolean,
         pretty_printer_sort_attributes: :boolean,
@@ -72,7 +72,7 @@ module Canon
              show_line_numbered_inputs character_visualization
              display_format display_preprocessing
              pretty_printer_indent pretty_printer_indent_type
-             strict_whitespace_elements normalize_whitespace_elements insensitive_whitespace_elements
+             preserve_whitespace_elements collapse_whitespace_elements strip_whitespace_elements
              pretty_printed_expected pretty_printed_received
              pretty_printer_sort_attributes
              compact_semantic_report expand_difference
@@ -80,7 +80,8 @@ module Canon
         end
 
         def all_match_attributes
-          %i[profile]
+          %i[profile
+             preserve_whitespace_elements collapse_whitespace_elements strip_whitespace_elements]
         end
 
         def all_format_attributes

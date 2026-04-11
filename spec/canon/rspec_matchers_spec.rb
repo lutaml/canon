@@ -1180,7 +1180,7 @@ RSpec.describe Canon::RSpecMatchers do
         )
       end
 
-      context "with whitespace_sensitive_elements option" do
+      context "with preserve_whitespace_elements option" do
         let(:xml1) { "<root><code>  indented  </code><p>  text  </p></root>" }
         let(:xml2) { "<root><code>indented</code><p>text</p></root>" }
 
@@ -1189,7 +1189,7 @@ RSpec.describe Canon::RSpecMatchers do
             xml2,
             match: {
               text_content: :strict,
-              whitespace_sensitive_elements: [:code],
+              preserve_whitespace_elements: [:code],
             },
           )
         end
@@ -1204,13 +1204,13 @@ RSpec.describe Canon::RSpecMatchers do
             xml4,
             match: {
               text_content: :normalize,
-              whitespace_sensitive_elements: [:code],
+              preserve_whitespace_elements: [:code],
             },
           )
         end
       end
 
-      context "with whitespace_insensitive_elements option" do
+      context "with strip_whitespace_elements option" do
         let(:html1) do
           "<root><pre>  indented  </pre><code>  code  </code></root>"
         end
@@ -1223,7 +1223,7 @@ RSpec.describe Canon::RSpecMatchers do
           expect(html1).to be_html_equivalent_to(
             html2,
             match: {
-              whitespace_insensitive_elements: [:code],
+              strip_whitespace_elements: [:code],
             },
           )
         end
