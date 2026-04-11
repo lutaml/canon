@@ -26,8 +26,16 @@ shared:
 
 formats:
   xml:
-    diff:
-      normalize_whitespace_elements:
+    match:
+      profile: spec_friendly
+      # Elements where whitespace is PRESERVED exactly (no manipulation)
+      # All whitespace characters are significant in these elements
+      preserve_whitespace_elements:
+        - body
+        - passthrough
+      # Elements where whitespace is COLLAPSED (HTML-style behavior)
+      # Multiple whitespace chars collapse to single space; boundaries preserved
+      collapse_whitespace_elements:
         - p
         - title
         - name
@@ -58,9 +66,9 @@ formats:
         - formattedref
         - description
         - identifier
-      strict_whitespace_elements:
-        - body
-        - passthrough
+      # Elements where whitespace-only nodes are STRIPPED
+      # Default: none (elements not in any list use xml:space or format defaults)
+      strip_whitespace_elements: []
   html:
     diff:
       show_raw_inputs: true

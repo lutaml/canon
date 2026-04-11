@@ -66,17 +66,17 @@ Display preprocessing controls how documents are normalized _before the line dif
 |`cfg.xml.diff.pretty_printer.indent_type = :space`
 |`CANON_XML_DIFF_PRETTY_PRINTER_INDENT_TYPE=space`
 
-|Normalize Whitespace Elements
+|Collapse Whitespace Elements
 |N/A
 |N/A (config only)
-|`cfg.xml.diff.normalize_whitespace_elements = %w[p li td th]`
-|`CANON_XML_NORMALIZE_WHITESPACE_ELEMENTS=p,li,td,th`
+|`cfg.xml.match.collapse_whitespace_elements = %w[p li td th]`
+|`CANON_XML_MATCH_COLLAPSE_WHITESPACE_ELEMENTS=p,li,td,th`
 
-|Strict Whitespace Elements
+|Preserve Whitespace Elements
 |N/A
 |N/A (config only)
-|`cfg.xml.diff.strict_whitespace_elements = %w[pre code]`
-|`CANON_XML_STRICT_WHITESPACE_ELEMENTS=pre,code`
+|`cfg.xml.match.preserve_whitespace_elements = %w[pre code]`
+|`CANON_XML_MATCH_PRESERVE_WHITESPACE_ELEMENTS=pre,code`
 
 |Pretty-printed Expected
 |N/A
@@ -113,7 +113,7 @@ Display preprocessing values: `none` (default), `pretty_print`, `normalize_prett
 
 * `:none` — documents are used as-is for the line diff (existing behaviour)
 * `:pretty_print` — both documents are run through a format-specific pretty-printer before the line diff: `Canon::PrettyPrinter::Xml` for XML (one tag per line, consistent indentation); `Canon::PrettyPrinter::Html` (Nokogiri HTML5 serializer) for HTML. Recommended for XML and HTML RSpec tests.
-* `:normalize_pretty_print` — like `:pretty_print` but uses `Canon::PrettyPrinter::XmlNormalized`, which guarantees one line per XML node even for mixed-content elements (those containing both text and child elements). Recommended when XML contains inline markup (Metanorma, DocBook). Use `normalize_whitespace_elements` or `strict_whitespace_elements` to control per-element whitespace visualization.
+* `:normalize_pretty_print` — like `:pretty_print` but uses `Canon::PrettyPrinter::XmlNormalized`, which guarantees one line per XML node even for mixed-content elements (those containing both text and child elements). Recommended when XML contains inline markup (Metanorma, DocBook). Use `collapse_whitespace_elements` or `preserve_whitespace_elements` to control per-element whitespace visualization.
 * `:c14n` — both documents are run through canonical normalization before the line diff. For XML: canonical XML (C14N, attribute-order sorting). For HTML: Nokogiri HTML5 serialization (normalizes attribute order and whitespace).
 
 NOTE: Pretty-printer indent options only apply when `display_preprocessing` is `:pretty_print` or `:normalize_pretty_print`.

@@ -80,6 +80,16 @@ module Canon
             end
             MATCH_PROFILES[profile].dup
           end
+
+          # YAML-specific dimension behaviors
+          def dimension_behaviors
+            {
+              text_content: %i[strict normalize ignore].freeze,
+              structural_whitespace: %i[strict normalize ignore].freeze,
+              key_order: %i[strict ignore].freeze,
+              comments: %i[strict ignore].freeze,
+            }
+          end
         end
       end
     end

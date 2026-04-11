@@ -26,7 +26,7 @@ XML
 received_xml = "<root><fmt-title><semx element=\"title\" source=\"_\">Foreword</semx></fmt-title></root>"
 ----
 
-When `fmt-title` and `semx` are classified as `:normalize` whitespace elements
+When `fmt-title` and `semx` are classified as `:collapse` whitespace elements
 (their inline content matters but all whitespace forms are equivalent), the
 comparison _correctly_ detects whitespace differences: the fixture has text nodes
 `"\n  "` and `"\n"` inside `<fmt-title>` that are absent from the compact
@@ -42,9 +42,9 @@ fixture is a necessary formatting artefact, not a meaningful content difference.
 The whitespace classification is intentionally asymmetric across elements:
 
 * Structural container elements (e.g. `<clause>`, `<foreword>`) are
-  `:insensitive` — their inter-element whitespace is already dropped in both
+  `:strip` — their inter-element whitespace is already dropped in both
   compact and indented forms.
-* Mixed-content elements (e.g. `<fmt-title>`, `<semx>`) are `:normalize` —
+* Mixed-content elements (e.g. `<fmt-title>`, `<semx>`) are `:collapse` —
   the _presence_ of a space between inline children is significant (it
   represents a word-boundary), but its exact form is not.
 
@@ -62,7 +62,7 @@ actually-pretty-printed side is affected.
 
 `pretty_printed_expected`::
   When `true`, whitespace-only text nodes that start with `"\n"` in
-  `:normalize`-classified elements of the **expected** (first / fixture)
+  `:collapse`-classified elements of the **expected** (first / fixture)
   document are dropped before comparison and before display.
   Use this when fixture files are indented heredocs but received XML is compact.
 
@@ -91,9 +91,9 @@ A _space_ not preceded by `"\n"` is treated as real content: in
 `<p>See <em>note</em></p>`, the text node `"See "` starts with `"S"`, so its
 trailing space is kept and normalized to a single `░` symbol in the display.
 
-NOTE: This heuristic is only activated for `:normalize` elements.  `:strict`
+NOTE: This heuristic is only activated for `:collapse` elements.  `:preserve`
 elements always preserve every whitespace character regardless of these flags.
-`:insensitive` elements already drop all whitespace and are unaffected.
+`:strip` elements already drop all whitespace and are unaffected.
 
 == Configuration
 
@@ -110,7 +110,7 @@ result = Canon::Comparison.equivalent?(
   fixture_xml,
   received_xml,
   match: {
-    normalize_whitespace_elements: %w[fmt-title semx],
+    collapse_whitespace_elements: %w[fmt-title semx],
     pretty_printed_expected: true,
   }
 )
@@ -118,7 +118,7 @@ result = Canon::Comparison.equivalent?(
 # RSpec global config in spec_helper.rb
 Canon::Config.configure do |cfg|
   cfg.xml.match.options = {
-    normalize_whitespace_elements: %w[fmt-title semx],
+    collapse_whitespace_elements: %w[fmt-title semx],
     pretty_printed_expected: true,
   }
 end
@@ -134,7 +134,7 @@ indentation from only the flagged side:
 ----
 Canon::Config.configure do |cfg|
   cfg.xml.diff.display_preprocessing    = :normalize_pretty_print
-  cfg.xml.diff.normalize_whitespace_elements = %w[fmt-title semx]
+  cfg.xml.diff.collapse_whitespace_elements = %w[fmt-title semx]
 
   # Drop structural indentation from the indented fixture side only
   cfg.xml.diff.pretty_printed_expected  = true
@@ -157,20 +157,20 @@ export CANON_XML_DIFF_PRETTY_PRINTED_RECEIVED=false
 |Element class |`pretty_printed_expected: false` (default) |`pretty_printed_expected: true`
 |Note
 
-|`:insensitive`
+|`:strip`
 |All inter-element whitespace dropped (both sides)
 |Same — no change
 |Already dropped; flag has no effect
 
-|`:normalize`
+|`:collapse`
 |`"\n  "` nodes kept; compact vs. indented comparison detects difference
 |`"\n"`-starting nodes dropped from expected; compact vs. indented now equivalent
 |Inline content spaces (`" "` without `"\n"`) are always kept
 
-|`:strict`
+|`:preserve`
 |Every whitespace character compared verbatim
 |Same — no change
-|`:strict` always preserves all whitespace regardless of flag
+|`:preserve` always preserves all whitespace regardless of flag
 
 |===
 
@@ -205,15 +205,15 @@ No whitespace nodes inside `<fmt-title>`.
 
 === Without `pretty_printed_expected: true`
 
-`clause` is `:insensitive`, so its inter-element whitespace is dropped.
-`fmt-title` and `semx` are `:normalize`, so their whitespace nodes are kept.
+`clause` is `:strip`, so its inter-element whitespace is dropped.
+`fmt-title` and `semx` are `:collapse`, so their whitespace nodes are kept.
 
 The comparison finds two extra whitespace nodes in the expected side →
 **not equivalent**.
 
 === With `pretty_printed_expected: true`
 
-The `"\n"`-starting nodes inside `:normalize` elements are dropped from the
+The `"\n"`-starting nodes inside `:collapse` elements are dropped from the
 expected side before comparison.  The expected side now matches the compact
 received side → **equivalent**.
 
@@ -232,7 +232,7 @@ structural indentation differences.
 Canon::DiffFormatter.new(
   mode: :pretty_diff,
   display_preprocessing: :normalize_pretty_print,
-  normalize_whitespace_elements: %w[fmt-title semx],
+  collapse_whitespace_elements: %w[fmt-title semx],
   pretty_printed_expected: true,   # strip structural \n nodes from fixture side
   pretty_printed_received: false,  # compact received side is unchanged
 )
@@ -253,7 +253,7 @@ with a more granular design:
 
 |`normalize_pretty_print_ignore_structural_newlines: true`
 |`pretty_printed_expected: true, pretty_printed_received: true`
-(plus `normalize_whitespace_elements:` to restrict to the right elements)
+(plus `collapse_whitespace_elements:` to restrict to the right elements)
 |===
 
 The old flag is deprecated and still emits a warning; use the new flags for all

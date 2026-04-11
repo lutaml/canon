@@ -57,7 +57,10 @@ module Canon
       # Preprocessing options - what to do before comparison
       PREPROCESSING_OPTIONS = %i[none c14n normalize format rendered].freeze
 
-      # Matching behaviors (mutually exclusive)
+      # Matching behaviors (deprecated - use per-dimension validation instead)
+      # This universal constant is kept for backward compatibility but should not
+      # be used for validation. Use BaseResolver.dimension_behaviors instead.
+      # Note: :strip and :compact are only valid for attribute_values dimension.
       MATCH_BEHAVIORS = %i[strict strip compact normalize ignore].freeze
 
       class << self

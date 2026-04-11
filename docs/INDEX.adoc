@@ -98,6 +98,7 @@ Choose your interface:
 === Level 4: Master Features (1 hour)
 
 . link:features/match-options/[Match options and profiles]
+. link:features/configuration-profiles/[Configuration profiles] - YAML-based presets with element-level whitespace control
 . link:features/canonicalization/[Format-specific canonicalization]
 . link:features/diff-formatting/[Customizing diff output]
 
@@ -111,6 +112,7 @@ Choose your interface:
 
 * link:reference/options-across-interfaces[Options Across Interfaces] - Same options in CLI, Ruby API, and RSpec
 * link:reference/environment-variables[Environment Variables] - Configure Canon via ENV variables
+* link:features/configuration-profiles/[Configuration Profiles] - YAML presets with element-level whitespace control
 * link:features/match-options/profiles[Match Profiles] - Pre-configured comparison strategies
 * link:features/diff-formatting/colors-and-symbols[Color-Coded Diffs] - Understanding diff output
 * link:features/environment-configuration/size-limits[Size Limits] - Preventing hangs on large files
@@ -135,5 +137,7 @@ See link:contributing[Contributing to Documentation]
 * Size limits for large files
 * Enhanced character visualization
 * Environment variable configuration
+* Configuration profiles with element-level whitespace classification
+* Three-way whitespace sensitivity: strict, normalize, insensitive
 
 See link:https://github.com/lutaml/canon/blob/main/CHANGELOG.md[Full Changelog]

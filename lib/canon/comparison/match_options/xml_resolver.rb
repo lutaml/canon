@@ -12,7 +12,7 @@ module Canon
         # Sensitive elements (preserve structural whitespace):
         # - XML: none by default — all structural whitespace stripped
         # - HTML: pre, code, textarea, script, style by default
-        # Use sensitive_elements option to add elements that preserve whitespace.
+        # Use preserve_whitespace_elements option to add elements that preserve whitespace.
         #
         FORMAT_DEFAULTS = {
           html: {
@@ -41,7 +41,7 @@ module Canon
         MATCH_PROFILES = {
           # Strict: Match exactly as written in source (XML default).
           # Structural whitespace is stripped by default for XML.
-          # Use sensitive_elements to preserve structural whitespace in specific elements.
+          # Use preserve_whitespace_elements to preserve structural whitespace in specific elements.
           strict: {
             preprocessing: :none,
             text_content: :strict,
@@ -151,6 +151,19 @@ module Canon
                     "Valid profiles: #{MATCH_PROFILES.keys.join(', ')}"
             end
             MATCH_PROFILES[profile].dup
+          end
+
+          # XML/HTML-specific dimension behaviors
+          def dimension_behaviors
+            {
+              text_content: %i[strict normalize ignore].freeze,
+              structural_whitespace: %i[strict normalize ignore].freeze,
+              attribute_presence: %i[strict ignore].freeze,
+              attribute_order: %i[strict ignore].freeze,
+              attribute_values: %i[strict strip compact normalize ignore].freeze,
+              element_position: %i[strict ignore].freeze,
+              comments: %i[strict ignore].freeze,
+            }
           end
         end
       end

@@ -62,7 +62,7 @@ RSpec.describe "pretty_printed_expected / pretty_printed_received match options"
   context "in :normalize elements" do
     # fmt-title and semx are classified as :normalize by the test options
     let(:norm_opts) do
-      { normalize_whitespace_elements: %w[fmt-title semx] }
+      { collapse_whitespace_elements: %w[fmt-title semx] }
     end
 
     let(:compact_xml) do
@@ -110,7 +110,7 @@ RSpec.describe "pretty_printed_expected / pretty_printed_received match options"
 
   context "asymmetric behaviour" do
     let(:norm_opts) do
-      { normalize_whitespace_elements: %w[p] }
+      { collapse_whitespace_elements: %w[p] }
     end
 
     let(:compact_xml)  { "<root><p><em>text</em></p></root>" }
@@ -157,7 +157,7 @@ RSpec.describe "pretty_printed_expected / pretty_printed_received match options"
 
   context "in :strict elements" do
     let(:strict_opts) do
-      { strict_whitespace_elements: %w[pre] }
+      { preserve_whitespace_elements: %w[pre] }
     end
 
     let(:compact_xml)  { "<root><pre><code>text</code></pre></root>" }
@@ -182,7 +182,7 @@ RSpec.describe "pretty_printed_expected / pretty_printed_received match options"
 
   context "space-only (non-newline) whitespace nodes in :normalize elements" do
     let(:norm_opts) do
-      { normalize_whitespace_elements: %w[p] }
+      { collapse_whitespace_elements: %w[p] }
     end
 
     # " <em>text</em>" → has a TextNode " " (space only, no \n)
@@ -204,7 +204,7 @@ RSpec.describe "pretty_printed_expected / pretty_printed_received match options"
   context "multi-level nesting with :normalize elements at different depths" do
     let(:norm_opts) do
       {
-        normalize_whitespace_elements: %w[title semx],
+        collapse_whitespace_elements: %w[title semx],
         pretty_printed_expected: true,
       }
     end

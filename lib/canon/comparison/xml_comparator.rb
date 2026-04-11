@@ -417,20 +417,21 @@ module Canon
 
         # Check if whitespace should be preserved strictly for these text nodes
         # This applies to HTML elements like pre, code, textarea, script, style
-        # and elements with xml:space="preserve" or in user-configured whitelist
+        # and elements with xml:space="preserve" or in user-configured preserve list.
+        #
+        # IMPORTANT: This returns true ONLY for :preserve classification.
+        # For :collapse classification, whitespace differences ARE acceptable
+        # (they are detected as formatting-only by DiffClassifier).
         def should_preserve_whitespace_strictly?(n1, n2, opts)
-          # Use WhitespaceSensitivity module to check if element is sensitive
-          # Check both n1 and n2 - if either is in a sensitive element, preserve strictly
-          if n1.respond_to?(:parent)
-            sensitivity_opts = { match_opts: opts[:match_opts] }
-            return true if WhitespaceSensitivity.element_sensitive?(n1,
-                                                                    sensitivity_opts)
-          end
+          # Check both n1 and n2 - if either is in a preserve whitespace element, preserve strictly
+          [n1, n2].each do |node|
+            next unless node.respond_to?(:parent)
 
-          if n2.respond_to?(:parent)
-            sensitivity_opts = { match_opts: opts[:match_opts] }
-            return true if WhitespaceSensitivity.element_sensitive?(n2,
-                                                                    sensitivity_opts)
+            parent = node.parent
+            next unless parent
+
+            classification = WhitespaceSensitivity.classify_element(parent, opts[:match_opts])
+            return true if classification == :preserve
           end
 
           false

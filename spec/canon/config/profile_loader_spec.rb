@@ -36,7 +36,7 @@ RSpec.describe Canon::Config::ProfileLoader do
 
       it "inherits format-specific settings" do
         data = described_class.load(:metanorma_debug)
-        xml_elements = data.dig("formats", "xml", "diff", "normalize_whitespace_elements")
+        xml_elements = data.dig("formats", "xml", "match", "collapse_whitespace_elements")
         expect(xml_elements).to include("p", "title", "fmt-title")
       end
 
@@ -87,7 +87,7 @@ RSpec.describe Canon::Config::ProfileLoader do
         expect(data["shared"]["diff"]["context_lines"]).to eq(20)
         expect(data["shared"]["diff"]["verbose_diff"]).to be(true)
         # Inherited format-specific
-        expect(data.dig("formats", "xml", "diff", "strict_whitespace_elements"))
+        expect(data.dig("formats", "xml", "match", "preserve_whitespace_elements"))
           .to eq(%w[body passthrough])
       end
 
@@ -159,13 +159,13 @@ RSpec.describe Canon::Config::ProfileLoader do
         formats:
           xml:
             diff:
-              strict_whitespace_elements:
+              preserve_whitespace_elements:
                 - pre
                 - code
       YAML
 
       data = described_class.load(path)
-      elements = data.dig("formats", "xml", "diff", "strict_whitespace_elements")
+      elements = data.dig("formats", "xml", "diff", "preserve_whitespace_elements")
       expect(elements).to eq(%w[pre code])
     end
 

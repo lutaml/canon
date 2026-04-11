@@ -7,78 +7,71 @@ module Canon
     # This module provides three-way classification of whitespace behaviour
     # at the element level:
     #
-    # * **:strict** — every whitespace character is significant. `" "` ≠ `"\n"`.
-    #   Configured via +strict_whitespace_elements+ (HTML default: pre, code,
+    # * **:preserve** — every whitespace character is significant. `" "` ≠ `"\n"`.
+    #   Configured via +preserve_whitespace_elements+ (HTML default: pre, code,
     #   textarea, script, style; XML default: none).
     #
-    # * **:normalize** — presence ≠ absence, but all whitespace forms are
-    #   equivalent: `" "` == `"\n  "`. Configured via +normalize_whitespace_elements+
+    # * **:collapse** — presence ≠ absence, but all whitespace forms are
+    #   equivalent: `" "` == `"\n  "`. Configured via +collapse_whitespace_elements+
     #   (HTML default: p, li, dt, dd, td, th, h1-h6, caption, figcaption, label,
     #   legend, summary, blockquote, address; XML default: none).
     #
-    # * **:insensitive** — all whitespace is structural formatting noise and is
+    # * **:strip** — all whitespace is structural formatting noise and is
     #   dropped. Default for XML; HTML elements not in the above lists.
     #
     # Classification is **ancestor-based**: the closest matching ancestor
-    # determines the class. The insensitive blacklist (+insensitive_elements+)
+    # determines the class. The strip blacklist (+strip_whitespace_elements+)
     # overrides any sensitive ancestor.
-    #
-    # == Legacy binary API
-    #
-    # The old +sensitive_elements+ / +insensitive_elements+ binary API is
-    # preserved for backward compatibility. +sensitive_elements+ is treated as
-    # an alias for +strict_whitespace_elements+. Code using the old API continues
-    # to work unchanged.
     #
     # == Priority Order
     #
     # 1. respect_xml_space: false → User config only (ignore xml:space)
-    # 2. Ancestor walk (insensitive blacklist wins; then strict; then normalize)
-    # 3. xml:space="preserve" → strict
+    # 2. Ancestor walk (strip blacklist wins; then preserve; then collapse)
+    # 3. xml:space="preserve" → preserve
     # 4. xml:space="default" → use configured behaviour
-    # 5. Format defaults (HTML: normalize for most elements; XML: insensitive)
+    # 5. Format defaults (HTML: collapse for most elements; XML: strip)
     #
     # == Usage
     #
     #   WhitespaceSensitivity.classify_element(element, match_opts)
-    #   => :strict, :normalize, or :insensitive
+    #   => :preserve, :collapse, or :strip
     #
     #   WhitespaceSensitivity.element_sensitive?(node, opts)
-    #   => true if whitespace should be preserved (strict or normalize)
+    #   => true if whitespace should be preserved (preserve or collapse)
     module WhitespaceSensitivity
       # HTML mixed-content "leaf block" elements where whitespace presence
       # matters but all forms are equivalent (CSS block whitespace collapsing).
-      HTML_NORMALIZE_ELEMENTS = %w[
+      HTML_COLLAPSE_ELEMENTS = %w[
         p li dt dd td th caption figcaption label legend summary
         h1 h2 h3 h4 h5 h6
         blockquote address button
       ].freeze
 
       # HTML elements where every whitespace character is significant.
-      HTML_STRICT_ELEMENTS = %w[pre code textarea script style].freeze
+      HTML_PRESERVE_ELEMENTS = %w[pre code textarea script style].freeze
 
       class << self
         # Classify the whitespace behaviour for an element using ancestor walk.
         #
         # @param element [Object] The element node to classify
         # @param match_opts [Hash] Resolved match options
-        # @return [Symbol] :strict, :normalize, or :insensitive
+        # @return [Symbol] :preserve, :collapse, or :strip
         def classify_element(element, match_opts)
-          return :insensitive unless element
-          return :insensitive unless element.respond_to?(:name)
+          return :strip unless element
+          return :strip unless element.respond_to?(:name)
 
-          strict_set     = resolved_strict_elements_set(match_opts)
-          normalize_set  = resolved_normalize_elements_set(match_opts)
-          insensitive_set = resolved_insensitive_elements_set(match_opts)
+          preserve_set  = resolved_preserve_elements_set(match_opts)
+          collapse_set  = resolved_collapse_elements_set(match_opts)
+          strip_set = resolved_strip_elements_set(match_opts)
 
           # Ancestor walk: start at the element itself, walk up.
-          # Insensitive blacklist wins over any sensitive ancestor.
-          walk_ancestor_classification(element, strict_set, normalize_set,
-                                       insensitive_set, match_opts)
+          # Strip blacklist wins over any sensitive ancestor.
+          walk_ancestor_classification(element, preserve_set, collapse_set,
+                                       strip_set, match_opts)
         end
 
         # Check if an element is whitespace-sensitive based on configuration.
-        # Returns true for :strict or :normalize classification.
+        # Returns true for :preserve or :collapse classification.
         #
         # @param node [Object] The element node to check
         # @param opts [Hash] Comparison options containing match_opts
@@ -102,7 +95,8 @@ module Canon
           return false if xml_space_default?(parent)
 
           # 4. Three-way classification (ancestor-based)
-          classify_element(parent, match_opts) != :insensitive
+          classification = classify_element(parent, match_opts)
+          %i[preserve collapse].include?(classification)
         end
 
         # Check if whitespace-only text node should be filtered
@@ -119,26 +113,26 @@ module Canon
 
         # Return the whitespace class for a text node used during comparison.
         #
-        # :strict      → preserve all whitespace character-by-character
-        # :normalize   → preserve presence (normalize to single space)
-        # :insensitive → strip whitespace-only text nodes
+        # :preserve   → preserve all whitespace character-by-character
+        # :collapse   → preserve presence (normalize to single space)
+        # :strip      → drop whitespace-only text nodes
         #
         # @param node [Object] Text node to classify
         # @param opts [Hash] Comparison options containing match_opts
-        # @return [Symbol] :strict, :normalize, or :insensitive
+        # @return [Symbol] :preserve, :collapse, or :strip
         def classify_text_node(node, opts)
           match_opts = opts[:match_opts]
-          return :insensitive unless match_opts
-          return :insensitive unless text_node_parent?(node)
+          return :strip unless match_opts
+          return :strip unless text_node_parent?(node)
 
           parent = node.parent
 
           unless respect_xml_space?(match_opts)
-            return user_config_sensitive?(parent, match_opts) ? :strict : :insensitive
+            return user_config_sensitive?(parent, match_opts) ? :preserve : :strip
           end
 
-          return :strict if xml_space_preserve?(parent)
-          return :insensitive if xml_space_default?(parent)
+          return :preserve if xml_space_preserve?(parent)
+          return :strip if xml_space_default?(parent)
 
           classify_element(parent, match_opts)
         end
@@ -148,7 +142,7 @@ module Canon
         # Uses the same priority chain as element_sensitive? / classify_text_node:
         #   1. xml:space="preserve" → always preserved
         #   2. xml:space="default"  → use configured behaviour
-        #   3. ancestor-walk classification (insensitive = dropped)
+        #   3. ancestor-walk classification (strip = dropped)
         #
         # @param element [Object] Element node to check
         # @param match_opts [Hash] Resolved match options
@@ -159,61 +153,50 @@ module Canon
             return false if xml_space_default?(element)
           end
 
-          classify_element(element, match_opts) != :insensitive
+          classification = classify_element(element, match_opts)
+          %i[preserve collapse].include?(classification)
         end
 
-        # Get resolved list of strict whitespace element names (strings).
-        # (Replaces the old resolved_sensitive_elements for :strict behaviour.)
-        # Also accepts legacy sensitive_elements / whitespace_sensitive_elements.
+        # Get resolved list of preserve whitespace element names (strings).
         #
         # @param match_opts [Hash] Resolved match options
-        # @return [Array<String>] Strict element names
-        def resolved_strict_elements(match_opts)
-          resolved_strict_elements_set(match_opts).to_a
+        # @return [Array<String>] Preserve element names
+        def resolved_preserve_elements(match_opts)
+          resolved_preserve_elements_set(match_opts).to_a
         end
 
-        # Get resolved list of normalize whitespace element names (strings).
+        # Get resolved list of collapse whitespace element names (strings).
         #
         # @param match_opts [Hash] Resolved match options
-        # @return [Array<String>] Normalize element names
-        def resolved_normalize_elements(match_opts)
-          resolved_normalize_elements_set(match_opts).to_a
+        # @return [Array<String>] Collapse element names
+        def resolved_collapse_elements(match_opts)
+          resolved_collapse_elements_set(match_opts).to_a
         end
 
-        # Backward-compat alias: returns strict + normalize elements.
-        # Legacy callers that only care "is it sensitive at all?" still work.
+        # Get format-specific default preserve (exact-whitespace) elements.
+        # This is the SINGLE SOURCE OF TRUTH for default preserve-whitespace elements.
         #
         # @param match_opts [Hash] Resolved match options
-        # @return [Array<String>] All sensitive element names
-        def resolved_sensitive_elements(match_opts)
-          (resolved_strict_elements_set(match_opts) |
-            resolved_normalize_elements_set(match_opts)).to_a
-        end
-
-        # Get format-specific default strict (exact-whitespace) elements.
-        # This is the SINGLE SOURCE OF TRUTH for default strict-whitespace elements.
-        #
-        # @param match_opts [Hash] Resolved match options
-        # @return [Array<Symbol>] Default strict element names
-        def format_default_sensitive_elements(match_opts)
+        # @return [Array<Symbol>] Default preserve element names
+        def format_default_preserve_elements(match_opts)
           format = match_opts[:format] || :xml
           case format
           when :html, :html4, :html5
-            HTML_STRICT_ELEMENTS.map(&:to_sym).freeze
+            HTML_PRESERVE_ELEMENTS.map(&:to_sym).freeze
           else
             [].freeze
           end
         end
 
-        # Get format-specific default normalize elements (new).
+        # Get format-specific default collapse elements.
         #
         # @param match_opts [Hash] Resolved match options
-        # @return [Array<Symbol>] Default normalize element names
-        def format_default_normalize_elements(match_opts)
+        # @return [Array<Symbol>] Default collapse element names
+        def format_default_collapse_elements(match_opts)
           format = match_opts[:format] || :xml
           case format
           when :html, :html4, :html5
-            HTML_NORMALIZE_ELEMENTS.map(&:to_sym).freeze
+            HTML_COLLAPSE_ELEMENTS.map(&:to_sym).freeze
           else
             [].freeze
           end
@@ -225,61 +208,56 @@ module Canon
         # @param match_opts [Hash] Resolved match options
         # @return [Boolean] true if element is in default sensitive list
         def default_sensitive_element?(element_name, match_opts)
-          format_default_sensitive_elements(match_opts)
+          format_default_preserve_elements(match_opts)
             .include?(element_name.to_sym)
         end
 
         private
 
-        # Build the Set of strict whitespace element names (strings).
-        def resolved_strict_elements_set(match_opts)
-          set = Set.new(format_default_sensitive_elements(match_opts).map(&:to_s))
+        # Build the Set of preserve whitespace element names (strings).
+        def resolved_preserve_elements_set(match_opts)
+          set = Set.new(format_default_preserve_elements(match_opts).map(&:to_s))
 
-          # Legacy: sensitive_elements / whitespace_sensitive_elements → strict
-          %i[sensitive_elements strict_whitespace_elements
-             whitespace_sensitive_elements].each do |key|
-            next unless match_opts[key]
-
-            set |= match_opts[key].map(&:to_s)
+          if match_opts[:preserve_whitespace_elements]
+            set |= match_opts[:preserve_whitespace_elements].map(&:to_s)
           end
 
           # Remove blacklisted elements
-          insensitive_set = resolved_insensitive_elements_set(match_opts)
-          set.reject { |e| insensitive_set.include?(e) }.to_set
+          strip_set = resolved_strip_elements_set(match_opts)
+          set.reject { |e| strip_set.include?(e) }.to_set
         end
 
-        # Build the Set of normalize whitespace element names (strings).
-        def resolved_normalize_elements_set(match_opts)
-          set = Set.new(format_default_normalize_elements(match_opts).map(&:to_s))
+        # Build the Set of collapse whitespace element names (strings).
+        def resolved_collapse_elements_set(match_opts)
+          set = Set.new(format_default_collapse_elements(match_opts).map(&:to_s))
 
-          if match_opts[:normalize_whitespace_elements]
-            set |= match_opts[:normalize_whitespace_elements].map(&:to_s)
+          if match_opts[:collapse_whitespace_elements]
+            set |= match_opts[:collapse_whitespace_elements].map(&:to_s)
           end
 
           # Remove blacklisted elements
-          insensitive_set = resolved_insensitive_elements_set(match_opts)
-          set.reject { |e| insensitive_set.include?(e) }.to_set
+          strip_set = resolved_strip_elements_set(match_opts)
+          set.reject { |e| strip_set.include?(e) }.to_set
         end
 
-        # Build the Set of insensitive (blacklisted) element names (strings).
-        def resolved_insensitive_elements_set(match_opts)
-          raw = match_opts[:insensitive_elements] ||
-            match_opts[:whitespace_insensitive_elements]
+        # Build the Set of strip (blacklist) element names (strings).
+        def resolved_strip_elements_set(match_opts)
+          raw = match_opts[:strip_whitespace_elements]
           Set.new((raw || []).map(&:to_s))
         end
 
         # Perform the ancestor walk classification.
         # The element itself is checked first, then its ancestors.
-        # Insensitive blacklist wins over any sensitive ancestor.
-        def walk_ancestor_classification(element, strict_set, normalize_set,
-                                         insensitive_set, _match_opts)
+        # Strip blacklist wins over any sensitive ancestor.
+        def walk_ancestor_classification(element, preserve_set, collapse_set,
+                                         strip_set, _match_opts)
           current = element
           while current.respond_to?(:name)
             name = current.name.to_s
 
-            return :insensitive if insensitive_set.include?(name)
-            return :strict      if strict_set.include?(name)
-            return :normalize   if normalize_set.include?(name)
+            return :strip    if strip_set.include?(name)
+            return :preserve if preserve_set.include?(name)
+            return :collapse if collapse_set.include?(name)
 
             # Walk up
             break unless current.respond_to?(:parent)
@@ -293,10 +271,10 @@ module Canon
           end
 
           # No matching ancestor — whitespace sensitivity is always opt-in.
-          # Elements not in any list are insensitive regardless of format.
-          # (HTML_NORMALIZE_ELEMENTS are already merged into the normalize_set
-          #  by resolved_normalize_elements_set, so they are found during the walk.)
-          :insensitive
+          # Elements not in any list are strip regardless of format.
+          # (HTML_COLLAPSE_ELEMENTS are already merged into the collapse_set
+          #  by resolved_collapse_elements_set, so they are found during the walk.)
+          :strip
         end
 
         # Check if we should respect xml:space attribute
@@ -338,11 +316,9 @@ module Canon
           end
         end
 
-        # Legacy: check sensitivity based on user configuration (binary, no ancestor)
+        # Check sensitivity based on user configuration (binary, no ancestor)
         def user_config_sensitive?(element, match_opts)
-          list = match_opts[:whitespace_sensitive_elements] ||
-            match_opts[:sensitive_elements] ||
-            match_opts[:strict_whitespace_elements]
+          list = match_opts[:preserve_whitespace_elements]
           return false unless list
 
           list.map(&:to_s).include?(element.name.to_s)

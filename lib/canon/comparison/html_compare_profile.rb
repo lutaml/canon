@@ -69,7 +69,7 @@ module Canon
       # @param element_name [String] The element name to check
       # @return [Boolean] true if whitespace should be preserved
       def preserve_whitespace?(element_name)
-        whitespace_sensitive_elements.include?(element_name.to_s.downcase)
+        html_preserve_elements.include?(element_name.to_s.downcase)
       end
 
       # Check if element names should be compared case-sensitively
@@ -85,12 +85,12 @@ module Canon
 
       # Elements where whitespace is semantically significant in HTML
       #
-      # SINGLE SOURCE OF TRUTH: Delegates to WhitespaceSensitivity.format_default_sensitive_elements
+      # SINGLE SOURCE OF TRUTH: Delegates to WhitespaceSensitivity.format_default_preserve_elements
       # This ensures consistency across the codebase.
       #
       # @return [Array<String>] List of element names (as strings)
-      def whitespace_sensitive_elements
-        WhitespaceSensitivity.format_default_sensitive_elements(format: @html_version).map(&:to_s)
+      def html_preserve_elements
+        WhitespaceSensitivity.format_default_preserve_elements(format: @html_version).map(&:to_s)
       end
 
       # Check if a dimension is explicitly set to :strict

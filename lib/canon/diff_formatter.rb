@@ -180,14 +180,12 @@ module Canon
                    display_preprocessing: :none,
                    pretty_printer_indent: 2,
                    pretty_printer_indent_type: :space,
-                   strict_whitespace_elements: [],
-                   normalize_whitespace_elements: [],
-                   insensitive_whitespace_elements: [],
+                   preserve_whitespace_elements: [],
+                   collapse_whitespace_elements: [],
+                   strip_whitespace_elements: [],
                    pretty_printed_expected: false,
                    pretty_printed_received: false,
                    pretty_printer_sort_attributes: false,
-                   # deprecated: kept for one release cycle
-                   normalize_pretty_print_ignore_structural_newlines: nil,
                    compact_semantic_report: false,
                    expand_difference: false,
                    diff_mode: :separate, legacy_terminal: false)
@@ -212,16 +210,12 @@ module Canon
       @display_preprocessing = display_preprocessing
       @pretty_printer_indent = pretty_printer_indent
       @pretty_printer_indent_type = pretty_printer_indent_type
-      @strict_whitespace_elements = Array(strict_whitespace_elements).map(&:to_s)
-      @normalize_whitespace_elements = Array(normalize_whitespace_elements).map(&:to_s)
-      @insensitive_whitespace_elements = Array(insensitive_whitespace_elements).map(&:to_s)
+      @preserve_whitespace_elements = Array(preserve_whitespace_elements).map(&:to_s)
+      @collapse_whitespace_elements = Array(collapse_whitespace_elements).map(&:to_s)
+      @strip_whitespace_elements = Array(strip_whitespace_elements).map(&:to_s)
       @pretty_printed_expected = pretty_printed_expected
       @pretty_printed_received = pretty_printed_received
       @pretty_printer_sort_attributes = pretty_printer_sort_attributes
-      if !normalize_pretty_print_ignore_structural_newlines.nil?
-        warn "[Canon] DiffFormatter: normalize_pretty_print_ignore_structural_newlines: is deprecated. " \
-             "Use normalize_whitespace_elements: and strict_whitespace_elements: instead."
-      end
       @compact_semantic_report = compact_semantic_report
       @expand_difference = expand_difference
       @diff_mode = legacy_terminal ? :separate : diff_mode
@@ -943,9 +937,9 @@ differences: [])
     # See PrettyPrinter::XmlNormalized for the full rationale.
     #
     # Whitespace classification is driven by three element-name lists:
-    # - strict_whitespace_elements  → every char significant (e.g. pre, code)
-    # - normalize_whitespace_elements → presence matters, form collapses (e.g. p, li)
-    # - insensitive_whitespace_elements → all whitespace dropped (explicit blacklist)
+    # - preserve_whitespace_elements  → every char significant (e.g. pre, code)
+    # - collapse_whitespace_elements → presence matters, form collapses (e.g. p, li)
+    # - strip_whitespace_elements → all whitespace dropped (explicit blacklist)
     #
     # For XML the lists default to empty (all insensitive); for HTML built-in
     # defaults cover the common cases. Callers supply format-specific lists via
@@ -968,9 +962,9 @@ differences: [])
         indent: @pretty_printer_indent,
         indent_type: indent_type_str,
         visualization_map: vis_map,
-        strict_whitespace_elements: @strict_whitespace_elements,
-        normalize_whitespace_elements: @normalize_whitespace_elements,
-        insensitive_elements: @insensitive_whitespace_elements,
+        preserve_whitespace_elements: @preserve_whitespace_elements,
+        collapse_whitespace_elements: @collapse_whitespace_elements,
+        strip_whitespace_elements: @strip_whitespace_elements,
         sort_attributes: @pretty_printer_sort_attributes,
       }
 

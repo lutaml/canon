@@ -13,20 +13,20 @@ RSpec.describe Canon::PrettyPrinter::XmlNormalized do
     described_class.new(indent: 2, visualization_map: vis_map)
   end
 
-  # Normalize printer: <p> and <formattedref> in normalize_whitespace_elements.
+  # Normalize printer: <p> and <formattedref> in collapse_whitespace_elements.
   # Whitespace in these elements is collapsed to a single visualized character.
   # Descendants (e.g. <a> inside <p>) inherit the setting via ancestor lookup —
   # no need to list <a> separately.
   let(:printer_normalize) do
     described_class.new(indent: 2, visualization_map: vis_map,
-                        normalize_whitespace_elements: %w[p formattedref])
+                        collapse_whitespace_elements: %w[p formattedref])
   end
 
   # Strict printer: <p> in strict_whitespace_elements.
   # Whitespace preserved verbatim with every character individually visualized.
   let(:printer_strict) do
     described_class.new(indent: 2, visualization_map: vis_map,
-                        strict_whitespace_elements: %w[p])
+                        preserve_whitespace_elements: %w[p])
   end
 
   # Returns the full formatted output as a single string, stripping the XML
@@ -242,21 +242,21 @@ RSpec.describe Canon::PrettyPrinter::XmlNormalized do
   #
   # Three-way classification: strict / normalize / insensitive (drop).
   # The classification is inherited by descendants via ancestor lookup:
-  # if <p> is in normalize_whitespace_elements, a descendant <a> also uses
+  # if <p> is in collapse_whitespace_elements, a descendant <a> also uses
   # normalize without needing to appear in any list itself.
 
   describe "whitespace sensitivity classification" do
     # ── Ancestor inheritance ────────────────────────────────────────────────
     #
     # <a> is always a child of <p> in these fixtures.  With only "p" listed in
-    # normalize_whitespace_elements, <a> inherits normalize through ancestor
+    # collapse_whitespace_elements, <a> inherits normalize through ancestor
     # lookup — confirming that elements do not need to be listed individually.
 
     it "inherits normalize setting from ancestor <p> to descendant <a>" do
       printer_p_only = described_class.new(
         indent: 2,
         visualization_map: vis_map,
-        normalize_whitespace_elements: %w[p],
+        collapse_whitespace_elements: %w[p],
       )
       # <a> is inside <p> — it inherits normalize.  Spaces around "link" are ░.
       xml = '<root><p>See <a href="#">link</a> text</p></root>'
@@ -435,7 +435,7 @@ RSpec.describe Canon::PrettyPrinter::XmlNormalized do
       described_class.new(
         indent: 2,
         visualization_map: vis_map,
-        normalize_whitespace_elements: %w[p],
+        collapse_whitespace_elements: %w[p],
         pretty_printed: true,
       )
     end
@@ -444,7 +444,7 @@ RSpec.describe Canon::PrettyPrinter::XmlNormalized do
       described_class.new(
         indent: 2,
         visualization_map: vis_map,
-        strict_whitespace_elements: %w[p],
+        preserve_whitespace_elements: %w[p],
         pretty_printed: true,
       )
     end

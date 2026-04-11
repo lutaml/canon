@@ -49,9 +49,11 @@ module Canon
         # it should be marked as non-normative (informative)
         # This ensures that verbose and non-verbose modes give consistent results
         #
-        # EXCEPTION: If the text node is inside a whitespace-sensitive element
+        # EXCEPTION: If the text node is inside a PRESERVE whitespace element
         # (like <pre>, <code>, <textarea> in HTML), don't apply formatting detection
-        # because whitespace should be preserved in these elements
+        # because whitespace should be preserved exactly in these elements.
+        # Note: COLLAPSE elements like <p> DO get formatting detection because
+        # their whitespace IS normalized (differences are formatting-only).
         #
         # This check must come BEFORE normative_dimension? is called,
         # because normative_dimension? returns true for text_content: :normalize
@@ -59,7 +61,7 @@ module Canon
         # detection from being applied.
         if diff_node.dimension == :text_content &&
             profile.send(:behavior_for, :text_content) == :normalize &&
-            !inside_whitespace_sensitive_element?(diff_node) &&
+            !inside_preserve_element?(diff_node) &&
             formatting_only_diff?(diff_node)
           diff_node.formatting = true
           diff_node.normative = false
@@ -156,6 +158,23 @@ module Canon
         opts = { match_opts: @match_options.options }
 
         Canon::Comparison::WhitespaceSensitivity.element_sensitive?(node, opts)
+      end
+
+      # Check if the text node is inside a PRESERVE whitespace element
+      # Only returns true for elements where whitespace is preserved exactly (:preserve),
+      # not for elements where whitespace is normalized (:collapse).
+      # @param diff_node [DiffNode] The diff node to check
+      # @return [Boolean] true if inside a preserve whitespace element
+      def inside_preserve_element?(diff_node)
+        node = diff_node.node1 || diff_node.node2
+        return false unless node
+
+        match_opts = @match_options.options
+        parent = node.parent
+        return false unless parent
+
+        classification = Canon::Comparison::WhitespaceSensitivity.classify_element(parent, match_opts)
+        classification == :preserve
       end
 
       # Extract text content from a node for formatting comparison

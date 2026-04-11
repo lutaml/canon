@@ -273,8 +273,10 @@ module Canon
                              text_content structural_whitespace attribute_presence
                              attribute_order attribute_values element_position
                              comments format similarity_threshold hash_matching
-                             similarity_matching propagation sensitive_elements
-                             whitespace_sensitive_elements respect_xml_space]
+                             similarity_matching propagation
+                             preserve_whitespace_elements
+                             collapse_whitespace_elements
+                             strip_whitespace_elements respect_xml_space]
         match_options_only = match_opts_hash.slice(*match_only_keys)
 
         # Convert operations to DiffNodes for unified pipeline
@@ -658,11 +660,20 @@ module Canon
 
         # get match_profile if it is not defined in options
         # but defined in config
-        if opts[:match_profile].nil? &&
-            Canon::Config.instance.respond_to?(comparison_format)
+        if Canon::Config.instance.respond_to?(comparison_format)
           format_config = Canon::Config.instance.public_send(comparison_format)
-          if format_config.match.profile
+          if opts[:match_profile].nil? && format_config.match.profile
             opts[:match_profile] = format_config.match.profile
+          end
+          # Pass YAML profile's extra match options (e.g., preserve_whitespace_elements)
+          # that are stored in MatchConfig's resolver but not exposed via the
+          # built-in MATCH_PROFILES system. These supplement the built-in profile.
+          profile_opts = format_config.match.profile_options
+          if profile_opts.any? && opts[:global_options].nil?
+            opts[:global_options] = profile_opts
+          elsif profile_opts.any?
+            # Merge: global_options already set (e.g., per-call) takes precedence
+            opts[:global_options] = opts[:global_options].merge(profile_opts)
           end
         end
 

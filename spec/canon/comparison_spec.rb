@@ -647,7 +647,7 @@ RSpec.describe Canon::Comparison do
         end
       end
 
-      context "with whitespace_sensitive_elements option" do
+      context "with preserve_whitespace_elements option" do
         it "treats whitelisted elements as whitespace-sensitive" do
           xml1 = "<root><code>  text  </code></root>"
           xml2 = "<root><code>text</code></root>"
@@ -660,7 +660,7 @@ RSpec.describe Canon::Comparison do
             format: :xml,
             match: {
               text_content: :normalize,
-              whitespace_sensitive_elements: [:code],
+              preserve_whitespace_elements: [:code],
             }
           )
           expect(result).to be false
@@ -677,14 +677,14 @@ RSpec.describe Canon::Comparison do
             format: :xml,
             match: {
               text_content: :normalize,
-              whitespace_sensitive_elements: [:code],
+              preserve_whitespace_elements: [:code],
             }
           )
           expect(result).to be true
         end
       end
 
-      context "with whitespace_insensitive_elements option" do
+      context "with strip_whitespace_elements option" do
         it "treats blacklisted elements as whitespace-insensitive" do
           xml1 = "<root><pre>  text  </pre></root>"
           xml2 = "<root><pre>text</pre></root>"
@@ -696,7 +696,7 @@ RSpec.describe Canon::Comparison do
             format: :html,
             match: {
               text_content: :normalize,
-              whitespace_insensitive_elements: [:pre],
+              strip_whitespace_elements: [:pre],
             }
           )
           expect(result).to be true

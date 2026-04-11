@@ -275,7 +275,7 @@ RSpec.describe "DiffFormatter mode: :pretty_diff" do
       XML
     end
 
-    context "without normalize_whitespace_elements (default: insensitive)" do
+    context "without collapse_whitespace_elements (default: insensitive)" do
       it "produces no spurious diffs from structural newline whitespace" do
         # Default (insensitive) mode drops all inter-element whitespace.
         # compact and indented formattedref are therefore identical after
@@ -289,41 +289,10 @@ RSpec.describe "DiffFormatter mode: :pretty_diff" do
       end
     end
 
-    context "with the flag set to true" do
-      it "produces no diff for structurally indented vs compact formattedref" do
-        formatter = formatter_for(
-          display_preprocessing: :normalize_pretty_print,
-          normalize_pretty_print_ignore_structural_newlines: true,
-        )
-        output = formatter.format([], :xml,
-                                  doc1: compact_formattedref,
-                                  doc2: indented_formattedref)
-        # Both sides serialize identically — no changed lines should appear.
-        expect(output).not_to include("- ")
-        expect(output).not_to include("+ ")
-        expect(output).to include("(no differences)")
-      end
-
-      it "still detects a real normative change (em content differs)" do
-        compact_changed = '<root><bibitem id="ISO712"><formattedref>' \
-                          "<em>CHANGED text</em>." \
-                          "</formattedref></bibitem></root>"
-
-        formatter = formatter_for(
-          display_preprocessing: :normalize_pretty_print,
-          normalize_pretty_print_ignore_structural_newlines: true,
-        )
-        output = formatter.format([], :xml,
-                                  doc1: compact_changed,
-                                  doc2: indented_formattedref)
-        # A real content difference must still be visible.
-        expect(output).to include("- ")
-        expect(output).to include("+ ")
-      end
-
-      it "detects content-space difference between <a> <b> and <a><b> using normalize_whitespace_elements" do
+    context "with collapse_whitespace_elements" do
+      it "detects content-space difference between <a> <b> and <a><b> using collapse_whitespace_elements" do
         # A single space between inline elements is real content.
-        # With normalize_whitespace_elements: ["p"], the trailing space in
+        # With collapse_whitespace_elements: ["p"], the trailing space in
         # "text " is visualized as ░ — making it distinguishable from "text"
         # (no space), so the diff correctly shows a changed line.
         compact_with_space = "<root><p>text <em>bold</em> rest</p></root>"
@@ -331,7 +300,7 @@ RSpec.describe "DiffFormatter mode: :pretty_diff" do
 
         formatter = formatter_for(
           display_preprocessing: :normalize_pretty_print,
-          normalize_whitespace_elements: ["p"],
+          collapse_whitespace_elements: ["p"],
         )
         output = formatter.format([], :xml,
                                   doc1: compact_with_space,
@@ -343,28 +312,28 @@ RSpec.describe "DiffFormatter mode: :pretty_diff" do
       end
     end
 
-    context "via Canon::Config (normalize_whitespace_elements)" do
+    context "via Canon::Config (collapse_whitespace_elements)" do
       around do |example|
         Canon::Config.reset!
         example.run
         Canon::Config.reset!
       end
 
-      it "reads normalize_whitespace_elements from config" do
+      it "reads collapse_whitespace_elements from config" do
         Canon::Config.configure do |cfg|
           cfg.xml.diff.mode = :pretty_diff
           cfg.xml.diff.display_preprocessing = :normalize_pretty_print
-          cfg.xml.diff.normalize_whitespace_elements = %w[p formattedref]
+          cfg.xml.diff.collapse_whitespace_elements = %w[p formattedref]
         end
 
         diff_config = Canon::Config.instance.xml.diff
-        expect(diff_config.normalize_whitespace_elements).to include("p")
-        expect(diff_config.normalize_whitespace_elements).to include("formattedref")
+        expect(diff_config.collapse_whitespace_elements).to include("p")
+        expect(diff_config.collapse_whitespace_elements).to include("formattedref")
       end
 
-      it "defaults normalize_whitespace_elements to an empty array" do
+      it "defaults collapse_whitespace_elements to an empty array" do
         diff_config = Canon::Config.instance.xml.diff
-        expect(diff_config.normalize_whitespace_elements).to eq([])
+        expect(diff_config.collapse_whitespace_elements).to eq([])
       end
     end
   end
@@ -390,7 +359,7 @@ RSpec.describe "DiffFormatter mode: :pretty_diff" do
         use_color: false,
         mode: :pretty_diff,
         display_preprocessing: :normalize_pretty_print,
-        normalize_whitespace_elements: %w[fmt-title semx],
+        collapse_whitespace_elements: %w[fmt-title semx],
         pretty_printed_expected: expected,
         pretty_printed_received: received,
       )
@@ -429,7 +398,7 @@ RSpec.describe "DiffFormatter mode: :pretty_diff" do
       it "reads pretty_printed_expected from config and passes it to the formatter" do
         Canon::Config.configure do |cfg|
           cfg.xml.diff.display_preprocessing = :normalize_pretty_print
-          cfg.xml.diff.normalize_whitespace_elements = %w[fmt-title semx]
+          cfg.xml.diff.collapse_whitespace_elements = %w[fmt-title semx]
           cfg.xml.diff.pretty_printed_expected = true
           cfg.xml.diff.pretty_printed_received = false
         end
