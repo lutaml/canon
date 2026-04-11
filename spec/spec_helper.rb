@@ -2,6 +2,12 @@
 
 require "canon"
 
+# Ensure file reads use UTF-8 regardless of system locale (LC_ALL/LANG).
+# Fixture files contain non-ASCII characters (e.g. em-dashes) and will raise
+# ArgumentError / Encoding::CompatibilityError on US-ASCII systems without this.
+Encoding.default_external = Encoding::UTF_8
+Encoding.default_internal = Encoding::UTF_8
+
 RSpec.configure do |config|
   # Enable flags like --only-failures and --next-failure
   config.example_status_persistence_file_path = ".rspec_status"

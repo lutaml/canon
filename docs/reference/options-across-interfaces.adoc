@@ -29,7 +29,7 @@ The following table shows how major Canon options are expressed in each interfac
 |===
 |Option |CLI Flag |Ruby API |RSpec Config |ENV Variable
 
-|Preprocessing
+|Comparison Preprocessing
 |`--preprocessing normalize`
 |`preprocessing: :normalize`
 |`config.canon.xml.preprocessing = :normalize`
@@ -37,6 +37,111 @@ The following table shows how major Canon options are expressed in each interfac
 |===
 
 Preprocessing values: `none`, `c14n`, `normalize`, `format`
+
+NOTE: This controls how documents are normalized _before comparison_ (equivalence detection). It is independent of display preprocessing, which controls how documents are formatted for the diff output.
+
+=== Layer 1b: Display Preprocessing Options
+
+Display preprocessing controls how documents are normalized _before the line diff is rendered_. This is independent of comparison preprocessing. Because both sides go through the same normalization, the resulting line diff shows only genuine content differences rather than formatting differences.
+
+[cols="2,2,3,3,3"]
+|===
+|Option |CLI Flag |Ruby API |RSpec Config |ENV Variable
+
+|Display Preprocessing
+|`--display-preprocessing pretty_print`
+|`display_preprocessing: :pretty_print`
+|`cfg.xml.diff.display_preprocessing = :pretty_print`
+|`CANON_XML_DIFF_DISPLAY_PREPROCESSING=pretty_print`
+
+|Pretty-printer Indent
+|N/A
+|N/A (config only)
+|`cfg.xml.diff.pretty_printer.indent = 2`
+|`CANON_XML_DIFF_PRETTY_PRINTER_INDENT=2`
+
+|Pretty-printer Indent Type
+|N/A
+|N/A (config only)
+|`cfg.xml.diff.pretty_printer.indent_type = :space`
+|`CANON_XML_DIFF_PRETTY_PRINTER_INDENT_TYPE=space`
+
+|Normalize Whitespace Elements
+|N/A
+|N/A (config only)
+|`cfg.xml.diff.normalize_whitespace_elements = %w[p li td th]`
+|`CANON_XML_NORMALIZE_WHITESPACE_ELEMENTS=p,li,td,th`
+
+|Strict Whitespace Elements
+|N/A
+|N/A (config only)
+|`cfg.xml.diff.strict_whitespace_elements = %w[pre code]`
+|`CANON_XML_STRICT_WHITESPACE_ELEMENTS=pre,code`
+
+|Pretty-printed Expected
+|N/A
+|`match: { pretty_printed_expected: true }`
+|`cfg.xml.diff.pretty_printed_expected = true`
+|`CANON_XML_DIFF_PRETTY_PRINTED_EXPECTED=true`
+
+|Pretty-printed Received
+|N/A
+|`match: { pretty_printed_received: true }`
+|`cfg.xml.diff.pretty_printed_received = true`
+|`CANON_XML_DIFF_PRETTY_PRINTED_RECEIVED=true`
+
+|Sort Attributes (pretty printer)
+|N/A
+|N/A (config only)
+|`cfg.xml.diff.pretty_printer_sort_attributes = true`
+|`CANON_XML_DIFF_PRETTY_PRINTER_SORT_ATTRIBUTES=true`
+
+|Compact Semantic Report
+|N/A
+|N/A (config only)
+|`cfg.xml.diff.compact_semantic_report = true`
+|`CANON_XML_DIFF_COMPACT_SEMANTIC_REPORT=true`
+
+|Expand Difference
+|N/A
+|N/A (config only)
+|`cfg.xml.diff.expand_difference = true`
+|`CANON_XML_DIFF_EXPAND_DIFFERENCE=true`
+|===
+
+Display preprocessing values: `none` (default), `pretty_print`, `normalize_pretty_print`, `c14n`
+
+* `:none` — documents are used as-is for the line diff (existing behaviour)
+* `:pretty_print` — both documents are run through a format-specific pretty-printer before the line diff: `Canon::PrettyPrinter::Xml` for XML (one tag per line, consistent indentation); `Canon::PrettyPrinter::Html` (Nokogiri HTML5 serializer) for HTML. Recommended for XML and HTML RSpec tests.
+* `:normalize_pretty_print` — like `:pretty_print` but uses `Canon::PrettyPrinter::XmlNormalized`, which guarantees one line per XML node even for mixed-content elements (those containing both text and child elements). Recommended when XML contains inline markup (Metanorma, DocBook). Use `normalize_whitespace_elements` or `strict_whitespace_elements` to control per-element whitespace visualization.
+* `:c14n` — both documents are run through canonical normalization before the line diff. For XML: canonical XML (C14N, attribute-order sorting). For HTML: Nokogiri HTML5 serialization (normalizes attribute order and whitespace).
+
+NOTE: Pretty-printer indent options only apply when `display_preprocessing` is `:pretty_print` or `:normalize_pretty_print`.
+
+NOTE: `compact_semantic_report` controls the representation of XML element nodes in the *Semantic Diff Report* section (the structured summary that appears above the line diff).  When `false` (default), element nodes are described with their `node_info` string (e.g. `name: strong namespace_uri: …`), which is unambiguous but verbose.  When `true`, element nodes are serialized as compact inline XML (e.g. `<strong>Annex A</strong>`), which is much easier to read at a glance.  Plain text nodes (leaf text content) are not affected — they always display their decoded string value.
+
+=== Layer 1c: Character Visualization
+
+Character visualization controls whether invisible characters (spaces, tabs, non-breaking spaces, etc.) are replaced with visible Unicode symbols in diff output.
+
+[cols="2,2,3,3,3"]
+|===
+|Option |CLI Flag |Ruby API |RSpec Config |ENV Variable
+
+|Character Visualization
+|N/A
+|`character_visualization: true`
+|`cfg.xml.diff.character_visualization = false`
+|`CANON_XML_DIFF_CHARACTER_VISUALIZATION=false`
+|===
+
+Character visualization values:
+
+* `true` — (default) the full default visualization map is applied; spaces appear as `░`, tabs as `⇥`, non-breaking spaces as `␣`, etc.
+* `false` — visualization is disabled; all characters appear as plain text.
+* `:content_only` — reserved for future use; currently behaves as `true`. Future intent: apply visualization only to text-node content, leaving structural indentation whitespace plain.
+
+NOTE: Setting `character_visualization: false` is useful when copying diff output from a failure message, or when downstream tooling cannot handle Unicode symbol substitutions.
 
 === Layer 2: Algorithm Selection
 
@@ -58,7 +163,7 @@ Preprocessing values: `none`, `c14n`, `normalize`, `format`
 |===
 
 Algorithm values: `dom`, `semantic` +
-Diff mode values: `by_line`, `by_object`
+Diff mode values: `by_line`, `by_object`, `pretty_diff`
 
 === Layer 3: Match Options
 
@@ -194,6 +299,81 @@ Values: `strict`, `ignore`
 |`config.canon.xml.diff.grouping_lines = 15`
 |`CANON_GROUPING_LINES=15`
 |===
+
+=== Debug Input Display Options
+
+These options control whether Canon dumps the raw or preprocessed document content to the terminal alongside the diff.  They are useful for debugging comparisons — e.g. inspecting what the received output actually looks like before filing an issue.
+
+[cols="2,2,3,3,3"]
+|===
+|Option |CLI Flag |Ruby API |RSpec Config |ENV Variable
+
+|Show Raw Inputs (both)
+|`--show-raw-inputs`
+|N/A (config only)
+|`cfg.xml.diff.show_raw_inputs = true`
+|`CANON_XML_DIFF_SHOW_RAW_INPUTS=true`
+
+|Show Raw Expected only
+|N/A
+|N/A (config only)
+|`cfg.xml.diff.show_raw_expected = true`
+|`CANON_XML_DIFF_SHOW_RAW_EXPECTED=true`
+
+|Show Raw Received only
+|N/A
+|N/A (config only)
+|`cfg.xml.diff.show_raw_received = true`
+|`CANON_XML_DIFF_SHOW_RAW_RECEIVED=true`
+
+|Show Preprocessed Inputs (both)
+|`--show-preprocessed-inputs`
+|N/A (config only)
+|`cfg.xml.diff.show_preprocessed_inputs = true`
+|`CANON_XML_DIFF_SHOW_PREPROCESSED_INPUTS=true`
+
+|Show Preprocessed Expected only
+|`--show-preprocessed-expected`
+|N/A (config only)
+|`cfg.xml.diff.show_preprocessed_expected = true`
+|`CANON_XML_DIFF_SHOW_PREPROCESSED_EXPECTED=true`
+
+|Show Preprocessed Received only
+|`--show-preprocessed-received`
+|N/A (config only)
+|`cfg.xml.diff.show_preprocessed_received = true`
+|`CANON_XML_DIFF_SHOW_PREPROCESSED_RECEIVED=true`
+
+|Show Pretty-printed Inputs (both)
+|`--show-prettyprint-inputs`
+|N/A (config only)
+|`cfg.xml.diff.show_prettyprint_inputs = true`
+|`CANON_XML_DIFF_SHOW_PRETTYPRINT_INPUTS=true`
+
+|Show Pretty-printed Expected only
+|`--show-prettyprint-expected`
+|N/A (config only)
+|`cfg.xml.diff.show_prettyprint_expected = true`
+|`CANON_XML_DIFF_SHOW_PRETTYPRINT_EXPECTED=true`
+
+|Show Pretty-printed Received only
+|`--show-prettyprint-received`
+|N/A (config only)
+|`cfg.xml.diff.show_prettyprint_received = true`
+|`CANON_XML_DIFF_SHOW_PRETTYPRINT_RECEIVED=true`
+
+|Show Line-Numbered Inputs
+|`--show-line-numbered-inputs`
+|N/A (config only)
+|`cfg.xml.diff.show_line_numbered_inputs = true`
+|`CANON_XML_DIFF_SHOW_LINE_NUMBERED_INPUTS=true`
+|===
+
+NOTE: `show_raw_inputs`, `show_preprocessed_inputs`, and `show_prettyprint_inputs` are convenience shorthands for enabling both sides of their respective section simultaneously.  Use the per-side variants (`*_expected` / `*_received`) when you only want to display one side — e.g. suppress the (long) expected fixture and show only what was generated.
+
+NOTE: The *pretty-printed* section (`show_prettyprint_*`) differs from the *preprocessed* section (`show_preprocessed_*`) in two ways: (1) it always pretty-prints the **original** strings using `PrettyPrinter::Xml`/`Html`, independently of any `preprocessing` or `display_preprocessing` setting; and (2) it outputs **plain ASCII** with no character visualization (spaces remain spaces), making the output suitable for direct copy-paste into RSpec heredoc fixtures.
+
+NOTE: `verbose_diff` enables the raw, preprocessed, and line-numbered debug sections simultaneously.  It does **not** enable the pretty-printed section, which is a fixture-oriented feature independent of debugging verbosity.
 
 === Size Limit Options
 

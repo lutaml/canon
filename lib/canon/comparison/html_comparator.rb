@@ -60,10 +60,14 @@ module Canon
         def equivalent?(html1, html2, opts = {}, child_opts = {})
           opts = DEFAULT_OPTS.merge(opts)
 
-          # Capture original HTML strings BEFORE any parsing/transformation
-          # These are used for display to preserve original formatting
-          original_str1 = extract_original_string(html1)
-          original_str2 = extract_original_string(html2)
+          # Capture original HTML strings for display.
+          # Prefer the true originals preserved by dom_diff (before
+          # HtmlParser.parse mutated the DOM), falling back to
+          # extract_original_string for callers that bypass dom_diff.
+          original_str1 = opts.delete(:_original_str1) ||
+            extract_original_string(html1)
+          original_str2 = opts.delete(:_original_str2) ||
+            extract_original_string(html2)
 
           # Resolve match options with format-specific defaults
           match_opts_hash = MatchOptions::Xml.resolve(
@@ -217,10 +221,11 @@ module Canon
         # @param match_opts_hash [Hash] Resolved match options
         # @return [Boolean, ComparisonResult] Result of tree diff comparison
         def perform_semantic_tree_diff(html1, html2, opts, match_opts_hash)
-          # Capture original HTML strings BEFORE any parsing/transformation
-          # These are used for display to preserve original formatting
-          original_str1 = extract_original_string(html1)
-          original_str2 = extract_original_string(html2)
+          # Capture original HTML strings for display (see equivalent? for details).
+          original_str1 = opts.delete(:_original_str1) ||
+            extract_original_string(html1)
+          original_str2 = opts.delete(:_original_str2) ||
+            extract_original_string(html2)
 
           # Parse to Canon::Xml::Node (preserves preprocessing)
           # For HTML, we parse as XML to get Canon::Xml::Node structure

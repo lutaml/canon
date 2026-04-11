@@ -19,8 +19,14 @@ module Canon
         #
         # @param differences [Array<DiffNode>] Array of differences
         # @param use_color [Boolean] Whether to use colors
+        # @param show_diffs [Symbol] Filter: :all (default), :normative, :informative
+        # @param compact_semantic_report [Boolean] When true, serialize element nodes
+        #   as compact XML (e.g. <strong>Annex</strong>) instead of the verbose
+        #   node_info description (e.g. "name: strong namespace_uri: …")
         # @return [String] Formatted semantic diff report
-        def format_report(differences, use_color: true)
+        def format_report(differences, use_color: true, show_diffs: :all,
+                          compact_semantic_report: false,
+                          expand_difference: false)
           return "" if differences.empty?
 
           # Group differences by normative status
@@ -31,6 +37,10 @@ module Canon
             diff.respond_to?(:normative?) && !diff.normative?
           end
 
+          # Apply show_diffs filter — same semantics as the line-diff filter
+          show_normative   = show_diffs != :informative
+          show_informative = show_diffs != :normative
+
           output = []
           output << ""
           output << colorize("=" * 70, :cyan, use_color, bold: true)
@@ -40,7 +50,7 @@ module Canon
           output << colorize("=" * 70, :cyan, use_color, bold: true)
 
           # Show normative differences first
-          if normative.any?
+          if normative.any? && show_normative
             output << ""
             output << colorize(
               "┌─ NORMATIVE DIFFERENCES (#{normative.length}) ─┐", :green, use_color, bold: true
@@ -49,12 +59,14 @@ module Canon
             normative.each_with_index do |diff, i|
               output << ""
               output << format_single_diff(diff, i + 1, normative.length,
-                                           use_color, section: "NORMATIVE")
+                                           use_color, section: "NORMATIVE",
+                                                      compact: compact_semantic_report,
+                                                      expand_difference: expand_difference)
             end
           end
 
           # Show informative differences second
-          if informative.any?
+          if informative.any? && show_informative
             output << ""
             output << ""
             output << colorize(
@@ -64,7 +76,9 @@ module Canon
             informative.each_with_index do |diff, i|
               output << ""
               output << format_single_diff(diff, i + 1, informative.length,
-                                           use_color, section: "INFORMATIVE")
+                                           use_color, section: "INFORMATIVE",
+                                                      compact: compact_semantic_report,
+                                                      expand_difference: expand_difference)
             end
           end
 
@@ -78,7 +92,7 @@ module Canon
         private
 
         # Format a single difference with dimension-specific details
-        def format_single_diff(diff, number, total, use_color, section: nil)
+        def format_single_diff(diff, number, total, use_color, section: nil, compact: false, expand_difference: false)
           output = []
 
           # Header - handle both DiffNode and Hash
@@ -120,7 +134,7 @@ module Canon
 
           # Dimension-specific details
           detail1, detail2, changes = DiffDetailFormatterHelpers::DimensionFormatter.format_dimension_details(
-            diff, use_color
+            diff, use_color, compact: compact, expand_difference: expand_difference
           )
 
           output << colorize("⊖ Expected (File 1):", :red, use_color,

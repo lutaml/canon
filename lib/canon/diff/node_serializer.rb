@@ -26,9 +26,9 @@ module Canon
 
         # Handle Canon::Xml::Nodes::TextNode
         if node.is_a?(Canon::Xml::Nodes::TextNode)
-          # Use value (decoded text) so the serialized form can be found
-          # in the document text for character-level diff enrichment.
-          return node.value
+          # Use original text (with entity references) if available,
+          # otherwise fall back to value (decoded text)
+          return node.original || node.value
         end
 
         # Handle Canon::Xml::Nodes::CommentNode

@@ -11,8 +11,9 @@ module Canon
         #
         # @param diff [DiffNode, Hash] Difference node
         # @param use_color [Boolean] Whether to use colors
+        # @param compact [Boolean] Whether to serialize element nodes as compact XML
         # @return [String] Formatted dimension details
-        def self.format_dimension_details(diff, use_color)
+        def self.format_dimension_details(diff, use_color, compact: false, expand_difference: false)
           dimension = extract_dimension(diff)
 
           case dimension
@@ -21,7 +22,7 @@ module Canon
           when :namespace_declarations
             format_namespace_declarations_details(diff, use_color)
           when :element_structure
-            format_element_structure_details(diff, use_color)
+            format_element_structure_details(diff, use_color, expand_difference: expand_difference)
           when :attribute_presence
             format_attribute_presence_details(diff, use_color)
           when :attribute_values
@@ -29,7 +30,7 @@ module Canon
           when :attribute_order
             format_attribute_order_details(diff, use_color)
           when :text_content
-            format_text_content_details(diff, use_color)
+            format_text_content_details(diff, use_color, compact: compact)
           when :structural_whitespace
             format_structural_whitespace_details(diff, use_color)
           when :comments
@@ -37,7 +38,7 @@ module Canon
           when :hash_diff
             format_hash_diff_details(diff, use_color)
           else
-            format_fallback_details(diff, use_color)
+            format_fallback_details(diff, use_color, compact: compact)
           end
         end
 
@@ -163,7 +164,7 @@ module Canon
         # @param diff [DiffNode, Hash] Difference node
         # @param use_color [Boolean] Whether to use colors
         # @return [Array] Tuple of [detail1, detail2, changes]
-        def self.format_element_structure_details(diff, use_color)
+        def self.format_element_structure_details(diff, use_color, expand_difference: false)
           require_relative "color_helper"
           require_relative "node_utils"
 
@@ -173,37 +174,19 @@ module Canon
           name1 = NodeUtils.get_element_name_for_display(node1)
           name2 = NodeUtils.get_element_name_for_display(node2)
 
-          # For text/comment nodes, include the actual content in the display
-          text1 = NodeUtils.get_node_text(node1) if node1
-          text2 = NodeUtils.get_node_text(node2) if node2
+          if expand_difference
+            display1 = NodeUtils.serialize_node_compact(node1)
+            display2 = NodeUtils.serialize_node_compact(node2)
+            detail1 = ColorHelper.colorize(display1, :red, use_color)
+            detail2 = ColorHelper.colorize(display2, :green, use_color)
+          else
+            detail1 = "<#{ColorHelper.colorize(name1, :red, use_color)}>"
+            detail2 = "<#{ColorHelper.colorize(name2, :green, use_color)}>"
+          end
 
-          # Use parentheses for non-element nodes (text, comment) to distinguish
-          # from XML elements which use angle brackets
-          detail1 = if name1.start_with?("(")
-                      # Text/comment node - show just quoted content in Expected/Actual
-                      ColorHelper.colorize(
-                        format_json_value(text1), :red, use_color
-                      )
-                    elsif name1.empty?
-                      # Node is nil - show empty
-                      ColorHelper.colorize("\"\"", :red, use_color)
-                    else
-                      "<#{ColorHelper.colorize(name1, :red, use_color)}>"
-                    end
-
-          detail2 = if name2.start_with?("(")
-                      # Text/comment node - show just quoted content in Expected/Actual
-                      ColorHelper.colorize(
-                        format_json_value(text2), :green, use_color
-                      )
-                    elsif name2.empty?
-                      # Node is nil - show empty
-                      ColorHelper.colorize("\"\"", :green, use_color)
-                    else
-                      "<#{ColorHelper.colorize(name2, :green, use_color)}>"
-                    end
-
-          changes = nil # Suppress Changes since Reason already has full info
+          changes = "Element differs: #{ColorHelper.colorize(name1, :red,
+                                                             use_color)} → " \
+                    "#{ColorHelper.colorize(name2, :green, use_color)}"
 
           [detail1, detail2, changes]
         end
@@ -336,8 +319,9 @@ module Canon
         #
         # @param diff [DiffNode, Hash] Difference node
         # @param use_color [Boolean] Whether to use colors
+        # @param compact [Boolean] Whether to serialize element nodes as compact XML
         # @return [Array] Tuple of [detail1, detail2, changes]
-        def self.format_text_content_details(diff, use_color)
+        def self.format_text_content_details(diff, use_color, compact: false)
           require_relative "color_helper"
           require_relative "node_utils"
           require_relative "text_utils"
@@ -345,15 +329,15 @@ module Canon
           node1 = extract_node1(diff)
           node2 = extract_node2(diff)
 
-          text1 = NodeUtils.get_node_text(node1)
-          text2 = NodeUtils.get_node_text(node2)
+          text1 = NodeUtils.node_to_display(node1, compact: compact)
+          text2 = NodeUtils.node_to_display(node2, compact: compact)
 
           # Handle cases where one node is missing (e.g. text added or removed)
           if node1.nil? || node2.nil?
             if node1.nil?
-              text2 = NodeUtils.get_node_text(node2)
+              text2 = NodeUtils.node_to_display(node2, compact: compact)
             else
-              text1 = NodeUtils.get_node_text(node1)
+              text1 = NodeUtils.node_to_display(node1, compact: compact)
             end
           end
 
@@ -364,6 +348,13 @@ module Canon
             detail2 = ColorHelper.colorize(
               TextUtils.visualize_whitespace(text2), :green, use_color
             )
+          elsif compact && (node1.is_a?(Canon::Xml::Nodes::ElementNode) ||
+                           node2.is_a?(Canon::Xml::Nodes::ElementNode))
+            # In compact mode with element nodes, display as raw XML without
+            # JSON-string quoting.  In normal mode (or for plain text), apply
+            # the standard escaping/quoting logic.
+            detail1 = ColorHelper.colorize(text1, :red, use_color)
+            detail2 = ColorHelper.colorize(text2, :green, use_color)
           else
             # Escape non-ASCII characters for better terminal display
             # JSON.generate doesn't escape chars like NBSP (U+00A0) or em-dash (U+2014)
@@ -478,18 +469,20 @@ module Canon
         #
         # @param diff [DiffNode, Hash] Difference node
         # @param use_color [Boolean] Whether to use colors
+        # @param compact [Boolean] Whether to serialize element nodes as compact XML
         # @return [Array] Tuple of [detail1, detail2, changes]
-        def self.format_fallback_details(diff, use_color)
+        def self.format_fallback_details(diff, use_color, compact: false)
           require_relative "color_helper"
           require_relative "node_utils"
 
           node1 = extract_node1(diff)
           node2 = extract_node2(diff)
 
-          detail1 = ColorHelper.colorize(NodeUtils.format_node_brief(node1),
-                                         :red, use_color)
-          detail2 = ColorHelper.colorize(NodeUtils.format_node_brief(node2),
-                                         :green, use_color)
+          raw1 = compact ? NodeUtils.node_to_display(node1, compact: true) : NodeUtils.format_node_brief(node1)
+          raw2 = compact ? NodeUtils.node_to_display(node2, compact: true) : NodeUtils.format_node_brief(node2)
+
+          detail1 = ColorHelper.colorize(raw1, :red, use_color)
+          detail2 = ColorHelper.colorize(raw2, :green, use_color)
 
           dimension = extract_dimension(diff)
           changes = "#{dimension.to_s.capitalize} differs: #{detail1} → #{detail2}"

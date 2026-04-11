@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 require_relative "base_formatter"
-require_relative "line_renderers"
 require_relative "../legend"
 require_relative "../../tree_diff/core/xml_entity_decoder"
 require "set"
@@ -99,123 +98,6 @@ module Canon
           output.join("\n")
         end
 
-        # Render a removed or added line that has char_ranges with character-level highlighting
-        def render_removed_line_with_ranges(diff_line, line_num, formatting,
-informative)
-          highlighted = render_line_from_char_ranges(
-            diff_line.content, diff_line.char_ranges, :old,
-            formatting: formatting
-          )
-          old_str = "%#{@line_num_width}d" % line_num
-          blank = " " * @line_num_width
-          marker = if formatting
-                     "["
-                   elsif informative
-                     "<"
-                   else
-                     "-"
-                   end
-          if @use_color
-            yellow_old = colorize(old_str,
-                                  structure_color(:line_number) || :yellow)
-            yellow_pipe1 = colorize("|", structure_color(:pipe) || :yellow)
-            yellow_pipe2 = colorize("|", structure_color(:pipe) || :yellow)
-            marker_color = if formatting
-                             theme_color(:formatting, :marker) || :bright_blue
-                           elsif informative
-                             theme_color(:informative, :marker) || :cyan
-                           else
-                             theme_color(:removed, :marker) || :red
-                           end
-            styled_marker = colorize(marker, marker_color)
-            "#{yellow_old}#{yellow_pipe1}#{blank}#{styled_marker} #{yellow_pipe2} #{highlighted}"
-          else
-            "#{old_str}|#{blank}#{marker} | #{highlighted}"
-          end
-        end
-
-        # Render a removed or added line that has char_ranges with character-level highlighting
-        def render_added_line_with_ranges(diff_line, line_num, formatting,
-informative)
-          highlighted = render_line_from_char_ranges(
-            diff_line.content, diff_line.new_char_ranges, :new,
-            formatting: formatting
-          )
-          new_str = "%#{@line_num_width}d" % line_num
-          blank = " " * @line_num_width
-          marker = if formatting
-                     "]"
-                   elsif informative
-                     ">"
-                   else
-                     "+"
-                   end
-          if @use_color
-            yellow_new = colorize(new_str,
-                                  structure_color(:line_number) || :yellow)
-            yellow_pipe1 = colorize("|", structure_color(:pipe) || :yellow)
-            yellow_pipe2 = colorize("|", structure_color(:pipe) || :yellow)
-            marker_color = if formatting
-                             theme_color(:formatting, :marker) || :bright_blue
-                           elsif informative
-                             theme_color(:informative, :marker) || :cyan
-                           else
-                             theme_color(:added, :marker) || :green
-                           end
-            styled_marker = colorize(marker, marker_color)
-            "#{blank}#{yellow_pipe1}#{yellow_new}#{styled_marker} #{yellow_pipe2} #{highlighted}"
-          else
-            "#{blank}|#{new_str}#{marker} | #{highlighted}"
-          end
-        end
-
-        # Render a formatting-only line (removed or added) without char_ranges
-        def render_formatting_line(diff_line, line_num, side, marker_char)
-          if side == :old
-            old_str = "%#{@line_num_width}d" % line_num
-            blank = " " * @line_num_width
-          else
-            blank = " " * @line_num_width
-            new_str = "%#{@line_num_width}d" % line_num
-          end
-          formatting_color = theme_color(:formatting, :content) || :bright_blue
-          # Use different bg for removed vs added spaces
-          bg_color = side == :old ? :blue : :cyan
-          # Check if space visualization is enabled (map space to something other than space)
-          space_char = " "
-          vis_space = @visualization_map.fetch(space_char, space_char)
-          # Apply visualization if space maps to something else (like ░)
-          content = if vis_space == space_char
-                      diff_line.content
-                    else
-                      diff_line.content.chars.map do |c|
-                        c == space_char ? vis_space : c
-                      end.join
-                    end
-          content_with_bg = apply_style_only(content,
-                                             { color: formatting_color,
-                                               bg: bg_color })
-          if @use_color
-            line_num_color = structure_color(:line_number) || :yellow
-            pipe_color = structure_color(:pipe) || :yellow
-            marker_color = theme_color(:formatting, :marker) || :bright_blue
-            yellow_old = colorize(old_str || "", line_num_color) if side == :old
-            yellow_new = colorize(new_str || "", line_num_color) if side == :new
-            yellow_pipe1 = colorize("|", pipe_color)
-            yellow_pipe2 = colorize("|", pipe_color)
-            styled_marker = colorize(marker_char, marker_color)
-            if side == :old
-              "#{yellow_old}#{yellow_pipe1}#{blank}#{styled_marker} #{yellow_pipe2} #{content_with_bg}"
-            else
-              "#{blank}#{yellow_pipe1}#{yellow_new}#{styled_marker} #{yellow_pipe2} #{content_with_bg}"
-            end
-          elsif side == :old
-            "#{old_str}|#{blank}#{marker_char} | #{diff_line.content}"
-          else
-            "#{blank}|#{new_str}#{marker_char} | #{diff_line.content}"
-          end
-        end
-
         # Format a context using its DiffLines
         def format_context_from_lines(context, lines1, _lines2)
           output = []
@@ -232,17 +114,39 @@ informative)
               formatting = diff_line.formatting?
               informative = diff_line.informative?
 
-              output << if diff_line.has_char_ranges?
-                          render_removed_line_with_ranges(diff_line, line_num,
-                                                          formatting, informative)
-                        elsif formatting
-                          render_formatting_line(diff_line, line_num, :old, "[")
+              output << if formatting
+                          # Formatting-only removal: use theme formatting style
+                          format_unified_line(line_num, nil, "[",
+                                              diff_line.content,
+                                              theme_color(:formatting, :content),
+                                              formatting: true)
                         elsif informative
+                          # Informative removal: use theme informative style
                           format_unified_line(line_num, nil, "<",
                                               diff_line.content,
                                               theme_color(:informative, :content),
                                               informative: true)
+                        elsif diff_line.has_char_ranges?
+                          # Use character-level highlighting when char_ranges available.
+                          highlighted = render_line_from_char_ranges(
+                            diff_line.content, diff_line.char_ranges, :old
+                          )
+                          old_str = "%#{@line_num_width}d" % line_num
+                          blank = " " * @line_num_width
+                          if @use_color
+                            yellow_old = colorize(old_str,
+                                                  structure_color(:line_number) || :yellow)
+                            yellow_pipe1 = colorize("|",
+                                                    structure_color(:pipe) || :yellow)
+                            yellow_pipe2 = colorize("|",
+                                                    structure_color(:pipe) || :yellow)
+                            red_marker = styled_marker("-", :removed)
+                            "#{yellow_old}#{yellow_pipe1}#{blank}#{red_marker} #{yellow_pipe2} #{highlighted}"
+                          else
+                            "#{old_str}|#{blank}- | #{highlighted}"
+                          end
                         else
+                          # Normative removal: use theme removed style
                           format_unified_line(line_num, nil, "-",
                                               diff_line.content,
                                               theme_color(:removed, :content))
@@ -252,17 +156,20 @@ informative)
               formatting = diff_line.formatting?
               informative = diff_line.informative?
 
-              output << if diff_line.has_char_ranges?
-                          render_added_line_with_ranges(diff_line, line_num,
-                                                        formatting, informative)
-                        elsif formatting
-                          render_formatting_line(diff_line, line_num, :new, "]")
+              output << if formatting
+                          # Formatting-only addition: use theme formatting style
+                          format_unified_line(nil, line_num, "]",
+                                              diff_line.content,
+                                              theme_color(:formatting, :content),
+                                              formatting: true)
                         elsif informative
+                          # Informative addition: use theme informative style
                           format_unified_line(nil, line_num, ">",
                                               diff_line.content,
                                               theme_color(:informative, :content),
                                               informative: true)
                         else
+                          # Normative addition: use theme added style
                           format_unified_line(nil, line_num, "+",
                                               diff_line.content,
                                               theme_color(:added, :content))
@@ -271,12 +178,7 @@ informative)
               output << format_changed_line(diff_line, lines1)
             when :reflow_summary
               # Reflow summary: show collapsed formatting-only reflow
-              renderer = LineRendererFactory.new(
-                theme: theme,
-                use_color: @use_color,
-                line_num_width: @line_num_width,
-              )
-              output << renderer.for_line(diff_line).render(diff_line)
+              output << format_reflow_summary(diff_line)
             end
           end
 
@@ -362,8 +264,6 @@ informative)
 
         # Format a changed diff line using DiffCharRanges for character-level highlighting.
         # Reads pre-computed char ranges from the DiffLine — NO tokenization, NO LCS.
-        # Format a changed diff line using DiffCharRanges for character-level highlighting.
-        # Reads pre-computed char ranges from the DiffLine — NO tokenization, NO LCS.
         def format_changed_line(diff_line, _lines1)
           old_line_num = diff_line.line_number + 1
           new_line_num = (diff_line.new_position || diff_line.line_number) + 1
@@ -371,45 +271,8 @@ informative)
           informative = diff_line.informative?
           old_content = diff_line.old_content || diff_line.content
           new_content = diff_line.new_content || diff_line.content
-          if diff_line.has_char_ranges?
-            # Use character-level highlighting when char_ranges available.
-            # Even if formatting? is true, show the actual character changes.
-            old_ranges = diff_line.char_ranges
-            new_ranges = diff_line.new_char_ranges
-            has_old_change = old_ranges.any? { |cr| cr.status == :changed_old }
-            has_new_change = new_ranges.any? { |cr| cr.status == :changed_new }
-            # Mixed change: both sides have changed content AND there are
-            # MULTIPLE separate changed regions (not just prefix+change+suffix).
-            old_changed_regions = count_changed_regions(old_ranges,
-                                                        :changed_old)
-            new_changed_regions = count_changed_regions(new_ranges,
-                                                        :changed_new)
-            is_mixed = has_old_change && has_new_change &&
-              (old_changed_regions > 1 || new_changed_regions > 1)
-            # Always compute highlighted versions when we have char_ranges
-            # Pass formatting flag to use formatting color (bright_blue) instead of red/green
-            old_highlighted = render_line_from_char_ranges(
-              old_content, diff_line.char_ranges, :old, formatting: formatting
-            )
-            new_highlighted = render_line_from_char_ranges(
-              new_content, diff_line.new_char_ranges, :new, formatting: formatting
-            )
-            if is_mixed
-              # Mixed change: use * marker
-              format_mixed_changed_line(old_line_num, new_line_num,
-                                        diff_line.char_ranges, diff_line.new_char_ranges,
-                                        old_content, new_content, formatting: formatting)
-            elsif @diff_mode == :inline
-              # Inline mode for token changes: show OLD → NEW on same line
-              format_token_diff_line_inline(old_line_num, new_line_num,
-                                            old_highlighted, new_highlighted,
-                                            formatting: formatting)
-            else
-              # Separate mode: show OLD and NEW on different lines
-              format_token_diff_line(old_line_num, new_line_num, old_highlighted,
-                                     new_highlighted, formatting: formatting)
-            end
-          elsif formatting
+
+          if formatting
             # For formatting-only changes, marker goes on NEW side:
             # - If new_content has MORE whitespace than old_content: formatting ADDED → ]
             # - If new_content has LESS whitespace than old_content: formatting REMOVED → [
@@ -430,6 +293,47 @@ informative)
               format_unified_line(nil, new_line_num, ">", new_content,
                                   theme_color(:informative, :content_new), informative: true),
             ].join("\n")
+          elsif diff_line.has_char_ranges?
+            # Check if this is a mixed change (both old and new have changed content
+            # AND both have multiple ranges indicating partial deletion/insertion)
+            old_ranges = diff_line.char_ranges
+            new_ranges = diff_line.new_char_ranges
+            has_old_change = old_ranges.any? { |cr| cr.status == :changed_old }
+            has_new_change = new_ranges.any? { |cr| cr.status == :changed_new }
+
+            # Mixed change: both sides have changed content AND there are
+            # MULTIPLE separate changed regions (not just prefix+change+suffix).
+            # Count contiguous changed regions — a simple word replacement has
+            # ONE changed region even though it produces 3 ranges (prefix+change+suffix).
+            old_changed_regions = count_changed_regions(old_ranges,
+                                                        :changed_old)
+            new_changed_regions = count_changed_regions(new_ranges,
+                                                        :changed_new)
+            is_mixed = has_old_change && has_new_change &&
+              (old_changed_regions > 1 || new_changed_regions > 1)
+
+            # Always compute highlighted versions when we have char_ranges
+            old_highlighted = render_line_from_char_ranges(
+              old_content, diff_line.char_ranges, :old
+            )
+            new_highlighted = render_line_from_char_ranges(
+              new_content, diff_line.new_char_ranges, :new
+            )
+
+            if is_mixed
+              # Mixed change: use * marker
+              format_mixed_changed_line(old_line_num, new_line_num,
+                                        diff_line.char_ranges, diff_line.new_char_ranges,
+                                        old_content, new_content)
+            elsif @diff_mode == :inline
+              # Inline mode for token changes: show OLD → NEW on same line
+              format_token_diff_line_inline(old_line_num, new_line_num,
+                                            old_highlighted, new_highlighted)
+            else
+              # Separate mode: show OLD and NEW on different lines
+              format_token_diff_line(old_line_num, new_line_num, old_highlighted,
+                                     new_highlighted)
+            end
           elsif @diff_mode == :inline
             # Inline mode: show OLD → NEW on same line
             separator = " → "
@@ -462,41 +366,22 @@ informative)
         # @param line_text [String] the full line text
         # @param ranges [Array<DiffCharRange>] character ranges for this line
         # @param side [Symbol] :old or :new
-        # @param formatting [Boolean] if true, use formatting style (bright_blue)
-        #   instead of normative removed/added colors
         # @return [String] rendered text with colors/visualization applied
-        def render_line_from_char_ranges(line_text, ranges, side,
-formatting: false)
+        def render_line_from_char_ranges(line_text, ranges, side)
           return apply_visualization(line_text) if ranges.nil? || ranges.empty?
 
           parts = []
           cursor = 0
 
-          # Get styles for each change type
-          removed_style = content_style(:removed)
-          added_style = content_style(:added)
-          informative_old = theme_style(:diff, :informative, :content_old)
-          informative_new = theme_style(:diff, :informative, :content_new)
-
-          # For formatting-only changes, pre-compute styles with bg colors
-          removed_style_fmt = formatting ? removed_style.merge(bg: :blue) : nil
-          added_style_fmt = formatting ? added_style.merge(bg: :cyan) : nil
-
           ranges.each do |cr|
             # Fill in any gap before this range as unchanged text
-            # For formatting-only changes: apply bg color to the gap (e.g., leading whitespace)
             if cursor < cr.start_col
               gap = line_text[cursor...cr.start_col]
               decoded_gap = Canon::TreeDiff::Core::XmlEntityDecoder.decode_xml_entities(gap)
-              parts << if formatting
-                         gap_style = side == :old ? removed_style_fmt : added_style_fmt
-                         apply_style_only(decoded_gap, gap_style)
-                       else
-                         apply_selective_visualization(decoded_gap)
-                       end
+              parts << apply_visualization(decoded_gap)
             end
 
-            segment = cr.text_content || cr.extract_from(line_text)
+            segment = cr.extract_from(line_text)
             next if segment.nil? || segment.empty?
 
             # Decode XML entities so visualization can handle actual characters
@@ -505,64 +390,59 @@ formatting: false)
 
             parts << if cr.diff_node&.informative?
                        # Informative change: use theme informative colors
+                       informative_old = theme_color(:informative, :content_old)
+                       informative_new = theme_color(:informative, :content_new)
                        case cr.status
                        when :unchanged
-                         apply_selective_visualization(decoded_segment)
+                         apply_visualization(decoded_segment)
                        when :changed_old
                          (if side == :old
-                            apply_style_only(decoded_segment, informative_old)
+                            apply_visualization(decoded_segment,
+                                                informative_old)
                           else
-                            apply_selective_visualization(decoded_segment)
+                            apply_visualization(decoded_segment)
                           end)
                        when :changed_new
                          (if side == :new
-                            apply_style_only(decoded_segment, informative_new)
+                            apply_visualization(decoded_segment,
+                                                informative_new)
                           else
-                            apply_selective_visualization(decoded_segment)
+                            apply_visualization(decoded_segment)
                           end)
                        when :removed
-                         apply_style_only(decoded_segment, informative_old)
+                         apply_visualization(decoded_segment, informative_old)
                        when :added
-                         apply_style_only(decoded_segment, informative_new)
+                         apply_visualization(decoded_segment, informative_new)
                        else
-                         apply_selective_visualization(decoded_segment)
-                       end
-                     elsif formatting
-                       # Formatting-only change: only CHANGED spaces get bg highlight
-                       # Unchanged spaces get no bg (they're visible via ░ when space
-                       # visualization is on)
-                       case cr.status
-                       when :removed, :changed_old
-                         apply_style_only(decoded_segment, removed_style_fmt)
-                       when :added, :changed_new
-                         apply_style_only(decoded_segment, added_style_fmt)
-                       else
-                         # :unchanged - no bg, just visualize spaces as ░
-                         apply_selective_visualization(decoded_segment)
+                         apply_visualization(decoded_segment)
                        end
                      else
-                       # Normative change: use theme removed/added colors with bg
+                       # Normative change: use theme removed/added colors
+                       removed_color = theme_color(:removed, :content)
+                       added_color = theme_color(:added, :content)
                        case cr.status
                        when :unchanged
-                         apply_selective_visualization(decoded_segment)
+                         apply_visualization(decoded_segment)
                        when :changed_old
                          (if side == :old
-                            apply_style_only(decoded_segment, removed_style)
+                            apply_visualization(decoded_segment,
+                                                removed_color)
                           else
-                            apply_selective_visualization(decoded_segment)
+                            apply_visualization(decoded_segment)
                           end)
                        when :changed_new
                          (if side == :new
-                            apply_style_only(decoded_segment, added_style)
+                            apply_visualization(decoded_segment,
+                                                added_color)
                           else
-                            apply_selective_visualization(decoded_segment)
+                            apply_visualization(decoded_segment)
                           end)
                        when :removed
-                         apply_style_only(decoded_segment, removed_style)
+                         apply_visualization(decoded_segment, removed_color)
                        when :added
-                         apply_style_only(decoded_segment, added_style)
+                         apply_visualization(decoded_segment, added_color)
                        else
-                         apply_selective_visualization(decoded_segment)
+                         apply_visualization(decoded_segment)
                        end
                      end
 
@@ -570,11 +450,10 @@ formatting: false)
           end
 
           # Fill in any remaining text after the last range
-          # For formatting-only changes: show actual content (unchanged)
           if cursor < line_text.length
             tail = line_text[cursor..]
             decoded_tail = Canon::TreeDiff::Core::XmlEntityDecoder.decode_xml_entities(tail)
-            parts << (formatting ? decoded_tail : apply_selective_visualization(decoded_tail))
+            parts << apply_visualization(decoded_tail)
           end
 
           parts.join
@@ -995,6 +874,7 @@ formatting: false)
           output.join("\n")
         end
 
+        # Format a unified diff line
         # Format a reflow summary line (collapsed formatting-only reflow)
         def format_reflow_summary(diff_line)
           old_str = " " * @line_num_width
@@ -1002,8 +882,7 @@ formatting: false)
           content = diff_line.content
 
           if @use_color
-            formatting_color = theme_color(:formatting, :content)
-            "#{old_str}|#{new_str} | #{colorize(content, formatting_color)}"
+            "#{old_str}|#{new_str} | #{colorize(content, :yellow)}"
           else
             "#{old_str}|#{new_str} | #{content}"
           end
@@ -1046,49 +925,40 @@ informative: false, formatting: false)
         # Supports :inline mode (both on same line) and :separate mode (two lines).
         def format_mixed_changed_line(old_line_num, new_line_num,
                                      char_ranges, new_char_ranges,
-                                     old_content, new_content, formatting: false)
+                                     old_content, new_content)
           fmt = "%#{@line_num_width}d"
           blank = " " * @line_num_width
 
           if @diff_mode == :inline
             format_mixed_changed_line_inline(old_line_num, new_line_num,
                                              char_ranges, new_char_ranges,
-                                             old_content, new_content, fmt, blank,
-                                             formatting: formatting)
+                                             old_content, new_content, fmt, blank)
           else
             format_mixed_changed_line_separate(old_line_num, new_line_num,
                                                char_ranges, new_char_ranges,
-                                               old_content, new_content, fmt, blank,
-                                               formatting: formatting)
+                                               old_content, new_content, fmt, blank)
           end
         end
 
         # Separate-line format for mixed changes: * on BOTH OLD and NEW lines
         def format_mixed_changed_line_separate(old_line_num, new_line_num,
                                                char_ranges, new_char_ranges,
-                                               old_content, new_content, fmt, blank,
-                                               formatting: false)
+                                               old_content, new_content, fmt, blank)
           output = []
           old_highlighted = render_line_from_char_ranges(old_content,
-                                                         char_ranges, :old,
-                                                         formatting: formatting)
+                                                         char_ranges, :old)
           new_highlighted = render_line_from_char_ranges(new_content,
-                                                         new_char_ranges, :new,
-                                                         formatting: formatting)
+                                                         new_char_ranges, :new)
           line_num_color = structure_color(:line_number) || :yellow
           pipe_color = structure_color(:pipe) || :yellow
           changed_marker_color = theme_color(:changed, :marker)
-          formatting_marker_color = theme_color(:formatting,
-                                                :marker) || :bright_blue
-          marker_color = formatting ? formatting_marker_color : changed_marker_color
-          marker_char = "*"
 
           if @use_color
             yellow_old = colorize(fmt % old_line_num, line_num_color)
             yellow_pipe1 = colorize("|", pipe_color)
             yellow_new = colorize(fmt % new_line_num, line_num_color)
             yellow_pipe2 = colorize("|", pipe_color)
-            mixed_marker = colorize(marker_char, marker_color)
+            mixed_marker = colorize("*", changed_marker_color)
 
             # OLD line: show line number with * marker
             output << "#{yellow_old}#{yellow_pipe1}#{blank}#{mixed_marker} #{yellow_pipe2} #{old_highlighted}"
@@ -1096,9 +966,9 @@ informative: false, formatting: false)
             output << "#{blank}#{yellow_pipe1}#{yellow_new}#{mixed_marker} #{yellow_pipe2} #{new_highlighted}"
           else
             # OLD line: show line number with * marker
-            output << "#{fmt % old_line_num}|#{blank}#{marker_char} | #{old_highlighted}"
+            output << "#{fmt % old_line_num}|#{blank}* | #{old_highlighted}"
             # NEW line: show line number with * marker
-            output << "#{blank}|#{fmt % new_line_num}#{marker_char} | #{new_highlighted}"
+            output << "#{blank}|#{fmt % new_line_num}* | #{new_highlighted}"
           end
 
           output.join("\n")
@@ -1108,20 +978,15 @@ informative: false, formatting: false)
         # Shows: OLD line with removed parts in red/strikethrough, NEW line with added parts in green/underline
         def format_mixed_changed_line_inline(old_line_num, new_line_num,
                                              char_ranges, new_char_ranges,
-                                             old_content, new_content, fmt, _blank,
-                                             formatting: false)
+                                             old_content, new_content, fmt, _blank)
           old_highlighted = render_line_for_inline(old_content, char_ranges,
-                                                   :old, formatting: formatting)
+                                                   :old)
           new_highlighted = render_line_for_inline(new_content,
-                                                   new_char_ranges, :new,
-                                                   formatting: formatting)
+                                                   new_char_ranges, :new)
 
           line_num_color = structure_color(:line_number) || :yellow
           pipe_color = structure_color(:pipe) || :yellow
           changed_marker_color = theme_color(:changed, :marker)
-          formatting_marker_color = theme_color(:formatting,
-                                                :marker) || :bright_blue
-          marker_color = formatting ? formatting_marker_color : changed_marker_color
           separator_color = theme_color(:informative, :content) || :cyan
 
           # Separator between OLD and NEW content in inline mode
@@ -1132,7 +997,7 @@ informative: false, formatting: false)
             yellow_pipe1 = colorize("|", pipe_color)
             yellow_new = colorize(fmt % new_line_num, line_num_color)
             yellow_pipe2 = colorize("|", pipe_color)
-            mixed_marker = colorize("*", marker_color)
+            mixed_marker = colorize("*", changed_marker_color)
 
             "#{yellow_old}#{yellow_pipe1}#{yellow_new}#{mixed_marker} #{yellow_pipe2} #{old_highlighted}#{separator}#{new_highlighted}"
           else
@@ -1142,88 +1007,53 @@ informative: false, formatting: false)
 
         # Render a line segment for inline mode with proper styling
         # Uses red for removed (changed_old), green for added (changed_new)
-        # Falls back to strikethrough/underline when color is off.
-        # Does NOT use `░` visualization for regular spaces - shows actual characters.
-        # NBSP and other special whitespace IS still visualized as ␣.
-        # When formatting: true, uses formatting color (bright_blue) without effects.
-        def render_line_for_inline(line_text, ranges, _side, formatting: false)
+        # Falls back to strikethrough/underline when color is off
+        def render_line_for_inline(line_text, ranges, _side)
           return apply_visualization(line_text) if ranges.nil? || ranges.empty?
 
           parts = []
           cursor = 0
-          removed_style = content_style(:removed)
-          added_style = content_style(:added)
-          formatting_style = theme_style(:diff, :formatting,
-                                         :content) || { color: :bright_blue }
+          removed_color = theme_color(:removed, :content)
+          added_color = theme_color(:added, :content)
 
           ranges.each do |cr|
             # Fill in any gap before this range as unchanged text
-            # Use selective visualization: NBSP→␣, but spaces stay as spaces
             if cursor < cr.start_col
               gap = line_text[cursor...cr.start_col]
               decoded_gap = Canon::TreeDiff::Core::XmlEntityDecoder.decode_xml_entities(gap)
-              parts << apply_selective_visualization(decoded_gap)
+              parts << apply_visualization(decoded_gap)
             end
 
-            segment = cr.text_content || cr.extract_from(line_text)
+            segment = cr.extract_from(line_text)
             next if segment.nil? || segment.empty?
 
             decoded_segment = Canon::TreeDiff::Core::XmlEntityDecoder.decode_xml_entities(segment)
 
-            parts << if formatting
-                       # Formatting-only change: only highlight CHANGED segments.
-                       # Unchanged prefix/suffix stay unstyled so the change is visible.
-                       case cr.status
-                       when :changed_old
-                         (if side == :old
-                            apply_style_only(decoded_segment, formatting_style)
-                          else
-                            apply_selective_visualization(decoded_segment)
-                          end)
-                       when :changed_new
-                         (if side == :new
-                            apply_style_only(decoded_segment, formatting_style)
-                          else
-                            apply_selective_visualization(decoded_segment)
-                          end)
-                       when :removed
-                         apply_style_only(decoded_segment, formatting_style)
-                       when :added
-                         apply_style_only(decoded_segment, formatting_style)
-                       else
-                         # Unchanged segments: no highlighting for formatting-only changes
-                         apply_selective_visualization(decoded_segment)
-                       end
+            parts << case cr.status
+                     when :unchanged
+                       apply_visualization(decoded_segment)
+                     when :changed_old
+                       apply_effect(decoded_segment, :strikethrough,
+                                    removed_color)
+                     when :changed_new
+                       apply_effect(decoded_segment, :underline, added_color)
+                     when :removed
+                       apply_effect(decoded_segment, :strikethrough,
+                                    removed_color)
+                     when :added
+                       apply_effect(decoded_segment, :underline, added_color)
                      else
-                       case cr.status
-                       when :unchanged
-                         apply_selective_visualization(decoded_segment)
-                       when :changed_old
-                         apply_effect_only(decoded_segment, :strikethrough,
-                                           removed_style[:color], background: removed_style[:bg])
-                       when :changed_new
-                         apply_effect_only(decoded_segment, :underline,
-                                           added_style[:color], background: added_style[:bg])
-                       when :removed
-                         apply_effect_only(decoded_segment, :strikethrough,
-                                           removed_style[:color], background: removed_style[:bg])
-                       when :added
-                         apply_effect_only(decoded_segment, :underline,
-                                           added_style[:color], background: added_style[:bg])
-                       else
-                         apply_selective_visualization(decoded_segment)
-                       end
+                       apply_visualization(decoded_segment)
                      end
 
             cursor = cr.end_col
           end
 
           # Fill in any remaining text after the last range
-          # Use selective visualization: NBSP→␣, but spaces stay as spaces
           if cursor < line_text.length
             tail = line_text[cursor..]
             decoded_tail = Canon::TreeDiff::Core::XmlEntityDecoder.decode_xml_entities(tail)
-            parts << apply_selective_visualization(decoded_tail)
+            parts << apply_visualization(decoded_tail)
           end
 
           parts.join
@@ -1231,7 +1061,7 @@ informative: false, formatting: false)
 
         # Format token diff lines
         def format_token_diff_line(old_line, new_line, old_highlighted,
-                                    new_highlighted, formatting: false)
+                                    new_highlighted)
           output = []
           fmt = "%#{@line_num_width}d"
           blank = " " * @line_num_width
@@ -1239,38 +1069,20 @@ informative: false, formatting: false)
           pipe_color = structure_color(:pipe) || :yellow
           removed_marker_color = theme_color(:removed, :marker)
           added_marker_color = theme_color(:added, :marker)
-          formatting_marker_color = theme_color(:formatting,
-                                                :marker) || :bright_blue
 
           if @use_color
             yellow_old = colorize(fmt % old_line, line_num_color)
             yellow_pipe1 = colorize("|", pipe_color)
             yellow_new = colorize(fmt % new_line, line_num_color)
             yellow_pipe2 = colorize("|", pipe_color)
-            old_marker = if formatting
-                           colorize("[",
-                                    formatting_marker_color)
-                         else
-                           colorize(
-                             "-", removed_marker_color
-                           )
-                         end
-            new_marker = if formatting
-                           colorize("]",
-                                    formatting_marker_color)
-                         else
-                           colorize(
-                             "+", added_marker_color
-                           )
-                         end
+            red_marker = colorize("-", removed_marker_color)
+            green_marker = colorize("+", added_marker_color)
 
-            output << "#{yellow_old}#{yellow_pipe1}#{blank}#{old_marker} #{yellow_pipe2} #{old_highlighted}"
-            output << "#{blank}#{yellow_pipe1}#{yellow_new}#{new_marker} #{yellow_pipe2} #{new_highlighted}"
+            output << "#{yellow_old}#{yellow_pipe1}#{blank}#{red_marker} #{yellow_pipe2} #{old_highlighted}"
+            output << "#{blank}#{yellow_pipe1}#{yellow_new}#{green_marker} #{yellow_pipe2} #{new_highlighted}"
           else
-            old_marker_txt = formatting ? "[" : "-"
-            new_marker_txt = formatting ? "]" : "+"
-            output << "#{fmt % old_line}|#{blank}#{old_marker_txt} | #{old_highlighted}"
-            output << "#{blank}|#{fmt % new_line}#{new_marker_txt} | #{new_highlighted}"
+            output << "#{fmt % old_line}|#{blank}- | #{old_highlighted}"
+            output << "#{blank}|#{fmt % new_line}+ | #{new_highlighted}"
           end
 
           output.join("\n")
@@ -1278,17 +1090,12 @@ informative: false, formatting: false)
 
         # Inline format for token diff lines: OLD → NEW on same line
         def format_token_diff_line_inline(old_line, new_line, old_highlighted,
-                                         new_highlighted, formatting: false)
+                                         new_highlighted)
           fmt = "%#{@line_num_width}d"
           line_num_color = structure_color(:line_number) || :yellow
           pipe_color = structure_color(:pipe) || :yellow
           changed_marker_color = theme_color(:changed, :marker)
-          formatting_marker_color = theme_color(:formatting,
-                                                :marker) || :bright_blue
           separator_color = theme_color(:informative, :content) || :cyan
-
-          marker_color = formatting ? formatting_marker_color : changed_marker_color
-          marker_char = "*"
 
           separator = @use_color ? colorize(" → ", separator_color) : " → "
 
@@ -1296,11 +1103,11 @@ informative: false, formatting: false)
             yellow_old = colorize(fmt % old_line, line_num_color)
             yellow_pipe = colorize("|", pipe_color)
             yellow_new = colorize(fmt % new_line, line_num_color)
-            mixed_marker = colorize(marker_char, marker_color)
+            mixed_marker = colorize("*", changed_marker_color)
 
             "#{yellow_old}#{yellow_pipe}#{yellow_new}#{mixed_marker} #{yellow_pipe} #{old_highlighted}#{separator}#{new_highlighted}"
           else
-            "#{fmt % old_line}|#{fmt % new_line}#{marker_char}| #{old_highlighted}#{separator}#{new_highlighted}"
+            "#{fmt % old_line}|#{fmt % new_line}*| #{old_highlighted}#{separator}#{new_highlighted}"
           end
         end
 

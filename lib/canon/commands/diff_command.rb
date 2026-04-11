@@ -26,8 +26,8 @@ module Canon
         check_file_size(file2, format2)
 
         # Read raw content for potential by-line diff
-        content1 = File.read(file1)
-        content2 = File.read(file2)
+        content1 = File.read(file1, encoding: "utf-8")
+        content2 = File.read(file2, encoding: "utf-8")
 
         # Parse documents
         doc1 = parse_document_content(content1, format1)
@@ -56,6 +56,11 @@ module Canon
           show_diffs: @options[:show_diffs]&.to_sym || :all,
           show_raw_inputs: @options[:show_raw_inputs] || false,
           show_preprocessed_inputs: @options[:show_preprocessed_inputs] || false,
+          show_preprocessed_expected: @options[:show_preprocessed_expected] || false,
+          show_preprocessed_received: @options[:show_preprocessed_received] || false,
+          show_prettyprint_inputs: @options[:show_prettyprint_inputs] || false,
+          show_prettyprint_expected: @options[:show_prettyprint_expected] || false,
+          show_prettyprint_received: @options[:show_prettyprint_received] || false,
           show_line_numbered_inputs: @options[:show_line_numbered_inputs] || false,
         )
 

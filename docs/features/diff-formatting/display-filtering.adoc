@@ -168,6 +168,50 @@ When using the `spec_friendly` profile, attribute order is informative:
 The cyan color and `~` symbol indicate this differs does not affect equivalence in the `spec_friendly` profile.
 ====
 
+== Semantic Diff Report filtering
+
+The `show_diffs` filter applies to **both** the line/tree diff output and the
+Semantic Diff Report header block.  When the Semantic Diff Report is emitted
+(whenever `verbose: true` and differences exist), its two sections are gated
+by the same flag:
+
+[cols="1,1,1"]
+|===
+|`show_diffs` |NORMATIVE DIFFERENCES section |INFORMATIVE DIFFERENCES section
+
+|`:all` (default)
+|shown
+|shown
+
+|`:normative`
+|shown
+|**hidden**
+
+|`:informative`
+|**hidden**
+|shown
+|===
+
+This means that setting `show_diffs: :normative` (or
+`cfg.xml.diff.show_diffs = :normative` in config) will suppress the
+`INFORMATIVE DIFFERENCES` section from the Semantic Diff Report as well as
+from the line diff, giving a consistent, noise-free view of only the
+differences that affect equivalence.
+
+[example]
+[source,ruby]
+----
+Canon::Config.configure do |cfg|
+  cfg.xml.diff.show_diffs = :normative
+end
+
+# The Semantic Diff Report now omits the INFORMATIVE DIFFERENCES section.
+# Only the NORMATIVE DIFFERENCES block is rendered.
+expect(actual).to be_xml_equivalent_to(expected,
+  match: { comments: :ignore }
+)
+----
+
 == Usage examples
 
 === Ruby API

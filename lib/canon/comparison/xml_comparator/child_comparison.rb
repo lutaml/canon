@@ -28,8 +28,17 @@ module Canon
           # @return [Integer] Comparison result code
           def compare(node1, node2, comparator, opts, child_opts,
 diff_children, differences)
-            children1 = comparator.send(:filter_children, node1.children, opts)
-            children2 = comparator.send(:filter_children, node2.children, opts)
+            # Apply side-specific pretty-print heuristic when either flag is set:
+            # pretty_printed_expected → drop \n-starting whitespace nodes from node1
+            # pretty_printed_received → drop \n-starting whitespace nodes from node2
+            # The ephemeral _pretty_print_side_active flag is consumed by node_excluded?
+            # and must NOT be forwarded into recursive compare_nodes calls.
+            require_relative "../xml_node_comparison"
+            opts1 = XmlNodeComparison.opts_for_side(opts, :expected)
+            opts2 = XmlNodeComparison.opts_for_side(opts, :received)
+
+            children1 = comparator.send(:filter_children, node1.children, opts1)
+            children2 = comparator.send(:filter_children, node2.children, opts2)
 
             # Quick check: if both have no children, they're equivalent
             return Comparison::EQUIVALENT if children1.empty? && children2.empty?

@@ -679,8 +679,30 @@ When changing configuration:
 - [ ] Test with sample documents
 - [ ] Update documentation
 
+== Using Configuration Profiles
+
+If you use the same configuration across multiple gems or projects,
+consider using a **configuration profile** instead of repeating settings.
+A single line replaces dozens of configuration calls:
+
+[source,ruby]
+----
+# Instead of 60+ lines of per-format settings:
+Canon::Config.instance.profile = :metanorma
+
+# Or load a custom profile from a local YAML file:
+Canon::Config.instance.profile = "config/my_canon_profile.yml"
+----
+
+Profiles bundle all layers (preprocessing, match profile, diff settings,
+whitespace element lists) into a named preset defined in YAML.
+Custom file profiles can inherit from built-in profiles.
+
+See link:../features/configuration-profiles.adoc[Configuration Profiles] for full documentation.
+
 == See Also
 
+* link:../features/configuration-profiles.adoc[Configuration Profiles] - Named config presets
 * link:../understanding/comparison-pipeline.adoc[Comparison Pipeline] - Understanding the 4 layers
 * link:../understanding/algorithms/[Algorithms] - Detailed algorithm documentation
 * link:../features/match-options/algorithm-specific-behavior.adoc[Algorithm-Specific Behavior] - How algorithms differ

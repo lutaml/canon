@@ -90,6 +90,39 @@ differences)
         end
       end
 
+      # Build a side-specific opts copy that activates the pretty-print
+      # structural-whitespace heuristic for the given side.
+      #
+      # When +pretty_printed_expected+ (side :expected) or
+      # +pretty_printed_received+ (side :received) is truthy in match_opts,
+      # returns a shallow copy of +opts+ with an ephemeral
+      # +_pretty_print_side_active: true+ flag merged into +:match_opts+.
+      # Otherwise returns +opts+ unchanged (no allocation overhead).
+      #
+      # The flag is consumed by +node_excluded?+ to drop whitespace-only text
+      # nodes that start with "\n" in +:normalize+ whitespace elements.
+      # It is intentionally NOT propagated to recursive +compare_nodes+ calls —
+      # each level of +ChildComparison.compare+ re-evaluates it from the
+      # original +pretty_printed_*+ flags.
+      #
+      # @param opts  [Hash]   Full comparison options hash
+      # @param side  [Symbol] :expected or :received
+      # @return [Hash] opts copy with ephemeral flag, or opts itself
+      def self.opts_for_side(opts, side)
+        match_opts = opts[:match_opts]
+        return opts unless match_opts
+
+        active = case side
+                 when :expected then match_opts[:pretty_printed_expected]
+                 when :received then match_opts[:pretty_printed_received]
+                 else false
+                 end
+
+        return opts unless active
+
+        opts.merge(match_opts: match_opts.merge(_pretty_print_side_active: true))
+      end
+
       # Compare document fragments by comparing their children
       #
       # @param node1 [Nokogiri::XML::DocumentFragment] First fragment
@@ -104,9 +137,10 @@ differences)
         childrenode1 = node1.children.to_a
         childrenode2 = node2.children.to_a
 
-        # Filter children before comparison to handle ignored nodes (like comments with :ignore)
-        children1 = filter_children(childrenode1, opts)
-        children2 = filter_children(childrenode2, opts)
+        # Filter children before comparison to handle ignored nodes (like comments with :ignore).
+        # Apply side-specific pretty-print heuristic when the relevant flag is active.
+        children1 = filter_children(childrenode1, opts_for_side(opts, :expected))
+        children2 = filter_children(childrenode2, opts_for_side(opts, :received))
 
         if children1.length != children2.length
           add_difference(node1, node2, Comparison::UNEQUAL_ELEMENTS,
@@ -200,7 +234,16 @@ diff_children, differences)
           node.parent, match_opts
         )
 
-        false
+        # When the pretty-print-side flag is active (set by opts_for_side in
+        # ChildComparison.compare), drop whitespace-only text nodes that start
+        # with "\n" inside :normalize elements — they are structural indentation
+        # from the pretty-printer, not content.  Space-only nodes (no "\n") are
+        # real inline content and are kept for normalised comparison.
+        # :strict elements are always left unchanged.
+        if match_opts[:_pretty_print_side_active]
+          ws_class = WhitespaceSensitivity.classify_text_node(node, opts)
+          return true if ws_class == :normalize && node_text(node).start_with?("\n")
+        end
 
         false
       end

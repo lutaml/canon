@@ -1,0 +1,270 @@
+---
+title: Pretty-Printed Fixture Support
+parent: Match Options
+nav_order: 5
+---
+= Pretty-printed fixture support
+:toc:
+:toclevels: 3
+
+== Problem statement
+
+A common pattern in Metanorma and similar XML-generating libraries is to compare
+a *compact* generated document (no inter-element whitespace) against a
+*hand-indented fixture* stored as an RSpec heredoc:
+
+[source,ruby]
+----
+expected_xml = <<~XML
+  <root>
+    <fmt-title>
+      <semx element="title" source="_">Foreword</semx>
+    </fmt-title>
+  </root>
+XML
+
+received_xml = "<root><fmt-title><semx element=\"title\" source=\"_\">Foreword</semx></fmt-title></root>"
+----
+
+When `fmt-title` and `semx` are classified as `:normalize` whitespace elements
+(their inline content matters but all whitespace forms are equivalent), the
+comparison _correctly_ detects whitespace differences: the fixture has text nodes
+`"\n  "` and `"\n"` inside `<fmt-title>` that are absent from the compact
+received document.
+
+This is the right behaviour in general.  However, for *fixture files that
+cannot be written as compact single-line strings* — because doing so would
+produce unreadable 1000-character lines — the indentation whitespace in the
+fixture is a necessary formatting artefact, not a meaningful content difference.
+
+=== Why the whitespace cannot simply be stripped
+
+The whitespace classification is intentionally asymmetric across elements:
+
+* Structural container elements (e.g. `<clause>`, `<foreword>`) are
+  `:insensitive` — their inter-element whitespace is already dropped in both
+  compact and indented forms.
+* Mixed-content elements (e.g. `<fmt-title>`, `<semx>`) are `:normalize` —
+  the _presence_ of a space between inline children is significant (it
+  represents a word-boundary), but its exact form is not.
+
+Stripping all whitespace from the fixture would destroy the signal inside
+mixed-content elements: `<p>See <em>note</em></p>` would become identical to
+`<p>See<em>note</em></p>`, hiding a real content difference.
+
+== Solution: asymmetric pretty-print flags
+
+Canon provides two match options and two display-preprocessing flags that
+instruct the relevant subsystem to treat whitespace-only text nodes that begin
+with `"\n"` as *structural indentation from the pretty-printer* and drop them
+from the comparison.  They operate independently so that only the
+actually-pretty-printed side is affected.
+
+`pretty_printed_expected`::
+  When `true`, whitespace-only text nodes that start with `"\n"` in
+  `:normalize`-classified elements of the **expected** (first / fixture)
+  document are dropped before comparison and before display.
+  Use this when fixture files are indented heredocs but received XML is compact.
+
+`pretty_printed_received`::
+  When `true`, the same treatment applies to the **received** (second / actual)
+  document.  Use this when the received output may be pretty-printed but the
+  fixture is compact.
+
+=== The heuristic explained
+
+The heuristic is:
+
+[source]
+----
+Whitespace-only text node starts with "\n"  →  structural indentation  →  drop
+Whitespace-only text node has no "\n"       →  inline content space    →  keep
+----
+
+The reasoning: compact Metanorma XML (and most programmatic XML serializers)
+never emit a bare `"\n"` immediately after a closing or opening tag inside a
+mixed-content element.  If a fixture heredoc contains such a `"\n"`, it was
+introduced by the human author formatting the fixture for readability — it is
+not part of the original document content.
+
+A _space_ not preceded by `"\n"` is treated as real content: in
+`<p>See <em>note</em></p>`, the text node `"See "` starts with `"S"`, so its
+trailing space is kept and normalized to a single `░` symbol in the display.
+
+NOTE: This heuristic is only activated for `:normalize` elements.  `:strict`
+elements always preserve every whitespace character regardless of these flags.
+`:insensitive` elements already drop all whitespace and are unaffected.
+
+== Configuration
+
+=== Comparison (equivalence detection)
+
+Pass `pretty_printed_expected` or `pretty_printed_received` inside the `match:`
+hash of `Canon::Comparison.equivalent?` or the RSpec `be_xml_equivalent_to`
+matcher:
+
+[source,ruby]
+----
+# One-off: fixture is indented, received is compact
+result = Canon::Comparison.equivalent?(
+  fixture_xml,
+  received_xml,
+  match: {
+    normalize_whitespace_elements: %w[fmt-title semx],
+    pretty_printed_expected: true,
+  }
+)
+
+# RSpec global config in spec_helper.rb
+Canon::Config.configure do |cfg|
+  cfg.xml.match.options = {
+    normalize_whitespace_elements: %w[fmt-title semx],
+    pretty_printed_expected: true,
+  }
+end
+----
+
+=== Display preprocessing (`:normalize_pretty_print`)
+
+When using `display_preprocessing: :normalize_pretty_print`, set the
+corresponding diff-config flags so that the display side also strips structural
+indentation from only the flagged side:
+
+[source,ruby]
+----
+Canon::Config.configure do |cfg|
+  cfg.xml.diff.display_preprocessing    = :normalize_pretty_print
+  cfg.xml.diff.normalize_whitespace_elements = %w[fmt-title semx]
+
+  # Drop structural indentation from the indented fixture side only
+  cfg.xml.diff.pretty_printed_expected  = true
+  cfg.xml.diff.pretty_printed_received  = false   # compact received is unchanged
+end
+----
+
+=== Environment variables
+
+[source,bash]
+----
+export CANON_XML_DIFF_PRETTY_PRINTED_EXPECTED=true
+export CANON_XML_DIFF_PRETTY_PRINTED_RECEIVED=false
+----
+
+== Behaviour by whitespace class
+
+[cols="1,3,3,3"]
+|===
+|Element class |`pretty_printed_expected: false` (default) |`pretty_printed_expected: true`
+|Note
+
+|`:insensitive`
+|All inter-element whitespace dropped (both sides)
+|Same — no change
+|Already dropped; flag has no effect
+
+|`:normalize`
+|`"\n  "` nodes kept; compact vs. indented comparison detects difference
+|`"\n"`-starting nodes dropped from expected; compact vs. indented now equivalent
+|Inline content spaces (`" "` without `"\n"`) are always kept
+
+|`:strict`
+|Every whitespace character compared verbatim
+|Same — no change
+|`:strict` always preserves all whitespace regardless of flag
+
+|===
+
+== Example walkthrough
+
+=== Fixture (hand-indented heredoc)
+
+[source,xml]
+----
+<root>
+  <clause>
+    <fmt-title>
+      <semx element="title" source="_">Foreword</semx>
+    </fmt-title>
+  </clause>
+</root>
+----
+
+Text nodes inside `<fmt-title>` after Nokogiri parsing:
+
+* `"\n      "` between `<fmt-title>` open tag and `<semx>` — whitespace-only, starts with `"\n"`
+* `"\n    "` between `</semx>` and `</fmt-title>` — whitespace-only, starts with `"\n"`
+
+=== Received (compact Metanorma output)
+
+[source,xml]
+----
+<root><clause><fmt-title><semx element="title" source="_">Foreword</semx></fmt-title></clause></root>
+----
+
+No whitespace nodes inside `<fmt-title>`.
+
+=== Without `pretty_printed_expected: true`
+
+`clause` is `:insensitive`, so its inter-element whitespace is dropped.
+`fmt-title` and `semx` are `:normalize`, so their whitespace nodes are kept.
+
+The comparison finds two extra whitespace nodes in the expected side →
+**not equivalent**.
+
+=== With `pretty_printed_expected: true`
+
+The `"\n"`-starting nodes inside `:normalize` elements are dropped from the
+expected side before comparison.  The expected side now matches the compact
+received side → **equivalent**.
+
+== Interaction with `:pretty_diff` mode
+
+`:pretty_diff` mode applies `display_preprocessing` to both documents before
+running a text-LCS diff on the resulting lines.  When
+`pretty_printed_expected: true` is set on the formatter, `XmlNormalized` is
+instantiated with `pretty_printed: true` for the expected-side printer only.
+This drops the `"\n"`-starting whitespace visualization from the expected
+side's serialized lines, so the LCS diff sees identical lines for purely
+structural indentation differences.
+
+[source,ruby]
+----
+Canon::DiffFormatter.new(
+  mode: :pretty_diff,
+  display_preprocessing: :normalize_pretty_print,
+  normalize_whitespace_elements: %w[fmt-title semx],
+  pretty_printed_expected: true,   # strip structural \n nodes from fixture side
+  pretty_printed_received: false,  # compact received side is unchanged
+)
+----
+
+== Relation to deprecated `normalize_pretty_print_ignore_structural_newlines`
+
+The deprecated flag `normalize_pretty_print_ignore_structural_newlines` applied
+the newline-stripping heuristic to **both** sides simultaneously and without
+regard to whitespace classification.
+
+The new `pretty_printed_expected` / `pretty_printed_received` flags replace it
+with a more granular design:
+
+[cols="3,3"]
+|===
+|Old flag |New equivalent
+
+|`normalize_pretty_print_ignore_structural_newlines: true`
+|`pretty_printed_expected: true, pretty_printed_received: true`
+(plus `normalize_whitespace_elements:` to restrict to the right elements)
+|===
+
+The old flag is deprecated and still emits a warning; use the new flags for all
+new code.
+
+== See also
+
+* link:../../features/diff-formatting/display-preprocessing.adoc[Display preprocessing]
+  — the `display_preprocessing` option and `XmlNormalized` serializer
+* link:index.adoc[Match options overview] — whitespace sensitivity classification
+* link:../../reference/options-across-interfaces.adoc[Options across interfaces]
+  — cross-interface reference table
+* link:../../reference/environment-variables.adoc[Environment variables]
+  — `CANON_XML_DIFF_PRETTY_PRINTED_EXPECTED`, `CANON_XML_DIFF_PRETTY_PRINTED_RECEIVED`

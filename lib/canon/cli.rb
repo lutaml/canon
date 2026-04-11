@@ -238,6 +238,26 @@ module Canon
                   type: :boolean,
                   default: false,
                   desc: "Show preprocessed contents (what was actually compared)"
+    method_option :show_preprocessed_expected,
+                  type: :boolean,
+                  default: false,
+                  desc: "Show only the EXPECTED (fixture) block in the preprocessed-inputs section"
+    method_option :show_preprocessed_received,
+                  type: :boolean,
+                  default: false,
+                  desc: "Show only the RECEIVED (actual) block in the preprocessed-inputs section"
+    method_option :show_prettyprint_inputs,
+                  type: :boolean,
+                  default: false,
+                  desc: "Show fixture-ready pretty-printed form of both inputs (no whitespace visualization)"
+    method_option :show_prettyprint_expected,
+                  type: :boolean,
+                  default: false,
+                  desc: "Show only the EXPECTED block in the fixture-ready pretty-printed section"
+    method_option :show_prettyprint_received,
+                  type: :boolean,
+                  default: false,
+                  desc: "Show only the RECEIVED block in the fixture-ready pretty-printed section"
     method_option :show_line_numbered_inputs,
                   type: :boolean,
                   default: false,

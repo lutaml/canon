@@ -77,6 +77,15 @@ Customize how differences are displayed.
 * link:diff-formatting/context-and-grouping[Context and Grouping] - Surrounding lines
 * link:diff-formatting/character-visualization[Character Visualization] - Whitespace visibility
 
+=== Configuration Profiles
+
+link:configuration-profiles.adoc[**Configuration Profiles**]::
+Bundle all settings into named presets defined in YAML.
++
+* Built-in profiles (metanorma, metanorma_debug)
+* Custom profiles from local YAML files
+* Profile inheritance
+
 === System Configuration
 
 link:environment-configuration/[**Environment Configuration**]::

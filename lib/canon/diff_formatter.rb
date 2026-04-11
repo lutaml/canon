@@ -167,8 +167,29 @@ module Canon
                    diff_grouping_lines: nil, visualization_map: nil,
                    character_map_file: nil, character_definitions: nil,
                    show_diffs: :all, verbose_diff: false,
-                   show_raw_inputs: false, show_preprocessed_inputs: false,
+                   show_raw_inputs: false, show_raw_expected: false,
+                   show_raw_received: false,
+                   show_preprocessed_inputs: false,
+                   show_preprocessed_expected: false,
+                   show_preprocessed_received: false,
+                   show_prettyprint_inputs: false,
+                   show_prettyprint_expected: false,
+                   show_prettyprint_received: false,
                    show_line_numbered_inputs: false,
+                   character_visualization: true,
+                   display_preprocessing: :none,
+                   pretty_printer_indent: 2,
+                   pretty_printer_indent_type: :space,
+                   strict_whitespace_elements: [],
+                   normalize_whitespace_elements: [],
+                   insensitive_whitespace_elements: [],
+                   pretty_printed_expected: false,
+                   pretty_printed_received: false,
+                   pretty_printer_sort_attributes: false,
+                   # deprecated: kept for one release cycle
+                   normalize_pretty_print_ignore_structural_newlines: nil,
+                   compact_semantic_report: false,
+                   expand_difference: false,
                    diff_mode: :separate, legacy_terminal: false)
       # rubocop:enable Metrics/ParameterLists
       @use_color = use_color
@@ -178,11 +199,35 @@ module Canon
       @show_diffs = show_diffs
       @verbose_diff = verbose_diff
       @show_raw_inputs = show_raw_inputs
+      @show_raw_expected = show_raw_expected
+      @show_raw_received = show_raw_received
       @show_preprocessed_inputs = show_preprocessed_inputs
+      @show_preprocessed_expected = show_preprocessed_expected
+      @show_preprocessed_received = show_preprocessed_received
+      @show_prettyprint_inputs = show_prettyprint_inputs
+      @show_prettyprint_expected = show_prettyprint_expected
+      @show_prettyprint_received = show_prettyprint_received
       @show_line_numbered_inputs = show_line_numbered_inputs
+      @character_visualization = character_visualization
+      @display_preprocessing = display_preprocessing
+      @pretty_printer_indent = pretty_printer_indent
+      @pretty_printer_indent_type = pretty_printer_indent_type
+      @strict_whitespace_elements = Array(strict_whitespace_elements).map(&:to_s)
+      @normalize_whitespace_elements = Array(normalize_whitespace_elements).map(&:to_s)
+      @insensitive_whitespace_elements = Array(insensitive_whitespace_elements).map(&:to_s)
+      @pretty_printed_expected = pretty_printed_expected
+      @pretty_printed_received = pretty_printed_received
+      @pretty_printer_sort_attributes = pretty_printer_sort_attributes
+      if !normalize_pretty_print_ignore_structural_newlines.nil?
+        warn "[Canon] DiffFormatter: normalize_pretty_print_ignore_structural_newlines: is deprecated. " \
+             "Use normalize_whitespace_elements: and strict_whitespace_elements: instead."
+      end
+      @compact_semantic_report = compact_semantic_report
+      @expand_difference = expand_difference
       @diff_mode = legacy_terminal ? :separate : diff_mode
       @legacy_terminal = legacy_terminal
       @visualization_map = build_visualization_map(
+        character_visualization: character_visualization,
         visualization_map: visualization_map,
         character_map_file: character_map_file,
         character_definitions: character_definitions,
@@ -269,6 +314,12 @@ module Canon
                                         differences: differences)
       end
 
+      # In pretty_diff mode, always use text-LCS diff (bypasses DiffNodeMapper).
+      # pretty_diff_format handles nil doc1/doc2 itself (emits header only).
+      if @mode == :pretty_diff
+        return pretty_diff_format(doc1, doc2, format: format)
+      end
+
       no_diffs = if differences.respond_to?(:equivalent?)
                    differences.equivalent?
                  else
@@ -280,6 +331,8 @@ module Canon
       when :by_line
         by_line_diff(doc1, doc2, format: format, html_version: html_version,
                                  differences: differences)
+      when :pretty_diff
+        pretty_diff_format(doc1, doc2, format: format)
       else
         by_object_diff(differences, format)
       end
@@ -333,30 +386,65 @@ module Canon
         output << DiffDetailFormatter.format_report(
           comparison_result.differences,
           use_color: @use_color,
+          show_diffs: @show_diffs,
+          compact_semantic_report: @compact_semantic_report,
+          expand_difference: @expand_difference,
         )
       end
 
-      # verbose_diff enables all three input displays as a convenience
-      verbose = @verbose_diff || @show_raw_inputs
-      show_prep = @verbose_diff || @show_preprocessed_inputs
+      # verbose_diff / show_raw_inputs shows both sides as a convenience shorthand.
+      # show_raw_expected / show_raw_received give per-side control.
+      combined_raw = @verbose_diff || @show_raw_inputs
+      show_raw_exp = combined_raw || @show_raw_expected
+      show_raw_rec = combined_raw || @show_raw_received
+      verbose      = show_raw_exp || show_raw_rec
+      # verbose_diff / show_preprocessed_inputs shows both sides as a shorthand.
+      # show_preprocessed_expected / show_preprocessed_received give per-side control.
+      combined_prep = @verbose_diff || @show_preprocessed_inputs
+      show_prep_exp = combined_prep || @show_preprocessed_expected
+      show_prep_rec = combined_prep || @show_preprocessed_received
+      show_prep = show_prep_exp || show_prep_rec
       show_line = @verbose_diff || @show_line_numbered_inputs
 
-      # 3. Raw/Original Input Display (when show_raw_inputs is enabled)
+      # 3. Raw/Original Input Display (when show_raw_inputs/show_raw_expected/show_raw_received enabled)
       if verbose && comparison_result.is_a?(Canon::Comparison::ComparisonResult)
         original1, original2 = comparison_result.original_strings
         if original1 && original2
-          output << format_raw_inputs(original1, original2)
+          output << format_raw_inputs(original1, original2,
+                                      show_expected: show_raw_exp,
+                                      show_received: show_raw_rec)
         end
       end
 
-      # 4. Preprocessed Input Display (when show_preprocessed_inputs is enabled)
+      # 4. Preprocessed Input Display (when show_preprocessed_inputs/expected/received enabled)
       if show_prep && comparison_result.is_a?(Canon::Comparison::ComparisonResult)
         preprocessed1, preprocessed2 = comparison_result.preprocessed_strings
         if preprocessed1 && preprocessed2
           preprocessing_info = comparison_result.match_options&.dig(:match,
                                                                     :preprocessing)
           output << format_preprocessed_inputs(preprocessed1, preprocessed2,
-                                               preprocessing_info)
+                                               preprocessing_info,
+                                               show_expected: show_prep_exp,
+                                               show_received: show_prep_rec)
+        end
+      end
+
+      # 4.5. Pretty-printed Input Display (when show_prettyprint_inputs/expected/received enabled)
+      # Pretty-prints the ORIGINAL strings (not preprocessed) through PrettyPrinter::Xml/Html
+      # with NO character visualization — output is plain ASCII suitable for copy-pasting
+      # into RSpec fixture heredocs.  verbose_diff does NOT enable these options.
+      show_pp_inp = @show_prettyprint_inputs
+      show_pp_exp = show_pp_inp || @show_prettyprint_expected
+      show_pp_rec = show_pp_inp || @show_prettyprint_received
+      show_pp = show_pp_exp || show_pp_rec
+
+      if show_pp && comparison_result.is_a?(Canon::Comparison::ComparisonResult)
+        orig1, orig2 = comparison_result.original_strings
+        if orig1 && orig2
+          pp1, pp2 = prettyprint_for_display(orig1, orig2, format)
+          output << format_prettyprint_inputs(pp1, pp2,
+                                              show_expected: show_pp_exp,
+                                              show_received: show_pp_rec)
         end
       end
 
@@ -497,41 +585,65 @@ module Canon
     end
 
     # Format raw/original inputs for display (user-friendly copyable format)
-    # Shows the raw file contents before any preprocessing
+    # Shows the raw file contents before any preprocessing.
     #
-    # @param raw1 [String] First raw input string
-    # @param raw2 [String] Second raw input string
+    # Use +show_expected:+ and +show_received:+ to control which side is
+    # rendered.  Both default to +true+ so existing callers are unaffected.
+    # Pass +show_expected: false+ to suppress the fixture/expected block while
+    # still showing the received output (useful when the fixture is very long
+    # and the user only wants to see what the generator produced).
+    #
+    # @param raw1 [String] First raw input string (expected / fixture)
+    # @param raw2 [String] Second raw input string (received / actual)
+    # @param show_expected [Boolean] Render the EXPECTED block
+    # @param show_received [Boolean] Render the RECEIVED block
     # @return [String] Formatted display of raw inputs
-    def format_raw_inputs(raw1, raw2)
+    def format_raw_inputs(raw1, raw2, show_expected: true, show_received: true)
       return "" if raw1.nil? || raw2.nil?
+      return "" unless show_expected || show_received
 
       output = []
       output << ""
       output << colorize("=== ORIGINAL INPUTS (Raw) ===", :cyan, :bold)
       output << ""
-      output << colorize("EXPECTED:", :yellow, :bold)
-      output << ("-" * 70)
-      output << raw1
-      output << ""
-      output << colorize("RECEIVED:", :yellow, :bold)
-      output << ("-" * 70)
-      output << raw2
-      output << ""
-      output << ""
 
+      if show_expected
+        output << colorize("EXPECTED:", :yellow, :bold)
+        output << ("-" * 70)
+        output << raw1
+        output << ""
+      end
+
+      if show_received
+        output << colorize("RECEIVED:", :yellow, :bold)
+        output << ("-" * 70)
+        output << raw2
+        output << ""
+      end
+
+      output << ""
       output.join("\n")
     end
 
     # Format preprocessed inputs for display (what was actually compared)
     # Shows the content after preprocessing (c14n, normalize, format, etc.)
     #
-    # @param preprocessed1 [String] First preprocessed string
-    # @param preprocessed2 [String] Second preprocessed string
+    # Use +show_expected:+ and +show_received:+ to control which side is rendered.
+    # Both default to +true+ so existing callers are unaffected.
+    # Pass +show_expected: false+ to suppress the fixture/expected block while
+    # still showing the preprocessed received output.
+    #
+    # @param preprocessed1 [String] First preprocessed string (expected / fixture)
+    # @param preprocessed2 [String] Second preprocessed string (received / actual)
     # @param preprocessing_info [Symbol, nil] Preprocessing mode (:c14n, :normalize, :format, etc.)
+    # @param show_expected [Boolean] Render the EXPECTED block
+    # @param show_received [Boolean] Render the RECEIVED block
     # @return [String] Formatted display of preprocessed inputs
     def format_preprocessed_inputs(preprocessed1, preprocessed2,
-preprocessing_info = nil)
+                                   preprocessing_info = nil,
+                                   show_expected: true, show_received: true)
       return "" if preprocessed1.nil? || preprocessed2.nil?
+      return "" unless show_expected || show_received
 
       output = []
       output << ""
@@ -542,16 +654,22 @@ preprocessing_info = nil)
         output << "Preprocessing: #{preprocessing_info}"
       end
       output << ""
-      output << colorize("EXPECTED:", :yellow, :bold)
-      output << ("-" * 70)
-      output << preprocessed1
-      output << ""
-      output << colorize("RECEIVED:", :yellow, :bold)
-      output << ("-" * 70)
-      output << preprocessed2
-      output << ""
-      output << ""
 
+      if show_expected
+        output << colorize("EXPECTED:", :yellow, :bold)
+        output << ("-" * 70)
+        output << preprocessed1
+        output << ""
+      end
+
+      if show_received
+        output << colorize("RECEIVED:", :yellow, :bold)
+        output << ("-" * 70)
+        output << preprocessed2
+        output << ""
+      end
+
+      output << ""
       output.join("\n")
     end
 
@@ -561,11 +679,22 @@ preprocessing_info = nil)
     # @param character_map_file [String, nil] Path to custom YAML file
     # @param character_definitions [Array<Hash>, nil] Individual character definitions
     # @return [Hash] Final visualization map
-    def build_visualization_map(visualization_map: nil, character_map_file: nil,
+    def build_visualization_map(character_visualization: true,
+                                visualization_map: nil,
+                                character_map_file: nil,
                                 character_definitions: nil)
       # Priority order:
+      # 0. character_visualization: false → return empty map (no substitution)
       # 1. If visualization_map is provided, use it as complete replacement
       # 2. Otherwise, start with defaults and apply customizations
+
+      # false disables all visualization
+      return {} if character_visualization == false
+
+      # :content_only currently behaves as true (full map)
+      # TODO: apply visualization at DOM text-node level pre-serialization,
+      # keeping structural indentation whitespace plain.
+      # See docs/features/diff-formatting/character-visualization.adoc
 
       return visualization_map if visualization_map
 
@@ -644,6 +773,8 @@ differences: [])
 
       return output.join("\n") if doc1.nil? || doc2.nil?
 
+      # Apply display preprocessing (format both sides identically before diff)
+      doc1, doc2 = apply_display_preprocessing(doc1, doc2, format)
       # Extract differences array and equivalent status from ComparisonResult if needed
       diffs_array = if differences.is_a?(Canon::Comparison::ComparisonResult)
                       @comparison_equivalent = differences.equivalent?
@@ -672,8 +803,338 @@ differences: [])
       output.join("\n")
     end
 
-    # Colorize text if color is enabled
-    # RSpec-aware: resets any existing ANSI codes before applying new colors
+    # Generate a text-LCS diff against preprocessed lines (pretty_diff mode).
+    #
+    # This mode bypasses DiffNodeMapper entirely: it applies display_preprocessing
+    # to both sides, then runs Diff::LCS.sdiff on the resulting plain-text lines.
+    # It is a reliable short-term workaround for #85 (normative changes invisible
+    # in :by_line mode when DiffNodeMapper's DOM-address correlation is off).
+    #
+    # Limitations:
+    # - show_diffs :normative / :informative filter is ignored (no DiffNodes)
+    # - No inline character highlighting (whole-line granularity only)
+    #
+    # @param doc1 [String] First document
+    # @param doc2 [String] Second document
+    # @param format [Symbol] Document format
+    # @return [String] Formatted diff output
+    def pretty_diff_format(doc1, doc2, format:)
+      require "diff/lcs"
+
+      resolved_format = format
+
+      format_name = resolved_format.to_s.upcase
+      output = []
+      output << colorize("Pretty diff (#{format_name} mode):", :cyan, :bold)
+
+      return output.join("\n") if doc1.nil? || doc2.nil?
+
+      # Apply display preprocessing — same transforms as by_line_diff
+      d1, d2 = apply_display_preprocessing(doc1, doc2, resolved_format)
+
+      lines1 = d1.lines.map(&:chomp)
+      lines2 = d2.lines.map(&:chomp)
+
+      hunks = ::Diff::LCS.sdiff(lines1, lines2)
+
+      output << render_pretty_diff(hunks)
+      output.join("\n")
+    end
+
+    # Render sdiff hunks with context windowing and colorization.
+    #
+    # Uses the same context_lines setting as by_line_diff. Changed hunks
+    # (action !=  "=") are expanded by context_lines in each direction; nearby
+    # windows are merged; a separator is emitted between non-adjacent blocks.
+    #
+    # @param hunks [Array<Diff::LCS::ContextChange>] Output of Diff::LCS.sdiff
+    # @return [String] Rendered diff lines joined with "\n"
+    def render_pretty_diff(hunks)
+      # Identify positions of changed hunks
+      changed = hunks.each_index.reject { |i| hunks[i].action == "=" }
+
+      return colorize("  (no differences)", :green) if changed.empty?
+
+      ctx = [@context_lines || 3, 0].max
+
+      # Build expanded windows, then merge overlapping/adjacent ones
+      windows = changed.map do |pos|
+        [
+          [pos - ctx, 0].max,
+          [pos + ctx, hunks.length - 1].min,
+        ]
+      end
+
+      merged = []
+      windows.each do |lo, hi|
+        if merged.empty? || lo > merged.last[1] + 1
+          merged << [lo, hi]
+        else
+          merged.last[1] = [merged.last[1], hi].max
+        end
+      end
+
+      lines = []
+      merged.each_with_index do |(lo, hi), block_idx|
+        # Separator between non-adjacent blocks
+        if block_idx.positive?
+          lines << colorize("--- ---", :cyan)
+        elsif lo.positive?
+          lines << colorize("--- ---", :cyan)
+        end
+
+        (lo..hi).each do |i|
+          hunk = hunks[i]
+          case hunk.action
+          when "="
+            lines << (@use_color ? "\e[0m  #{hunk.old_element}" : "  #{hunk.old_element}")
+          when "-"
+            lines << colorize("- #{hunk.old_element}", :red)
+          when "+"
+            lines << colorize("+ #{hunk.new_element}", :green)
+          when "!"
+            lines << colorize("- #{hunk.old_element}", :red)
+            lines << colorize("+ #{hunk.new_element}", :green)
+          end
+        end
+      end
+
+      lines.join("\n")
+    end
+
+    # Apply display preprocessing to both documents before the line diff.
+    #
+    # This normalizes both sides through the same formatter so that structural
+    # formatting differences (indentation, line breaks) do not confuse the LCS
+    # algorithm. Equivalence detection is never affected.
+    #
+    # NOTE: Character visualization (e.g. U+00A0 → ░) is applied by the
+    # line-diff formatters to the output lines *after* this step. Because the
+    # pretty-printer introduces only ASCII U+0020 spaces and U+000A newlines
+    # for structural indentation, and neither of those is in Canon's default
+    # visualization map, pretty-printer whitespace is never misvisualized.
+    #
+    # Future constraint: if the visualization map is extended to cover common
+    # ASCII whitespace, this method must move visualization to a DOM-level pass
+    # (walk text nodes before serialization) to keep structural and content
+    # whitespace separate. See docs/features/diff-formatting/display-preprocessing.adoc.
+    #
+    # @param doc1 [String] First document
+    # @param doc2 [String] Second document
+    # @param format [Symbol] Document format (:xml, :html, :html4, :html5, ...)
+    # @return [Array<String, String>] Preprocessed [doc1, doc2]
+    def apply_display_preprocessing(doc1, doc2, format)
+      case @display_preprocessing
+      when :pretty_print
+        apply_pretty_print(doc1, doc2, format)
+      when :normalize_pretty_print
+        apply_normalize_pretty_print(doc1, doc2, format)
+      when :c14n
+        apply_c14n(doc1, doc2, format)
+      else
+        [doc1, doc2]
+      end
+    end
+
+    # Apply mixed-content-aware normalization + visualization to both documents.
+    #
+    # Uses PrettyPrinter::XmlNormalized, which breaks every XML element onto
+    # its own line while preserving and visualizing boundary content whitespace.
+    # See PrettyPrinter::XmlNormalized for the full rationale.
+    #
+    # Whitespace classification is driven by three element-name lists:
+    # - strict_whitespace_elements  → every char significant (e.g. pre, code)
+    # - normalize_whitespace_elements → presence matters, form collapses (e.g. p, li)
+    # - insensitive_whitespace_elements → all whitespace dropped (explicit blacklist)
+    #
+    # For XML the lists default to empty (all insensitive); for HTML built-in
+    # defaults cover the common cases. Callers supply format-specific lists via
+    # Canon::Config or DiffFormatter constructor keyword arguments.
+    def apply_normalize_pretty_print(doc1, doc2, format)
+      return [doc1, doc2] unless %i[xml html html4 html5].include?(format)
+
+      indent_type_str = @pretty_printer_indent_type.to_s
+      vis_map = @visualization_map.empty? ? DiffFormatter::DEFAULT_VISUALIZATION_MAP : @visualization_map
+
+      require "canon/pretty_printer/xml_normalized"
+      # TODO: implement HtmlNormalized for HTML formats; XmlNormalized works via
+      # Nokogiri's HTML-aware parse for now.
+      #
+      # Create side-specific printers so that the pretty_printed_expected and
+      # pretty_printed_received flags drop structural \n indentation nodes only
+      # on the side that is actually pretty-printed.  If both sides share the
+      # same settings, two identical printer instances are created (cheap).
+      shared_args = {
+        indent: @pretty_printer_indent,
+        indent_type: indent_type_str,
+        visualization_map: vis_map,
+        strict_whitespace_elements: @strict_whitespace_elements,
+        normalize_whitespace_elements: @normalize_whitespace_elements,
+        insensitive_elements: @insensitive_whitespace_elements,
+        sort_attributes: @pretty_printer_sort_attributes,
+      }
+
+      printer_expected = Canon::PrettyPrinter::XmlNormalized.new(
+        **shared_args,
+        pretty_printed: @pretty_printed_expected,
+      )
+      printer_received = Canon::PrettyPrinter::XmlNormalized.new(
+        **shared_args,
+        pretty_printed: @pretty_printed_received,
+      )
+
+      [safe_format(printer_expected, doc1), safe_format(printer_received, doc2)]
+    end
+
+    # Pretty-print both documents using a format-appropriate pretty printer.
+    #
+    # * HTML formats (:html, :html4, :html5) use +Canon::PrettyPrinter::Html+
+    #   which is Nokogiri::HTML5-aware and correctly handles void elements,
+    #   optional end tags, and HTML5 serialization rules.
+    # * XML uses +Canon::PrettyPrinter::Xml+.
+    # * Other formats fall through unchanged.
+    def apply_pretty_print(doc1, doc2, format)
+      return [doc1, doc2] unless %i[xml html html4 html5].include?(format)
+
+      indent_type_str = @pretty_printer_indent_type.to_s
+
+      printer = if %i[html html4 html5].include?(format)
+                  require "canon/pretty_printer/html"
+                  Canon::PrettyPrinter::Html.new(
+                    indent: @pretty_printer_indent,
+                    indent_type: indent_type_str,
+                  )
+                else
+                  require "canon/pretty_printer/xml"
+                  Canon::PrettyPrinter::Xml.new(
+                    indent: @pretty_printer_indent,
+                    indent_type: indent_type_str,
+                  )
+                end
+
+      [safe_format(printer, doc1), safe_format(printer, doc2)]
+    end
+
+    # Normalize both documents for display using canonical serialization.
+    #
+    # * HTML formats use Nokogiri's HTML5 serializer as a consistent canonical
+    #   form (attribute order, void elements, etc. are standardized).
+    # * XML uses the XML C14N algorithm (alphabetical attributes, namespace
+    #   normalization, etc.).
+    # * Other formats fall through unchanged.
+    #
+    # @param doc1 [String] First document
+    # @param doc2 [String] Second document
+    # @param format [Symbol] Document format (:xml, :html, :html4, :html5, ...)
+    # @return [Array<String, String>] Canonicalized [doc1, doc2]
+    def apply_c14n(doc1, doc2, format = :xml)
+      if %i[html html4 html5].include?(format)
+        [safe_html_normalize(doc1), safe_html_normalize(doc2)]
+      else
+        require "canon/xml/c14n"
+        [safe_c14n(doc1), safe_c14n(doc2)]
+      end
+    end
+
+    # Pretty-print document strings for the fixture-ready display section.
+    #
+    # Runs independently of the +display_preprocessing+ setting — it is a
+    # standalone display feature, not part of the diff pipeline.
+    #
+    # The output contains NO character visualization so it can be copy-pasted
+    # directly into RSpec heredoc fixtures.
+    #
+    # @param doc1 [String] First document (expected / fixture)
+    # @param doc2 [String] Second document (received / actual)
+    # @param format [Symbol] Document format (:xml, :html, :html4, :html5, ...)
+    # @return [Array<String, String>] Pretty-printed [doc1, doc2]
+    def prettyprint_for_display(doc1, doc2, format)
+      indent_type_str = @pretty_printer_indent_type.to_s
+
+      if %i[html html4 html5].include?(format)
+        require "canon/pretty_printer/html"
+        printer = Canon::PrettyPrinter::Html.new(
+          indent: @pretty_printer_indent,
+          indent_type: indent_type_str,
+        )
+      elsif format == :xml
+        require "canon/pretty_printer/xml"
+        printer = Canon::PrettyPrinter::Xml.new(
+          indent: @pretty_printer_indent,
+          indent_type: indent_type_str,
+        )
+      else
+        return [doc1, doc2]
+      end
+
+      [safe_format(printer, doc1), safe_format(printer, doc2)]
+    end
+
+    # Format fixture-ready pretty-printed inputs for display.
+    #
+    # Unlike +format_preprocessed_inputs+, this section outputs plain ASCII
+    # with NO character visualization — the content is intended for
+    # copy-pasting into RSpec heredoc fixtures.
+    #
+    # @param pp1 [String] First pretty-printed string (expected / fixture)
+    # @param pp2 [String] Second pretty-printed string (received / actual)
+    # @param show_expected [Boolean] Render the EXPECTED block
+    # @param show_received [Boolean] Render the RECEIVED block
+    # @return [String] Formatted display of pretty-printed inputs
+    def format_prettyprint_inputs(pp1, pp2, show_expected: true, show_received: true)
+      return "" if pp1.nil? || pp2.nil?
+      return "" unless show_expected || show_received
+
+      output = []
+      output << ""
+      output << colorize("=== PRETTY-PRINTED INPUTS (Fixture-ready) ===", :cyan, :bold)
+      output << ""
+
+      if show_expected
+        output << colorize("EXPECTED:", :yellow, :bold)
+        output << ("-" * 70)
+        output << pp1
+        output << ""
+      end
+
+      if show_received
+        output << colorize("RECEIVED:", :yellow, :bold)
+        output << ("-" * 70)
+        output << pp2
+        output << ""
+      end
+
+      output << ""
+      output.join("\n")
+    end
+
+    # Format a document through the pretty-printer, falling back to the
+    # original string on any parse error.
+    def safe_format(printer, doc)
+      printer.format(doc.to_s)
+    rescue StandardError
+      doc.to_s
+    end
+
+    # Canonicalize a document via C14N, falling back on error.
+    def safe_c14n(doc)
+      Canon::Xml::C14n.canonicalize(doc.to_s, with_comments: true)
+    rescue StandardError
+      doc.to_s
+    end
+
+    # Serialize HTML through Nokogiri's HTML5 serializer for a canonical form.
+    # Normalizes attribute order, void elements, and optional end tags consistently.
+    # Falls back to the original string on any parse error.
+    def safe_html_normalize(doc)
+      require "nokogiri"
+      Nokogiri::HTML5(doc.to_s).to_html(encoding: "UTF-8")
+    rescue StandardError
+      doc.to_s
+    end
+
+    # Colorize text if color is enabled.
+    # RSpec-aware: resets any existing ANSI codes before applying new colors.
     def colorize(text, *colors)
       return text unless @use_color
 

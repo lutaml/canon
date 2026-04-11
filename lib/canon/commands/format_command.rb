@@ -15,7 +15,7 @@ module Canon
       # rubocop:disable Metrics/MethodLength
       def run(input_file)
         # Read input file
-        content = File.read(input_file)
+        content = File.read(input_file, encoding: "utf-8")
 
         # Detect or use specified format
         format = detect_format(input_file)

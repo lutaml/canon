@@ -1,0 +1,656 @@
+---
+title: Display Preprocessing
+parent: Diff Formatting
+nav_order: 6
+---
+= Display preprocessing
+:toc:
+:toclevels: 3
+
+== Purpose
+
+Display preprocessing controls how documents are normalized *before the
+line-by-line diff is rendered*. It is entirely separate from
+link:../../features/match-options/index.adoc[comparison preprocessing]
+(`FormatConfig#preprocessing`), which controls normalization for equivalence
+detection.
+
+The motivation is straightforward: line-by-line diffing only produces
+meaningful output when both sides have identical structural formatting. If one
+document is deeply indented and multi-line and the other is compact/inline, the
+LCS algorithm will match lines by text content across structurally unrelated
+regions of the document, producing misleading output. By pretty-printing both
+sides through the same formatter first, the diff reflects only genuine content
+differences.
+
+== How it works
+
+[source]
+----
+COMPARISON PHASE (unchanged)
+  Expected ──► Comparison preprocessing ──► Semantic equivalence check
+  Actual   ──►                              Semantic Diff Report
+
+DISPLAY PHASE (new)
+  Expected ──► Display preprocessing ──► Format-specific by-line formatter ──► line diff
+  Actual   ──►                                                                 line diff
+----
+
+The comparison result (semantic diff report, equivalence determination) is
+never affected by display preprocessing. Only the visual line-by-line diff
+section changes.
+
+== Two-layer display pipeline
+
+There are two independent formatting layers in the by-line display path.
+Understanding both is essential to predicting the output.
+
+=== Layer 1 — Format-specific by-line formatter (always active)
+
+Every format has its own by-line formatter that is *always* applied, regardless
+of whether display preprocessing is enabled:
+
+* **XML** — Splits the serialized string at `><` boundaries (one tag per
+  line), then applies character visualization (e.g. ASCII space → `░`,
+  tab → `⇥`, U+00A0 → `␣`) to every content character in the output.
+* **HTML** — Similar to XML.
+* **JSON** — Calls `Canon.format(doc, :json)` (re-serializes via
+  `JSON.pretty_generate`), producing consistent 2-space indented JSON.
+* **YAML** — Calls `Canon.format(doc, :yaml)`.
+
+This layer runs on the strings that arrive at the by-line formatter, whatever
+their source.
+
+=== Layer 2 — Display preprocessing (optional, configured)
+
+Display preprocessing, controlled by `display_preprocessing`, is applied
+*before* the documents reach Layer 1.
+
+`:none` (default)::
+  No extra processing. The documents arrive at the by-line formatter as-is,
+  and Layer 1 applies its own reformatting. This preserves the existing
+  behaviour prior to this feature.
+
+`:pretty_print`::
+  Both documents are run through a format-specific pretty-printer *before*
+  reaching the by-line formatter. For XML, this uses `Canon::PrettyPrinter::Xml`
+  (Nokogiri `to_xml` with `noblanks`). For HTML, this uses
+  `Canon::PrettyPrinter::Html` (Nokogiri HTML5 serializer). Both replace
+  Layer 1's simple `><`-split with a proper Nokogiri-based pretty-print,
+  producing structurally consistent indentation on both sides. For JSON and
+  YAML, this is a pass-through (Layer 1 handles those formats adequately).
++
+NOTE: `:pretty_print` has a fundamental limitation for markup with mixed
+content (elements containing both text and child elements): standard
+pretty-printers keep such elements on a single line because inserting newlines
+would add whitespace text nodes, changing the document's semantic content.
+See <<_mixed_content_and_normalize_pretty_print>> for the solution.
+
+`:normalize_pretty_print`::
+  Like `:pretty_print` but uses `Canon::PrettyPrinter::XmlNormalized`, a
+  custom recursive DOM serializer that guarantees one line per XML node even
+  for mixed-content elements.  See <<_mixed_content_and_normalize_pretty_print>>
+  for the full rationale and algorithm.
+
+`:c14n`::
+  Both documents are run through a canonical normalization pass before reaching
+  the by-line formatter. For XML, this uses canonical XML (C14N), which sorts
+  attributes alphabetically and normalizes namespace declarations. For HTML,
+  this uses Nokogiri HTML5 serialization, which produces a consistent canonical
+  form of the HTML5 DOM (normalizing attribute order and whitespace).
+
+=== Effect on character visualization
+
+Character visualization is applied by Layer 1 (the by-line formatter) to the
+output lines. Because `Canon::PrettyPrinter::Xml` introduces only ASCII
+U+0020 spaces and U+000A newlines for structural indentation, and because
+those characters *are* in Canon's visualization map (space → `░`,
+newline → invisible), the pretty-printer's structural indentation is
+visualized as `░░` (2 spaces at default indent) in the diff output.
+
+This is correct and intentional: the `░` characters in context lines represent
+the structural indentation that was introduced by the pretty-printer, making
+the depth of the tree visually apparent in the diff.
+
+NOTE: If the visualization map is extended to cover additional characters, the
+two-layer architecture remains valid as long as those characters do not appear
+in the pretty-printer's structural output. See the
+<<_future_extensibility_constraint>> section below.
+
+== Configuration
+
+=== `display_preprocessing` values
+
+`:none` (default):: Documents are used as-is for the line diff (preserves
+existing behaviour).
+
+`:pretty_print`:: Both documents are run through `Canon::PrettyPrinter::Xml`
+before the line diff. This produces one element per line with consistent
+indentation, so the LCS algorithm matches lines by semantic position rather
+than by coincidental textual similarity. Does not handle mixed content (see
+`:normalize_pretty_print`).
+
+`:normalize_pretty_print`:: Both documents are run through
+`Canon::PrettyPrinter::XmlNormalized` before the line diff. Like
+`:pretty_print` but guarantees one line per XML node even for mixed-content
+elements, and visualizes boundary content whitespace using the character map.
+Recommended for XML with inline markup (e.g. Metanorma output).
+
+`:c14n`:: Both documents are run through XML C14N normalization before the
+line diff.
+
+=== Setting in `spec_helper.rb`
+
+[source,ruby]
+----
+Canon::Config.instance.tap do |cfg|
+  cfg.xml.diff.display_preprocessing = :normalize_pretty_print
+  cfg.xml.diff.pretty_printer.indent = 2                             # default: 2
+  cfg.xml.diff.pretty_printer.indent_type = :space                   # :space or :tab
+  cfg.xml.diff.normalize_whitespace_elements = %w[p li td th]        # opt-in for mixed-content elements
+end
+----
+
+=== Environment variables
+
+[source,bash]
+----
+export CANON_XML_DIFF_DISPLAY_PREPROCESSING=normalize_pretty_print
+export CANON_XML_DIFF_PRETTY_PRINTER_INDENT=2
+export CANON_XML_DIFF_PRETTY_PRINTER_INDENT_TYPE=space
+export CANON_XML_NORMALIZE_WHITESPACE_ELEMENTS=p,li,td,th
+----
+
+== Pretty-printer format
+
+`Canon::PrettyPrinter::Xml` uses Nokogiri's `to_xml` with `noblanks` (to strip
+blank text nodes) and consistent indentation. The result is one element per
+line with child elements indented relative to their parent.
+
+.Input (mixed formatting)
+[example]
+====
+[source,xml]
+----
+<bibitem id="ISO712"><biblio-tag>ISO&#xA0;712, </biblio-tag><formattedref><em>Cereals</em>.</formattedref></bibitem>
+----
+====
+
+.After `:pretty_print` (indent: 2)
+[example]
+====
+[source,xml]
+----
+<bibitem id="ISO712">
+  <biblio-tag>ISO&#xA0;712, </biblio-tag>
+  <formattedref>
+    <em>Cereals</em>.
+  </formattedref>
+</bibitem>
+----
+====
+
+With both sides formatted this way, a line diff of two versions of the same
+element produces clean, contextual output:
+
+[source]
+----
+     <bibitem id="ISO712">
+<      <biblio-tag>ISO\u00a0712, </biblio-tag>
+>      <biblio-tag>ISO&#xA0;712, </biblio-tag>
+       <formattedref>
+         <em>Cereals and cereal products</em>.
+       </formattedref>
+----
+
+[[_mixed_content_and_normalize_pretty_print]]
+== Mixed content and `:normalize_pretty_print`
+
+=== The problem
+
+Standard XML/HTML pretty-printers — including Nokogiri's built-in
+`to_xml(indent: N)` — always keep mixed-content elements (those containing
+both text and child elements) on a single line.  They have no choice: inserting
+a newline between `<p>See ` and `<xref.../>` would create a new whitespace
+text node in the document, changing its semantic content.
+
+This causes two related problems for line-by-line diffs:
+
+. **Structural non-uniformity**: if the expected document (e.g. a hand-written
+  test fixture) has formatting whitespace inside a `<p>` and the actual
+  document (e.g. Metanorma compact XML output) does not, the two sides
+  serialize differently even when the content is the same.  The diff shows
+  many spurious lines of insertions and deletions instead of a single
+  meaningful change.
+
+. **1000-character lines**: when a paragraph contains many inline elements
+  (formulae, cross-references, emphasis runs), the entire `<p>` element
+  collapses onto one line.  A change anywhere inside the paragraph marks the
+  whole line as changed; there is no way to see which part differs.  This is
+  the pathological case documented in
+  https://github.com/lutaml/canon/issues/53[issue #53].
+
+=== Why stripping whitespace does not work
+
+The obvious workaround — strip all inter-element whitespace, then
+pretty-print — creates a different problem.  Stripping whitespace text nodes
+changes the document.  In `<p>See <strong>note</strong> for details</p>`, the
+spaces before and after `<strong>` are part of the rendered output: removing
+them makes "Seenote for details" visually.  Moreover, a document that had those
+spaces and one that did not would serialize identically after stripping, hiding
+a real content difference.
+
+=== The solution: two categories of whitespace
+
+`Canon::PrettyPrinter::XmlNormalized` distinguishes two kinds of whitespace at
+serialization time:
+
+**Structural whitespace**:: Indentation characters *introduced by the
+serializer itself*.  These do not exist in the source document.  Emitted as
+ordinary ASCII space and newline characters.
+
+**Content whitespace**:: Whitespace that exists as text-node content *in the
+source document* — the spaces and newlines between inline elements.  Visualized
+using the character map (U+0020 → `░`, U+000A → `↵`, etc.) and placed at the
+*end of the preceding line* rather than the beginning of the next.
+
+The invariant is: **every XML element starts on its own line, always.**
+Content whitespace at element boundaries is visible and unambiguously distinct
+from the structural indentation.
+
+=== Algorithm
+
+For each element in a recursive DOM walk:
+
+Element-only children (no text siblings)::
+  Standard indented pretty-print.  One child per line.
+
+Pure-text element (text content, no child elements)::
+  Single line: `<tag>content</tag>`.  Internal spaces are left unchanged
+  (they are inside a text node with no element siblings and are unambiguously
+  content).
+
+Mixed content (text nodes and element children both present)::
+  Processed in document order:
++
+* *Pure-whitespace text node between elements* (e.g. `\n  ` from a
+  hand-indented fixture): visualized and appended to the *end* of the current
+  line (the preceding element or opening tag).  No new line is created.
+* *Text node with printable content* (e.g. `See ` before a cross-reference):
+  leading whitespace visualized and appended to the current line (then the
+  current line is flushed); printable content placed on its own indented line;
+  trailing whitespace visualized and appended to the content line.
+* *Element child*: the current accumulated line is flushed; element serialized
+  recursively at depth+1.
+
+=== Example: compact Metanorma XML vs. hand-indented fixture
+
+Input (compact XML, from Metanorma):
+[source,xml]
+----
+<p id="A">See <xref target="M" id="_"/><semx element="xref" source="_">note</semx></p>
+----
+
+After `:normalize_pretty_print`:
+[source]
+----
+<p id="A">
+  See░
+  <xref target="M" id="_"/>
+  <semx element="xref" source="_">note</semx>
+</p>
+----
+
+(`░` = U+0020 space from the document — the trailing space after "See")
+
+Input (hand-indented fixture):
+[source,xml]
+----
+<p id="A">
+  See
+  <xref target="M" id="_"/>
+</p>
+----
+
+After `:normalize_pretty_print`:
+[source]
+----
+<p id="A">↵░░
+  See↵░░
+  <xref target="M" id="_"/>↵
+</p>
+----
+
+(`↵` = U+000A newline; `░░` = two U+0020 spaces — all from the document, all visualized)
+
+Diff between the two (2 changed lines instead of 7+):
+[source]
+----
+- <p id="A">↵░░
++ <p id="A">
+- See↵░░
++ See░
+  <xref target="M" id="_"/>
+----
+
+=== Whitespace in practice: Metanorma compact XML
+
+Metanorma emits compact XML with no inter-element whitespace.  Every
+whitespace character in a Metanorma output text node is real document content.
+The serializer's boundary-whitespace visualization therefore accurately
+reflects the document — there are no structural indentation artefacts to
+suppress.
+
+When comparing against hand-written fixture strings (test heredocs), the
+fixture often has indentation whitespace inside mixed-content elements.  That
+whitespace appears as visualized characters (e.g. `↵░░`) on the expected side
+and as plain `░` on the actual side.  This is correct and intentional: the
+whitespace difference is visible, but it does not obscure the structural diff
+the way a compact single line does.
+
+=== Why a new serializer is required
+
+Nokogiri's `to_xml(indent: N)` is implemented in C and provides no hook into
+mixed-content handling.  The only way to implement the boundary-visualization
+algorithm is a recursive Ruby-level DOM walk that builds the output string
+directly.  `PrettyPrinter::XmlNormalized` is that serializer.
+
+=== When to use `:normalize_pretty_print`
+
+Use `:normalize_pretty_print` when:
+
+* The documents contain inline markup (cross-references, emphasis, formulae)
+  — typical of Metanorma, DocBook, DITA, or similar technical documentation
+  XML formats.
+* You need to diagnose differences inside `<p>` or similar mixed elements
+  without wading through 1000-character compact lines.
+* The expected (fixture) and actual (generated) sides may have different
+  inter-element whitespace conventions (hand-indented vs. compact).
+
+Use `:pretty_print` when documents are element-only (no mixed content) and
+both sides come from the same serializer.
+
+== Character visualization and display preprocessing
+
+=== How they interact
+
+Character visualization (substituting special characters with visible
+placeholders) is applied by the by-line formatter (Layer 1) to the *output
+lines*, after display preprocessing (Layer 2) has already run.
+
+Canon's default visualization map includes ASCII U+0020 space (`░`) and
+U+0009 tab (`⇥`). Because the pretty-printer introduces U+0020 spaces for
+structural indentation, those indentation spaces *are* visualized as `░` in
+the diff output. This is intentional: the `░` characters in context lines
+reflect the structural depth of each element, making the tree structure
+visually apparent.
+
+Special content characters in text nodes — such as U+00A0 NO-BREAK SPACE
+(`␣`) — are also visualized, maintaining their distinction from regular
+structural indentation in the output.
+
+=== Future extensibility constraint
+
+IMPORTANT: The current approach visualizes *all* characters in the output
+lines, including both content characters and the pretty-printer's structural
+indentation. This is intentional for the standard visualization map, where
+structural indentation (U+0020 spaces, U+0009 tabs) provides useful visual
+depth information in the diff.
+
+However, if Canon's visualization map is extended to include characters that
+should be distinct between *structural* use and *content* use — for example,
+if U+0020 should be visualized differently when it appears in text content
+versus as indentation — the current post-serialization approach cannot make
+that distinction.
+
+Should that become necessary, character visualization will need to be moved
+to a DOM-level pass applied *before* serialization:
+
+. Parse the document to a DOM.
+. Walk all text nodes; apply character substitutions only to text node values.
+. Serialize with the pretty-printer.
+
+This would guarantee that visualization applies only to characters that were
+in the original content, not to structural whitespace introduced by the
+pretty-printer. This is a known future work item.
+
+== Format support
+
+[cols="1,1,1,1,3"]
+|===
+|Format |`:pretty_print` |`:normalize_pretty_print` |`:c14n` |Notes
+
+|XML
+|✓ Full
+|✓ Full
+|✓ Full
+|`:pretty_print` uses `Canon::PrettyPrinter::Xml`; `:normalize_pretty_print` uses `Canon::PrettyPrinter::XmlNormalized` (mixed-content aware); `:c14n` uses canonical XML (attribute-order sorting)
+
+|HTML
+|✓ Full
+|✓ (via XML serializer)
+|✓ Full
+|`:pretty_print` uses `Canon::PrettyPrinter::Html`; `:normalize_pretty_print` falls back to `XmlNormalized` pending a dedicated `HtmlNormalized`; `:c14n` uses Nokogiri HTML5 serialization
+
+|JSON
+|Planned
+|N/A
+|N/A
+|Will use `Canon::PrettyPrinter::Json` in a future release
+
+|YAML
+|Planned
+|N/A
+|N/A
+|Will use `Canon::PrettyPrinter::Yaml` in a future release
+|===
+
+When a mode is requested for an unsupported format, the documents are
+used as-is (same as `:none`).
+
+== Known limitations
+
+=== HTML standalone format without DiffNodes
+
+When `DiffFormatter#format` is called directly on HTML documents without
+providing DiffNodes (i.e. using an empty differences array `[]`), the
+line-by-line diff output contains only the header line — no content diff is
+shown. This is a consequence of the legacy DOM path in `HtmlFormatter` (which
+handles the no-DiffNodes case) having an incomplete implementation of
+`LineRangeMapper` for the HTML root element.
+
+*This limitation does not affect normal Canon usage.* The RSpec matcher
+(`be_html_equivalent_to`) always supplies a `ComparisonResult` with DiffNodes,
+which causes `HtmlFormatter` to take the `format_with_pipeline` path. That
+path works correctly and produces full HTML content diffs.
+
+The legacy DOM path is scheduled for removal (see
+https://github.com/lutaml/canon/issues/84[issue #84]), after which
+`HtmlFormatter` will exclusively use the DiffNodes pipeline.
+
+=== Trailing content-space before inline elements: mixed-content false positive
+
+When a fixture (indented XML) contains a text node of the form `See \n  <xref` —
+that is, content text followed by a space and then a newline before an inline
+child element — `XmlNormalized` serializes it as a single line ending in
+`See ` (content text with a trailing space U+0020).  The corresponding compact
+XML has `See<xref`, whose text node is `See` (no trailing space).  The diff
+therefore reports a false positive:
+
+----
+-   See
++   See░
+----
+
+This cannot be suppressed automatically: the text node `See ` is not
+whitespace-only (it contains the word "See"), so the trailing space is real
+content that is left intact and visualized as `░`.
+
+In Metanorma (and similar mixed-content XML vocabularies), a trailing space
+before an inline child element and a newline+indent before the same element are
+semantically equivalent.  Canon has no application-specific knowledge to make
+that equivalence, so this display-only false positive is unavoidable.
+
+*This false positive does not affect equivalence determination* — the semantic
+comparison operates on the normalized DOM and is unaffected.  It is a
+presentation-only artefact of the display layer.
+
+=== Controlling whitespace visualization with element classification
+
+`XmlNormalized` supports a three-way per-element whitespace classification
+that governs how the pretty-printer renders whitespace in mixed-content
+elements.  Classification is *ancestor-based*: the closest matching ancestor
+determines the class for all text nodes within it.
+
+`strict_whitespace_elements`::
+  Every whitespace character is significant and is visualized verbatim:
+  `" "` → `░`, `"\n  "` → `↵░░`.
+  Suitable for preformatted elements such as `<pre>` or `<code>`.
+  XML default: none.
+  HTML default: `pre`, `code`, `textarea`, `script`, `style`.
+  Configure via `cfg.xml.diff.strict_whitespace_elements = %w[pre code]`
+  or the environment variable `CANON_XML_STRICT_WHITESPACE_ELEMENTS=pre,code`.
+
+`normalize_whitespace_elements`::
+  Whitespace presence matters but all forms are equivalent: both `" "`
+  and `"\n  "` collapse to a single `░`.
+  Suitable for inline mixed-content elements where a word-boundary space
+  is real content (e.g. `<p>See <xref/>`) but its exact form is not.
+  XML default: none.
+  HTML default: `p`, `li`, `dt`, `dd`, `td`, `th`, `h1`–`h6`,
+  `caption`, `figcaption`, `label`, `legend`, `summary`,
+  `blockquote`, `address`, `button`.
+  Configure via `cfg.xml.diff.normalize_whitespace_elements = %w[p li td]`
+  or the environment variable `CANON_XML_NORMALIZE_WHITESPACE_ELEMENTS=p,li,td`.
+
+Default (neither list — XML)::
+  All inter-element whitespace is dropped entirely.  Both compact and
+  indented XML produce identical serialized lines — the spurious `↵░░░`
+  markers disappear.  This is the correct mode for purely structural
+  containers such as `<bibdata>`.
+
+Format defaults (HTML) can be overridden by listing an element in
+`insensitive_whitespace_elements`, which acts as a blacklist and wins over any
+sensitive ancestor:
+
+[source,ruby]
+----
+Canon::Config.configure do |cfg|
+  # Force <p> to be treated as insensitive despite the HTML default
+  cfg.html.diff.insensitive_whitespace_elements = %w[p]
+end
+----
+
+.Example: configure for Metanorma inline mixed-content (XML)
+[source,ruby]
+----
+Canon::Config.configure do |cfg|
+  cfg.xml.diff.display_preprocessing = :normalize_pretty_print
+  cfg.xml.diff.normalize_whitespace_elements = %w[p li td th]
+end
+----
+
+== Comparison with comparison preprocessing
+
+[cols="1,2,2"]
+|===
+|Aspect |Comparison preprocessing |Display preprocessing
+
+|Setting
+|`cfg.xml.preprocessing`
+|`cfg.xml.diff.display_preprocessing`
+
+|Purpose
+|Normalize for equivalence detection
+|Normalize for line-diff readability
+
+|Affects equivalence?
+|Yes
+|No
+
+|Default
+|`:none`
+|`:none`
+
+|Format scope
+|`FormatConfig`
+|`DiffConfig`
+|===
+
+[[_pretty_printed_flags]]
+== Pretty-printed document flags
+
+=== Purpose
+
+The `pretty_printed_expected` and `pretty_printed_received` flags are companion
+settings to `normalize_whitespace_elements` / `strict_whitespace_elements` that
+solve an asymmetric formatting problem: fixture files are typically
+hand-indented heredocs, while received XML is compact.
+
+For the full rationale, algorithm, and examples see the dedicated guide:
+link:../match-options/pretty-printed-fixtures.adoc[Pretty-printed fixture support].
+
+=== Quick reference
+
+`pretty_printed_expected`::
+  When `true`, whitespace-only text nodes that start with `"\n"` inside
+  `:normalize` elements are dropped from the **expected (fixture)** document
+  before it reaches the by-line diff.  `:strict` elements are always preserved.
+  Default: `false`.
+
+`pretty_printed_received`::
+  Same treatment for the **received (actual)** document.  Useful when the
+  received side is pretty-printed but the fixture is compact.
+  Default: `false`.
+
+=== Configuration
+
+[source,ruby]
+----
+Canon::Config.configure do |cfg|
+  cfg.xml.diff.display_preprocessing       = :normalize_pretty_print
+  cfg.xml.diff.normalize_whitespace_elements = %w[fmt-title semx p]
+  cfg.xml.diff.pretty_printed_expected     = true   # fixture is indented
+  cfg.xml.diff.pretty_printed_received     = false  # received is compact
+end
+----
+
+[source,bash]
+----
+export CANON_XML_DIFF_PRETTY_PRINTED_EXPECTED=true
+export CANON_XML_DIFF_PRETTY_PRINTED_RECEIVED=false
+----
+
+=== Interaction with whitespace classification
+
+The flags interact with the three-way whitespace classification exactly as
+described in <<_controlling_whitespace_visualization_with_element_classification>>:
+
+[cols="1,3"]
+|===
+|Classification |Effect when `pretty_printed_*` is `true`
+
+|`:insensitive`
+|No change — whitespace is already dropped for both sides
+
+|`:normalize`
+|Whitespace-only nodes starting with `"\n"` are dropped from the flagged side.
+ Nodes starting with a space (no initial `"\n"`) are kept and normalized.
+
+|`:strict`
+|No change — every whitespace character is preserved regardless of flags
+
+|===
+
+== See also
+
+* link:character-visualization.adoc[Character visualization] — how special
+  characters are rendered in diff output
+* link:../match-options/pretty-printed-fixtures.adoc[Pretty-printed fixture support]
+  — full rationale, algorithm, and walkthrough examples
+* link:../../reference/options-across-interfaces.adoc[Options across interfaces]
+  — Layer 1b display preprocessing table
+* link:../../reference/environment-variables.adoc[Environment variables] —
+  `CANON_DISPLAY_PREPROCESSING` etc.
+* link:../match-options/index.adoc[Match options] — comparison preprocessing
+  (`cfg.xml.preprocessing`)

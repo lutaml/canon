@@ -72,6 +72,19 @@ Make invisible characters visible in diff output:
 * Non-ASCII character detection
 * CJK-safe Unicode symbols
 
+Controlled via `Canon::Config`:
+
+* `true` — (default) apply the full visualization map; spaces → `░`, tabs → `⇥`, NBSP → `␣`
+* `false` — disable all substitution; useful for copying output or CI tooling that cannot render Unicode symbols
+* `:content_only` — reserved; currently behaves as `true`
+
+[source,ruby]
+----
+Canon::Config.configure do |cfg|
+  cfg.xml.diff.character_visualization = false
+end
+----
+
 See link:character-visualization.adoc[Character visualization] for details.
 
 === Context and grouping
@@ -82,6 +95,40 @@ Control how much surrounding context to show:
 * Grouping: Combine nearby changes into single blocks
 
 See link:context-and-grouping.adoc[Context and grouping] for details.
+
+=== Display preprocessing
+
+Normalize both documents through the same formatter before the line diff, so
+that formatting differences between expected and actual do not confuse the LCS
+algorithm:
+
+* `:none` — use documents as-is (default)
+* `:pretty_print` — run through `Canon::PrettyPrinter::Xml` (one tag per line)
+* `:c14n` — run through XML C14N normalization
+
+See link:display-preprocessing.adoc[Display preprocessing] for details,
+including the character-visualization constraint for future extensibility.
+
+=== Pretty-diff mode
+
+`:pretty_diff` is a text-LCS diff mode that bypasses DiffNodeMapper entirely.
+It applies `display_preprocessing` to both sides and runs `Diff::LCS.sdiff`
+on the resulting plain-text lines, guaranteeing that every line-level change
+is visible — even when DiffNodeMapper's DOM-address correlation is unreliable.
+
+Use it as a reliable fallback when `:by_line` shows no output for changes you
+know are present (issue #85).
+
+[source,ruby]
+----
+formatter = Canon::DiffFormatter.new(
+  mode: :pretty_diff,
+  display_preprocessing: :pretty_print,
+  context_lines: 3,
+)
+----
+
+See link:pretty-diff-mode.adoc[Pretty-diff mode] for details and limitations.
 
 === Algorithm-specific output
 

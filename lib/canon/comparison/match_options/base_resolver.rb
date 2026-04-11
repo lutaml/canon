@@ -125,7 +125,11 @@ module Canon
               insensitive_elements
               whitespace_sensitive_elements
               whitespace_insensitive_elements
+              strict_whitespace_elements
+              normalize_whitespace_elements
               respect_xml_space
+              pretty_printed_expected
+              pretty_printed_received
             ]
 
             match_options.each do |dimension, behavior|

@@ -6,6 +6,10 @@ require "canon/diff_formatter/diff_detail_formatter/node_utils"
 require "canon/diff_formatter/diff_detail_formatter/text_utils"
 require "canon/diff_formatter/diff_detail_formatter/location_extractor"
 require "canon/diff/diff_node"
+require "canon/xml/nodes/element_node"
+require "canon/xml/nodes/text_node"
+require "canon/xml/nodes/attribute_node"
+require "canon/xml/nodes/comment_node"
 
 RSpec.describe "DiffDetailFormatter helpers" do
   describe Canon::DiffFormatter::DiffDetailFormatterHelpers::NodeUtils do
@@ -207,6 +211,328 @@ RSpec.describe "DiffDetailFormatter helpers" do
         result = described_class.extract_location(diff)
         expect(result).to eq("Location: /preferred/path[0]")
       end
+    end
+  end
+
+  # ── compact XML rendering (compact_semantic_report) ────────────────────────
+
+  describe Canon::DiffFormatter::DiffDetailFormatterHelpers::NodeUtils, "compact rendering" do
+    let(:nu) { described_class }
+
+    # helpers for building Canon nodes
+    def text_node(str)
+      Canon::Xml::Nodes::TextNode.new(value: str)
+    end
+
+    def element_node(name, children: [], attributes: [])
+      n = Canon::Xml::Nodes::ElementNode.new(name: name)
+      attributes.each { |a| n.add_attribute(a) }
+      children.each { |c| n.add_child(c) }
+      n
+    end
+
+    def attr_node(name, value)
+      Canon::Xml::Nodes::AttributeNode.new(name: name, value: value)
+    end
+
+    describe ".serialize_node_compact" do
+      context "with a TextNode" do
+        it "returns the escaped text value" do
+          expect(nu.serialize_node_compact(text_node("Cereals"))).to eq("Cereals")
+        end
+
+        it "escapes HTML entities in text content" do
+          expect(nu.serialize_node_compact(text_node("<>&"))).to eq("&lt;&gt;&amp;")
+        end
+      end
+
+      context "with an ElementNode with no children" do
+        it "produces a self-closing tag" do
+          expect(nu.serialize_node_compact(element_node("br"))).to eq("<br/>")
+        end
+
+        it "includes attributes" do
+          node = element_node("bibitem",
+                              attributes: [attr_node("id", "ISO712"),
+                                           attr_node("type", "standard")])
+          expect(nu.serialize_node_compact(node)).to \
+            eq('<bibitem id="ISO712" type="standard"/>')
+        end
+      end
+
+      context "with an ElementNode with text children" do
+        it "wraps text content between open and close tags" do
+          node = element_node("em", children: [text_node("Cereals and cereal products")])
+          expect(nu.serialize_node_compact(node)).to eq("<em>Cereals and cereal products</em>")
+        end
+
+        it "escapes HTML entities in attribute values" do
+          node = element_node("a",
+                              attributes: [attr_node("href", "x&y")],
+                              children: [text_node("link")])
+          expect(nu.serialize_node_compact(node)).to eq('<a href="x&amp;y">link</a>')
+        end
+      end
+
+      context "with nested ElementNodes" do
+        it "serializes nested structure inline" do
+          inner = element_node("strong", children: [text_node("bold")])
+          outer = element_node("p", children: [inner])
+          expect(nu.serialize_node_compact(outer)).to eq("<p><strong>bold</strong></p>")
+        end
+      end
+
+      context "with a non-Canon node" do
+        it "falls back to get_node_text" do
+          node = double("generic_node")
+          allow(node).to receive(:respond_to?).with(:text).and_return(true)
+          allow(node).to receive(:text).and_return("  fallback  ")
+          # get_node_text strips ASCII whitespace
+          expect(nu.serialize_node_compact(node)).to eq("fallback")
+        end
+      end
+
+      context "with nil" do
+        it "returns an empty string" do
+          expect(nu.serialize_node_compact(nil)).to eq("")
+        end
+      end
+    end
+
+    describe ".node_to_display" do
+      context "with compact: false (default)" do
+        it "returns get_node_text result for an ElementNode" do
+          node = element_node("em", children: [text_node("Cereals")])
+          # get_node_text calls node.node_info or text; for ElementNode there's no
+          # :text method, so it falls through to :node_info
+          result = nu.node_to_display(node, compact: false)
+          # ElementNode doesn't have .text, so node_info is used
+          expect(result).to include("name: em")
+        end
+      end
+
+      context "with compact: true" do
+        it "returns compact XML for an ElementNode" do
+          node = element_node("em", children: [text_node("Cereals")])
+          expect(nu.node_to_display(node, compact: true)).to eq("<em>Cereals</em>")
+        end
+
+        it "still returns get_node_text for a TextNode" do
+          node = text_node("plain text")
+          result = nu.node_to_display(node, compact: true)
+          # TextNode is not an ElementNode; node_to_display uses get_node_text
+          expect(result).to eq("plain text")
+        end
+      end
+    end
+  end
+
+  describe Canon::DiffFormatter::DiffDetailFormatterHelpers::DimensionFormatter do
+    let(:df) { described_class }
+
+    def text_node(str)
+      Canon::Xml::Nodes::TextNode.new(value: str)
+    end
+
+    def element_node(name, children: [], attributes: [])
+      n = Canon::Xml::Nodes::ElementNode.new(name: name)
+      attributes.each { |a| n.add_attribute(a) }
+      children.each { |c| n.add_child(c) }
+      n
+    end
+
+    describe ".format_text_content_details with compact:" do
+      let(:node1) { element_node("em", children: [text_node("old")]) } # rubocop:disable RSpec/IndexedLet
+      let(:node2) { element_node("em", children: [text_node("new")]) } # rubocop:disable RSpec/IndexedLet
+      let(:diff) do
+        Canon::Diff::DiffNode.new(node1: node1, node2: node2,
+                                  dimension: :text_content,
+                                  reason: "content differs")
+      end
+
+      it "with compact: false returns node_info-style text in details" do
+        detail1, detail2, = df.format_text_content_details(diff, false,
+                                                           compact: false)
+        # Without compact, get_node_text falls through to node_info for ElementNode
+        expect(detail1).to include("name: em")
+        expect(detail2).to include("name: em")
+      end
+
+      it "with compact: true returns compact XML in details" do
+        detail1, detail2, = df.format_text_content_details(diff, false,
+                                                           compact: true)
+        expect(detail1).to eq("<em>old</em>")
+        expect(detail2).to eq("<em>new</em>")
+      end
+
+      it "with compact: true the changes summary contains compact XML" do
+        _, _, changes = df.format_text_content_details(diff, false,
+                                                       compact: true)
+        expect(changes).to include("<em>old</em>")
+        expect(changes).to include("<em>new</em>")
+      end
+    end
+
+    describe ".format_fallback_details with compact:" do
+      let(:node1) { element_node("strong", children: [text_node("A")]) } # rubocop:disable RSpec/IndexedLet
+      let(:node2) { element_node("strong", children: [text_node("B")]) } # rubocop:disable RSpec/IndexedLet
+      let(:diff) do
+        Canon::Diff::DiffNode.new(node1: node1, node2: node2,
+                                  dimension: :unknown,
+                                  reason: "fallback")
+      end
+
+      it "with compact: false uses format_node_brief (name + text)" do
+        detail1, detail2, = df.format_fallback_details(diff, false,
+                                                       compact: false)
+        # format_node_brief returns "name(\"text\")" style
+        expect(detail1).to match(/strong/)
+        expect(detail2).to match(/strong/)
+      end
+
+      it "with compact: true returns compact XML" do
+        detail1, detail2, = df.format_fallback_details(diff, false,
+                                                       compact: true)
+        expect(detail1).to eq("<strong>A</strong>")
+        expect(detail2).to eq("<strong>B</strong>")
+      end
+    end
+  end
+
+  # ── End-to-end: compact_semantic_report through DiffDetailFormatter ─────────
+
+  describe "compact_semantic_report integration" do
+    # Comparing two documents where the element type differs so that node1/node2
+    # in the diff are ElementNodes (not TextNodes).  The element_structure
+    # dimension is used for the name change, but we also use text_content on
+    # two different elements so that the nodes themselves are ElementNodes.
+    #
+    # We use a hand-built diff with ElementNodes to verify the compact flag
+    # at the DiffDetailFormatter level.
+
+    def element_node_for_int(name, text_value)
+      n = Canon::Xml::Nodes::ElementNode.new(name: name)
+      n.add_child(Canon::Xml::Nodes::TextNode.new(value: text_value))
+      n
+    end
+
+    it "with compact_semantic_report: false the detail for an ElementNode uses node_info style" do
+      node1 = element_node_for_int("em", "old text")
+      node2 = element_node_for_int("em", "new text")
+      diff = Canon::Diff::DiffNode.new(node1: node1, node2: node2,
+                                       dimension: :text_content,
+                                       reason: "text content differs")
+      require "canon/diff_formatter/diff_detail_formatter"
+      report = Canon::DiffFormatter::DiffDetailFormatter.format_report(
+        [diff],
+        use_color: false,
+        compact_semantic_report: false,
+      )
+      # Without compact, format_text_content_details calls get_node_text on an
+      # ElementNode, which falls through to node_info → "name: em …"
+      expect(report).to include("name: em")
+    end
+
+    it "with compact_semantic_report: true the detail for an ElementNode uses compact XML" do
+      node1 = element_node_for_int("em", "old text")
+      node2 = element_node_for_int("em", "new text")
+      diff = Canon::Diff::DiffNode.new(node1: node1, node2: node2,
+                                       dimension: :text_content,
+                                       reason: "text content differs")
+      require "canon/diff_formatter/diff_detail_formatter"
+      report = Canon::DiffFormatter::DiffDetailFormatter.format_report(
+        [diff],
+        use_color: false,
+        compact_semantic_report: true,
+      )
+      # With compact, format_text_content_details calls serialize_node_compact
+      expect(report).to include("<em>old text</em>")
+      expect(report).to include("<em>new text</em>")
+    end
+
+    it "with compact: true via DiffFormatter.new the report uses compact XML" do
+      # Full wiring: xml1/xml2 differ at text node level; we build diffs manually
+      # so ElementNodes end up as diff nodes
+      node1 = element_node_for_int("strong", "Annex A")
+      node2 = element_node_for_int("strong", "Annex B")
+      diff = Canon::Diff::DiffNode.new(node1: node1, node2: node2,
+                                       dimension: :text_content,
+                                       reason: "text content differs")
+      formatter = Canon::DiffFormatter.new(
+        use_color: false,
+        compact_semantic_report: true,
+      )
+      # Simulate comparison_result
+      comparison_result = double("comparison_result")
+      allow(comparison_result).to receive(:is_a?).with(Canon::Comparison::ComparisonResult).and_return(true)
+      allow(comparison_result).to receive_messages(algorithm: :dom, differences: [diff], equivalent?: false, original_strings: ["<root/>", "<root/>"], html_version: nil, match_options: nil)
+
+      output = formatter.format_comparison_result(comparison_result, "<root/>", "<root/>")
+      expect(output).to include("<strong>Annex A</strong>")
+      expect(output).to include("<strong>Annex B</strong>")
+    end
+  end
+
+  # ── End-to-end: expand_difference through DiffDetailFormatter ──────────────
+
+  describe "expand_difference integration" do
+    def element_node_for_expand(name, text_value)
+      n = Canon::Xml::Nodes::ElementNode.new(name: name)
+      n.add_child(Canon::Xml::Nodes::TextNode.new(value: text_value))
+      n
+    end
+
+    it "with expand_difference: false shows only the tag name" do
+      node1 = element_node_for_expand("biblio-tag", "ISO 712, ")
+      node2 = element_node_for_expand("span", "ISO 712, ")
+      diff = Canon::Diff::DiffNode.new(node1: node1, node2: node2,
+                                       dimension: :element_structure,
+                                       reason: "element name differs")
+      require "canon/diff_formatter/diff_detail_formatter"
+      report = Canon::DiffFormatter::DiffDetailFormatter.format_report(
+        [diff],
+        use_color: false,
+        expand_difference: false,
+      )
+      expect(report).to include("<biblio-tag>")
+      expect(report).not_to include("<biblio-tag>ISO 712, </biblio-tag>")
+    end
+
+    it "with expand_difference: true shows full serialized node content" do
+      node1 = element_node_for_expand("biblio-tag", "ISO 712, ")
+      node2 = element_node_for_expand("span", "ISO 712, ")
+      diff = Canon::Diff::DiffNode.new(node1: node1, node2: node2,
+                                       dimension: :element_structure,
+                                       reason: "element name differs")
+      require "canon/diff_formatter/diff_detail_formatter"
+      report = Canon::DiffFormatter::DiffDetailFormatter.format_report(
+        [diff],
+        use_color: false,
+        expand_difference: true,
+      )
+      expect(report).to include("<biblio-tag>ISO 712, </biblio-tag>")
+      expect(report).to include("<span>ISO 712, </span>")
+      # Changes line still shows just the tag names
+      expect(report).to include("Element differs: biblio-tag")
+    end
+
+    it "with expand_difference: true via DiffFormatter.new the report uses full content" do
+      node1 = element_node_for_expand("biblio-tag", "ISO 712, ")
+      node2 = element_node_for_expand("span", "ISO 712, ")
+      diff = Canon::Diff::DiffNode.new(node1: node1, node2: node2,
+                                       dimension: :element_structure,
+                                       reason: "element name differs")
+      formatter = Canon::DiffFormatter.new(
+        use_color: false,
+        expand_difference: true,
+      )
+      comparison_result = double("comparison_result")
+      allow(comparison_result).to receive(:is_a?).with(Canon::Comparison::ComparisonResult).and_return(true)
+      allow(comparison_result).to receive_messages(algorithm: :dom, differences: [diff], equivalent?: false, original_strings: ["<root/>", "<root/>"], html_version: nil, match_options: nil)
+
+      output = formatter.format_comparison_result(comparison_result, "<root/>", "<root/>")
+      expect(output).to include("<biblio-tag>ISO 712, </biblio-tag>")
+      expect(output).to include("<span>ISO 712, </span>")
     end
   end
 
