@@ -28,6 +28,8 @@ module Canon
             convert_symbol(value)
           when :string
             value
+          when :string_array
+            convert_string_array(value)
           else
             value
           end
@@ -52,6 +54,12 @@ module Canon
 
         def convert_symbol(value)
           value.to_sym
+        end
+
+        # Parse comma-separated element names from an ENV string.
+        # e.g. "p,li,td,th" → ["p", "li", "td", "th"]
+        def convert_string_array(value)
+          value.split(",").map(&:strip).reject(&:empty?)
         end
       end
     end

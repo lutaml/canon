@@ -30,6 +30,7 @@ Match options control which aspects of documents are compared and how strictly t
 * link:profiles.adoc[Match Profiles] - Predefined configurations
 * link:algorithm-specific-behavior.adoc[Algorithm-Specific Behavior] - How DOM and Semantic algorithms interpret options differently
 * link:html-policies.adoc[HTML-Specific Policies] - HTML format-specific comparison policies
+* link:pretty-printed-fixtures.adoc[Pretty-Printed Fixture Support] - Comparing compact generated XML against hand-indented fixture heredocs without spurious whitespace differences
 
 == Match dimensions overview
 

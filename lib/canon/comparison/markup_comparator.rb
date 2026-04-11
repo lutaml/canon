@@ -93,10 +93,9 @@ module Canon
           elsif node.is_a?(Canon::Xml::Nodes::ElementNode)
             serialize_element_node(node)
           elsif node.is_a?(Canon::Xml::Nodes::TextNode)
-            # Use value (decoded text) so the serialized form can be found
-            # in the document text for character-level diff enrichment.
-            # The actual display uses preprocessed line content, not this field.
-            node.value
+            # Use original text (with entity references) if available,
+            # otherwise fall back to value (decoded text)
+            node.original || node.value
           elsif node.is_a?(Canon::Xml::Nodes::CommentNode)
             "<!--#{node.value}-->"
           elsif node.is_a?(Canon::Xml::Nodes::ProcessingInstructionNode)
@@ -187,7 +186,16 @@ module Canon
             node.parent, match_opts
           )
 
-          false
+          # When the pretty-print-side flag is active (set by opts_for_side in
+          # ChildComparison.compare), drop whitespace-only text nodes that start
+          # with "\n" inside :normalize elements — they are structural indentation
+          # from the pretty-printer, not content.  Space-only nodes (no initial "\n") are
+          # real inline content and are kept for normalised comparison.
+          # :strict elements are always left unchanged.
+          if match_opts[:_pretty_print_side_active]
+            ws_class = WhitespaceSensitivity.classify_text_node(node, opts)
+            return true if ws_class == :normalize && node_text(node).start_with?("\n")
+          end
 
           false
         end

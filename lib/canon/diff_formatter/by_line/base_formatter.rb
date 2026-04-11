@@ -642,173 +642,35 @@ module Canon
           output.join("\n")
         end
 
-        # Apply background color to text WITHOUT regular space visualization.
-        # Special whitespace (NBSP, tabs) IS still visualized so it's visible.
-        # Regular spaces are kept as-is with background color.
-        # Used for showing removed/added spaces with background colors.
-        #
-        # Apply style to text, with special handling for spaces.
-        # Spaces get BOTH color AND bg for visibility.
-        # Non-space characters get color ONLY (no bg) so they remain readable.
-        # Special whitespace (NBSP, tabs) is visualized but not styled.
-        #
-        # @param text [String] Text to style (e.g., actual spaces)
-        # @param style [Hash] Style properties from theme (color, bg, bold, underline, strikethrough)
-        # @return [String] Styled text
-        def apply_style_only(text, style)
-          return text if style.empty?
-
-          color = style[:color]
-          bg = style[:bg]
-          bold = style[:bold]
-          underline = style[:underline]
-          strikethrough = style[:strikethrough]
-
-          # If no style attributes, return original text
-          if style.values.none?
-            return text
-          end
-
-          # If use_color is false, return text as-is
-          unless @use_color
-            return text
-          end
-
-          require "rainbow"
-          rainbow = Rainbow.new
-          rainbow.enabled = true
-
-          # For formatting-only lines with bg: apply bg to spaces AND to ░
-          # (░ is the visualization of space, so it should get the same bg)
-          if bg
-            # Process character by character - spaces and ░ get bg
-            text.to_s.chars.map do |char|
-              p = rainbow.wrap(char)
-              p = apply_color(p, color) if color && color != :default
-              bg_chars = [" ", "░"]
-              p = apply_bg(p, bg) if bg_chars.include?(char)
-              p = p.bold if bold
-              p = p.underline if underline
-              p = p.cross_out if strikethrough
-              p.to_s
-            end.join
-          else
-            # No bg requested - apply color to entire text
-            presenter = rainbow.wrap(text)
-            if color && color != :default
-              presenter = apply_color(presenter, color)
-            end
-            presenter = presenter.bold if bold
-            presenter = presenter.underline if underline
-            presenter = presenter.cross_out if strikethrough
-            presenter.to_s
-          end
-        end
-
-        # Apply selective visualization: only special whitespace (NBSP, tabs) is visualized,
-        # regular spaces are kept as-is. Used for unchanged/gap content where we want
-        # NBSP visible but regular spaces not converted to `░`.
-        #
-        # @param text [String] Text to apply selective visualization to
-        # @return [String] Text with selective visualization applied
-        def apply_selective_visualization(text)
-          whitespace = %w[\t\n\r]
-          text.to_s.chars.map do |char|
-            if whitespace.include?(char)
-              char
-            else
-              @visualization_map.fetch(char, char)
-            end
-          end.join
-        end
-
-        # Apply effect (strikethrough/underline) AND color to text WITHOUT regular space visualization.
-        # Special whitespace (NBSP, tabs) IS still visualized so it's visible.
-        # Regular spaces are kept as-is with background color.
-        # Used for inline mode rendering where we want to show changes clearly
-        # without the `░` visualization that breaks some systems.
-        #
-        # @param token [String] The token to style
-        # @param effect [Symbol, nil] Effect to apply (:strikethrough or :underline)
-        # @param color [Symbol, nil] Color to apply (:red, :green, etc.)
-        # @param background [Symbol, nil] Background color to apply
-        # @return [String] Styled text without regular space visualization
-        def apply_effect_only(token, effect = nil, color = nil, background: nil)
-          return token if token.nil? || !@use_color
-
-          # Apply visualization only for NON-SPACE whitespace (NBSP, tabs, etc.)
-          # Regular spaces are kept as-is
-          whitespace = %w[\t\n\r]
-          visualized = token.to_s.chars.map do |char|
-            if whitespace.include?(char)
-              char
-            else
-              @visualization_map.fetch(char, char)
-            end
-          end.join
-
-          require "rainbow"
-          rainbow = Rainbow.new
-          rainbow.enabled = true
-          presenter = rainbow.wrap(visualized)
-
-          # Apply effect if specified (map :strikethrough to :cross_out for Rainbow)
-          if effect
-            rainbow_effect = effect == :strikethrough ? :cross_out : effect
-            presenter = presenter.send(rainbow_effect)
-          end
-
-          # Apply color if specified
-          if color
-            # Handle bright_/light_ prefixes
-            if color.to_s.start_with?("bright_")
-              base_color = color.to_s.sub(/^bright_/, "").to_sym
-              presenter = presenter.send(base_color).bright
-            elsif color.to_s.start_with?("light_")
-              base_color = color.to_s.sub(/^light_/, "").to_sym
-              presenter = presenter.send(base_color)
-            else
-              presenter = presenter.send(color)
-            end
-          end
-
-          # Apply background color if specified
-          presenter = apply_bg(presenter, background) if background
-
-          presenter.to_s
-        end
-
         # Apply character visualization
         #
         # @param token [String] The token to apply visualization to
         # @param color [Symbol, nil] Optional color to apply
         # @return [String] Visualized and optionally colored token
-        def apply_visualization(token, color = nil, bg_color: nil)
+        def apply_visualization(token, color = nil)
           return "" if token.nil?
 
           visual = token.to_s.chars.map do |char|
             @visualization_map.fetch(char, char)
           end.join
 
-          if @use_color && (color || bg_color)
+          if color && @use_color
             require "rainbow"
             rainbow = Rainbow.new
             rainbow.enabled = true
             presenter = rainbow.wrap(visual)
 
             # Handle Rainbow color methods - :bright_blue -> .blue.bright, etc.
-            if color&.to_s&.start_with?("bright_")
+            if color.to_s.start_with?("bright_")
               base_color = color.to_s.sub(/^bright_/, "").to_sym
               presenter = presenter.send(base_color).bright
-            elsif color&.to_s&.start_with?("light_")
+            elsif color.to_s.start_with?("light_")
               # Rainbow doesn't have light_ versions, treat as white on bg
               base_color = color.to_s.sub(/^light_/, "").to_sym
               presenter = presenter.send(base_color)
-            elsif color
+            else
               presenter = presenter.send(color)
             end
-
-            presenter = apply_bg(presenter, bg_color) if bg_color
 
             presenter.to_s
           else
@@ -896,39 +758,17 @@ module Canon
         # 2. show_diffs is :informative AND there are no informative differences
         #
         # @return [Boolean] True if diff display should be skipped
-        # Check if there are any formatting-only diffs
-        #
-        # @return [Boolean] True if any diff is formatting-only
-        def has_formatting_diffs?
-          @differences.any? do |diff|
-            diff.is_a?(Canon::Diff::DiffNode) && diff.formatting?
-          end
-        end
-
         def should_skip_diff_display?
-          # If documents are equivalent and show_diffs is :normative,
-          # skip since there are no normative diffs to show.
-          # But if show_diffs is :all, we want to show formatting diffs
-          # even when documents are equivalent.
+          # If documents are equivalent and there are no normative diffs,
+          # skip display entirely - showing even informative diffs when
+          # equivalent is misleading
           if @equivalent == true
-            return false if @show_diffs == :all && has_formatting_diffs?
-
             return @differences.none? do |diff|
               diff.is_a?(Canon::Diff::DiffNode) && diff.normative?
             end
           end
 
-          # If no differences at all, skip (legacy path).
-          # But if @equivalent is nil (legacy formatter without equivalence info),
-          # don't skip - let the formatter run to show whatever diff exists.
-          if @differences.nil? || @differences.empty?
-            # In legacy path (equivalent unknown), let formatter decide
-            return false if @equivalent.nil?
-
-            # If equivalent is explicitly false, there should be differences
-            # but if somehow empty, skip
-            return true
-          end
+          return false if @differences.nil? || @differences.empty?
 
           case @show_diffs
           when :normative
@@ -942,7 +782,7 @@ module Canon
               diff.is_a?(Canon::Diff::DiffNode) && diff.informative?
             end
           else
-            # :all or other - never skip (show all diffs including formatting-only)
+            # :all or other - never skip
             false
           end
         end

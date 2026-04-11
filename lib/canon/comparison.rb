@@ -596,10 +596,30 @@ module Canon
           format1 = format2 = opts[:format]
           # Parse HTML strings if format is html/html4/html5
           if %i[html html4 html5].include?(opts[:format])
-            obj1 = HtmlParser.parse(obj1, opts[:format]) if obj1.is_a?(String)
-            obj2 = HtmlParser.parse(obj2, opts[:format]) if obj2.is_a?(String)
-            # Note: We preserve html4/html5 format instead of normalizing to :html
-            # This allows HtmlComparator to use the correct parsing behavior
+            # Preserve original strings for display (HTML fragment
+            # parsers can mutate the DOM).
+            opts[:_original_str1] = obj1.dup if obj1.is_a?(String)
+            opts[:_original_str2] = obj2.dup if obj2.is_a?(String)
+            if opts[:format] == :html5
+              # HTML5 fragment parsing is safe — it normalizes without
+              # destructive content-model mutations.
+              obj1 = HtmlParser.parse(obj1, :html5) if obj1.is_a?(String)
+              obj2 = HtmlParser.parse(obj2, :html5) if obj2.is_a?(String)
+            else
+              # HTML4 fragment parsing mutates the DOM (strips <body>
+              # attributes, re-parents <h1> content, etc.).  Use XML
+              # fragment parsing which preserves structure faithfully.
+              if obj1.is_a?(String)
+                obj1 = Nokogiri::XML.fragment(
+                  strip_xml_preamble(obj1),
+                )
+              end
+              if obj2.is_a?(String)
+                obj2 = Nokogiri::XML.fragment(
+                  strip_xml_preamble(obj2),
+                )
+              end
+            end
           end
         else
           format1 = FormatDetector.detect(obj1)
@@ -656,6 +676,18 @@ module Canon
         when :yaml
           YamlComparator.equivalent?(obj1, obj2, opts)
         end
+      end
+
+      # Strip XML declarations and DOCTYPE preambles from an HTML string
+      # so it can be safely parsed with Nokogiri::XML.fragment without
+      # generating processing-instruction nodes.
+      def strip_xml_preamble(str)
+        str = str.sub(/\A\s*<\?xml[^?]*\?>\s*/m, "")
+        if (i = str.index(/<!DOCTYPE/i))
+          j = str.index(">", i)
+          str = (str[0...i] + str[(j + 1)..]).strip if j
+        end
+        str
       end
 
       # Detect the format of an object (delegates to FormatDetector)

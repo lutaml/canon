@@ -1,0 +1,8 @@
+---
+name: metanorma_debug
+description: Metanorma profile with debug output enabled
+inherits: metanorma
+
+shared:
+  diff:
+    show_prettyprint_received: true

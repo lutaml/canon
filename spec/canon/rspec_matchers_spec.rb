@@ -993,10 +993,9 @@ RSpec.describe Canon::RSpecMatchers do
         # With default context_lines setting, we expect to see some "original" text
         # but not all unchanged items
         unchanged_count = e.message.scan("original").size
-        # In the new format with context lines and grouping markers,
-        # we see the changed line plus context, plus grouping brackets
-        # showing related elements. Accept up to 8 occurrences.
-        expect(unchanged_count).to be <= 8
+        # In the new format with context lines, we see the changed line plus context
+        # Accept up to 4 occurrences (context before, context after, and grouping)
+        expect(unchanged_count).to be <= 6
       end
     end
 

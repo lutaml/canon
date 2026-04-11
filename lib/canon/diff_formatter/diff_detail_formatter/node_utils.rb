@@ -209,14 +209,14 @@ module Canon
         def self.get_element_name_for_display(node)
           return "" unless node
 
-          # Handle TextNode specially - use parentheses to distinguish from XML elements
+          # Handle TextNode specially since it doesn't respond to :name
           if node.is_a?(Canon::Xml::Nodes::TextNode)
-            return "(text)"
+            return "text"
           end
 
-          # Handle CommentNode specially - use parentheses to distinguish from XML elements
+          # Handle CommentNode specially since it doesn't respond to :name
           if node.is_a?(Canon::Xml::Nodes::CommentNode)
-            return "(comment)"
+            return "comment"
           end
 
           if node.respond_to?(:name)
@@ -257,6 +257,62 @@ module Canon
             "#{name}(\"#{text}\")"
           else
             name
+          end
+        end
+
+        # Serialize a Canon Xml node tree as compact XML for display.
+        #
+        # Produces a human-readable inline XML string without namespace
+        # declarations and without indentation — suitable for use in Semantic
+        # Diff Report entries.  Only handles Canon::Xml::Nodes types; for any
+        # other node (Nokogiri, etc.) falls back to +get_node_text+.
+        #
+        # @param node [Object] Node to serialize
+        # @return [String] Compact XML string
+        def self.serialize_node_compact(node)
+          require "cgi"
+          return "" unless node
+
+          case node
+          when Canon::Xml::Nodes::TextNode
+            CGI.escapeHTML(node.value.to_s)
+          when Canon::Xml::Nodes::ElementNode
+            tag = node.name.to_s
+            attrs = node.attribute_nodes.map do |attr|
+              attr_name  = attr.respond_to?(:name)  ? attr.name.to_s  : attr.to_s
+              attr_value = attr.respond_to?(:value) ? attr.value.to_s : ""
+              " #{attr_name}=\"#{CGI.escapeHTML(attr_value)}\""
+            end.join
+            children_xml = node.children.map { |c| serialize_node_compact(c) }.join
+            if children_xml.empty?
+              "<#{tag}#{attrs}/>"
+            else
+              "<#{tag}#{attrs}>#{children_xml}</#{tag}>"
+            end
+          when Canon::Xml::Nodes::CommentNode
+            text = node.respond_to?(:value) ? node.value.to_s : ""
+            "<!--#{CGI.escapeHTML(text)}-->"
+          else
+            # Nokogiri nodes or other unknown types — fall back to text extraction
+            get_node_text(node)
+          end
+        end
+
+        # Return the best display string for a node.
+        #
+        # When +compact: true+ and the node is a Canon ElementNode, returns a
+        # compact XML serialization (e.g. +<strong>Annex</strong>+) instead of
+        # the +node_info+ description string that +get_node_text+ would produce.
+        # In all other cases, delegates to +get_node_text+.
+        #
+        # @param node [Object] Node to display
+        # @param compact [Boolean] Whether to use compact XML for element nodes
+        # @return [String] Display string
+        def self.node_to_display(node, compact: false)
+          if compact && node.is_a?(Canon::Xml::Nodes::ElementNode)
+            serialize_node_compact(node)
+          else
+            get_node_text(node)
           end
         end
 

@@ -16,7 +16,7 @@ This page explains how the priority chain works, when overrides apply, and how t
 
 == Priority chain
 
-Configuration values are resolved using a strict three-level priority:
+Configuration values are resolved using a strict four-level priority:
 
 [source]
 ----
@@ -26,17 +26,24 @@ Configuration values are resolved using a strict three-level priority:
 └──────────────┬──────────────────┘
                ↓ overrides
 ┌─────────────────────────────────┐
-│ 2. Programmatic Configuration   │ ← Medium Priority
+│ 2. Programmatic Configuration   │
 │    (config.xml.diff.algorithm)  │
 └──────────────┬──────────────────┘
                ↓ overrides
 ┌─────────────────────────────────┐
-│ 3. Default Values               │ ← Lowest Priority
+│ 3. Profile Values               │
+│    (from YAML config profile)   │
+└──────────────┬──────────────────┘
+               ↓ overrides
+┌─────────────────────────────────┐
+│ 4. Default Values               │ ← Lowest Priority
 │    (defined in Canon::Config)   │
 └─────────────────────────────────┘
 ----
 
 **Rule**: Higher priority always wins, regardless of when values are set.
+
+See link:../configuration-profiles.adoc[Configuration Profiles] for details on the profile layer.
 
 == How overrides work
 

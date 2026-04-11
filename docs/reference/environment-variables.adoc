@@ -86,8 +86,122 @@ export CANON_JSON_FORMAT_PREPROCESSING=normalize
 |`CANON_MODE`
 |symbol
 |`:by_line`
-|Diff output mode: `by_line` or `by_object`
+|Diff output mode: `by_line`, `by_object`, or `rspec`
 |All formats
+
+|`CANON_DISPLAY_PREPROCESSING`
+|symbol
+|`:none`
+|How documents are normalized _for display_ before the line diff: `none`, `pretty_print`, `c14n`. Format-specific: `CANON_{FORMAT}_DIFF_DISPLAY_PREPROCESSING`
+|All formats
+
+|`CANON_PRETTY_PRINTER_INDENT`
+|integer
+|`2`
+|Indentation depth used by the pretty-printer when `display_preprocessing: :pretty_print`. Format-specific: `CANON_{FORMAT}_DIFF_PRETTY_PRINTER_INDENT`
+|All formats (display only)
+
+|`CANON_PRETTY_PRINTER_INDENT_TYPE`
+|symbol
+|`:space`
+|Indentation character for the pretty-printer: `space` or `tab`. Format-specific: `CANON_{FORMAT}_DIFF_PRETTY_PRINTER_INDENT_TYPE`
+|All formats (display only)
+
+|`CANON_XML_NORMALIZE_WHITESPACE_ELEMENTS`
+|string array
+|`[]`
+|Comma-separated list of XML element names whose inter-element whitespace is *presence-significant but form-insensitive*: both `" "` and `"\n  "` collapse to a single `░`.  Suitable for inline mixed-content elements such as `<p>`, `<li>`, `<td>`.  Only applies when `display_preprocessing: :normalize_pretty_print`.  Format-specific; no global form.
+|XML (display only)
+
+|`CANON_XML_STRICT_WHITESPACE_ELEMENTS`
+|string array
+|`[]`
+|Comma-separated list of XML element names where every whitespace character is significant and visualized verbatim (`" "` → `░`, `"\n  "` → `↵░░`).  Suitable for preformatted elements such as `<pre>`, `<code>`.  Only applies when `display_preprocessing: :normalize_pretty_print`.  Format-specific; no global form.
+|XML (display only)
+
+|`CANON_XML_DIFF_PRETTY_PRINTED_EXPECTED`
+|boolean
+|`false`
+|When `true`, whitespace-only text nodes that start with `"\n"` inside `:normalize`-classified elements are dropped from the **expected (fixture)** document before it reaches the line diff.  Solves the asymmetric case where the expected side is a hand-indented heredoc fixture but the received side is compact programmatic XML.  Only applies when `display_preprocessing: :normalize_pretty_print`.  Format-specific; no global form.  See also link:../features/match-options/pretty-printed-fixtures.adoc[Pretty-printed fixture support].
+|XML (display only)
+
+|`CANON_XML_DIFF_PRETTY_PRINTED_RECEIVED`
+|boolean
+|`false`
+|Same as `CANON_XML_DIFF_PRETTY_PRINTED_EXPECTED` but applied to the **received (actual)** document.  Useful when the received output may be pretty-printed but the fixture is compact.  Format-specific; no global form.
+|XML (display only)
+
+|`CANON_XML_DIFF_PRETTY_PRINTER_SORT_ATTRIBUTES`
+|boolean
+|`false`
+|When `true`, attributes on each element are sorted by namespace URI then local name in the pretty-printed display.  Eliminates spurious diff lines caused by differing attribute order between expected and received XML.  Only applies when `display_preprocessing` is `:pretty_print` or `:normalize_pretty_print`.  Format-specific; no global form.
+|XML (display only)
+
+|`CANON_SHOW_RAW_INPUTS`
+|boolean
+|`false`
+|Show the raw (un-preprocessed) file contents of both sides before the diff output.  Equivalent to enabling both `CANON_SHOW_RAW_EXPECTED` and `CANON_SHOW_RAW_RECEIVED`.  Format-specific: `CANON_{FORMAT}_DIFF_SHOW_RAW_INPUTS`
+|All formats (display only)
+
+|`CANON_SHOW_RAW_EXPECTED`
+|boolean
+|`false`
+|Show only the EXPECTED (fixture) block in the raw-inputs section.  Has no effect unless `show_raw_inputs` or `verbose_diff` is also set.  Format-specific: `CANON_{FORMAT}_DIFF_SHOW_RAW_EXPECTED`
+|All formats (display only)
+
+|`CANON_SHOW_RAW_RECEIVED`
+|boolean
+|`false`
+|Show only the RECEIVED (actual) block in the raw-inputs section.  Format-specific: `CANON_{FORMAT}_DIFF_SHOW_RAW_RECEIVED`
+|All formats (display only)
+
+|`CANON_SHOW_PREPROCESSED_INPUTS`
+|boolean
+|`false`
+|Show the preprocessed (post-comparison-preprocessing) contents of both sides before the diff output.  Equivalent to enabling both `CANON_SHOW_PREPROCESSED_EXPECTED` and `CANON_SHOW_PREPROCESSED_RECEIVED`.  Format-specific: `CANON_{FORMAT}_DIFF_SHOW_PREPROCESSED_INPUTS`
+|All formats (display only)
+
+|`CANON_SHOW_PREPROCESSED_EXPECTED`
+|boolean
+|`false`
+|Show only the EXPECTED (fixture) block in the preprocessed-inputs section.  Has no effect unless `show_preprocessed_inputs` or `verbose_diff` is also set.  Format-specific: `CANON_{FORMAT}_DIFF_SHOW_PREPROCESSED_EXPECTED`
+|All formats (display only)
+
+|`CANON_SHOW_PREPROCESSED_RECEIVED`
+|boolean
+|`false`
+|Show only the RECEIVED (actual) block in the preprocessed-inputs section.  Format-specific: `CANON_{FORMAT}_DIFF_SHOW_PREPROCESSED_RECEIVED`
+|All formats (display only)
+
+|`CANON_SHOW_PRETTYPRINT_INPUTS`
+|boolean
+|`false`
+|Show a fixture-ready pretty-printed form of **both** original input sides before the diff output.  The output is formatted with one XML/HTML tag per line and proper indentation (using the configured `pretty_printer_indent` / `pretty_printer_indent_type`), but with **no character visualization** — whitespace appears as plain ASCII so the output can be copy-pasted directly into RSpec heredoc fixtures.  Unlike `show_preprocessed_inputs`, this always pretty-prints the original strings regardless of the `preprocessing` or `display_preprocessing` settings.  Equivalent to enabling both `CANON_SHOW_PRETTYPRINT_EXPECTED` and `CANON_SHOW_PRETTYPRINT_RECEIVED`.  Format-specific: `CANON_{FORMAT}_DIFF_SHOW_PRETTYPRINT_INPUTS`
+|All formats (display only)
+
+|`CANON_SHOW_PRETTYPRINT_EXPECTED`
+|boolean
+|`false`
+|Show only the EXPECTED (fixture) block in the fixture-ready pretty-printed section.  Use this to see the current fixture re-formatted for copy-pasting when the fixture is the side that needs updating.  Format-specific: `CANON_{FORMAT}_DIFF_SHOW_PRETTYPRINT_EXPECTED`
+|All formats (display only)
+
+|`CANON_SHOW_PRETTYPRINT_RECEIVED`
+|boolean
+|`false`
+|Show only the RECEIVED (actual) block in the fixture-ready pretty-printed section.  This is the most common fixture-update workflow: enable this option to get a copy-pasteable pretty-printed form of the generated output that can replace the old fixture heredoc.  Format-specific: `CANON_{FORMAT}_DIFF_SHOW_PRETTYPRINT_RECEIVED`
+|All formats (display only)
+
+|`CANON_COMPACT_SEMANTIC_REPORT`
+|boolean
+|`false`
+|Render element nodes in the Semantic Diff Report as compact inline XML (e.g. `<strong>Annex</strong>`) instead of the verbose `node_info` description string (e.g. `name: strong namespace_uri: …`).  Useful when reading Semantic Diff output in the terminal and wanting to see the actual XML markup rather than a textual node description.  See format-specific form `CANON_{FORMAT}_DIFF_COMPACT_SEMANTIC_REPORT`.
+|All formats (display only)
+
+|`CANON_CHARACTER_VISUALIZATION`
+|symbol
+|`true`
+|Replace invisible characters with visible Unicode symbols in diff output: `true`, `false`, or `content_only`. Format-specific: `CANON_{FORMAT}_DIFF_CHARACTER_VISUALIZATION`. Set to `false` to keep plain-text output.
+|All formats (display only)
 
 |`CANON_USE_COLOR`
 |boolean

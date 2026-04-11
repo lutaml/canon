@@ -1,0 +1,229 @@
+---
+title: Configuration Profiles
+parent: Features
+nav_order: 7
+---
+= Configuration profiles
+:toc:
+:toclevels: 3
+
+== Purpose
+
+Configuration profiles bundle many settings into a single named preset,
+eliminating repetitive configuration blocks across multiple gems.
+Instead of 60+ lines of per-format settings, use one line:
+
+[source,ruby]
+----
+Canon::Config.instance.profile = :metanorma
+----
+
+Profiles are defined in YAML files and support inheritance, so a debug
+variant can extend a base profile with only the differences.
+
+== Built-in profiles
+
+[cols="1,3"]
+|===
+| Profile | Description
+
+| `:metanorma`
+| Standard Metanorma spec configuration. Sets preprocessing to `:format`,
+  match profile to `:spec_friendly`, diff algorithm to `:dom`, canonical
+  display format, normalized pretty-print display preprocessing,
+  and XML-specific whitespace element lists.
+
+| `:metanorma_debug`
+| Extends `:metanorma` with debug output enabled
+  (`show_prettyprint_received: true`).
+|===
+
+List all available profiles programmatically:
+
+[source,ruby]
+----
+Canon::Config::ProfileLoader.available_profiles
+# => [:metanorma, :metanorma_debug]
+----
+
+== Usage
+
+=== Programmatic (Ruby API)
+
+Use a **Symbol** for built-in profiles and a **String** for file paths:
+
+[source,ruby]
+----
+# Built-in profile (Symbol)
+Canon::Config.instance.profile = :metanorma
+
+# Local YAML file (String)
+Canon::Config.instance.profile = "/path/to/my_profile.yml"
+Canon::Config.instance.profile = "~/my_canon_profile.yml"
+Canon::Config.instance.profile = "config/canon_profile.yml"
+
+# Or in a configure block
+Canon::Config.configure do |cfg|
+  cfg.profile = :metanorma
+  # Override individual settings after profile if needed
+  cfg.xml.diff.verbose_diff = true
+end
+
+# Clear the profile (revert to defaults + programmatic values)
+Canon::Config.instance.profile = nil
+----
+
+IMPORTANT: The type of the value determines how it is resolved:
+**Symbols** are looked up as built-in profile names;
+**Strings** are treated as file paths (with `~` expansion and relative
+path resolution against the working directory).
+
+Local YAML files can inherit from built-in profiles (see <<inheritance>>).
+
+=== Environment variable
+
+Set `CANON_CONFIG_PROFILE` to apply a profile automatically on
+initialization:
+
+[source,bash]
+----
+# Built-in profile
+CANON_CONFIG_PROFILE=metanorma bundle exec rspec
+
+# File path
+CANON_CONFIG_PROFILE=~/my_profile.yml bundle exec rspec
+----
+
+NOTE: `CANON_CONFIG_PROFILE` is distinct from `CANON_PROFILE`, which
+controls the match profile (comparison behavior). The config profile
+controls all settings at once.
+
+== Priority chain
+
+With profiles, the resolution chain becomes four layers:
+
+[source]
+----
++------------------------------------+
+| 1. Environment Variables           | <- Highest Priority
+|    (CANON_XML_DIFF_ALGORITHM)      |
++------------------------------------+
+               | overrides
++------------------------------------+
+| 2. Programmatic Configuration      |
+|    (config.xml.diff.algorithm=)    |
++------------------------------------+
+               | overrides
++------------------------------------+
+| 3. Profile Values                  |
+|    (from YAML profile file)        |
++------------------------------------+
+               | overrides
++------------------------------------+
+| 4. Default Values                  | <- Lowest Priority
+|    (defined in Canon::Config)      |
++------------------------------------+
+----
+
+This means:
+
+* ENV variables always win (useful for CI overrides)
+* Programmatic setter calls override profile values
+* Profile values override built-in defaults
+* Clearing the profile (`cfg.profile = nil`) removes only layer 3
+
+[[inheritance]]
+== Profile inheritance
+
+A profile can inherit from another using the `inherits` key:
+
+[source,yaml]
+----
+name: my_debug
+inherits: metanorma
+
+shared:
+  diff:
+    verbose_diff: true
+    show_prettyprint_received: true
+----
+
+Inheritance rules:
+
+* Parent values are loaded first, then child values are deep-merged on top
+* Hashes are merged recursively (child keys override parent keys)
+* Arrays are replaced entirely (not concatenated)
+* Single-parent inheritance only
+* Cycle detection prevents infinite loops
+* Local files can inherit from built-in profiles by name
+
+== Creating custom profiles
+
+=== YAML file format
+
+[source,yaml]
+----
+---
+name: my_profile              # <1>
+description: My custom config # <2>
+inherits: metanorma           # <3>
+
+shared:                        # <4>
+  preprocessing: format
+  match:
+    profile: spec_friendly
+  diff:
+    algorithm: dom
+    context_lines: 5
+    verbose_diff: false
+
+formats:                       # <5>
+  xml:
+    diff:
+      normalize_whitespace_elements:
+        - p
+        - title
+        - td
+      strict_whitespace_elements:
+        - body
+        - passthrough
+  html:
+    diff:
+      show_raw_inputs: true
+----
+<1> Profile name (metadata)
+<2> Description (metadata)
+<3> Optional: inherit from another profile (name or path)
+<4> `shared` settings apply to all formats (xml, html, json, yaml, string)
+<5> `formats.<name>` settings override `shared` for that specific format
+
+=== Attribute mapping
+
+Profile YAML keys map directly to Canon configuration accessors:
+
+[cols="2,2"]
+|===
+| YAML path | Ruby equivalent
+
+| `shared.preprocessing`
+| `cfg.xml.preprocessing = :format`
+
+| `shared.match.profile`
+| `cfg.xml.match.profile = :spec_friendly`
+
+| `shared.diff.algorithm`
+| `cfg.xml.diff.algorithm = :dom`
+
+| `formats.xml.diff.context_lines`
+| `cfg.xml.diff.context_lines = 5`
+|===
+
+All `DiffConfig` and `MatchConfig` attributes documented in
+link:../reference/options-across-interfaces.adoc[Options Across Interfaces]
+are supported.
+
+== See also
+
+* link:environment-configuration/override-system.adoc[Override System] -- ENV variable priority
+* link:match-options/index.adoc[Match Options] -- match profile presets (`:strict`, `:spec_friendly`, etc.)
+* link:../guides/choosing-configuration.adoc[Choosing Configuration] -- decision guide

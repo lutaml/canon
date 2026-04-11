@@ -52,7 +52,7 @@ module PerformanceHelpers
 
   class << self
     def load_into_namespace(module_obj, file_path)
-      content = File.read(file_path)
+      content = File.read(file_path, encoding: "utf-8")
       module_obj.module_eval(content, file_path)
     end
 
@@ -85,7 +85,7 @@ module PerformanceHelpers
         bench_copy_dir = File.join(clone_dir, "tmp", "performance")
         FileUtils.mkdir_p(bench_copy_dir)
         bench_copy = File.join(bench_copy_dir, "benchmark_runner.rb")
-        File.write(bench_copy, File.read(script))
+        File.write(bench_copy, File.read(script, encoding: "utf-8"))
         load_into_namespace(Base, bench_copy)
       end
     end

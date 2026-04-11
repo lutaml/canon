@@ -1,0 +1,66 @@
+---
+name: metanorma
+description: Standard Metanorma spec configuration for XML/HTML comparison
+
+shared:
+  preprocessing: format
+  match:
+    profile: spec_friendly
+  diff:
+    show_diffs: normative
+    verbose_diff: false
+    show_line_numbered_inputs: false
+    show_raw_inputs: false
+    show_raw_expected: false
+    show_raw_received: false
+    show_prettyprint_expected: false
+    context_lines: 5
+    mode: pretty_diff
+    algorithm: dom
+    display_format: canonical
+    display_preprocessing: normalize_pretty_print
+    compact_semantic_report: true
+    pretty_printed_expected: true
+    expand_difference: true
+    pretty_printer_sort_attributes: true
+
+formats:
+  xml:
+    diff:
+      normalize_whitespace_elements:
+        - p
+        - title
+        - name
+        - td
+        - th
+        - dt
+        - form
+        - floating-title
+        - variant-title
+        - field-of-application
+        - usage-info
+        - pronunciation
+        - domain
+        - subject
+        - fmt-title
+        - fmt-name
+        - semx
+        - fmt-identifier
+        - fmt-xref-label
+        - fmt-definition
+        - fmt-fn-label
+        - fmt-sourcecode
+        - fmt-preferred
+        - fmt-admitted
+        - fmt-deprecates
+        - note
+        - abstract
+        - formattedref
+        - description
+        - identifier
+      strict_whitespace_elements:
+        - body
+        - passthrough
+  html:
+    diff:
+      show_raw_inputs: true

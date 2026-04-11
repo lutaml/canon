@@ -3,14 +3,15 @@
 module Canon
   class Config
     # Resolves configuration values using priority chain
-    # Priority: ENV > programmatic > defaults
+    # Priority: ENV > programmatic > profile > defaults
     class OverrideResolver
-      attr_reader :defaults, :programmatic, :env
+      attr_reader :defaults, :programmatic, :env, :profile
 
-      def initialize(defaults: {}, programmatic: {}, env: {})
+      def initialize(defaults: {}, programmatic: {}, env: {}, profile: {})
         @defaults = defaults
         @programmatic = programmatic
         @env = env
+        @profile = profile
       end
 
       # Resolve a single value using priority chain
@@ -18,6 +19,7 @@ module Canon
       def resolve(key)
         return @env[key] if @env.key?(key)
         return @programmatic[key] if @programmatic.key?(key)
+        return @profile[key] if @profile.key?(key)
 
         @defaults[key]
       end
@@ -30,6 +32,16 @@ module Canon
       # Update ENV override
       def set_env(key, value)
         @env[key] = value
+      end
+
+      # Update profile value
+      def set_profile(key, value)
+        @profile[key] = value
+      end
+
+      # Clear all profile values
+      def clear_profile!
+        @profile = {}
       end
 
       # Check if value is set by ENV
@@ -46,6 +58,7 @@ module Canon
       def source_for(key)
         return :env if @env.key?(key)
         return :programmatic if @programmatic.key?(key)
+        return :profile if @profile.key?(key)
         return :default if @defaults.key?(key)
 
         nil
