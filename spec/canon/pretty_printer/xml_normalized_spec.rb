@@ -352,7 +352,8 @@ RSpec.describe Canon::PrettyPrinter::XmlNormalized do
       EXPECTED
 
       # Therefore compact != indented under normalize — use insensitive instead
-      expect(pretty(printer_normalize, compact)).not_to eq(pretty(printer_normalize, indented))
+      expect(pretty(printer_normalize,
+                    compact)).not_to eq(pretty(printer_normalize, indented))
     end
 
     it "normalize mode equalizes the significant text line in compact vs indented <p>" do
@@ -371,7 +372,9 @@ RSpec.describe Canon::PrettyPrinter::XmlNormalized do
       # The <xref> line appears on its own line in both
       # (indented side has trailing ░ from the \n before </p>, hence start_with?)
       expect(compact_lines.map(&:strip)).to include('<xref target="M"/>')
-      expect(indented_lines.map(&:strip).any? { |l| l.start_with?('<xref target="M"/>') }).to be true
+      expect(indented_lines.map(&:strip).any? do |l|
+        l.start_with?('<xref target="M"/>')
+      end).to be true
     end
 
     # ── Three-mode comparison on the same fixture ────────────────────────────
@@ -512,7 +515,8 @@ RSpec.describe Canon::PrettyPrinter::XmlNormalized do
 
   describe "sort_attributes: true" do
     let(:printer_sorted) do
-      described_class.new(indent: 2, visualization_map: vis_map, sort_attributes: true)
+      described_class.new(indent: 2, visualization_map: vis_map,
+                          sort_attributes: true)
     end
 
     it "sorts attributes alphabetically by local name" do

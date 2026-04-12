@@ -15,6 +15,10 @@ module Canon
           @uri = uri
         end
 
+        def name
+          prefix.to_s
+        end
+
         def node_type
           :namespace
         end

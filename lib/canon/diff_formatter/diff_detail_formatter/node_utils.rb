@@ -283,7 +283,9 @@ module Canon
               attr_value = attr.respond_to?(:value) ? attr.value.to_s : ""
               " #{attr_name}=\"#{CGI.escapeHTML(attr_value)}\""
             end.join
-            children_xml = node.children.map { |c| serialize_node_compact(c) }.join
+            children_xml = node.children.map do |c|
+              serialize_node_compact(c)
+            end.join
             if children_xml.empty?
               "<#{tag}#{attrs}/>"
             else

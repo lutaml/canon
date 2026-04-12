@@ -36,7 +36,8 @@ RSpec.describe Canon::Config::ProfileLoader do
 
       it "inherits format-specific settings" do
         data = described_class.load(:metanorma_debug)
-        xml_elements = data.dig("formats", "xml", "match", "collapse_whitespace_elements")
+        xml_elements = data.dig("formats", "xml", "match",
+                                "collapse_whitespace_elements")
         expect(xml_elements).to include("p", "title", "fmt-title")
       end
 
@@ -87,13 +88,16 @@ RSpec.describe Canon::Config::ProfileLoader do
         expect(data["shared"]["diff"]["context_lines"]).to eq(20)
         expect(data["shared"]["diff"]["verbose_diff"]).to be(true)
         # Inherited format-specific
-        expect(data.dig("formats", "xml", "match", "preserve_whitespace_elements"))
+        expect(data.dig("formats", "xml", "match",
+                        "preserve_whitespace_elements"))
           .to eq(%w[body passthrough])
       end
 
       it "expands ~ in file paths" do
         # Use a path that won't exist to test expansion happens
-        expect { described_class.load("~/nonexistent_canon_profile.yml") }.to raise_error(
+        expect do
+          described_class.load("~/nonexistent_canon_profile.yml")
+        end.to raise_error(
           Canon::Error, %r{Profile file not found:.*nonexistent_canon_profile\.yml}
         )
       end
@@ -165,7 +169,8 @@ RSpec.describe Canon::Config::ProfileLoader do
       YAML
 
       data = described_class.load(path)
-      elements = data.dig("formats", "xml", "diff", "preserve_whitespace_elements")
+      elements = data.dig("formats", "xml", "diff",
+                          "preserve_whitespace_elements")
       expect(elements).to eq(%w[pre code])
     end
 

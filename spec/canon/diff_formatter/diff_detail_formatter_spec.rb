@@ -216,7 +216,8 @@ RSpec.describe "DiffDetailFormatter helpers" do
 
   # ── compact XML rendering (compact_semantic_report) ────────────────────────
 
-  describe Canon::DiffFormatter::DiffDetailFormatterHelpers::NodeUtils, "compact rendering" do
+  describe Canon::DiffFormatter::DiffDetailFormatterHelpers::NodeUtils,
+           "compact rendering" do
     let(:nu) { described_class }
 
     # helpers for building Canon nodes
@@ -262,7 +263,8 @@ RSpec.describe "DiffDetailFormatter helpers" do
 
       context "with an ElementNode with text children" do
         it "wraps text content between open and close tags" do
-          node = element_node("em", children: [text_node("Cereals and cereal products")])
+          node = element_node("em",
+                              children: [text_node("Cereals and cereal products")])
           expect(nu.serialize_node_compact(node)).to eq("<em>Cereals and cereal products</em>")
         end
 
@@ -314,7 +316,8 @@ RSpec.describe "DiffDetailFormatter helpers" do
       context "with compact: true" do
         it "returns compact XML for an ElementNode" do
           node = element_node("em", children: [text_node("Cereals")])
-          expect(nu.node_to_display(node, compact: true)).to eq("<em>Cereals</em>")
+          expect(nu.node_to_display(node,
+                                    compact: true)).to eq("<em>Cereals</em>")
         end
 
         it "still returns get_node_text for a TextNode" do
@@ -465,9 +468,11 @@ RSpec.describe "DiffDetailFormatter helpers" do
       # Simulate comparison_result
       comparison_result = double("comparison_result")
       allow(comparison_result).to receive(:is_a?).with(Canon::Comparison::ComparisonResult).and_return(true)
-      allow(comparison_result).to receive_messages(algorithm: :dom, differences: [diff], equivalent?: false, original_strings: ["<root/>", "<root/>"], html_version: nil, match_options: nil)
+      allow(comparison_result).to receive_messages(algorithm: :dom,
+                                                   differences: [diff], equivalent?: false, original_strings: ["<root/>", "<root/>"], html_version: nil, match_options: nil)
 
-      output = formatter.format_comparison_result(comparison_result, "<root/>", "<root/>")
+      output = formatter.format_comparison_result(comparison_result, "<root/>",
+                                                  "<root/>")
       expect(output).to include("<strong>Annex A</strong>")
       expect(output).to include("<strong>Annex B</strong>")
     end
@@ -528,9 +533,11 @@ RSpec.describe "DiffDetailFormatter helpers" do
       )
       comparison_result = double("comparison_result")
       allow(comparison_result).to receive(:is_a?).with(Canon::Comparison::ComparisonResult).and_return(true)
-      allow(comparison_result).to receive_messages(algorithm: :dom, differences: [diff], equivalent?: false, original_strings: ["<root/>", "<root/>"], html_version: nil, match_options: nil)
+      allow(comparison_result).to receive_messages(algorithm: :dom,
+                                                   differences: [diff], equivalent?: false, original_strings: ["<root/>", "<root/>"], html_version: nil, match_options: nil)
 
-      output = formatter.format_comparison_result(comparison_result, "<root/>", "<root/>")
+      output = formatter.format_comparison_result(comparison_result, "<root/>",
+                                                  "<root/>")
       expect(output).to include("<biblio-tag>ISO 712, </biblio-tag>")
       expect(output).to include("<span>ISO 712, </span>")
     end

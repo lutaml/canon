@@ -7,6 +7,10 @@ module Canon
     module Nodes
       # Root node representing the document root
       class RootNode < Node
+        def name
+          "#document"
+        end
+
         def node_type
           :root
         end

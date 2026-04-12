@@ -34,8 +34,12 @@ RSpec.describe "DiffFormatter display preprocessing" do
 
   # Two XML docs that have the same structure but differ at one element.
   # Used to produce a diff that contains context lines (the unchanged elements).
-  let(:xml_items_a) { '<root><item id="1">Alpha</item><item id="2">Same</item></root>' }
-  let(:xml_items_b) { '<root><item id="1">Alpha</item><item id="2">Different</item></root>' }
+  let(:xml_items_a) do
+    '<root><item id="1">Alpha</item><item id="2">Same</item></root>'
+  end
+  let(:xml_items_b) do
+    '<root><item id="1">Alpha</item><item id="2">Different</item></root>'
+  end
 
   # Small single-element XML with a content difference.
   let(:xml_a) { "<root><item>Alpha</item></root>" }
@@ -57,7 +61,8 @@ RSpec.describe "DiffFormatter display preprocessing" do
   describe "display_preprocessing: :none (default)" do
     it "uses the by-line formatter's own rendering pipeline without extra preprocessing" do
       formatter = formatter_for(display_preprocessing: :none)
-      output = formatter.format([], :xml, doc1: compact_xml, doc2: multiline_xml)
+      output = formatter.format([], :xml, doc1: compact_xml,
+                                          doc2: multiline_xml)
 
       # The by-line formatter applies character visualization (spaces → ░) to
       # the multiline XML's indentation, confirming it ran its own pipeline.
@@ -69,7 +74,8 @@ RSpec.describe "DiffFormatter display preprocessing" do
 
     it "is the default when no display_preprocessing is given" do
       formatter = Canon::DiffFormatter.new(use_color: false, mode: :by_line)
-      output = formatter.format([], :xml, doc1: compact_xml, doc2: multiline_xml)
+      output = formatter.format([], :xml, doc1: compact_xml,
+                                          doc2: multiline_xml)
 
       # Same behaviour as explicit :none
       expect(output).to include("░")
@@ -79,8 +85,10 @@ RSpec.describe "DiffFormatter display preprocessing" do
       formatter_none = formatter_for(display_preprocessing: :none)
       formatter_pp = formatter_for(display_preprocessing: :pretty_print)
 
-      output_none = formatter_none.format([], :xml, doc1: compact_xml, doc2: multiline_xml)
-      output_pp = formatter_pp.format([], :xml, doc1: compact_xml, doc2: multiline_xml)
+      output_none = formatter_none.format([], :xml, doc1: compact_xml,
+                                                    doc2: multiline_xml)
+      output_pp = formatter_pp.format([], :xml, doc1: compact_xml,
+                                                doc2: multiline_xml)
 
       # :none: docs differ as strings → more output lines (diff content visible)
       # :pretty_print: docs become identical after pretty-printing → only the header
@@ -96,7 +104,8 @@ RSpec.describe "DiffFormatter display preprocessing" do
     it "produces no diff lines for structurally identical docs regardless of original formatting" do
       # compact_xml and multiline_xml have the same content; after pretty-printing
       # both sides are identical, so the diff has nothing to show.
-      output = formatter.format([], :xml, doc1: compact_xml, doc2: multiline_xml)
+      output = formatter.format([], :xml, doc1: compact_xml,
+                                          doc2: multiline_xml)
 
       # No +/- markers in the line number column: all lines are context (unchanged)
       diff_marker_lines = output.lines.grep(/\|\s+\d+[+-]/)
@@ -124,7 +133,8 @@ RSpec.describe "DiffFormatter display preprocessing" do
         display_preprocessing: :pretty_print,
         indent_type: :tab,
       )
-      output = formatter_tab.format([], :xml, doc1: xml_items_a, doc2: xml_items_b)
+      output = formatter_tab.format([], :xml, doc1: xml_items_a,
+                                              doc2: xml_items_b)
       expect(output).to include("⇥<item")
     end
 
@@ -144,7 +154,8 @@ RSpec.describe "DiffFormatter display preprocessing" do
     # so "key" appears identically in the diff output.
 
     it "passes pre-formatted JSON through unchanged, letting the JSON formatter handle it" do
-      output = formatter.format([], :json, doc1: pretty_json_a, doc2: pretty_json_b)
+      output = formatter.format([], :json, doc1: pretty_json_a,
+                                           doc2: pretty_json_b)
 
       # "key" line is a context line (unchanged between a and b)
       expect(output).to include('"key"')
@@ -199,14 +210,17 @@ RSpec.describe "DiffFormatter display preprocessing" do
   # indentation added by the serializer.
 
   describe "display_preprocessing: :normalize_pretty_print" do
-    subject(:formatter) { formatter_for(display_preprocessing: :normalize_pretty_print) }
+    subject(:formatter) do
+      formatter_for(display_preprocessing: :normalize_pretty_print)
+    end
 
     # ── Structural normalization ────────────────────────────────────────────
 
     it "produces no diff lines for structurally identical docs regardless of original formatting" do
       # compact_xml and multiline_xml have the same content; after normalization
       # both sides serialize identically so the diff has nothing to show.
-      output = formatter.format([], :xml, doc1: compact_xml, doc2: multiline_xml)
+      output = formatter.format([], :xml, doc1: compact_xml,
+                                          doc2: multiline_xml)
       diff_marker_lines = output.lines.grep(/\|\s+\d+[+-]/)
       expect(diff_marker_lines).to be_empty
     end
@@ -322,8 +336,12 @@ RSpec.describe "DiffFormatter display preprocessing" do
     end
 
     # Two HTML strings that differ only in attribute order.
-    let(:html_attrs_a) { '<html><body><p class="note" id="p1">Text</p></body></html>' }
-    let(:html_attrs_b) { '<html><body><p id="p1" class="note">Text</p></body></html>' }
+    let(:html_attrs_a) do
+      '<html><body><p class="note" id="p1">Text</p></body></html>'
+    end
+    let(:html_attrs_b) do
+      '<html><body><p id="p1" class="note">Text</p></body></html>'
+    end
 
     describe "display_preprocessing: :none (default)" do # rubocop:disable RSpec/MultipleMemoizedHelpers
       it "does not raise for HTML input" do
@@ -335,13 +353,16 @@ RSpec.describe "DiffFormatter display preprocessing" do
 
       it "produces output for differently-formatted HTML" do
         formatter = formatter_for(display_preprocessing: :none)
-        output = formatter.format([], :html, doc1: compact_html, doc2: indented_html)
+        output = formatter.format([], :html, doc1: compact_html,
+                                             doc2: indented_html)
         expect(output).not_to be_empty
       end
     end
 
     describe "display_preprocessing: :pretty_print" do # rubocop:disable RSpec/MultipleMemoizedHelpers
-      subject(:formatter) { formatter_for(display_preprocessing: :pretty_print) }
+      subject(:formatter) do
+        formatter_for(display_preprocessing: :pretty_print)
+      end
 
       it "does not raise for HTML input" do
         expect do
@@ -437,14 +458,16 @@ RSpec.describe "DiffFormatter display preprocessing" do
       it "false — no character substitution in HTML output" do
         formatter = Canon::DiffFormatter.new(use_color: false, mode: :by_line,
                                              character_visualization: false)
-        output = formatter.format([], :html, doc1: html_diff_a, doc2: html_diff_b)
+        output = formatter.format([], :html, doc1: html_diff_a,
+                                             doc2: html_diff_b)
         expect(output).not_to include("░")
       end
 
       it "false — HTML formatter output contains plain spaces" do
         formatter = Canon::DiffFormatter.new(use_color: false, mode: :by_line,
                                              character_visualization: false)
-        output = formatter.format([], :html, doc1: html_diff_a, doc2: html_diff_b)
+        output = formatter.format([], :html, doc1: html_diff_a,
+                                             doc2: html_diff_b)
         # Plain spaces appear without ░ substitution
         expect(output).to match(/ /)
       end

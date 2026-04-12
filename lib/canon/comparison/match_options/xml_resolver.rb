@@ -160,7 +160,8 @@ module Canon
               structural_whitespace: %i[strict normalize ignore].freeze,
               attribute_presence: %i[strict ignore].freeze,
               attribute_order: %i[strict ignore].freeze,
-              attribute_values: %i[strict strip compact normalize ignore].freeze,
+              attribute_values: %i[strict strip compact normalize
+                                   ignore].freeze,
               element_position: %i[strict ignore].freeze,
               comments: %i[strict ignore].freeze,
             }

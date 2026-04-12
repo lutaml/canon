@@ -59,7 +59,9 @@ module Canon
           if seen.include?(canonical)
             chain = seen.map { |s| File.basename(s, ".yml") }.join(" -> ")
             raise Canon::Error,
-                  "Profile inheritance cycle detected: #{chain} -> #{File.basename(canonical, '.yml')}"
+                  "Profile inheritance cycle detected: #{chain} -> #{File.basename(
+                    canonical, '.yml'
+                  )}"
           end
 
           seen = seen + [canonical]

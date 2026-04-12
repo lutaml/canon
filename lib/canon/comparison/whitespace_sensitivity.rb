@@ -128,7 +128,8 @@ module Canon
           parent = node.parent
 
           unless respect_xml_space?(match_opts)
-            return user_config_sensitive?(parent, match_opts) ? :preserve : :strip
+            return user_config_sensitive?(parent,
+                                          match_opts) ? :preserve : :strip
           end
 
           return :preserve if xml_space_preserve?(parent)

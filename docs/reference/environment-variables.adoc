@@ -107,22 +107,28 @@ export CANON_JSON_FORMAT_PREPROCESSING=normalize
 |Indentation character for the pretty-printer: `space` or `tab`. Format-specific: `CANON_{FORMAT}_DIFF_PRETTY_PRINTER_INDENT_TYPE`
 |All formats (display only)
 
-|`CANON_XML_NORMALIZE_WHITESPACE_ELEMENTS`
+|`CANON_XML_DIFF_COLLAPSE_WHITESPACE_ELEMENTS`
 |string array
 |`[]`
 |Comma-separated list of XML element names whose inter-element whitespace is *presence-significant but form-insensitive*: both `" "` and `"\n  "` collapse to a single `░`.  Suitable for inline mixed-content elements such as `<p>`, `<li>`, `<td>`.  Only applies when `display_preprocessing: :normalize_pretty_print`.  Format-specific; no global form.
 |XML (display only)
 
-|`CANON_XML_STRICT_WHITESPACE_ELEMENTS`
+|`CANON_XML_DIFF_PRESERVE_WHITESPACE_ELEMENTS`
 |string array
 |`[]`
 |Comma-separated list of XML element names where every whitespace character is significant and visualized verbatim (`" "` → `░`, `"\n  "` → `↵░░`).  Suitable for preformatted elements such as `<pre>`, `<code>`.  Only applies when `display_preprocessing: :normalize_pretty_print`.  Format-specific; no global form.
 |XML (display only)
 
+|`CANON_XML_DIFF_STRIP_WHITESPACE_ELEMENTS`
+|string array
+|`[]`
+|Comma-separated list of XML element names where whitespace-only text nodes are stripped entirely.  Only applies when `display_preprocessing: :normalize_pretty_print`.  Format-specific; no global form.
+|XML (display only)
+
 |`CANON_XML_DIFF_PRETTY_PRINTED_EXPECTED`
 |boolean
 |`false`
-|When `true`, whitespace-only text nodes that start with `"\n"` inside `:normalize`-classified elements are dropped from the **expected (fixture)** document before it reaches the line diff.  Solves the asymmetric case where the expected side is a hand-indented heredoc fixture but the received side is compact programmatic XML.  Only applies when `display_preprocessing: :normalize_pretty_print`.  Format-specific; no global form.  See also link:../features/match-options/pretty-printed-fixtures.adoc[Pretty-printed fixture support].
+|When `true`, whitespace-only text nodes that start with `"\n"` inside `:collapse`-classified elements are dropped from the **expected (fixture)** document before it reaches the line diff.  Solves the asymmetric case where the expected side is a hand-indented heredoc fixture but the received side is compact programmatic XML.  Only applies when `display_preprocessing: :normalize_pretty_print`.  Format-specific; no global form.  See also link:../features/match-options/pretty-printed-fixtures.adoc[Pretty-printed fixture support].
 |XML (display only)
 
 |`CANON_XML_DIFF_PRETTY_PRINTED_RECEIVED`

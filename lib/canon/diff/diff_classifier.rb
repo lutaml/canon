@@ -38,7 +38,12 @@ module Canon
         # FIRST: Check for XML serialization-level formatting differences
         # These are ALWAYS non-normative (formatting-only) regardless of match options
         # Examples: self-closing tags (<tag/>) vs explicit closing tags (<tag></tag>)
-        if XmlSerializationFormatter.serialization_formatting?(diff_node)
+        #
+        # EXCEPTION: If the text node is inside a whitespace-sensitive element
+        # (:preserve or :collapse), don't dismiss as serialization formatting
+        # because whitespace presence is meaningful in those elements.
+        if !inside_whitespace_sensitive_element?(diff_node) &&
+            XmlSerializationFormatter.serialization_formatting?(diff_node)
           diff_node.formatting = true
           diff_node.normative = false
           return diff_node
@@ -145,19 +150,23 @@ module Canon
       end
 
       # Check if the text node is inside a whitespace-sensitive element
+      # (preserve/collapse classification or xml:space='preserve').
+      # In these elements, whitespace presence is meaningful and should
+      # not be dismissed as serialization formatting.
       # @param diff_node [DiffNode] The diff node to check
-      # @return [Boolean] true if inside a whitespace-sensitive element
+      # @return [Boolean] true if whitespace is preserved for this element
       def inside_whitespace_sensitive_element?(diff_node)
-        # Get the text node (not the parent element)
         node = diff_node.node1 || diff_node.node2
         return false unless node
 
-        # WhitespaceSensitivity.element_sensitive? expects a text node
-        # and checks its parent element
-        # We need to pass the full options structure with :match_opts key
-        opts = { match_opts: @match_options.options }
+        return false unless node.respond_to?(:parent)
 
-        Canon::Comparison::WhitespaceSensitivity.element_sensitive?(node, opts)
+        parent = node.parent
+        return false unless parent
+
+        match_opts = @match_options.options
+        Canon::Comparison::WhitespaceSensitivity.whitespace_preserved?(parent,
+                                                                       match_opts)
       end
 
       # Check if the text node is inside a PRESERVE whitespace element
@@ -173,7 +182,9 @@ module Canon
         parent = node.parent
         return false unless parent
 
-        classification = Canon::Comparison::WhitespaceSensitivity.classify_element(parent, match_opts)
+        classification = Canon::Comparison::WhitespaceSensitivity.classify_element(
+          parent, match_opts
+        )
         classification == :preserve
       end
 

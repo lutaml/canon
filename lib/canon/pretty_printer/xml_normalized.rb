@@ -197,10 +197,15 @@ module Canon
         # Filter out empty text nodes (zero-length, not whitespace-only).
         children = node.children.reject { |c| c.text? && c.content.empty? }
 
-        return "#{ind(depth)}#{open_tag(node, self_close: true)}" if children.empty?
+        if children.empty?
+          return "#{ind(depth)}#{open_tag(node,
+                                          self_close: true)}"
+        end
 
         elem_children = children.select(&:element?)
-        text_with_content = children.select { |c| c.text? && !c.content.strip.empty? }
+        text_with_content = children.select do |c|
+          c.text? && !c.content.strip.empty?
+        end
 
         if elem_children.empty?
           # Pure-text element — keep on one line.
@@ -350,7 +355,11 @@ module Canon
         end.join
 
         attr_nodes = node.attribute_nodes
-        attr_nodes = attr_nodes.sort_by { |a| [a.namespace&.href.to_s, a.name] } if @sort_attributes
+        if @sort_attributes
+          attr_nodes = attr_nodes.sort_by do |a|
+            [a.namespace&.href.to_s, a.name]
+          end
+        end
 
         attrs = attr_nodes.map do |a|
           prefix = a.namespace&.prefix ? "#{a.namespace.prefix}:" : ""

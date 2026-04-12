@@ -54,7 +54,8 @@ RSpec.describe Canon::Config do # rubocop:disable RSpec/SpecFilePathFormat
         expect(config.xml.match.collapse_whitespace_elements).to include(
           "p", "title", "fmt-title", "semx"
         )
-        expect(config.xml.match.preserve_whitespace_elements).to eq(%w[body passthrough])
+        expect(config.xml.match.preserve_whitespace_elements).to eq(%w[body
+                                                                       passthrough])
       end
 
       it "sets html-specific overrides" do
@@ -83,7 +84,8 @@ RSpec.describe Canon::Config do # rubocop:disable RSpec/SpecFilePathFormat
         expect(config.xml.preprocessing).to eq(:format)
         expect(config.xml.match.profile).to eq(:spec_friendly)
         expect(config.xml.diff.algorithm).to eq(:dom)
-        expect(config.xml.match.collapse_whitespace_elements).to include("p", "title")
+        expect(config.xml.match.collapse_whitespace_elements).to include("p",
+                                                                         "title")
       end
 
       it "applies debug overrides" do
