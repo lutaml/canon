@@ -522,7 +522,8 @@ module Canon
       end
 
       def preserve_whitespace_elements=(value)
-        @resolver.set_programmatic(:preserve_whitespace_elements, Array(value).map(&:to_s))
+        @resolver.set_programmatic(:preserve_whitespace_elements,
+                                   Array(value).map(&:to_s))
       end
 
       # Element names where whitespace is COLLAPSED (HTML-style behavior).
@@ -533,7 +534,8 @@ module Canon
       end
 
       def collapse_whitespace_elements=(value)
-        @resolver.set_programmatic(:collapse_whitespace_elements, Array(value).map(&:to_s))
+        @resolver.set_programmatic(:collapse_whitespace_elements,
+                                   Array(value).map(&:to_s))
       end
 
       # Element names where whitespace-only text nodes are STRIPPED.
@@ -543,7 +545,8 @@ module Canon
       end
 
       def strip_whitespace_elements=(value)
-        @resolver.set_programmatic(:strip_whitespace_elements, Array(value).map(&:to_s))
+        @resolver.set_programmatic(:strip_whitespace_elements,
+                                   Array(value).map(&:to_s))
       end
 
       # When true, whitespace-only text nodes starting with "\n" in :collapse
@@ -797,7 +800,8 @@ module Canon
       formats = data["formats"] || {}
 
       format_configs.each do |fmt_key, fmt_cfg|
-        fmt_data = ProfileLoader.send(:deep_merge, shared, formats[fmt_key.to_s] || {})
+        fmt_data = ProfileLoader.send(:deep_merge, shared,
+                                      formats[fmt_key.to_s] || {})
         fmt_cfg.apply_profile_data(fmt_data)
       end
     end

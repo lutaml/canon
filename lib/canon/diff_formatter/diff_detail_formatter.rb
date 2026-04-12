@@ -92,7 +92,8 @@ module Canon
         private
 
         # Format a single difference with dimension-specific details
-        def format_single_diff(diff, number, total, use_color, section: nil, compact: false, expand_difference: false)
+        def format_single_diff(diff, number, total, use_color, section: nil,
+compact: false, expand_difference: false)
           output = []
 
           # Header - handle both DiffNode and Hash

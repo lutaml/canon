@@ -445,13 +445,16 @@ RSpec.describe "Canon::DiffFormatter show_diffs filtering" do
     # Pre-condition: both normative and informative diffs must exist
     it "has both normative and informative differences (pre-condition)" do # rubocop:disable RSpec/MultipleExpectations
       expect(comparison_result.differences.any?(&:normative?)).to be true
-      expect(comparison_result.differences.any? { |d| !d.normative? }).to be true
+      expect(comparison_result.differences.any? do |d|
+        !d.normative?
+      end).to be true
     end
 
     context "with show_diffs: :all" do
       it "Semantic Diff Report shows both NORMATIVE and INFORMATIVE sections" do
         formatter = Canon::DiffFormatter.new(use_color: false, show_diffs: :all)
-        output = formatter.format_comparison_result(comparison_result, xml1, xml2)
+        output = formatter.format_comparison_result(comparison_result, xml1,
+                                                    xml2)
 
         expect(output).to include("NORMATIVE DIFFERENCES")
         expect(output).to include("INFORMATIVE DIFFERENCES")
@@ -460,15 +463,19 @@ RSpec.describe "Canon::DiffFormatter show_diffs filtering" do
 
     context "with show_diffs: :normative" do
       it "Semantic Diff Report shows NORMATIVE section" do
-        formatter = Canon::DiffFormatter.new(use_color: false, show_diffs: :normative)
-        output = formatter.format_comparison_result(comparison_result, xml1, xml2)
+        formatter = Canon::DiffFormatter.new(use_color: false,
+                                             show_diffs: :normative)
+        output = formatter.format_comparison_result(comparison_result, xml1,
+                                                    xml2)
 
         expect(output).to include("NORMATIVE DIFFERENCES")
       end
 
       it "Semantic Diff Report omits INFORMATIVE section" do
-        formatter = Canon::DiffFormatter.new(use_color: false, show_diffs: :normative)
-        output = formatter.format_comparison_result(comparison_result, xml1, xml2)
+        formatter = Canon::DiffFormatter.new(use_color: false,
+                                             show_diffs: :normative)
+        output = formatter.format_comparison_result(comparison_result, xml1,
+                                                    xml2)
 
         expect(output).not_to include("INFORMATIVE DIFFERENCES")
       end
@@ -476,15 +483,19 @@ RSpec.describe "Canon::DiffFormatter show_diffs filtering" do
 
     context "with show_diffs: :informative" do
       it "Semantic Diff Report shows INFORMATIVE section" do
-        formatter = Canon::DiffFormatter.new(use_color: false, show_diffs: :informative)
-        output = formatter.format_comparison_result(comparison_result, xml1, xml2)
+        formatter = Canon::DiffFormatter.new(use_color: false,
+                                             show_diffs: :informative)
+        output = formatter.format_comparison_result(comparison_result, xml1,
+                                                    xml2)
 
         expect(output).to include("INFORMATIVE DIFFERENCES")
       end
 
       it "Semantic Diff Report omits NORMATIVE section" do
-        formatter = Canon::DiffFormatter.new(use_color: false, show_diffs: :informative)
-        output = formatter.format_comparison_result(comparison_result, xml1, xml2)
+        formatter = Canon::DiffFormatter.new(use_color: false,
+                                             show_diffs: :informative)
+        output = formatter.format_comparison_result(comparison_result, xml1,
+                                                    xml2)
 
         expect(output).not_to include("NORMATIVE DIFFERENCES")
       end

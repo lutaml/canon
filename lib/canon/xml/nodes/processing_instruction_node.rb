@@ -15,6 +15,10 @@ module Canon
           @data = data
         end
 
+        def name
+          target
+        end
+
         def node_type
           :processing_instruction
         end

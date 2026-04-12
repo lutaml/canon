@@ -13,7 +13,8 @@ module Canon
         # @param use_color [Boolean] Whether to use colors
         # @param compact [Boolean] Whether to serialize element nodes as compact XML
         # @return [String] Formatted dimension details
-        def self.format_dimension_details(diff, use_color, compact: false, expand_difference: false)
+        def self.format_dimension_details(diff, use_color, compact: false,
+expand_difference: false)
           dimension = extract_dimension(diff)
 
           case dimension
@@ -22,7 +23,8 @@ module Canon
           when :namespace_declarations
             format_namespace_declarations_details(diff, use_color)
           when :element_structure
-            format_element_structure_details(diff, use_color, expand_difference: expand_difference)
+            format_element_structure_details(diff, use_color,
+                                             expand_difference: expand_difference)
           when :attribute_presence
             format_attribute_presence_details(diff, use_color)
           when :attribute_values
@@ -164,7 +166,8 @@ module Canon
         # @param diff [DiffNode, Hash] Difference node
         # @param use_color [Boolean] Whether to use colors
         # @return [Array] Tuple of [detail1, detail2, changes]
-        def self.format_element_structure_details(diff, use_color, expand_difference: false)
+        def self.format_element_structure_details(diff, use_color,
+expand_difference: false)
           require_relative "color_helper"
           require_relative "node_utils"
 
@@ -478,8 +481,18 @@ module Canon
           node1 = extract_node1(diff)
           node2 = extract_node2(diff)
 
-          raw1 = compact ? NodeUtils.node_to_display(node1, compact: true) : NodeUtils.format_node_brief(node1)
-          raw2 = compact ? NodeUtils.node_to_display(node2, compact: true) : NodeUtils.format_node_brief(node2)
+          raw1 = if compact
+                   NodeUtils.node_to_display(node1,
+                                             compact: true)
+                 else
+                   NodeUtils.format_node_brief(node1)
+                 end
+          raw2 = if compact
+                   NodeUtils.node_to_display(node2,
+                                             compact: true)
+                 else
+                   NodeUtils.format_node_brief(node2)
+                 end
 
           detail1 = ColorHelper.colorize(raw1, :red, use_color)
           detail2 = ColorHelper.colorize(raw2, :green, use_color)

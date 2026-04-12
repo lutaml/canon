@@ -139,8 +139,10 @@ differences)
 
         # Filter children before comparison to handle ignored nodes (like comments with :ignore).
         # Apply side-specific pretty-print heuristic when the relevant flag is active.
-        children1 = filter_children(childrenode1, opts_for_side(opts, :expected))
-        children2 = filter_children(childrenode2, opts_for_side(opts, :received))
+        children1 = filter_children(childrenode1,
+                                    opts_for_side(opts, :expected))
+        children2 = filter_children(childrenode2,
+                                    opts_for_side(opts, :received))
 
         if children1.length != children2.length
           add_difference(node1, node2, Comparison::UNEQUAL_ELEMENTS,

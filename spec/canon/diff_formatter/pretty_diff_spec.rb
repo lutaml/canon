@@ -93,7 +93,8 @@ RSpec.describe "DiffFormatter mode: :pretty_diff" do
     it "reports no differences for semantically identical, differently formatted XML " \
        "when display_preprocessing: :pretty_print normalises both sides" do
       formatter = formatter_for(display_preprocessing: :pretty_print)
-      output = formatter.format([], :xml, doc1: compact_xml, doc2: multiline_xml)
+      output = formatter.format([], :xml, doc1: compact_xml,
+                                          doc2: multiline_xml)
       expect(output).to include("(no differences)")
     end
   end
@@ -148,7 +149,9 @@ RSpec.describe "DiffFormatter mode: :pretty_diff" do
                                 doc1: xml_normative_before,
                                 doc2: xml_normative_after)
       lines = output.lines.map(&:strip)
-      expect(lines.any? { |l| l.start_with?("- ") && l.include?("old") }).to be true
+      expect(lines.any? do |l|
+        l.start_with?("- ") && l.include?("old")
+      end).to be true
     end
 
     it "shows '+' marker for the after line" do
@@ -157,7 +160,9 @@ RSpec.describe "DiffFormatter mode: :pretty_diff" do
                                 doc1: xml_normative_before,
                                 doc2: xml_normative_after)
       lines = output.lines.map(&:strip)
-      expect(lines.any? { |l| l.start_with?("+ ") && l.include?("new") }).to be true
+      expect(lines.any? do |l|
+        l.start_with?("+ ") && l.include?("new")
+      end).to be true
     end
   end
 
@@ -165,7 +170,8 @@ RSpec.describe "DiffFormatter mode: :pretty_diff" do
 
   describe "context lines" do
     it "shows unchanged context lines around the change" do
-      formatter = formatter_for(context_lines: 2, display_preprocessing: :pretty_print)
+      formatter = formatter_for(context_lines: 2,
+                                display_preprocessing: :pretty_print)
       output = formatter.format([], :xml,
                                 doc1: xml_normative_before,
                                 doc2: xml_normative_after)
@@ -179,13 +185,17 @@ RSpec.describe "DiffFormatter mode: :pretty_diff" do
       doc1 = (["<root>"] +
                Array.new(10) { |i| "  <item id=\"#{i}\">Same #{i}</item>" } +
                ["  <item id=\"10\">OldA</item>"] +
-               Array.new(10) { |i| "  <item id=\"#{i + 11}\">Same #{i + 11}</item>" } +
+               Array.new(10) do |i|
+                 "  <item id=\"#{i + 11}\">Same #{i + 11}</item>"
+               end +
                ["  <item id=\"21\">OldB</item>"] +
                ["</root>"]).join("\n")
       doc2 = (["<root>"] +
                Array.new(10) { |i| "  <item id=\"#{i}\">Same #{i}</item>" } +
                ["  <item id=\"10\">NewA</item>"] +
-               Array.new(10) { |i| "  <item id=\"#{i + 11}\">Same #{i + 11}</item>" } +
+               Array.new(10) do |i|
+                 "  <item id=\"#{i + 11}\">Same #{i + 11}</item>"
+               end +
                ["  <item id=\"21\">NewB</item>"] +
                ["</root>"]).join("\n")
 
@@ -195,7 +205,8 @@ RSpec.describe "DiffFormatter mode: :pretty_diff" do
     end
 
     it "respects context_lines: 0 (change lines only, no surrounding context)" do
-      formatter = formatter_for(context_lines: 0, display_preprocessing: :pretty_print)
+      formatter = formatter_for(context_lines: 0,
+                                display_preprocessing: :pretty_print)
       output = formatter.format([], :xml,
                                 doc1: xml_normative_before,
                                 doc2: xml_normative_after)

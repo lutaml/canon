@@ -22,6 +22,10 @@ module Canon
           @original = original || value
         end
 
+        def name
+          "#text"
+        end
+
         def node_type
           :text
         end

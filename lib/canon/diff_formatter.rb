@@ -1075,13 +1075,15 @@ differences: [])
     # @param show_expected [Boolean] Render the EXPECTED block
     # @param show_received [Boolean] Render the RECEIVED block
     # @return [String] Formatted display of pretty-printed inputs
-    def format_prettyprint_inputs(pp1, pp2, show_expected: true, show_received: true)
+    def format_prettyprint_inputs(pp1, pp2, show_expected: true,
+show_received: true)
       return "" if pp1.nil? || pp2.nil?
       return "" unless show_expected || show_received
 
       output = []
       output << ""
-      output << colorize("=== PRETTY-PRINTED INPUTS (Fixture-ready) ===", :cyan, :bold)
+      output << colorize("=== PRETTY-PRINTED INPUTS (Fixture-ready) ===",
+                         :cyan, :bold)
       output << ""
 
       if show_expected

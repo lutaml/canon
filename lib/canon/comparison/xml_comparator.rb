@@ -430,7 +430,8 @@ module Canon
             parent = node.parent
             next unless parent
 
-            classification = WhitespaceSensitivity.classify_element(parent, opts[:match_opts])
+            classification = WhitespaceSensitivity.classify_element(parent,
+                                                                    opts[:match_opts])
             return true if classification == :preserve
           end
 

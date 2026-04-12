@@ -250,7 +250,12 @@ diff_children, differences)
             end
 
             smaller_set_names = smaller_set.filter_map do |c|
-              c.respond_to?(:name) ? c.name : nil
+              next nil unless c.respond_to?(:name)
+              # Exclude generic node-type names (e.g. "#text") that are
+              # shared by all text nodes and cannot be used for matching.
+              next nil if c.name.start_with?("#")
+
+              c.name
             end
 
             new_larger_set = []
@@ -261,9 +266,12 @@ diff_children, differences)
                 # consider it a mismatch
                 mismatch_children << larger_set[i]
               elsif larger_set[i].respond_to?(:name) &&
+                  !larger_set[i].name.start_with?("#") &&
                   !smaller_set_names.include?(larger_set[i].name)
                 # If the name of the node is not found in the smaller set,
-                # consider it a mismatch
+                # consider it a mismatch. Skip nodes with generic names
+                # starting with "#" (e.g. "#text") since those names are
+                # shared by all nodes of that type and not useful for matching.
                 mismatch_children << larger_set[i]
               else
                 new_larger_set << larger_set[i]
