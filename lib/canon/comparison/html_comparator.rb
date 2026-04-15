@@ -393,12 +393,17 @@ module Canon
               end
             end
 
-            # For :rendered preprocessing with Nokogiri nodes
-            if preprocessing == :rendered
-              # Normalize and return
+            # For preprocessing modes that require whitespace filtering,
+            # apply the same post-parsing normalization used for string inputs.
+            # This is needed because dom_diff() pre-parses HTML5 strings into
+            # Nokogiri fragments before calling HtmlComparator, bypassing the
+            # string-input path where these filters are normally applied.
+            if %i[normalize format rendered].include?(preprocessing)
               frag = node.is_a?(Nokogiri::XML::DocumentFragment) ? node : Nokogiri::XML.fragment(node.to_html)
               normalize_html_style_script_comments(frag)
-              normalize_rendered_whitespace(frag, match_opts)
+              if preprocessing == :rendered
+                normalize_rendered_whitespace(frag, match_opts)
+              end
               remove_whitespace_only_text_nodes(frag)
               return frag
             end

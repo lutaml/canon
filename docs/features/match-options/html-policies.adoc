@@ -226,6 +226,9 @@ Canon::Comparison.equivalent?(html1, html2, preprocessing: :rendered)
 Pretty-prints before comparison:
 - Consistent indentation
 - One element per line
+- Whitespace-only text nodes in strip-context elements (e.g. `<div>`) are
+  removed after formatting, so differences in structural whitespace between
+  elements do not produce false normative differences
 - Good for visual diffs
 
 [source,ruby]

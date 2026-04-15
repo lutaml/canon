@@ -294,6 +294,73 @@ RSpec.describe Canon::Comparison::HtmlComparator do
                                              preprocessing: :format)).to be true
         end
       end
+
+      describe "whitespace in strip-context elements with pre-parsed HTML5" do
+        # When dom_diff() pre-parses HTML5 strings into Nokogiri fragments,
+        # the Nokogiri-node path in parse_node must still strip
+        # whitespace-only text nodes in :strip context elements like <div>.
+        # Without this, whitespace differences like:
+        #   <div class="ol_wrap">\n  <ol>  vs  <div class="ol_wrap"><ol>
+        # are incorrectly reported as normative.
+
+        let(:html_with_ws) do
+          <<~HTML
+            <li id="A0b">
+              <p id="_">Level 1</p>
+              <div class="ol_wrap">
+                <ol type="1" id="A1">
+                  <li id="A1a"><p id="_">Level 2</p></li>
+                </ol>
+              </div>
+            </li>
+          HTML
+        end
+
+        let(:html_without_ws) do
+          <<~HTML
+            <li id="A0b">
+              <p id="_">Level 1</p>
+              <div class="ol_wrap"><ol type="1" id="A1">
+                <li id="A1a"><p id="_">Level 2</p></li>
+              </ol></div>
+            </li>
+          HTML
+        end
+
+        it "ignores whitespace-only text nodes in div with :format preprocessing" do
+          expect(described_class.equivalent?(
+                   html_with_ws, html_without_ws,
+                   format: :html5, preprocessing: :format
+                 )).to be true
+        end
+
+        it "ignores whitespace-only text nodes in div with :normalize preprocessing" do
+          expect(described_class.equivalent?(
+                   html_with_ws, html_without_ws,
+                   format: :html5, preprocessing: :normalize
+                 )).to be true
+        end
+
+        it "reports no normative diffs in verbose mode with :format preprocessing" do
+          result = described_class.equivalent?(
+            html_with_ws, html_without_ws,
+            format: :html5, preprocessing: :format, verbose: true
+          )
+          normative = result.differences.select(&:normative?)
+          expect(normative).to be_empty
+        end
+
+        it "works through the full matcher path with metanorma profile options" do
+          # This reproduces the exact options that the RSpec matcher builds
+          # from the metanorma config profile
+          result = Canon::Comparison.equivalent?(
+            html_with_ws, html_without_ws,
+            verbose: true, global_profile: :spec_friendly,
+            preprocessing: :format, diff_algorithm: :dom, format: :html5
+          )
+          expect(result.equivalent?).to be true
+        end
+      end
     end
   end
 end
