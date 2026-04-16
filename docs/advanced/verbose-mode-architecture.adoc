@@ -130,9 +130,32 @@ Each difference displays:
 * **Status indicator**: `[NORMATIVE]` (green) or `[INFORMATIVE]` (yellow)
 * **Dimension**: Which aspect differs (colorized in magenta)
 * **Location**: XPath for XML/HTML, path for JSON/YAML (colorized in blue)
+* **Reason**: When the reason contains visualized whitespace characters (░),
+  it is split across two lines with the before and after text vertically
+  aligned for easier visual comparison:
++
+[source]
+----
+Reason:  Text: "░░term2░definition░░"
+          vs.: "░term2░definition░"
+----
++
+When no visualized whitespace is present, the reason remains a single line.
 * **Expected section**: What was in File 1 (red heading, bold)
 * **Actual section**: What was in File 2 (green heading, bold)
 * **Changes summary**: Actionable description of the difference (yellow, bold)
+
+When both the Expected and Actual values are short (under 30 characters), they
+are rendered as compact single lines with aligned colons for succinctness:
+
+[source]
+----
+⊖ Expected (File 1): "term2 definition"
+⊕ Actual (File 2)  : "term2 definition"
+----
+
+For longer values, they appear on separate lines with no blank line between
+them.
 
 === Dimension-specific formats
 

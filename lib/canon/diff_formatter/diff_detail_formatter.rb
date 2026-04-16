@@ -14,6 +14,9 @@ module Canon
     # Formats dimension-specific detail for individual differences
     # Provides actionable, colorized output showing exactly what changed
     module DiffDetailFormatter
+      ANSI_ESCAPE = /\e\[[0-9;]*m/
+      COMPACT_DETAIL_MAX = 30
+
       class << self
         # Format all differences as a semantic diff report
         #
@@ -127,9 +130,7 @@ compact: false, expand_difference: false)
 
           # show reason if available
           if diff.respond_to?(:reason) && diff.reason
-            output << "#{colorize('Reason:', :cyan, use_color,
-                                  bold: true)}  #{colorize(diff.reason,
-                                                           :yellow, use_color)}"
+            format_reason_line(output, diff.reason, use_color)
           end
           output << ""
 
@@ -138,13 +139,7 @@ compact: false, expand_difference: false)
             diff, use_color, compact: compact, expand_difference: expand_difference
           )
 
-          output << colorize("⊖ Expected (File 1):", :red, use_color,
-                             bold: true)
-          output << "   #{detail1}"
-          output << ""
-          output << colorize("⊕ Actual (File 2):", :green, use_color,
-                             bold: true)
-          output << "   #{detail2}"
+          format_expected_actual(output, detail1, detail2, use_color)
 
           if changes && !changes.empty?
             output << ""
@@ -180,6 +175,52 @@ compact: false, expand_difference: false)
           ].join("\n")
 
           colorize(error_msg, :red, use_color, bold: true)
+        end
+
+        # Format the Reason line. When the reason contains visualized
+        # spaces (░), split into two vertically-aligned lines so the
+        # before/after text can be compared visually.
+        def format_reason_line(output, reason_text, use_color)
+          if reason_text.include?("\u2591") &&
+              reason_text.match?(/\A(Text|whitespace): .*\bvs\b/)
+            parts = reason_text.split(" vs ", 2)
+            if parts.length == 2
+              output << "#{colorize('Reason:', :cyan, use_color,
+                                    bold: true)}  #{colorize(parts[0],
+                                                             :yellow, use_color)}"
+              output << "#{' ' * 10}#{colorize("vs.: #{parts[1]}",
+                                               :yellow, use_color)}"
+              return
+            end
+          end
+          output << "#{colorize('Reason:', :cyan, use_color,
+                                bold: true)}  #{colorize(reason_text,
+                                                         :yellow, use_color)}"
+        end
+
+        # Format the Expected/Actual block. Short values (both under 30
+        # chars) are rendered as compact single lines with aligned colons;
+        # longer values use the multi-line layout without a blank line gap.
+        def format_expected_actual(output, detail1, detail2, use_color)
+          plain1 = detail1.gsub(ANSI_ESCAPE, "")
+          plain2 = detail2.gsub(ANSI_ESCAPE, "")
+
+          if plain1.length < COMPACT_DETAIL_MAX &&
+              plain2.length < COMPACT_DETAIL_MAX
+            lbl1 = colorize("\u2296 Expected (File 1)", :red, use_color,
+                            bold: true)
+            lbl2 = colorize("\u2295 Actual (File 2)  ", :green, use_color,
+                            bold: true)
+            output << "#{lbl1}: #{detail1}"
+            output << "#{lbl2}: #{detail2}"
+          else
+            output << colorize("\u2296 Expected (File 1):", :red, use_color,
+                               bold: true)
+            output << "   #{detail1}"
+            output << colorize("\u2295 Actual (File 2):", :green, use_color,
+                               bold: true)
+            output << "   #{detail2}"
+          end
         end
 
         # Helper: Colorize text
