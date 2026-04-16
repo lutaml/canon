@@ -543,6 +543,112 @@ RSpec.describe "DiffDetailFormatter helpers" do
     end
   end
 
+  # ── Issue #91: diff report readability for whitespace differences ──────────
+
+  describe Canon::DiffFormatter::DiffDetailFormatter, "Reason line formatting (Issue #91)" do
+    def build_diff(reason:, text1: "a", text2: "b")
+      n1 = Canon::Xml::Nodes::TextNode.new(value: text1)
+      n2 = Canon::Xml::Nodes::TextNode.new(value: text2)
+      node = Canon::Diff::DiffNode.new(
+        node1: n1, node2: n2,
+        dimension: :text_content, reason: reason
+      )
+      node.normative = true
+      node
+    end
+
+    it "splits reason into two aligned lines when visualized spaces are present" do
+      reason = "Text: \"\u2591\u2591term2\u2591def\u2591\u2591\" " \
+               "vs \"\u2591term2\u2591def\u2591\""
+      diff = build_diff(reason: reason)
+      report = described_class.format_report([diff], use_color: false)
+      lines = report.lines.map(&:chomp)
+
+      reason_line = lines.find { |l| l.include?("Reason:") }
+      vs_idx = lines.index(reason_line) + 1
+
+      expect(reason_line).to include("Text:")
+      expect(reason_line).not_to include(" vs ")
+      expect(lines[vs_idx]).to match(/\A\s+vs\.:/)
+    end
+
+    it "keeps the reason as a single line when no visualized spaces" do
+      diff = build_diff(reason: "only in first: class, id")
+      report = described_class.format_report([diff], use_color: false)
+      lines = report.lines.map(&:chomp)
+
+      reason_line = lines.find { |l| l.include?("Reason:") }
+      expect(reason_line).to include("only in first: class, id")
+
+      vs_idx = lines.index(reason_line) + 1
+      expect(lines[vs_idx]).not_to match(/vs\.:/i)
+    end
+  end
+
+  describe Canon::DiffFormatter::DiffDetailFormatter, "Expected/Actual layout (Issue #91)" do
+    def build_diff(text1:, text2:)
+      n1 = Canon::Xml::Nodes::TextNode.new(value: text1)
+      n2 = Canon::Xml::Nodes::TextNode.new(value: text2)
+      node = Canon::Diff::DiffNode.new(
+        node1: n1, node2: n2,
+        dimension: :text_content, reason: "Text: differs"
+      )
+      node.normative = true
+      node
+    end
+
+    context "when both values are short" do
+      it "renders Expected and Actual as compact single lines" do
+        diff = build_diff(text1: "hello", text2: "world")
+        report = described_class.format_report([diff], use_color: false)
+        lines = report.lines.map(&:chomp)
+
+        expected_line = lines.find { |l| l.include?("Expected (File 1)") }
+        actual_line = lines.find { |l| l.include?("Actual (File 2)") }
+
+        expect(expected_line).to match(/Expected \(File 1\).*:.*"hello"/)
+        expect(actual_line).to match(/Actual \(File 2\).*:.*"world"/)
+      end
+
+      it "has no blank line between Expected and Actual" do
+        diff = build_diff(text1: "hello", text2: "world")
+        report = described_class.format_report([diff], use_color: false)
+        lines = report.lines.map(&:chomp)
+
+        expected_idx = lines.index { |l| l.include?("Expected (File 1)") }
+        actual_idx = lines.index { |l| l.include?("Actual (File 2)") }
+
+        expect(actual_idx).to eq(expected_idx + 1)
+      end
+    end
+
+    context "when a value is 30+ chars" do
+      let(:long_text) { "this is a value that exceeds thirty characters easily" }
+
+      it "renders values on separate indented lines" do
+        diff = build_diff(text1: "short", text2: long_text)
+        report = described_class.format_report([diff], use_color: false)
+        lines = report.lines.map(&:chomp)
+
+        expected_idx = lines.index { |l| l.include?("Expected (File 1)") }
+        expect(lines[expected_idx]).to include("Expected (File 1):")
+        expect(lines[expected_idx + 1]).to match(/\A\s+"short"/)
+      end
+
+      it "has no blank line between Expected and Actual blocks" do
+        diff = build_diff(text1: "short", text2: long_text)
+        report = described_class.format_report([diff], use_color: false)
+        lines = report.lines.map(&:chomp)
+
+        expected_idx = lines.index { |l| l.include?("Expected (File 1)") }
+        actual_idx = lines.index { |l| l.include?("Actual (File 2)") }
+
+        # Expected label, Expected value, Actual label (no blank line)
+        expect(actual_idx).to eq(expected_idx + 2)
+      end
+    end
+  end
+
   describe "Issue #52 scenario: text content with NBSP difference" do
     it "preserves NBSP in text content for diff display" do
       # This test verifies the fix for:
