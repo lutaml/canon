@@ -46,30 +46,49 @@ RSpec.describe Canon::Comparison::CompareProfile do
   end
 
   describe "#normative_dimension?" do
-    context "for element_structure dimension" do
-      it "always returns true regardless of behavior" do
-        match_opts = { element_structure: :ignore }
-        profile = described_class.new(match_opts)
+    context "when dimension affects equivalence (behavior is not :ignore)" do
+      it "returns true for text_content with :strict" do
+        profile = described_class.new({ text_content: :strict })
+        expect(profile.normative_dimension?(:text_content)).to be true
+      end
 
+      it "returns true for element_structure with :strict" do
+        profile = described_class.new({ element_structure: :strict })
+        expect(profile.normative_dimension?(:element_structure)).to be true
+      end
+
+      it "returns true for element_structure by default" do
+        profile = described_class.new({})
         expect(profile.normative_dimension?(:element_structure)).to be true
       end
     end
 
-    context "when dimension affects equivalence" do
-      it "returns true" do
-        match_opts = { text_content: :strict }
-        profile = described_class.new(match_opts)
+    context "when dimension does not affect equivalence (behavior is :ignore)" do
+      it "returns false for comments with :ignore" do
+        profile = described_class.new({ comments: :ignore })
+        expect(profile.normative_dimension?(:comments)).to be false
+      end
 
-        expect(profile.normative_dimension?(:text_content)).to be true
+      it "returns false for element_structure with :ignore" do
+        profile = described_class.new({ element_structure: :ignore })
+        expect(profile.normative_dimension?(:element_structure)).to be false
       end
     end
 
-    context "when dimension does not affect equivalence" do
-      it "returns false" do
-        match_opts = { comments: :ignore }
-        profile = described_class.new(match_opts)
+    context "for structural_whitespace (special rule)" do
+      it "returns true only for :strict" do
+        profile = described_class.new({ structural_whitespace: :strict })
+        expect(profile.normative_dimension?(:structural_whitespace)).to be true
+      end
 
-        expect(profile.normative_dimension?(:comments)).to be false
+      it "returns false for :normalize" do
+        profile = described_class.new({ structural_whitespace: :normalize })
+        expect(profile.normative_dimension?(:structural_whitespace)).to be false
+      end
+
+      it "returns false for :ignore" do
+        profile = described_class.new({ structural_whitespace: :ignore })
+        expect(profile.normative_dimension?(:structural_whitespace)).to be false
       end
     end
   end
@@ -129,6 +148,18 @@ RSpec.describe Canon::Comparison::CompareProfile do
       expect(profile.affects_equivalence?(:text_content)).to be true
       expect(profile.normative_dimension?(:comments)).to be false
       expect(profile.normative_dimension?(:text_content)).to be true
+    end
+
+    it "defaults element_structure to normative when not in resolved options" do
+      # element_structure is a derived dimension, not in match_dimensions,
+      # so ResolvedMatchOptions returns nil for it — should still default to normative
+      resolved_opts = Canon::Comparison::ResolvedMatchOptions.new(
+        { comments: :ignore },
+        format: :xml,
+      )
+      profile = described_class.new(resolved_opts)
+
+      expect(profile.normative_dimension?(:element_structure)).to be true
     end
   end
 end

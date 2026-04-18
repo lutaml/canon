@@ -51,12 +51,13 @@ module Canon
       #
       # This is used by DiffClassifier to determine the normative flag.
       #
+      # Normative rules by dimension:
+      # - structural_whitespace: only :strict is normative (:normalize and :ignore are informative)
+      # - all other dimensions: normative unless behavior is :ignore
+      #
       # @param dimension [Symbol] The match dimension to check
       # @return [Boolean] true if normative, false if informative
       def normative_dimension?(dimension)
-        # Element structure changes are ALWAYS normative
-        return true if dimension == :element_structure
-
         # Structural whitespace with :normalize or :ignore behavior is INFORMATIVE
         # Only :strict mode makes whitespace normative
         if dimension == :structural_whitespace
@@ -64,7 +65,7 @@ module Canon
           return behavior == :strict
         end
 
-        # For other dimensions, if behavior affects equivalence, it's normative
+        # For all other dimensions, normative if behavior affects equivalence
         affects_equivalence?(dimension)
       end
 

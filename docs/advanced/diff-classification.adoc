@@ -253,6 +253,19 @@ result = Canon::Comparison.equivalent?(xml1, xml2)
   - Comment differences tracked but don't affect equivalence
   - Default for HTML (comments are presentational)
 
+==== Element Structure
+
+`element_structure` is a derived dimension — produced by comparators when children
+differ structurally (insertions, deletions, name changes). It is not a user-configurable
+match dimension but follows the same normative rule as all general dimensions:
+
+* **Default (no explicit behavior)** → Normative
+  - Structural differences (added/removed/renamed elements) affect equivalence
+
+* **`:ignore` behavior** → Informative
+  - Structural differences tracked but don't affect equivalence
+  - Useful for content-only comparisons where wrapper elements don't matter
+
 .Example: Comment handling
 ====
 [source,ruby]
@@ -405,6 +418,8 @@ The classification system uses three main classes:
   - `normative_dimension?(dimension)` - Is this dimension normative?
   - `affects_equivalence?(dimension)` - Does this dimension affect equivalence?
   - `supports_formatting_detection?(dimension)` - Can this dimension have formatting-only diffs?
+  - Normative rules: `structural_whitespace` requires `:strict` for normative status;
+    all other dimensions are normative unless behavior is `:ignore`
 
 * **`DiffClassifier`** - Orchestrates classification using the above
   - First checks `XmlSerializationFormatter` for serialization formatting

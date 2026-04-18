@@ -306,7 +306,11 @@ module Canon
           end
 
           # Default reason - can be overridden in subclasses
-          "#{diff1} vs #{diff2}"
+          if diff1 == Canon::Comparison::MISSING_NODE && diff2 == Canon::Comparison::MISSING_NODE
+            "element structure mismatch (children differ)"
+          else
+            "#{diff1} vs #{diff2}"
+          end
         end
 
         # Build a clear reason message for attribute presence differences

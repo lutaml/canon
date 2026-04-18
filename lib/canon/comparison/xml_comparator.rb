@@ -631,7 +631,11 @@ differences)
             return "Attribute order changed: [#{attrs1.join(', ')}] → [#{attrs2.join(', ')}]"
           end
 
-          "#{diff1} vs #{diff2}"
+          if diff1 == Canon::Comparison::MISSING_NODE && diff2 == Canon::Comparison::MISSING_NODE
+            "element structure mismatch (children differ)"
+          else
+            "#{diff1} vs #{diff2}"
+          end
         end
 
         # Build a clear reason message for attribute value differences
