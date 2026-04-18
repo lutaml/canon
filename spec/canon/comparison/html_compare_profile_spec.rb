@@ -142,9 +142,14 @@ RSpec.describe Canon::Comparison::HtmlCompareProfile do
   end
 
   describe "#normative_dimension?" do
-    it "returns true for element_structure (always normative)" do
+    it "returns true for element_structure by default" do
       profile = described_class.new({})
       expect(profile.normative_dimension?(:element_structure)).to be true
+    end
+
+    it "returns false for element_structure when :ignore" do
+      profile = described_class.new({ element_structure: :ignore })
+      expect(profile.normative_dimension?(:element_structure)).to be false
     end
 
     it "returns false for comments (not normative in HTML)" do

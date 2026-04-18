@@ -85,7 +85,11 @@ module Canon
         end
 
         # Default reason
-        "#{diff1} vs #{diff2}"
+        if diff1 == Canon::Comparison::MISSING_NODE && diff2 == Canon::Comparison::MISSING_NODE
+          "element structure mismatch (children differ)"
+        else
+          "#{diff1} vs #{diff2}"
+        end
       end
 
       # Enrich DiffNode with canonical path, serialized content, and attributes

@@ -237,30 +237,61 @@ RSpec.describe Canon::Diff::DiffClassifier do
     end
 
     describe "element_structure dimension classification" do
-      let(:match_options_hash) { {} }
-      let(:match_options) do
-        Canon::Comparison::ResolvedMatchOptions.new(
-          match_options_hash,
-          format: :xml,
-        )
+      context "with default options" do
+        let(:match_options_hash) { {} }
+        let(:match_options) do
+          Canon::Comparison::ResolvedMatchOptions.new(
+            match_options_hash,
+            format: :xml,
+          )
+        end
+        let(:classifier) { described_class.new(match_options) }
+
+        it "classifies as normative by default" do
+          elem1 = double("Element", name: "div")
+          elem2 = double("Element", name: "span")
+
+          diff_node = Canon::Diff::DiffNode.new(
+            node1: elem1,
+            node2: elem2,
+            dimension: :element_structure,
+            reason: "element structure differs",
+          )
+
+          classifier.classify(diff_node)
+
+          expect(diff_node.formatting?).to be false
+          expect(diff_node.normative?).to be true
+        end
       end
-      let(:classifier) { described_class.new(match_options) }
 
-      it "always classifies as normative" do
-        elem1 = double("Element", name: "div")
-        elem2 = double("Element", name: "span")
+      context "with element_structure: :ignore" do
+        let(:match_options_hash) { { element_structure: :ignore } }
+        let(:match_options) do
+          Canon::Comparison::ResolvedMatchOptions.new(
+            match_options_hash,
+            format: :xml,
+          )
+        end
+        let(:classifier) { described_class.new(match_options) }
 
-        diff_node = Canon::Diff::DiffNode.new(
-          node1: elem1,
-          node2: elem2,
-          dimension: :element_structure,
-          reason: "element structure differs",
-        )
+        it "classifies as non-normative when behavior is :ignore" do
+          elem1 = double("Element", name: "div")
+          elem2 = double("Element", name: "span")
 
-        classifier.classify(diff_node)
+          diff_node = Canon::Diff::DiffNode.new(
+            node1: elem1,
+            node2: elem2,
+            dimension: :element_structure,
+            reason: "element structure differs",
+          )
 
-        expect(diff_node.formatting?).to be false
-        expect(diff_node.normative?).to be true
+          classifier.classify(diff_node)
+
+          expect(diff_node.formatting?).to be false
+          expect(diff_node.normative?).to be false
+          expect(diff_node.informative?).to be true
+        end
       end
     end
   end
