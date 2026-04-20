@@ -23,8 +23,7 @@ expand_difference: false)
           when :namespace_declarations
             format_namespace_declarations_details(diff, use_color)
           when :element_structure
-            format_element_structure_details(diff, use_color,
-                                             expand_difference: expand_difference)
+            format_element_structure_details(diff, use_color)
           when :attribute_presence
             format_attribute_presence_details(diff, use_color)
           when :attribute_values
@@ -163,35 +162,66 @@ expand_difference: false)
 
         # Format element structure differences
         #
+        # Produces compact XML for both sides so the user can see attributes
+        # and text content, not just the tag name.  Handles nil nodes that
+        # arise from insertions/deletions.
+        #
         # @param diff [DiffNode, Hash] Difference node
         # @param use_color [Boolean] Whether to use colors
         # @return [Array] Tuple of [detail1, detail2, changes]
-        def self.format_element_structure_details(diff, use_color,
-expand_difference: false)
+        def self.format_element_structure_details(diff, use_color)
           require_relative "color_helper"
           require_relative "node_utils"
 
           node1 = extract_node1(diff)
           node2 = extract_node2(diff)
 
-          name1 = NodeUtils.get_element_name_for_display(node1)
-          name2 = NodeUtils.get_element_name_for_display(node2)
+          has1 = !node1.nil?
+          has2 = !node2.nil?
 
-          if expand_difference
-            display1 = NodeUtils.serialize_node_compact(node1)
-            display2 = NodeUtils.serialize_node_compact(node2)
-            detail1 = ColorHelper.colorize(display1, :red, use_color)
-            detail2 = ColorHelper.colorize(display2, :green, use_color)
+          if has1 && has2
+            # Both elements present — show compact XML for both
+            compact1 = NodeUtils.serialize_node_compact(node1)
+            compact2 = NodeUtils.serialize_node_compact(node2)
+            detail1 = ColorHelper.colorize(compact1, :red, use_color)
+            detail2 = ColorHelper.colorize(compact2, :green, use_color)
+
+            name1 = NodeUtils.get_element_name_for_display(node1)
+            name2 = NodeUtils.get_element_name_for_display(node2)
+
+            changes = if name1 == name2
+                        "Element <#{name1}> structure changed (children differ)"
+                      else
+                        build_structure_change_text(compact1, compact2,
+                                                    use_color)
+                      end
+          elsif has1
+            # Element removed
+            compact1 = NodeUtils.serialize_node_compact(node1)
+            detail1 = ColorHelper.colorize(compact1, :red, use_color)
+            detail2 = ColorHelper.colorize("(not present)", :green, use_color)
+            changes = "Element removed: #{ColorHelper.colorize(compact1, :red, use_color)}"
           else
-            detail1 = "<#{ColorHelper.colorize(name1, :red, use_color)}>"
-            detail2 = "<#{ColorHelper.colorize(name2, :green, use_color)}>"
+            # Element added
+            compact2 = NodeUtils.serialize_node_compact(node2)
+            detail1 = ColorHelper.colorize("(not present)", :red, use_color)
+            detail2 = ColorHelper.colorize(compact2, :green, use_color)
+            changes = "Element added: #{ColorHelper.colorize(compact2, :green, use_color)}"
           end
 
-          changes = "Element differs: #{ColorHelper.colorize(name1, :red,
-                                                             use_color)} → " \
-                    "#{ColorHelper.colorize(name2, :green, use_color)}"
-
           [detail1, detail2, changes]
+        end
+
+        # Build human-readable change text for element structure diffs
+        #
+        # @param display1 [String] Serialized expected element
+        # @param display2 [String] Serialized actual element
+        # @param use_color [Boolean] Whether to use colors
+        # @return [String] Change description
+        def self.build_structure_change_text(display1, display2, use_color)
+          "Element structure changed: " \
+            "#{ColorHelper.colorize(display1, :red, use_color)} → " \
+            "#{ColorHelper.colorize(display2, :green, use_color)}"
         end
 
         # Format attribute presence differences

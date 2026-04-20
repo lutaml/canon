@@ -487,7 +487,7 @@ RSpec.describe "DiffDetailFormatter helpers" do
       n
     end
 
-    it "with expand_difference: false shows only the tag name" do
+    it "with expand_difference: false shows compact XML with content" do
       node1 = element_node_for_expand("biblio-tag", "ISO 712, ")
       node2 = element_node_for_expand("span", "ISO 712, ")
       diff = Canon::Diff::DiffNode.new(node1: node1, node2: node2,
@@ -499,11 +499,11 @@ RSpec.describe "DiffDetailFormatter helpers" do
         use_color: false,
         expand_difference: false,
       )
-      expect(report).to include("<biblio-tag>")
-      expect(report).not_to include("<biblio-tag>ISO 712, </biblio-tag>")
+      expect(report).to include("<biblio-tag>ISO 712, </biblio-tag>")
+      expect(report).to include("<span>ISO 712, </span>")
     end
 
-    it "with expand_difference: true shows full serialized node content" do
+    it "with expand_difference: true shows compact XML with content" do
       node1 = element_node_for_expand("biblio-tag", "ISO 712, ")
       node2 = element_node_for_expand("span", "ISO 712, ")
       diff = Canon::Diff::DiffNode.new(node1: node1, node2: node2,
@@ -517,8 +517,7 @@ RSpec.describe "DiffDetailFormatter helpers" do
       )
       expect(report).to include("<biblio-tag>ISO 712, </biblio-tag>")
       expect(report).to include("<span>ISO 712, </span>")
-      # Changes line still shows just the tag names
-      expect(report).to include("Element differs: biblio-tag")
+      expect(report).to include("Element structure changed:")
     end
 
     it "with expand_difference: true via DiffFormatter.new the report uses full content" do
@@ -540,6 +539,123 @@ RSpec.describe "DiffDetailFormatter helpers" do
                                                   "<root/>")
       expect(output).to include("<biblio-tag>ISO 712, </biblio-tag>")
       expect(output).to include("<span>ISO 712, </span>")
+    end
+  end
+
+  # ── Element structure diff display ──────────────────────────────────────────
+
+  describe "element_structure diff display" do
+    require "canon/diff_formatter/diff_detail_formatter"
+    require "canon/diff_formatter/diff_detail_formatter/dimension_formatter"
+
+    def element_node(name, text_value = nil, attrs: {})
+      n = Canon::Xml::Nodes::ElementNode.new(name: name)
+      attrs.each do |k, v|
+        attr_node = Canon::Xml::Nodes::AttributeNode.new(name: k, value: v)
+        n.add_attribute(attr_node)
+      end
+      n.add_child(Canon::Xml::Nodes::TextNode.new(value: text_value)) if text_value
+      n
+    end
+
+    describe "both elements present, different names" do
+      it "shows compact XML for both sides" do
+        node1 = element_node("biblio-tag", "ISO 712, ")
+        node2 = element_node("span", "ISO 712, ")
+        diff = Canon::Diff::DiffNode.new(
+          node1: node1, node2: node2,
+          dimension: :element_structure, reason: "element name differs",
+        )
+
+        detail1, detail2, changes = Canon::DiffFormatter::DiffDetailFormatterHelpers::DimensionFormatter.format_element_structure_details(diff, false)
+
+        expect(detail1).to eq("<biblio-tag>ISO 712, </biblio-tag>")
+        expect(detail2).to eq("<span>ISO 712, </span>")
+        expect(changes).to include("Element structure changed:")
+        expect(changes).to include("<biblio-tag>ISO 712, </biblio-tag>")
+        expect(changes).to include("<span>ISO 712, </span>")
+      end
+
+      it "shows attributes in compact XML" do
+        node1 = element_node("div", "text", attrs: { "class" => "old" })
+        node2 = element_node("span", "text", attrs: { "class" => "new" })
+        diff = Canon::Diff::DiffNode.new(
+          node1: node1, node2: node2,
+          dimension: :element_structure, reason: "element name differs",
+        )
+
+        detail1, detail2, _changes = Canon::DiffFormatter::DiffDetailFormatterHelpers::DimensionFormatter.format_element_structure_details(diff, false)
+
+        expect(detail1).to include("class=\"old\"")
+        expect(detail2).to include("class=\"new\"")
+      end
+    end
+
+    describe "both elements present, same name (children differ)" do
+      it "shows children-differ message" do
+        node1 = element_node("div", "old text")
+        node2 = element_node("div", "new text")
+        diff = Canon::Diff::DiffNode.new(
+          node1: node1, node2: node2,
+          dimension: :element_structure, reason: "element structure mismatch",
+        )
+
+        detail1, detail2, changes = Canon::DiffFormatter::DiffDetailFormatterHelpers::DimensionFormatter.format_element_structure_details(diff, false)
+
+        expect(detail1).to eq("<div>old text</div>")
+        expect(detail2).to eq("<div>new text</div>")
+        expect(changes).to eq("Element <div> structure changed (children differ)")
+      end
+    end
+
+    describe "element deleted (node2 is nil)" do
+      it "shows removed element with (not present) for the new side" do
+        node1 = element_node("removed", "content")
+        diff = Canon::Diff::DiffNode.new(
+          node1: node1, node2: nil,
+          dimension: :element_structure, reason: "element removed",
+        )
+
+        detail1, detail2, changes = Canon::DiffFormatter::DiffDetailFormatterHelpers::DimensionFormatter.format_element_structure_details(diff, false)
+
+        expect(detail1).to eq("<removed>content</removed>")
+        expect(detail2).to eq("(not present)")
+        expect(changes).to include("Element removed:")
+        expect(changes).to include("<removed>content</removed>")
+      end
+    end
+
+    describe "element inserted (node1 is nil)" do
+      it "shows added element with (not present) for the old side" do
+        node2 = element_node("added", "content")
+        diff = Canon::Diff::DiffNode.new(
+          node1: nil, node2: node2,
+          dimension: :element_structure, reason: "element inserted",
+        )
+
+        detail1, detail2, changes = Canon::DiffFormatter::DiffDetailFormatterHelpers::DimensionFormatter.format_element_structure_details(diff, false)
+
+        expect(detail1).to eq("(not present)")
+        expect(detail2).to eq("<added>content</added>")
+        expect(changes).to include("Element added:")
+        expect(changes).to include("<added>content</added>")
+      end
+    end
+
+    describe "element with no text content" do
+      it "serializes as self-closing tag" do
+        node1 = element_node("empty")
+        node2 = element_node("br")
+        diff = Canon::Diff::DiffNode.new(
+          node1: node1, node2: node2,
+          dimension: :element_structure, reason: "element name differs",
+        )
+
+        detail1, detail2, _changes = Canon::DiffFormatter::DiffDetailFormatterHelpers::DimensionFormatter.format_element_structure_details(diff, false)
+
+        expect(detail1).to eq("<empty/>")
+        expect(detail2).to eq("<br/>")
+      end
     end
   end
 
