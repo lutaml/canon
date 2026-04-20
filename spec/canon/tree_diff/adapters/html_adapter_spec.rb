@@ -141,6 +141,32 @@ RSpec.describe Canon::TreeDiff::Adapters::HTMLAdapter do
         expect(div.children).to be_empty
       end
     end
+
+    # Regression: whitespace-only text nodes between block children
+    # must not appear as TreeNode children, otherwise the semantic tree
+    # matcher misaligns siblings and reports spurious NORMATIVE diffs
+    # (see PR #TODO). Matches XMLAdapter's behavior.
+    context "with whitespace-only text nodes between block children" do
+      let(:compact_html) do
+        Nokogiri::HTML('<div><a id="x"/><a id="y"/></div>')
+      end
+      let(:indented_html) do
+        Nokogiri::HTML("<div>\n  <a id=\"x\"/>\n  <a id=\"y\"/>\n</div>")
+      end
+
+      it "produces structurally equal trees regardless of layout whitespace" do
+        tree_a = adapter.to_tree(compact_html)
+        tree_b = adapter.to_tree(indented_html)
+
+        div_a = tree_a.children.find { |c| c.label == "body" }
+          .children.find { |c| c.label == "div" }
+        div_b = tree_b.children.find { |c| c.label == "body" }
+          .children.find { |c| c.label == "div" }
+
+        expect(div_a.children.map(&:label)).to eq(%w[a a])
+        expect(div_b.children.map(&:label)).to eq(%w[a a])
+      end
+    end
   end
 
   describe "#from_tree" do
