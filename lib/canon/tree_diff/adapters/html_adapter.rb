@@ -283,15 +283,26 @@ module Canon
             source_node: element_node, # Preserve reference to Canon node
           )
 
-          # Process children recursively, filtering formatting whitespace
-          # in non-whitespace-sensitive elements.
+          # Skip whitespace-only text children UNLESS this element is
+          # whitespace-sensitive (pre, code, textarea, script, style).
+          # Layout whitespace between block-level children is not
+          # semantically meaningful and preserving it causes the
+          # position-based tree matcher to misalign siblings, producing
+          # spurious NORMATIVE diffs around self-closing tags. This
+          # mirrors XMLAdapter's behavior and the DOM-diff path's
+          # remove_whitespace_only_text_nodes filter.
           #
           # HTML distinguishes between formatting whitespace (newlines +
           # indentation between block elements) and inline whitespace
           # (spaces between inline elements like <span>). Only formatting
           # whitespace is stripped — inline spaces are semantically
           # significant because they render as visible gaps.
+          skip_ws_text = !whitespace_sensitive?(element_node)
+
+          # Process children recursively
           element_node.children.each do |child|
+            next if skip_ws_text && whitespace_only_text?(child)
+
             child_tree = to_tree(child)
             next if child_tree.nil?
 
@@ -305,6 +316,18 @@ module Canon
           tree_node
         end
 
+        # Check if a Canon::Xml::Nodes node is a whitespace-only text node
+        #
+        # @param node [Canon::Xml::Nodes::Node] Node to check
+        # @return [Boolean] true if node is a TextNode containing only whitespace
+        def whitespace_only_text?(node)
+          return false unless node.is_a?(Canon::Xml::Nodes::TextNode)
+
+          # Uses \p{Zs} for Unicode space separators (em/en/thin spaces)
+          # plus ASCII whitespace -- same regex as XMLAdapter.
+          node.value.to_s.match?(/\A[\s\p{Zs}]*\z/)
+        end
+
         # Convert Canon::Xml::Nodes::TextNode to TreeNode
         #
         # @param text_node [Canon::Xml::Nodes::TextNode] Text node
@@ -313,7 +336,11 @@ module Canon
           # Extract text value
           text_value = text_node.value.to_s
 
-          # Return nil for empty text (don't strip for HTML)
+          # Return nil for truly empty text. Whitespace-only text nodes are
+          # filtered at the parent ElementNode level in
+          # to_tree_from_canon_element so that whitespace-sensitive
+          # containers (pre, code, textarea, script, style) retain their
+          # whitespace content.
           return nil if text_value.empty?
 
           Core::TreeNode.new(
