@@ -285,6 +285,7 @@ module Canon
       end
 
       def indent_type=(value)
+        DiffConfig.validate_config_value!(:pretty_printer_indent_type, value)
         @resolver.set_programmatic(:pretty_printer_indent_type, value)
       end
     end
@@ -292,6 +293,18 @@ module Canon
     # Diff configuration for output formatting
     class DiffConfig
       attr_reader :pretty_printer
+
+      # Valid values for enum-like configuration options
+      VALID_ENUM_VALUES = {
+        mode: %i[by_line by_object pretty_diff],
+        show_diffs: %i[all normative informative],
+        algorithm: %i[dom semantic],
+        display_preprocessing: %i[none pretty_print normalize_pretty_print c14n],
+        display_format: %i[raw canonical],
+        pretty_printer_indent_type: %i[space tab],
+        character_visualization: [true, false, :content_only],
+        theme: %i[light dark retro claude cyberpunk],
+      }.freeze
 
       def initialize(format = nil)
         @format = format
@@ -309,12 +322,26 @@ module Canon
 
         data.each do |key, value|
           sym_key = key.to_sym
-          @resolver.set_profile(sym_key, coerce_profile_value(sym_key, value))
+          coerced = coerce_profile_value(sym_key, value)
+          self.class.validate_config_value!(sym_key, coerced)
+          @resolver.set_profile(sym_key, coerced)
         end
       end
 
       def clear_profile!
         @resolver.clear_profile!
+      end
+
+      # Validate a config value against its allowed enum values
+      def self.validate_config_value!(key, value)
+        valid = VALID_ENUM_VALUES[key]
+        return unless valid
+
+        return if valid.include?(value)
+
+        raise ArgumentError,
+              "Invalid value #{value.inspect} for #{key}. " \
+              "Valid values: #{valid.map(&:inspect).join(', ')}"
       end
 
       # Accessors with ENV override support
@@ -323,6 +350,7 @@ module Canon
       end
 
       def mode=(value)
+        self.class.validate_config_value!(:mode, value)
         @resolver.set_programmatic(:mode, value)
       end
 
@@ -355,6 +383,7 @@ module Canon
       end
 
       def show_diffs=(value)
+        self.class.validate_config_value!(:show_diffs, value)
         @resolver.set_programmatic(:show_diffs, value)
       end
 
@@ -495,6 +524,7 @@ module Canon
       end
 
       def display_format=(value)
+        self.class.validate_config_value!(:display_format, value)
         @resolver.set_programmatic(:display_format, value)
       end
 
@@ -511,6 +541,7 @@ module Canon
       end
 
       def display_preprocessing=(value)
+        self.class.validate_config_value!(:display_preprocessing, value)
         @resolver.set_programmatic(:display_preprocessing, value)
       end
 
@@ -636,6 +667,7 @@ module Canon
       end
 
       def character_visualization=(value)
+        self.class.validate_config_value!(:character_visualization, value)
         @resolver.set_programmatic(:character_visualization, value)
       end
 
@@ -644,6 +676,7 @@ module Canon
       end
 
       def algorithm=(value)
+        self.class.validate_config_value!(:algorithm, value)
         @resolver.set_programmatic(:algorithm, value)
       end
 
@@ -653,6 +686,7 @@ module Canon
       end
 
       def theme=(value)
+        self.class.validate_config_value!(:theme, value)
         @resolver.set_programmatic(:theme, value)
       end
 
