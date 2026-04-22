@@ -16,13 +16,14 @@ module Canon
                        diff_grouping_lines: nil, visualization_map: nil,
                        html_version: :html4, show_diffs: :all, differences: [],
                        diff_mode: :separate, legacy_terminal: false,
-                       equivalent: nil)
+                       equivalent: nil, character_visualization: true)
           super(use_color: use_color, context_lines: context_lines,
                 diff_grouping_lines: diff_grouping_lines,
                 visualization_map: visualization_map,
                 show_diffs: show_diffs, differences: differences,
                 diff_mode: diff_mode, legacy_terminal: legacy_terminal,
-                equivalent: equivalent)
+                equivalent: equivalent,
+                character_visualization: character_visualization)
           @html_version = html_version
         end
 

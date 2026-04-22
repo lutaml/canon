@@ -49,7 +49,8 @@ module Canon
                        diff_grouping_lines: nil, visualization_map: nil,
                        show_diffs: :all, differences: [],
                        diff_mode: :separate, legacy_terminal: false,
-                       equivalent: nil, theme: nil)
+                       equivalent: nil, theme: nil,
+                       character_visualization: true)
           @use_color = use_color
           @context_lines = context_lines
           @diff_grouping_lines = diff_grouping_lines
@@ -61,6 +62,7 @@ module Canon
           @legacy_terminal = legacy_terminal
           @equivalent = equivalent
           @theme = theme
+          @character_visualization = character_visualization
         end
 
         # Get the resolved theme hash
@@ -644,15 +646,21 @@ module Canon
 
         # Apply character visualization
         #
+        # When +character_visualization+ is +:content_only+, leading
+        # structural whitespace (indentation) is left plain while content
+        # whitespace is visualized.
+        #
         # @param token [String] The token to apply visualization to
         # @param color [Symbol, nil] Optional color to apply
         # @return [String] Visualized and optionally colored token
         def apply_visualization(token, color = nil)
           return "" if token.nil?
 
-          visual = token.to_s.chars.map do |char|
-            @visualization_map.fetch(char, char)
-          end.join
+          visual = if @character_visualization == :content_only
+                     visualize_content_only(token.to_s)
+                   else
+                     token.to_s.chars.map { |char| @visualization_map.fetch(char, char) }.join
+                   end
 
           if color && @use_color
             require "rainbow"
@@ -675,6 +683,27 @@ module Canon
             presenter.to_s
           else
             visual
+          end
+        end
+
+        # Visualize only content portion, leaving structural indentation plain.
+        #
+        # Splits the token into leading whitespace (structural indentation)
+        # and the rest (content). Only the content portion gets character
+        # visualization.
+        #
+        # @param token [String] The full line token
+        # @return [String] Token with content-only visualization
+        def visualize_content_only(token)
+          # Leading whitespace is structural indentation — keep it plain
+          indent_end = token.index(/[^\s]/) || token.length
+          indent = token[0...indent_end]
+          content = token[indent_end..]
+
+          if content.nil? || content.empty?
+            indent
+          else
+            indent + content.chars.map { |char| @visualization_map.fetch(char, char) }.join
           end
         end
 
