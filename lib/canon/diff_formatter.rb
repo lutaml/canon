@@ -7,6 +7,9 @@ require_relative "diff/diff_block"
 require_relative "diff/diff_context"
 require_relative "diff/diff_report"
 require_relative "diff_formatter/debug_output"
+require_relative "diff_formatter/by_line_formatter"
+require_relative "diff_formatter/by_object_formatter"
+require_relative "diff_formatter/pretty_diff_formatter"
 
 module Canon
   # Formatter for displaying semantic differences with color support
@@ -301,17 +304,18 @@ module Canon
     # @param html_version [Symbol, nil] HTML version (:html4 or :html5)
     # @return [String] Formatted output
     def format(differences, format, doc1: nil, doc2: nil, html_version: nil)
-      # In by-line mode, always use by-line diff
+      # In by-line mode with both docs present, always use by-line diff
       if @mode == :by_line && doc1 && doc2
-        return by_line_diff(doc1, doc2, format: format,
-                                        html_version: html_version,
-                                        differences: differences)
+        doc1, doc2 = apply_display_preprocessing(doc1, doc2, format)
+        return by_line_formatter.format(doc1, doc2, format: format,
+                                                  html_version: html_version,
+                                                  differences: differences)
       end
 
       # In pretty_diff mode, always use text-LCS diff (bypasses DiffNodeMapper).
-      # pretty_diff_format handles nil doc1/doc2 itself (emits header only).
       if @mode == :pretty_diff
-        return pretty_diff_format(doc1, doc2, format: format)
+        d1, d2 = doc1 && doc2 ? apply_display_preprocessing(doc1, doc2, format) : [doc1, doc2]
+        return pretty_diff_formatter.format(d1, d2, format: format)
       end
 
       no_diffs = if differences.respond_to?(:equivalent?)
@@ -323,12 +327,15 @@ module Canon
 
       case @mode
       when :by_line
-        by_line_diff(doc1, doc2, format: format, html_version: html_version,
-                                 differences: differences)
+        doc1, doc2 = apply_display_preprocessing(doc1, doc2, format) if doc1 && doc2
+        by_line_formatter.format(doc1, doc2, format: format,
+                                               html_version: html_version,
+                                               differences: differences)
       when :pretty_diff
-        pretty_diff_format(doc1, doc2, format: format)
+        d1, d2 = doc1 && doc2 ? apply_display_preprocessing(doc1, doc2, format) : [doc1, doc2]
+        pretty_diff_formatter.format(d1, d2, format: format)
       else
-        by_object_diff(differences, format)
+        by_object_formatter.format(differences, format)
       end
     end
 
@@ -721,178 +728,37 @@ module Canon
       colorize("#{emoji}#{message}\n", :green, :bold)
     end
 
-    # Generate by-object diff with tree visualization
-    # Delegates to format-specific by-object formatters
-    def by_object_diff(differences, format)
-      output = []
-      output << colorize("Visual Diff:", :cyan, :bold)
+    # Factory methods for mode-specific formatters
 
-      # Extract differences array from ComparisonResult if needed
-      diffs_array = if differences.is_a?(Canon::Comparison::ComparisonResult)
-                      differences.differences
-                    else
-                      differences
-                    end
-
-      # Delegate to format-specific formatter
-      formatter = ByObject::BaseFormatter.for_format(
-        format,
+    # @return [ByLineFormatter]
+    def by_line_formatter
+      @by_line_formatter ||= ByLineFormatter.new(
         use_color: @use_color,
         visualization_map: @visualization_map,
-        show_diffs: @show_diffs,
-      )
-
-      output << formatter.format(diffs_array, format)
-
-      output.join("\n")
-    end
-
-    # Generate by-line diff
-    # Delegates to format-specific by-line formatters
-    def by_line_diff(doc1, doc2, format: :xml, html_version: nil,
-differences: [])
-      # For HTML format, use html_version if provided, otherwise default to :html4
-      if format == :html && html_version
-        format = html_version # Use :html4 or :html5
-      end
-
-      # Format display name for header
-      format_name = format.to_s.upcase
-
-      output = []
-      output << colorize("Line-by-line diff (#{format_name} mode):", :cyan,
-                         :bold)
-
-      return output.join("\n") if doc1.nil? || doc2.nil?
-
-      # Apply display preprocessing (format both sides identically before diff)
-      doc1, doc2 = apply_display_preprocessing(doc1, doc2, format)
-      # Extract differences array and equivalent status from ComparisonResult if needed
-      diffs_array = if differences.is_a?(Canon::Comparison::ComparisonResult)
-                      @comparison_equivalent = differences.equivalent?
-                      differences.differences
-                    else
-                      @comparison_equivalent = nil
-                      differences
-                    end
-
-      # Delegate to format-specific formatter
-      formatter = ByLine::BaseFormatter.for_format(
-        format,
-        use_color: @use_color,
         context_lines: @context_lines,
         diff_grouping_lines: @diff_grouping_lines,
+        show_diffs: @show_diffs,
+        character_visualization: @character_visualization,
+        legacy_terminal: @legacy_terminal,
+        diff_mode: @diff_mode,
+      )
+    end
+
+    # @return [ByObjectFormatter]
+    def by_object_formatter
+      @by_object_formatter ||= ByObjectFormatter.new(
+        use_color: @use_color,
         visualization_map: @visualization_map,
         show_diffs: @show_diffs,
-        differences: diffs_array,
-        diff_mode: @legacy_terminal ? :separate : @diff_mode,
-        legacy_terminal: @legacy_terminal,
-        equivalent: @comparison_equivalent,
-        character_visualization: @character_visualization,
       )
-
-      output << formatter.format(doc1, doc2)
-
-      output.join("\n")
     end
 
-    # Generate a text-LCS diff against preprocessed lines (pretty_diff mode).
-    #
-    # This mode bypasses DiffNodeMapper entirely: it applies display_preprocessing
-    # to both sides, then runs Diff::LCS.sdiff on the resulting plain-text lines.
-    # It is a reliable short-term workaround for #85 (normative changes invisible
-    # in :by_line mode when DiffNodeMapper's DOM-address correlation is off).
-    #
-    # Limitations:
-    # - show_diffs :normative / :informative filter is ignored (no DiffNodes)
-    # - No inline character highlighting (whole-line granularity only)
-    #
-    # @param doc1 [String] First document
-    # @param doc2 [String] Second document
-    # @param format [Symbol] Document format
-    # @return [String] Formatted diff output
-    def pretty_diff_format(doc1, doc2, format:)
-      require "diff/lcs"
-
-      resolved_format = format
-
-      format_name = resolved_format.to_s.upcase
-      output = []
-      output << colorize("Pretty diff (#{format_name} mode):", :cyan, :bold)
-
-      return output.join("\n") if doc1.nil? || doc2.nil?
-
-      # Apply display preprocessing — same transforms as by_line_diff
-      d1, d2 = apply_display_preprocessing(doc1, doc2, resolved_format)
-
-      lines1 = d1.lines.map(&:chomp)
-      lines2 = d2.lines.map(&:chomp)
-
-      hunks = ::Diff::LCS.sdiff(lines1, lines2)
-
-      output << render_pretty_diff(hunks)
-      output.join("\n")
-    end
-
-    # Render sdiff hunks with context windowing and colorization.
-    #
-    # Uses the same context_lines setting as by_line_diff. Changed hunks
-    # (action !=  "=") are expanded by context_lines in each direction; nearby
-    # windows are merged; a separator is emitted between non-adjacent blocks.
-    #
-    # @param hunks [Array<Diff::LCS::ContextChange>] Output of Diff::LCS.sdiff
-    # @return [String] Rendered diff lines joined with "\n"
-    def render_pretty_diff(hunks)
-      # Identify positions of changed hunks
-      changed = hunks.each_index.reject { |i| hunks[i].action == "=" }
-
-      return colorize("  (no differences)", :green) if changed.empty?
-
-      ctx = [@context_lines || 3, 0].max
-
-      # Build expanded windows, then merge overlapping/adjacent ones
-      windows = changed.map do |pos|
-        [
-          [pos - ctx, 0].max,
-          [pos + ctx, hunks.length - 1].min,
-        ]
-      end
-
-      merged = []
-      windows.each do |lo, hi|
-        if merged.empty? || lo > merged.last[1] + 1
-          merged << [lo, hi]
-        else
-          merged.last[1] = [merged.last[1], hi].max
-        end
-      end
-
-      lines = []
-      merged.each_with_index do |(lo, hi), block_idx|
-        # Separator between non-adjacent blocks
-        if block_idx.positive?
-          lines << colorize("--- ---", :cyan)
-        elsif lo.positive?
-          lines << colorize("--- ---", :cyan)
-        end
-
-        (lo..hi).each do |i|
-          hunk = hunks[i]
-          case hunk.action
-          when "="
-            lines << (@use_color ? "\e[0m  #{hunk.old_element}" : "  #{hunk.old_element}")
-          when "-"
-            lines << colorize("- #{hunk.old_element}", :red)
-          when "+"
-            lines << colorize("+ #{hunk.new_element}", :green)
-          when "!"
-            lines << colorize("- #{hunk.old_element}", :red)
-            lines << colorize("+ #{hunk.new_element}", :green)
-          end
-        end
-      end
-
-      lines.join("\n")
+    # @return [PrettyDiffFormatter]
+    def pretty_diff_formatter
+      @pretty_diff_formatter ||= PrettyDiffFormatter.new(
+        use_color: @use_color,
+        context_lines: @context_lines,
+      )
     end
 
     # Apply display preprocessing to both documents before the line diff.
