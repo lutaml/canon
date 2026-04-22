@@ -858,12 +858,14 @@ new_line_ranges)
       # The DiffNode's explicit formatting? flag takes precedence:
       # - If formatting? == true: return true (explicitly formatting-only)
       #
-      # If node exists and is normative (formatting? is nil but norm is true):
-      # - Check line-level formatting via FormattingDetector for whitespace-only changes
-      # - But NOT via comment_only_line? heuristic because comment content is different
+      # If node exists and is normative:
+      # - Return false — normative DiffNodes are NEVER formatting-only.
+      #   Even if the serialized content looks whitespace-equivalent,
+      #   the comparison classified it as a normative change and it MUST
+      #   be visible in by_line output (especially with show_diffs: :normative).
       #
       # If node exists and is informative (norm=false):
-      # - Return false (informative diffs are always shown as informative)
+      # - Return false (informative diffs are shown as informative)
       #
       # If NO node exists (diff_node is nil):
       # - Use heuristics: comment-only lines and FormattingDetector
@@ -877,11 +879,10 @@ new_line_ranges)
         return true if diff_node&.formatting?
 
         if diff_node
-          # Node exists - use node classification
-          return false unless diff_node.normative?
+          # Normative nodes are never formatting-only
+          return false if diff_node.normative?
 
-          # For normative nodes, check line-level formatting
-          # (but NOT comment_only_line? which would misclassify comment content changes)
+          # Informative nodes: check line-level formatting
         elsif comment_only_line?(line1) || comment_only_line?(line2)
           # No DiffNode: use heuristics
           return true
