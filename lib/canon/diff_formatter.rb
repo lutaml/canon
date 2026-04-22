@@ -685,10 +685,8 @@ module Canon
       # false disables all visualization
       return {} if character_visualization == false
 
-      # :content_only currently behaves as true (full map)
-      # TODO: apply visualization at DOM text-node level pre-serialization,
-      # keeping structural indentation whitespace plain.
-      # See docs/features/diff-formatting/character-visualization.adoc
+      # :content_only builds the full map; the by_line formatter applies
+      # it only to content portions, leaving structural indentation plain.
 
       return visualization_map if visualization_map
 
@@ -790,6 +788,7 @@ differences: [])
         diff_mode: @legacy_terminal ? :separate : @diff_mode,
         legacy_terminal: @legacy_terminal,
         equivalent: @comparison_equivalent,
+        character_visualization: @character_visualization,
       )
 
       output << formatter.format(doc1, doc2)

@@ -651,10 +651,8 @@ module Canon
       # Values:
       #   true          - apply the full default visualization map (default)
       #   false         - disable visualization; output plain text
-      #   :content_only - reserved for future use; currently behaves as +true+.
-      #                   Future intent: apply visualization only to DOM text
-      #                   node content, not to structural indentation whitespace.
-      #                   (TODO: implement DOM-level pre-serialization pass)
+      #   :content_only - apply visualization only to text content, not
+      #                   to structural indentation whitespace.
       def character_visualization
         val = @resolver.resolve(:character_visualization)
         # Coerce symbol booleans that may arrive via ENV (env_schema uses :symbol type
