@@ -116,5 +116,43 @@ RSpec.describe "Whitespace-sensitive elements" do
       expect(html1).to be_html_equivalent_to(html2,
                                              match: { text_content: :normalize })
     end
+
+    it "treats block-layout whitespace differences as equivalent under semantic diff" do
+      html1 = <<~HTML
+        <div>
+          <p>Hello</p>
+          <p>World</p>
+        </div>
+      HTML
+
+      html2 = "<div><p>Hello</p><p>World</p></div>"
+
+      result = Canon::Comparison.equivalent?(
+        html1,
+        html2,
+        format: :html,
+        diff_algorithm: :semantic_tree,
+        verbose: true,
+      )
+
+      expect(result.equivalent?).to be true
+    end
+
+    it "detects text content whitespace differences under semantic diff" do
+      html1 = "<div><span>Hello World</span></div>"
+      html2 = "<div><span>HelloWorld</span></div>"
+
+      result = Canon::Comparison.equivalent?(
+        html1,
+        html2,
+        format: :html,
+        diff_algorithm: :semantic_tree,
+        verbose: true,
+      )
+
+      expect(result.equivalent?).to be false
+      normative_diffs = result.differences.select(&:normative?)
+      expect(normative_diffs).not_to be_empty
+    end
   end
 end

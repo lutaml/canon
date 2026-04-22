@@ -200,6 +200,19 @@ module Canon
           whitespace_sensitive_tags.include?(element.name.downcase)
         end
 
+        # Check if a text value is formatting-only whitespace
+        #
+        # Formatting whitespace contains newlines (indentation between
+        # block elements) and is safe to strip. Pure spaces/tabs without
+        # newlines may be semantically significant between inline elements
+        # and are preserved.
+        #
+        # @param text [String] Text value to check
+        # @return [Boolean] True if formatting-only whitespace
+        def formatting_whitespace?(text)
+          text.match?(/\A[\s\p{Zs}]*\z/) && text.include?("\n")
+        end
+
         # Build Nokogiri element from TreeNode
         #
         # @param tree_node [Core::TreeNode] Tree node
@@ -270,10 +283,23 @@ module Canon
             source_node: element_node, # Preserve reference to Canon node
           )
 
-          # Process children recursively
+          # Process children recursively, filtering formatting whitespace
+          # in non-whitespace-sensitive elements.
+          #
+          # HTML distinguishes between formatting whitespace (newlines +
+          # indentation between block elements) and inline whitespace
+          # (spaces between inline elements like <span>). Only formatting
+          # whitespace is stripped — inline spaces are semantically
+          # significant because they render as visible gaps.
           element_node.children.each do |child|
             child_tree = to_tree(child)
-            tree_node.add_child(child_tree) if child_tree
+            next if child_tree.nil?
+
+            if child_tree.label == "text" && !whitespace_sensitive?(element_node)
+              next if formatting_whitespace?(child_tree.value)
+            end
+
+            tree_node.add_child(child_tree)
           end
 
           tree_node
