@@ -150,14 +150,32 @@ module Canon
       end
 
       # Check if the text node is inside a whitespace-sensitive element
-      # (preserve/collapse classification or xml:space='preserve').
-      # In these elements, whitespace presence is meaningful and should
+      # (preserve/collapse classification, xml:space='preserve', or
+      # between inline element siblings in HTML).
+      # In these contexts, whitespace presence is meaningful and should
       # not be dismissed as serialization formatting.
       # @param diff_node [DiffNode] The diff node to check
       # @return [Boolean] true if whitespace is preserved for this element
       def inside_whitespace_sensitive_element?(diff_node)
         node = diff_node.node1 || diff_node.node2
         return false unless node
+
+        # HTML: whitespace between inline element siblings is significant
+        if Canon::Comparison::WhitespaceSensitivity.inline_whitespace_significant?(node)
+          return true
+        end
+
+        # HTML: non-breaking space (U+00A0) is never insignificant
+        text = if node.respond_to?(:content)
+                 node.content
+               elsif node.respond_to?(:value)
+                 node.value
+               else
+                 nil
+               end
+        if text && Canon::Comparison::WhitespaceSensitivity.contains_nbsp?(text)
+          return true
+        end
 
         return false unless node.respond_to?(:parent)
 

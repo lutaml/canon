@@ -208,19 +208,27 @@ module Canon
 
       # Build text node from Nokogiri text node
       # HTML-specific: handles whitespace-sensitive elements (pre, code, textarea, script, style)
+      # and preserves whitespace between inline element siblings.
       def self.build_text_node(nokogiri_text)
         # Skip text nodes that are only whitespace between elements
         # EXCEPT in whitespace-sensitive elements (pre, code, textarea, script, style)
-        # where whitespace is semantically significant
+        # and when whitespace is between inline element siblings (semantically significant)
         content = nokogiri_text.content
 
         if content.strip.empty? && nokogiri_text.parent.is_a?(Nokogiri::XML::Element)
-          # Check if parent is whitespace-sensitive
-          parent_name = nokogiri_text.parent.name.downcase
-          whitespace_sensitive_tags = %w[pre code textarea script style]
+          # NBSP (U+00A0) is never insignificant whitespace
+          unless content.include?("\u00A0")
+            # Check if parent is whitespace-sensitive
+            parent_name = nokogiri_text.parent.name.downcase
+            whitespace_sensitive_tags = %w[pre code textarea script style]
 
-          # Skip whitespace-only text UNLESS in whitespace-sensitive element
-          return nil unless whitespace_sensitive_tags.include?(parent_name)
+            # Check if whitespace is between inline siblings
+            require_relative "../comparison/whitespace_sensitivity"
+            unless whitespace_sensitive_tags.include?(parent_name) ||
+                     Canon::Comparison::WhitespaceSensitivity.inline_whitespace_significant?(nokogiri_text)
+              return nil
+            end
+          end
         end
 
         # Nokogiri already handles CDATA conversion and entity resolution
