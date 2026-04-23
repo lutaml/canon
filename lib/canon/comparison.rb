@@ -753,7 +753,7 @@ module Canon
         # Serialize back, preserving the resolved characters.
         # to_html re-encodes characters, so use inner_html which
         # keeps the character form.
-        result = doc.inner_html
+        doc.inner_html
 
         # If the serialization re-encoded characters as entities,
         # that's fine — the XML parser understands numeric refs like &#160;
