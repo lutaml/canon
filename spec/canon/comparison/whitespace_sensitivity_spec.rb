@@ -310,4 +310,70 @@ RSpec.describe Canon::Comparison::WhitespaceSensitivity do
       expect(described_class.preserve_whitespace_node?(node, opts)).to be false
     end
   end
+
+  describe ".inline_whitespace_significant?" do
+    it "returns true for whitespace between inline elements" do
+      require "nokogiri"
+      frag = Nokogiri::HTML4.fragment("<span>Hello</span> <span>World</span>")
+      text_node = frag.children[1] # the space between spans
+      expect(described_class.inline_whitespace_significant?(text_node)).to be true
+    end
+
+    it "returns true for whitespace between multiple inline types" do
+      require "nokogiri"
+      frag = Nokogiri::HTML4.fragment("<b>Hello</b> <em>World</em>")
+      text_node = frag.children[1]
+      expect(described_class.inline_whitespace_significant?(text_node)).to be true
+    end
+
+    it "returns false for whitespace between block elements" do
+      require "nokogiri"
+      frag = Nokogiri::HTML4.fragment("<div>A</div> <div>B</div>")
+      text_node = frag.children[1]
+      expect(described_class.inline_whitespace_significant?(text_node)).to be false
+    end
+
+    it "returns false for leading whitespace before first inline" do
+      require "nokogiri"
+      frag = Nokogiri::HTML4.fragment(" <span>Hello</span>")
+      text_node = frag.children[0]
+      expect(described_class.inline_whitespace_significant?(text_node)).to be false
+    end
+
+    it "returns false for trailing whitespace after last inline" do
+      require "nokogiri"
+      frag = Nokogiri::HTML4.fragment("<span>Hello</span> ")
+      text_node = frag.children[1]
+      expect(described_class.inline_whitespace_significant?(text_node)).to be false
+    end
+
+    it "returns true for whitespace between spans in a div" do
+      require "nokogiri"
+      frag = Nokogiri::HTML4.fragment("<div><span>A</span> <span>B</span></div>")
+      div = frag.children[0]
+      text_node = div.children[1] # the space between spans inside div
+      expect(described_class.inline_whitespace_significant?(text_node)).to be true
+    end
+
+    it "returns false for nodes without a parent" do
+      node = double("Node", parent: nil)
+      expect(described_class.inline_whitespace_significant?(node)).to be false
+    end
+  end
+
+  describe ".contains_nbsp?" do
+    it "returns true for text containing U+00A0" do
+      expect(described_class.contains_nbsp?("\u00A0")).to be true
+      expect(described_class.contains_nbsp?("Hello\u00A0World")).to be true
+    end
+
+    it "returns false for text without U+00A0" do
+      expect(described_class.contains_nbsp?("Hello World")).to be false
+      expect(described_class.contains_nbsp?("")).to be false
+    end
+
+    it "returns false for regular whitespace" do
+      expect(described_class.contains_nbsp?(" \n\t")).to be false
+    end
+  end
 end

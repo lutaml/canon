@@ -362,5 +362,49 @@ RSpec.describe Canon::Comparison::HtmlComparator do
         end
       end
     end
+
+    context "whitespace flanking inline elements" do
+      it "detects difference when space is added between inline elements" do
+        html1 = "<span>Hello</span><span>World</span>"
+        html2 = "<span>Hello</span> <span>World</span>"
+        expect(described_class.equivalent?(html1, html2)).to be false
+      end
+
+      it "detects difference when space is removed between inline elements" do
+        html1 = "<span>Hello</span> <span>World</span>"
+        html2 = "<span>Hello</span><span>World</span>"
+        expect(described_class.equivalent?(html1, html2)).to be false
+      end
+
+      it "considers identical inline whitespace as equivalent" do
+        html1 = "<span>Hello</span> <span>World</span>"
+        html2 = "<span>Hello</span> <span>World</span>"
+        expect(described_class.equivalent?(html1, html2)).to be true
+      end
+
+      it "detects nbsp entity between inline elements as different" do
+        html1 = "<span>Hello</span>&nbsp;<span>World</span>"
+        html2 = "<span>Hello</span><span>World</span>"
+        expect(described_class.equivalent?(html1, html2)).to be false
+      end
+
+      it "detects space between inline elements inside a block" do
+        html1 = "<div><span>A</span><span>B</span></div>"
+        html2 = "<div><span>A</span> <span>B</span></div>"
+        expect(described_class.equivalent?(html1, html2)).to be false
+      end
+
+      it "treats whitespace between block elements as insignificant" do
+        html1 = "<div>A</div><div>B</div>"
+        html2 = "<div>A</div> <div>B</div>"
+        expect(described_class.equivalent?(html1, html2)).to be true
+      end
+
+      it "treats whitespace between mixed inline and block as insignificant" do
+        html1 = "<span>A</span><div>B</div>"
+        html2 = "<span>A</span> <div>B</div>"
+        expect(described_class.equivalent?(html1, html2)).to be true
+      end
+    end
   end
 end
