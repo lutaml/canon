@@ -14,15 +14,18 @@ module Canon
         # @param node [String, Object] Node to parse
         # @param preprocessing [Symbol] Preprocessing mode (:none, :normalize, :c14n, :format)
         # @param preserve_whitespace [Boolean] Whether to preserve whitespace-only text nodes
+        # @param parser [Symbol] Parser backend (:sax or :dom, default from config)
         # @return [Canon::Xml::Node] Parsed node
-        def self.parse(node, preprocessing = :none, preserve_whitespace: false)
+        def self.parse(node, preprocessing = :none, preserve_whitespace: false,
+                       parser: nil)
           # If already a Canon::Xml::Node, return as-is
           return node if node.is_a?(Canon::Xml::Node)
 
           # If it's a Nokogiri or Moxml node, convert to DataModel
           unless node.is_a?(String)
             return convert_from_node(node,
-                                     preserve_whitespace: preserve_whitespace)
+                                     preserve_whitespace: preserve_whitespace,
+                                     parser: parser)
           end
 
           # Normalize encoding before preprocessing (UTF-16 strings can't use strip, etc.)
@@ -31,9 +34,17 @@ module Canon
           # Apply preprocessing to XML string before parsing
           xml_string = apply_preprocessing(node, preprocessing).strip
 
-          # Use Canon::Xml::DataModel for parsing to get Canon::Xml::Node instances
-          Canon::Xml::DataModel.from_xml(xml_string,
+          # Select parser backend
+          resolved_parser = parser || resolve_parser_config
+
+          if resolved_parser == :sax
+            require_relative "../../xml/sax_builder"
+            Canon::Xml::SaxBuilder.parse(xml_string,
                                          preserve_whitespace: preserve_whitespace)
+          else
+            Canon::Xml::DataModel.from_xml(xml_string,
+                                           preserve_whitespace: preserve_whitespace)
+          end
         end
 
         # Apply preprocessing transformation to XML string
@@ -62,9 +73,10 @@ module Canon
         #
         # @param node [Object] Nokogiri or Moxml node
         # @param preserve_whitespace [Boolean] Whether to preserve whitespace-only text nodes
+        # @param parser [Symbol, nil] Parser backend override
         # @return [Canon::Xml::Node] Converted node
-        def self.convert_from_node(node, preserve_whitespace: false)
-          # Convert to XML string then parse through DataModel
+        def self.convert_from_node(node, preserve_whitespace: false, parser: nil)
+          # Convert to XML string then parse through selected backend
           xml_str = if node.respond_to?(:to_xml)
                       node.to_xml
                     elsif node.respond_to?(:to_s)
@@ -73,8 +85,26 @@ module Canon
                       raise Canon::Error,
                             "Unable to convert node to string: #{node.class}"
                     end
-          Canon::Xml::DataModel.from_xml(xml_str,
+
+          resolved_parser = parser || resolve_parser_config
+
+          if resolved_parser == :sax
+            require_relative "../../xml/sax_builder"
+            Canon::Xml::SaxBuilder.parse(xml_str,
                                          preserve_whitespace: preserve_whitespace)
+          else
+            Canon::Xml::DataModel.from_xml(xml_str,
+                                           preserve_whitespace: preserve_whitespace)
+          end
+        end
+
+        # Resolve parser config from global config
+        #
+        # @return [Symbol] :sax or :dom
+        def self.resolve_parser_config
+          Canon::Config.instance.xml.diff.parser
+        rescue StandardError
+          :sax
         end
       end
     end

@@ -299,6 +299,7 @@ module Canon
         mode: %i[by_line by_object pretty_diff],
         show_diffs: %i[all normative informative],
         algorithm: %i[dom semantic],
+        parser: %i[sax dom],
         display_preprocessing: %i[none pretty_print normalize_pretty_print c14n],
         display_format: %i[raw canonical],
         pretty_printer_indent_type: %i[space tab],
@@ -678,6 +679,16 @@ module Canon
         @resolver.set_programmatic(:algorithm, value)
       end
 
+      # XML parser backend (:sax or :dom, default :sax)
+      def parser
+        @resolver.resolve(:parser)
+      end
+
+      def parser=(value)
+        self.class.validate_config_value!(:parser, value)
+        @resolver.set_programmatic(:parser, value)
+      end
+
       # Theme name (:light, :dark, :retro, :claude)
       def theme
         @resolver.resolve(:theme)
@@ -725,6 +736,7 @@ module Canon
           show_diffs: show_diffs,
           verbose_diff: verbose_diff,
           diff_algorithm: algorithm,
+          parser: parser,
           show_raw_inputs: show_raw_inputs,
           show_raw_expected: show_raw_expected,
           show_raw_received: show_raw_received,
@@ -765,6 +777,7 @@ module Canon
           show_diffs: :all,
           verbose_diff: false,
           algorithm: :dom,
+          parser: :sax,
           show_raw_inputs: false,
           show_raw_expected: false,
           show_raw_received: false,

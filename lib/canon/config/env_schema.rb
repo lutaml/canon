@@ -14,6 +14,7 @@ module Canon
         show_diffs: :symbol,
         verbose_diff: :boolean,
         algorithm: :symbol,
+        parser: :symbol,
         show_raw_inputs: :boolean,
         show_raw_expected: :boolean,
         show_raw_received: :boolean,
@@ -66,7 +67,7 @@ module Canon
 
         def all_diff_attributes
           %i[mode use_color context_lines grouping_lines show_diffs
-             verbose_diff algorithm show_raw_inputs show_raw_expected show_raw_received
+             verbose_diff algorithm parser show_raw_inputs show_raw_expected show_raw_received
              show_preprocessed_inputs show_preprocessed_expected show_preprocessed_received
              show_prettyprint_inputs show_prettyprint_expected show_prettyprint_received
              show_line_numbered_inputs character_visualization
