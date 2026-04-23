@@ -84,6 +84,30 @@ html_version: nil, match_options: nil, algorithm: :dom, original_strings: nil)
         @match_options&.[](:tree_diff_operations) || []
       end
 
+      # Generate a human-readable summary of the first difference.
+      #
+      # When documents are equivalent, returns "Equivalent".
+      # When they differ, returns a single-line string with the first normative
+      # (or first informative) difference location and reason.
+      #
+      # @return [String] Summary string
+      def summary
+        return "Equivalent" if equivalent?
+
+        diff = normative_differences.first || informative_differences.first ||
+               @differences.first
+
+        return "Not equivalent" unless diff
+
+        if diff.is_a?(Canon::Diff::DiffNode)
+          summarize_diff_node(diff)
+        elsif diff.is_a?(Hash)
+          summarize_legacy_hash(diff)
+        else
+          "Not equivalent"
+        end
+      end
+
       # Generate formatted diff output
       #
       # @param use_color [Boolean] Whether to use ANSI color codes
@@ -115,6 +139,59 @@ show_diffs: :all, diff_mode: :separate, legacy_terminal: false)
           doc2: @preprocessed_strings[1],
           html_version: @html_version,
         )
+      end
+
+      private
+
+      # Format a single DiffNode into a summary string.
+      #
+      # @param diff [DiffNode] The difference to summarize
+      # @return [String] Human-readable summary
+      def summarize_diff_node(diff)
+        parts = ["Not equivalent:"]
+
+        if diff.path
+          parts << "#{diff.reason} at #{diff.path}"
+        else
+          parts << diff.reason.to_s
+        end
+
+        if diff.serialized_before && diff.serialized_after
+          before_preview = truncate_preview(diff.serialized_before)
+          after_preview = truncate_preview(diff.serialized_after)
+          parts << "(#{before_preview} vs #{after_preview})"
+        end
+
+        parts.join(" ")
+      end
+
+      # Format a legacy Hash difference into a summary string.
+      #
+      # @param diff [Hash] Legacy difference hash with :path, :value1, :value2
+      # @return [String] Human-readable summary
+      def summarize_legacy_hash(diff)
+        parts = ["Not equivalent:"]
+        parts << "#{diff[:diff_code_description]} at #{diff[:path]}" if diff[:path]
+
+        if diff[:value1] && diff[:value2]
+          parts << "(#{truncate_preview(diff[:value1].to_s)} vs #{truncate_preview(diff[:value2].to_s)})"
+        end
+
+        parts.size > 1 ? parts.join(" ") : "Not equivalent: values differ"
+      end
+
+      # Truncate a string for preview display.
+      #
+      # @param text [String] Text to truncate
+      # @param max_len [Integer] Maximum length
+      # @return [String] Truncated text with ellipsis if needed
+      def truncate_preview(text, max_len = 40)
+        stripped = text.strip.gsub(/\s+/, " ")
+        if stripped.length > max_len
+          "#{stripped[0...(max_len - 3)]}..."
+        else
+          stripped
+        end
       end
     end
   end

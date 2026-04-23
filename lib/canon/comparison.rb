@@ -144,6 +144,35 @@ module Canon
         dom_diff(obj1, obj2, opts)
       end
 
+      # Summarize the first difference between two documents.
+      #
+      # Returns a human-readable string describing the first difference
+      # when documents differ, or "Equivalent" when they match.
+      # This is a lightweight alternative to +equivalent?+ with +verbose: true+.
+      #
+      # @param obj1 [Object] First object to compare
+      # @param obj2 [Object] Second object to compare
+      # @param opts [Hash] Comparison options (same as +equivalent?+)
+      # @return [String] Summary string
+      #
+      # @example
+      #   Canon::Comparison.summarize("<p>Hello</p>", "<p>World</p>")
+      #   # => "Not equivalent: text content differs at /p[1] (Hello vs World)"
+      #
+      #   Canon::Comparison.summarize("<p>Hello</p>", "<p>Hello</p>")
+      #   # => "Equivalent"
+      def summarize(obj1, obj2, opts = {})
+        result = equivalent?(obj1, obj2, opts.merge(verbose: true))
+
+        if result.is_a?(ComparisonResult)
+          result.summary
+        elsif result == true
+          "Equivalent"
+        else
+          "Not equivalent"
+        end
+      end
+
       # Define a custom comparison profile with DSL syntax
       #
       # @param name [Symbol] Profile name
