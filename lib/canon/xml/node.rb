@@ -17,7 +17,7 @@ module Canon
       end
 
       def in_node_set?
-        @in_node_set ||= true
+        instance_variable_defined?(:@in_node_set) ? @in_node_set : true
       end
 
       def in_node_set=(value)
