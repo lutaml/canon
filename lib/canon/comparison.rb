@@ -640,14 +640,16 @@ module Canon
               # HTML4 fragment parsing mutates the DOM (strips <body>
               # attributes, re-parents <h1> content, etc.).  Use XML
               # fragment parsing which preserves structure faithfully.
+              # But XML parsing doesn't understand HTML entities (&nbsp;
+              # etc.), so decode them to numeric character references first.
               if obj1.is_a?(String)
                 obj1 = Nokogiri::XML.fragment(
-                  strip_xml_preamble(obj1),
+                  decode_html_entities(strip_xml_preamble(obj1)),
                 )
               end
               if obj2.is_a?(String)
                 obj2 = Nokogiri::XML.fragment(
-                  strip_xml_preamble(obj2),
+                  decode_html_entities(strip_xml_preamble(obj2)),
                 )
               end
             end
@@ -728,6 +730,34 @@ module Canon
           str = (str[0...i] + str[(j + 1)..]).strip if j
         end
         str
+      end
+
+      # Decode HTML named entities (&nbsp; etc.) to their numeric
+      # character reference equivalents so that Nokogiri::XML.fragment
+      # (which only understands the five XML entities) preserves them
+      # as text nodes instead of silently dropping them.
+      #
+      # Uses Nokogiri's HTML4 parser to resolve the entities — the
+      # text is extracted from a fragment so no structural tags are added.
+      #
+      # @param str [String] HTML string potentially containing named entities
+      # @return [String] String with named entities replaced by characters
+      def decode_html_entities(str)
+        # Fast path: skip if no ampersands present
+        return str unless str.include?("&")
+
+        # Parse as HTML fragment to resolve named entities, then
+        # re-serialize as text.  This converts &nbsp; → U+00A0, etc.
+        doc = Nokogiri::HTML4.fragment(str)
+
+        # Serialize back, preserving the resolved characters.
+        # to_html re-encodes characters, so use inner_html which
+        # keeps the character form.
+        result = doc.inner_html
+
+        # If the serialization re-encoded characters as entities,
+        # that's fine — the XML parser understands numeric refs like &#160;
+        result
       end
 
       # Detect the format of an object (delegates to FormatDetector)

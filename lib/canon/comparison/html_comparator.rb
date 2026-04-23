@@ -291,10 +291,12 @@ module Canon
                           node.to_html
                         end
 
-          # Use XML fragment parser to preserve structure without auto-generated elements
-          # This avoids both HTML4's meta tag insertion and HTML5's tag stripping
-          # See: https://stackoverflow.com/questions/25998824/stop-nokogiri-from-adding-doctype-and-meta-tags
-          frag = Nokogiri::XML.fragment(html_string)
+          # Use XML fragment parser to preserve structure without auto-generated elements.
+          # Decode HTML named entities (&nbsp; etc.) to UTF-8 characters since XML
+          # parser only understands the five XML entities.
+          frag = Nokogiri::XML.fragment(
+            decode_html_named_entities(html_string),
+          )
 
           # Apply preprocessing if needed
           if preprocessing == :rendered
@@ -448,8 +450,12 @@ module Canon
                         end
 
           # Parse as Nokogiri fragment for DOM comparison
-          # Use XML fragment parser to avoid auto-inserted meta tags
-          frag = Nokogiri::XML.fragment(html_string)
+          # Use XML fragment parser to avoid auto-inserted meta tags.
+          # Decode HTML named entities (&nbsp; etc.) to UTF-8 characters since
+          # XML parser only understands the five XML entities.
+          frag = Nokogiri::XML.fragment(
+            decode_html_named_entities(html_string),
+          )
 
           # Apply post-parsing filtering for :normalize, :format, and :rendered preprocessing
           if %i[normalize format rendered].include?(preprocessing)
@@ -496,6 +502,33 @@ module Canon
 
         # Detect HTML version from content
         #
+        # Decode HTML named entities to their UTF-8 character equivalents.
+        # This is a targeted replacement that only changes entity references,
+        # preserving all tag structure. Needed because Nokogiri::XML.fragment
+        # only understands the five XML entities (&amp; &lt; &gt; &quot; &apos;).
+        #
+        # @param str [String] HTML string possibly containing named entities
+        # @return [String] String with named entities replaced by UTF-8 chars
+        def decode_html_named_entities(str)
+          return str unless str.include?("&")
+
+          str.gsub(/&nbsp;/i, "\u00A0")
+            .gsub(/&ensp;/i, "\u2002")
+            .gsub(/&emsp;/i, "\u2003")
+            .gsub(/&thinsp;/i, "\u2009")
+            .gsub(/&copy;/i, "\u00A9")
+            .gsub(/&reg;/i, "\u00AE")
+            .gsub(/&trade;/i, "\u2122")
+            .gsub(/&mdash;/i, "\u2014")
+            .gsub(/&ndash;/i, "\u2013")
+            .gsub(/&lsquo;/i, "\u2018")
+            .gsub(/&rsquo;/i, "\u2019")
+            .gsub(/&ldquo;/i, "\u201C")
+            .gsub(/&rdquo;/i, "\u201D")
+            .gsub(/&bull;/i, "\u2022")
+            .gsub(/&hellip;/i, "\u2026")
+        end
+
         # @param content [String] HTML content
         # @return [Symbol] :html5 or :html4
         def detect_html_version(content)
@@ -721,8 +754,16 @@ compare_profile = nil)
             parent = text_node.parent
             next if ancestor_preserves_whitespace?(parent, preserve_whitespace)
 
+            content = text_node.content
+
+            # NBSP (U+00A0) is never insignificant — don't remove
+            next if content.include?("\u00A0")
+
+            # Whitespace between inline siblings is significant — don't remove
+            next if WhitespaceSensitivity.inline_whitespace_significant?(text_node)
+
             # Remove if the text is only whitespace (after normalization)
-            if text_node.content.strip.empty?
+            if content.strip.empty?
               text_node.remove
             end
           end

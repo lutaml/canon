@@ -50,6 +50,15 @@ module Canon
       # HTML elements where every whitespace character is significant.
       HTML_PRESERVE_ELEMENTS = %w[pre code textarea script style].freeze
 
+      # HTML inline elements — whitespace between these is semantically
+      # significant (renders as a visible space).  Whitespace-only text
+      # nodes that sit between two inline siblings must not be stripped.
+      INLINE_ELEMENTS = %w[
+        a abbr acronym b bdo big br button cite code dfn em i img input kbd
+        label map object output q s samp select small span strong sub sup
+        time tt u var wbr
+      ].freeze
+
       class << self
         # Classify the whitespace behaviour for an element using ancestor walk.
         #
@@ -213,6 +222,48 @@ module Canon
             .include?(element_name.to_sym)
         end
 
+        # Check if a whitespace-only text node sits between two inline element
+        # siblings, making the whitespace semantically significant.
+        #
+        # In HTML rendering, a space between <span>A</span> <span>B</span>
+        # produces visible output.  Stripping such nodes produces false
+        # equivalence.
+        #
+        # Works with any parent type (element, DocumentFragment, RootNode)
+        # since the check is about sibling context, not parent type.
+        #
+        # @param text_node [Object] Text node (Nokogiri or Canon::Xml::Node)
+        # @return [Boolean] true if whitespace is between inline siblings
+        def inline_whitespace_significant?(text_node)
+          return false unless text_node.respond_to?(:parent)
+          parent = text_node.parent
+          return false unless parent
+          return false unless parent.respond_to?(:children)
+
+          siblings = parent.children
+          idx = siblings.index(text_node)
+          return false unless idx
+
+          prev_inline = siblings[0...idx].reverse_each.any? do |s|
+            inline_element?(s)
+          end
+          next_inline = siblings[(idx + 1)..].any? do |s|
+            inline_element?(s)
+          end
+
+          prev_inline && next_inline
+        end
+
+        # Check if text content contains a non-breaking space (U+00A0).
+        # NBSP is NOT collapsible whitespace in HTML — it always renders as
+        # a visible space and must never be stripped.
+        #
+        # @param text [String] Text content to check
+        # @return [Boolean] true if text contains U+00A0
+        def contains_nbsp?(text)
+          text.to_s.include?("\u00A0")
+        end
+
         private
 
         # Build the Set of preserve whitespace element names (strings).
@@ -335,6 +386,32 @@ module Canon
 
           # Nokogiri compatibility
           parent.respond_to?(:node_type) && parent.node_type == :element
+        end
+
+        # Get the parent element of a text node, or nil.
+        # Works with both Nokogiri and Canon::Xml::Node types.
+        def parent_element_of(text_node)
+          return nil unless text_node.respond_to?(:parent)
+
+          parent = text_node.parent
+          return nil unless parent
+
+          if parent.is_a?(Canon::Xml::Nodes::ElementNode)
+            parent
+          elsif parent.respond_to?(:element?) && parent.element?
+            parent
+          elsif parent.respond_to?(:node_type) && parent.node_type == :element
+            parent
+          else
+            nil
+          end
+        end
+
+        # Check if a node is an HTML inline element.
+        def inline_element?(node)
+          return false unless node.respond_to?(:name)
+
+          INLINE_ELEMENTS.include?(node.name.to_s.downcase)
         end
       end
     end

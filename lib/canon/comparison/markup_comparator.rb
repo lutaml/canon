@@ -182,6 +182,17 @@ module Canon
           return false unless text_node?(node) && node.parent
           return false unless MatchOptions.normalize_text(node_text(node)).empty?
 
+          # HTML-specific: NBSP (U+00A0) is never insignificant whitespace —
+          # it always renders as a visible non-breaking space.
+          format = opts[:format] || match_opts[:format]
+          if %i[html html4 html5].include?(format)
+            return false if WhitespaceSensitivity.contains_nbsp?(node_text(node))
+
+            # Whitespace between inline element siblings is semantically
+            # significant (renders as a visible gap) and must not be stripped.
+            return false if WhitespaceSensitivity.inline_whitespace_significant?(node)
+          end
+
           return true unless WhitespaceSensitivity.whitespace_preserved?(
             node.parent, match_opts
           )
