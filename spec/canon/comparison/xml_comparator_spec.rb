@@ -237,7 +237,7 @@ RSpec.describe Canon::Comparison::XmlComparator do
 
     # https://github.com/lutaml/canon/issues/110
     context "space vs NBSP between inline elements (issue #110)" do
-      it "treats space and NBSP as equivalent with spec_friendly profile" do
+      it "detects space vs NBSP as different with spec_friendly (default whitespace_type: :strict)" do
         input = <<~XML
           <semx element="eref" source="_">
              <fmt-xref type="inline" target="ISO712"><span class="stdpublisher">ISO</span> <span class="stddocNumber">712</span>, Appendice 7</fmt-xref>
@@ -252,8 +252,33 @@ RSpec.describe Canon::Comparison::XmlComparator do
         result = described_class.equivalent?(input, output,
                                              match_profile: :spec_friendly,
                                              verbose: true)
+        expect(result.equivalent?).to be false
+        # Should report the difference cleanly, not garbled phantom nodes
+        expect(result.differences.size).to be >= 1
+        # Reason must never contain raw Ruby object inspect output
+        result.differences.each do |diff|
+          expect(diff.reason).not_to match(/#<Canon::Xml::Nodes/)
+          expect(diff.reason).not_to match(/#<Canon::Diff/)
+        end
+      end
+
+      it "treats space and NBSP as equivalent with whitespace_type: :normalize" do
+        input = <<~XML
+          <semx element="eref" source="_">
+             <fmt-xref type="inline" target="ISO712"><span class="stdpublisher">ISO</span> <span class="stddocNumber">712</span>, Appendice 7</fmt-xref>
+          </semx>
+        XML
+        output = <<~XML
+          <semx element="eref" source="_">
+             <fmt-xref type="inline" target="ISO712"><span class="stdpublisher">ISO</span>&#xa0;<span class="stddocNumber">712</span>, Appendice 7</fmt-xref>
+          </semx>
+        XML
+
+        result = described_class.equivalent?(input, output,
+                                             match_profile: :spec_friendly,
+                                             match: { whitespace_type: :normalize },
+                                             verbose: true)
         expect(result.equivalent?).to be true
-        # No phantom differences — should have zero differences
         expect(result.differences.size).to eq(0)
       end
 

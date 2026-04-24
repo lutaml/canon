@@ -93,8 +93,10 @@ module Canon
           child_opts = opts.merge(child_opts)
 
           # Determine if we should preserve whitespace during parsing
-          # When structural_whitespace is :strict, preserve all whitespace-only text nodes
-          preserve_whitespace = match_opts_hash[:structural_whitespace] == :strict
+          # Preserve when structural_whitespace is :strict OR whitespace_type is :strict
+          # (so the comparator can detect different Unicode whitespace types)
+          preserve_whitespace = match_opts_hash[:structural_whitespace] == :strict ||
+            (match_opts_hash[:whitespace_type] || :strict) == :strict
 
           # Parse nodes if they are strings, applying preprocessing if needed
           node1 = parse_node(n1, match_opts_hash[:preprocessing],
@@ -380,8 +382,10 @@ module Canon
           raw_differs = text1 != text2
 
           # Check if matches according to behavior
+          whitespace_type = match_opts[:whitespace_type] || :strict
           matches_per_behavior = MatchOptions.match_text?(text1, text2,
-                                                          behavior)
+                                                          behavior,
+                                                          whitespace_type: whitespace_type)
 
           # Determine the correct dimension for this difference
           # - If text_content is :strict, ALL differences use :text_content dimension

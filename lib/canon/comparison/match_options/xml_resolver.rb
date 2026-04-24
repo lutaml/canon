@@ -24,6 +24,7 @@ module Canon
             attribute_values: :strict,
             element_position: :ignore,
             comments: :ignore,
+            whitespace_type: :strict,
           },
           xml: {
             preprocessing: :none,
@@ -34,6 +35,7 @@ module Canon
             attribute_values: :strict,
             element_position: :strict,
             comments: :strict,
+            whitespace_type: :strict,
           },
         }.freeze
 
@@ -51,6 +53,7 @@ module Canon
             attribute_values: :strict,
             element_position: :strict,
             comments: :strict,
+            whitespace_type: :strict,
           },
 
           # Rendered: Match rendered output (HTML default)
@@ -64,6 +67,7 @@ module Canon
             attribute_values: :strict,
             element_position: :strict,
             comments: :ignore,
+            whitespace_type: :strict,
           },
 
           # HTML4: Match HTML4 rendered output
@@ -77,6 +81,7 @@ module Canon
             attribute_values: :normalize,
             element_position: :ignore,
             comments: :ignore,
+            whitespace_type: :strict,
           },
 
           # HTML5: Match HTML5 rendered output (same as rendered)
@@ -89,6 +94,7 @@ module Canon
             attribute_values: :strict,
             element_position: :ignore,
             comments: :ignore,
+            whitespace_type: :strict,
           },
 
           # Spec-friendly: Formatting doesn't matter
@@ -102,6 +108,7 @@ module Canon
             attribute_values: :normalize,
             element_position: :ignore,
             comments: :ignore,
+            whitespace_type: :strict,
           },
 
           # Content-only: Only content matters
@@ -114,6 +121,7 @@ module Canon
             attribute_values: :normalize,
             element_position: :ignore,
             comments: :ignore,
+            whitespace_type: :strict,
           },
         }.freeze
 

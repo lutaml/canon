@@ -130,6 +130,7 @@ RSpec.describe Canon::Comparison::MatchOptions::Xml do
         attribute_values: :strict,
         element_position: :ignore,
         comments: :ignore,
+        whitespace_type: :strict,
       )
     end
 
@@ -143,6 +144,7 @@ RSpec.describe Canon::Comparison::MatchOptions::Xml do
         attribute_values: :strict,
         element_position: :strict,
         comments: :strict,
+        whitespace_type: :strict,
       )
     end
   end
@@ -158,6 +160,7 @@ RSpec.describe Canon::Comparison::MatchOptions::Xml do
         attribute_values: :strict,
         element_position: :strict,
         comments: :strict,
+        whitespace_type: :strict,
       )
     end
 
@@ -171,6 +174,7 @@ RSpec.describe Canon::Comparison::MatchOptions::Xml do
         attribute_values: :strict,
         element_position: :strict,
         comments: :ignore,
+        whitespace_type: :strict,
       )
     end
 
@@ -184,6 +188,7 @@ RSpec.describe Canon::Comparison::MatchOptions::Xml do
         attribute_values: :normalize,
         element_position: :ignore,
         comments: :ignore,
+        whitespace_type: :strict,
       )
     end
 
@@ -197,6 +202,7 @@ RSpec.describe Canon::Comparison::MatchOptions::Xml do
         attribute_values: :normalize,
         element_position: :ignore,
         comments: :ignore,
+        whitespace_type: :strict,
       )
     end
   end
@@ -215,6 +221,7 @@ RSpec.describe Canon::Comparison::MatchOptions::Xml do
           attribute_values: :strict,
           element_position: :ignore,
           comments: :ignore,
+          whitespace_type: :strict,
         )
       end
 
@@ -230,6 +237,7 @@ RSpec.describe Canon::Comparison::MatchOptions::Xml do
           attribute_values: :strict,
           element_position: :strict,
           comments: :strict,
+          whitespace_type: :strict,
         )
       end
 
@@ -245,6 +253,7 @@ RSpec.describe Canon::Comparison::MatchOptions::Xml do
           attribute_values: :strict,
           element_position: :strict,
           comments: :strict,
+          whitespace_type: :strict,
         )
       end
     end
@@ -266,6 +275,7 @@ RSpec.describe Canon::Comparison::MatchOptions::Xml do
           attribute_values: :normalize,
           element_position: :ignore,
           comments: :ignore,
+          whitespace_type: :strict,
         )
       end
     end
@@ -298,6 +308,7 @@ RSpec.describe Canon::Comparison::MatchOptions::Xml do
           attribute_values: :strict,
           element_position: :strict,
           comments: :ignore,
+          whitespace_type: :strict,
         )
       end
 
@@ -401,6 +412,7 @@ RSpec.describe Canon::Comparison::MatchOptions::Xml do
         attribute_values: :strict,
         element_position: :strict,
         comments: :ignore,
+        whitespace_type: :strict,
       )
     end
 

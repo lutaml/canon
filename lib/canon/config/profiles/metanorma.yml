@@ -28,6 +28,9 @@ formats:
   xml:
     match:
       profile: spec_friendly
+      # Treat different Unicode whitespace types (space, NBSP, ideographic space, etc.)
+      # as equivalent — useful for spec comparisons where whitespace type doesn't matter
+      whitespace_type: :normalize
       # Elements where whitespace is PRESERVED exactly (no manipulation)
       # All whitespace characters are significant in these elements
       preserve_whitespace_elements:
