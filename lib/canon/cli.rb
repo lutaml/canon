@@ -218,6 +218,10 @@ module Canon
                   type: :string,
                   enum: %w[strict normalize ignore],
                   desc: "Comment matching: strict, normalize, or ignore"
+    method_option :whitespace_type,
+                  type: :string,
+                  enum: %w[strict normalize],
+                  desc: "Whitespace type sensitivity: strict (default) or normalize"
     method_option :show_diffs,
                   type: :string,
                   enum: %w[all normative informative],

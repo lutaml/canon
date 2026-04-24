@@ -29,8 +29,10 @@ variant can extend a base profile with only the differences.
 
 | `:metanorma`
 | Standard Metanorma spec configuration. Sets preprocessing to `:format`,
-  match profile to `:spec_friendly`, diff algorithm to `:dom`, canonical
-  display format, normalized pretty-print display preprocessing,
+  match profile to `:spec_friendly`, `whitespace_type` to `:normalize`
+  (so that Unicode whitespace variants like space vs NBSP are treated as
+  equivalent for backward compatibility), diff algorithm to `:dom`,
+  canonical display format, normalized pretty-print display preprocessing,
   and XML-specific whitespace element lists.
 
 | `:metanorma_debug`

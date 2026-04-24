@@ -143,6 +143,7 @@ module Canon
         dimensions = %i[
           text_content structural_whitespace attribute_whitespace
           attribute_order attribute_values comments key_order
+          whitespace_type
         ]
 
         dimensions.each_with_object({}) do |dim, opts|
