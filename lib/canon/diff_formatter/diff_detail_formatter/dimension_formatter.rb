@@ -385,6 +385,20 @@ expand_difference: false)
             detail2 = ColorHelper.colorize(
               TextUtils.visualize_whitespace(text2), :green, use_color
             )
+          elsif TextUtils.ambiguous_text_pair?(text1, text2) &&
+              (NodeUtils.parent_of(node1) || NodeUtils.parent_of(node2))
+            # Both sides render to empty/whitespace-only strings, which are
+            # indistinguishable after JSON quoting.  Fall back to each side's
+            # parent element serialized compactly, with whitespace visualized
+            # so the reader can see the structural contrast.
+            ctx1 = NodeUtils.serialize_node_compact(NodeUtils.parent_of(node1))
+            ctx2 = NodeUtils.serialize_node_compact(NodeUtils.parent_of(node2))
+            detail1 = ColorHelper.colorize(
+              TextUtils.visualize_whitespace(ctx1), :red, use_color
+            )
+            detail2 = ColorHelper.colorize(
+              TextUtils.visualize_whitespace(ctx2), :green, use_color
+            )
           elsif compact && (node1.is_a?(Canon::Xml::Nodes::ElementNode) ||
                            node2.is_a?(Canon::Xml::Nodes::ElementNode))
             # In compact mode with element nodes, display as raw XML without

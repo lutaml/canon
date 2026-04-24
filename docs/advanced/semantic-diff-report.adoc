@@ -148,6 +148,37 @@ Location:   /html/body/div/table/tbody/tr/td/pre/text
 
 The warning appears for text inside whitespace-preserving elements where Canon automatically switches to strict mode.
 
+==== Parent-context fallback for ambiguous text diffs
+
+For a `text_content` difference, Canon normally renders the two sides as JSON-quoted strings.
+When both sides would collapse to the same (or visually indistinguishable) short string -- both empty (`""`), both whitespace-only, or both equal on the text-node extraction even though the surrounding DOM differs -- that rendering conveys nothing.
+
+In this case Canon instead serializes each side's *parent element* compactly and visualizes whitespace (`·` for space, `→` for tab, `¬` for newline, `<NBSP>` for non-breaking space) so the structural contrast is visible.
+
+.Example: Ambiguous empty-vs-whitespace text diff
+[example]
+====
+[source]
+----
+🔍 DIFFERENCE #1/1 [NORMATIVE]
+──────────────────────────────────────────────────────────────────────
+Dimension: text_content
+Location:  /#document[0]/fmt-title[0]/span[0]/span/text()[0]
+Reason:  Text: "¬······:¬······"
+          vs.: ":"
+
+⊖ Expected (File 1):
+   <span·class="fmt-caption-delim">¬······:¬······<tab/>¬···</span>
+⊕ Actual (File 2):
+   <span·class="fmt-caption-delim">:<tab/></span>
+
+✨ Changes:
+   Content differs: <span·class="fmt-caption-delim">¬······:¬······<tab/>¬···</span> → <span·class="fmt-caption-delim">:<tab/></span>
+----
+====
+
+This fallback is implemented in `Canon::DiffFormatter::DiffDetailFormatterHelpers::DimensionFormatter.format_text_content_details` and only triggers when `TextUtils.ambiguous_text_pair?` returns `true` _and_ at least one side has a parent element to render.
+
 === Structural Whitespace
 
 Shows whitespace-only differences (usually informative).

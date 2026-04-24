@@ -318,6 +318,23 @@ module Canon
           end
         end
 
+        # Return the parent of a node, or nil, regardless of the node API.
+        #
+        # Canon::Xml nodes expose +parent+; some Nokogiri-shaped nodes expose
+        # +parent_node+.  This helper abstracts over both.
+        #
+        # @param node [Object] Node to query
+        # @return [Object, nil] Parent node or nil
+        def self.parent_of(node)
+          return nil unless node
+
+          if node.respond_to?(:parent)
+            node.parent
+          elsif node.respond_to?(:parent_node)
+            node.parent_node
+          end
+        end
+
         # Check if node is inside a preserve-whitespace element
         #
         # @param node [Object] Node to check

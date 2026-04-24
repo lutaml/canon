@@ -308,5 +308,42 @@ RSpec.describe Canon::Comparison::XmlComparator do
       end
     end
     # rubocop:enable Layout/LineLength
+
+    context "ambiguous whitespace-only text diffs (issue #112)" do
+      it "renders parent-element context with visualized whitespace " \
+         "when both sides of a text_content diff are empty/whitespace-only" do
+        input = <<~INPUT
+          <fmt-title depth="1" id="_">
+             <span class="fmt-caption-delim">
+                :
+                <tab/>
+             </span>
+             <semx element="title" source="_">General</semx>
+          </fmt-title>
+        INPUT
+        output = <<~OUTPUT
+          <fmt-title depth="1" id="_"><span class="fmt-caption-delim">:<tab/></span><semx element="title" source="_">General</semx></fmt-title>
+        OUTPUT
+
+        result = described_class.equivalent?(input, output, verbose: true)
+        expect(result.equivalent?).to be false
+
+        report = Canon::DiffFormatter::DiffDetailFormatter.format_report(
+          result.differences, use_color: false
+        )
+
+        # Expected/Actual must not both collapse to bare "" quotes — the
+        # parent-context fallback should kick in.
+        empty_pair = /Expected \(File 1\): ""\n.*Actual \(File 2\)\s*: ""/m
+        expect(report).not_to match(empty_pair)
+
+        # Parent-context rendering for both sides, with whitespace
+        # visualized on the whitespace-rich side so the reader can see
+        # the structural difference.
+        expect(report).to include("fmt-caption-delim")
+        expect(report).to include("<tab/>")
+        expect(report).to match(/[¬→·]/)
+      end
+    end
   end
 end
