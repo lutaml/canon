@@ -69,13 +69,18 @@ module Canon
         # @param text1 [String] First text
         # @param text2 [String] Second text
         # @param behavior [Symbol] Match behavior (:strict, :normalize, :ignore)
+        # @param whitespace_type [Symbol] Whitespace type handling (:strict, :normalize)
         # @return [Boolean] true if texts match according to behavior
-        def match_text?(text1, text2, behavior)
+        def match_text?(text1, text2, behavior, whitespace_type: :strict)
           case behavior
           when :strict
             text1 == text2
           when :normalize
-            normalize_text(text1) == normalize_text(text2)
+            if whitespace_type == :normalize
+              normalize_text(text1) == normalize_text(text2)
+            else
+              normalize_text_preserving_type(text1) == normalize_text_preserving_type(text2)
+            end
           when :ignore
             true
           else
@@ -99,6 +104,22 @@ module Canon
           text.to_s
             .gsub(/[\p{Space}\u00a0]+/, " ") # Collapse all whitespace to single space
             .strip # Remove leading/trailing whitespace
+        end
+
+        # Normalize text preserving Unicode whitespace type distinctions.
+        #
+        # Only ASCII whitespace (space, tab, newline, etc.) is collapsed.
+        # Unicode whitespace (NBSP, ideographic space, etc.) is preserved,
+        # so different whitespace types remain distinguishable.
+        #
+        # @param text [String] Text to normalize
+        # @return [String] Normalized text with preserved whitespace types
+        def normalize_text_preserving_type(text)
+          return "" if text.nil?
+
+          text.to_s
+            .gsub(/[ \t\r\n\f\v]+/, " ") # Collapse only ASCII whitespace
+            .strip
         end
 
         # Process attribute value according to match behavior

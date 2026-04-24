@@ -146,6 +146,7 @@ module Canon
               respect_xml_space
               pretty_printed_expected
               pretty_printed_received
+              whitespace_type
             ]
 
             match_options.each do |dimension, behavior|
