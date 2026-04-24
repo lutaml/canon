@@ -215,19 +215,17 @@ module Canon
         # and when whitespace is between inline element siblings (semantically significant)
         content = nokogiri_text.content
 
-        if content.strip.empty? && nokogiri_text.parent.is_a?(Nokogiri::XML::Element)
-          # NBSP (U+00A0) is never insignificant whitespace
-          unless content.include?("\u00A0")
-            # Check if parent is whitespace-sensitive
-            parent_name = nokogiri_text.parent.name.downcase
-            whitespace_sensitive_tags = %w[pre code textarea script style]
+        # NBSP (U+00A0) is never insignificant whitespace
+        if content.strip.empty? && nokogiri_text.parent.is_a?(Nokogiri::XML::Element) && !content.include?("\u00A0")
+          # Check if parent is whitespace-sensitive
+          parent_name = nokogiri_text.parent.name.downcase
+          whitespace_sensitive_tags = %w[pre code textarea script style]
 
-            # Check if whitespace is between inline siblings
-            require_relative "../comparison/whitespace_sensitivity"
-            unless whitespace_sensitive_tags.include?(parent_name) ||
-                     Canon::Comparison::WhitespaceSensitivity.inline_whitespace_significant?(nokogiri_text)
-              return nil
-            end
+          # Check if whitespace is between inline siblings
+          require_relative "../comparison/whitespace_sensitivity"
+          unless whitespace_sensitive_tags.include?(parent_name) ||
+              Canon::Comparison::WhitespaceSensitivity.inline_whitespace_significant?(nokogiri_text)
+            return nil
           end
         end
 

@@ -307,9 +307,11 @@ module Canon
       # In by-line mode with both docs present, always use by-line diff
       if @mode == :by_line && doc1 && doc2
         doc1, doc2 = apply_display_preprocessing(doc1, doc2, format)
+        # rubocop:disable Layout/HashAlignment
         return by_line_formatter.format(doc1, doc2, format: format,
                                                   html_version: html_version,
                                                   differences: differences)
+        # rubocop:enable Layout/HashAlignment
       end
 
       # In pretty_diff mode, always use text-LCS diff (bypasses DiffNodeMapper).
@@ -328,9 +330,11 @@ module Canon
       case @mode
       when :by_line
         doc1, doc2 = apply_display_preprocessing(doc1, doc2, format) if doc1 && doc2
+        # rubocop:disable Layout/HashAlignment
         by_line_formatter.format(doc1, doc2, format: format,
                                                html_version: html_version,
                                                differences: differences)
+        # rubocop:enable Layout/HashAlignment
       when :pretty_diff
         d1, d2 = doc1 && doc2 ? apply_display_preprocessing(doc1, doc2, format) : [doc1, doc2]
         pretty_diff_formatter.format(d1, d2, format: format)

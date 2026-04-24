@@ -95,7 +95,7 @@ html_version: nil, match_options: nil, algorithm: :dom, original_strings: nil)
         return "Equivalent" if equivalent?
 
         diff = normative_differences.first || informative_differences.first ||
-               @differences.first
+               @differences.first # rubocop:disable Layout/MultilineOperationIndentation
 
         return "Not equivalent" unless diff
 
@@ -150,11 +150,13 @@ show_diffs: :all, diff_mode: :separate, legacy_terminal: false)
       def summarize_diff_node(diff)
         parts = ["Not equivalent:"]
 
+        # rubocop:disable Layout/SpaceBeforeInterpolation,Style/ConditionalAssignment
         if diff.path
           parts << "#{diff.reason} at #{diff.path}"
         else
           parts << diff.reason.to_s
         end
+        # rubocop:enable Layout/SpaceBeforeInterpolation,Style/ConditionalAssignment
 
         if diff.serialized_before && diff.serialized_after
           before_preview = truncate_preview(diff.serialized_before)

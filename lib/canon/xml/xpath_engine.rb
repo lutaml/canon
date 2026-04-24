@@ -202,13 +202,13 @@ module Canon
         scanner.scan(%r{[a-zA-Z_][\w:.-]*|\*})
       end
 
-      def scan_predicates(scanner)
+      def scan_predicates(scanner) # rubocop:disable Metrics/AbcSize
         predicates = []
-        while scanner.scan(/\[/)
+        while scanner.scan(/\[/) # rubocop:disable Style/RedundantRegexpArgument
           scanner.skip(/\s*/)
           pred = scan_predicate(scanner)
           scanner.skip(/\s*/)
-          scanner.scan(/\]/)
+          scanner.scan(/\]/) # rubocop:disable Style/RedundantRegexpArgument
           predicates << pred if pred
         end
         predicates
@@ -220,7 +220,7 @@ module Canon
         elsif scanner.scan(/@/)
           name = scanner.scan(/[a-zA-Z_][\w.-]*/)
 
-          if scanner.scan(/=/)
+          if scanner.scan(/=/) # rubocop:disable Style/RedundantRegexpArgument
             # Remove surrounding quotes if present
             scanner.scan(/['"]/)
             value = scanner.scan(/[^'"\]]+/)

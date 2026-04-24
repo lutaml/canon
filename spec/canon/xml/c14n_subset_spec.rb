@@ -60,7 +60,7 @@ RSpec.describe Canon::Xml::C14n do
         expect(result).to eq('<item selected="yes">a</item>')
       end
 
-      it "selects by attribute value [@attr=\'value\']" do
+      it "selects by attribute value [@attr='value']" do
         xml = '<root><item type="a">1</item><item type="b">2</item></root>'
         result = described_class.canonicalize_subset(xml, "//item[@type='a']")
         expect(result).to eq('<item type="a">1</item>')
