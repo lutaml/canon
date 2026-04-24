@@ -693,8 +693,14 @@ module Canon
         # but defined in config
         if Canon::Config.instance.respond_to?(comparison_format)
           format_config = Canon::Config.instance.public_send(comparison_format)
-          if opts[:match_profile].nil? && format_config.match.profile
-            opts[:match_profile] = format_config.match.profile
+          if opts[:global_profile].nil? && format_config.match.profile
+            # Config-sourced profile has *global* priority (applied before
+            # global_options), so that YAML profile_options like
+            # whitespace_type: :normalize can override the built-in profile
+            # (e.g. :spec_friendly)'s whitespace_type: :strict.  Writing to
+            # :match_profile here gave the config profile per-call priority,
+            # which incorrectly overrode the YAML's own overrides.
+            opts[:global_profile] = format_config.match.profile
           end
           # Pass YAML profile's extra match options (e.g., preserve_whitespace_elements)
           # that are stored in MatchConfig's resolver but not exposed via the
