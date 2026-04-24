@@ -237,6 +237,7 @@ RSpec.describe Canon::Comparison::XmlComparator do
 
     # https://github.com/lutaml/canon/issues/110
     context "space vs NBSP between inline elements (issue #110)" do
+      # rubocop:disable Layout/LineLength
       it "detects space vs NBSP as different with spec_friendly (default whitespace_type: :strict)" do
         input = <<~XML
           <semx element="eref" source="_">
@@ -306,5 +307,6 @@ RSpec.describe Canon::Comparison::XmlComparator do
         end
       end
     end
+    # rubocop:enable Layout/LineLength
   end
 end
