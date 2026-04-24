@@ -234,5 +234,52 @@ RSpec.describe Canon::Comparison::XmlComparator do
         expect(described_class.equivalent?(xml1, xml2)).to be false
       end
     end
+
+    # https://github.com/lutaml/canon/issues/110
+    context "space vs NBSP between inline elements (issue #110)" do
+      it "treats space and NBSP as equivalent with spec_friendly profile" do
+        input = <<~XML
+          <semx element="eref" source="_">
+             <fmt-xref type="inline" target="ISO712"><span class="stdpublisher">ISO</span> <span class="stddocNumber">712</span>, Appendice 7</fmt-xref>
+          </semx>
+        XML
+        output = <<~XML
+          <semx element="eref" source="_">
+             <fmt-xref type="inline" target="ISO712"><span class="stdpublisher">ISO</span>&#xa0;<span class="stddocNumber">712</span>, Appendice 7</fmt-xref>
+          </semx>
+        XML
+
+        result = described_class.equivalent?(input, output,
+                                             match_profile: :spec_friendly,
+                                             verbose: true)
+        expect(result.equivalent?).to be true
+        # No phantom differences — should have zero differences
+        expect(result.differences.size).to eq(0)
+      end
+
+      it "detects letter differences correctly (baseline)" do
+        input = <<~XML
+          <semx element="eref" source="_">
+             <fmt-xref type="inline" target="ISO712"><span class="stdpublisher">ISO</span>a<span class="stddocNumber">712</span>, Appendice 7</fmt-xref>
+          </semx>
+        XML
+        output = <<~XML
+          <semx element="eref" source="_">
+             <fmt-xref type="inline" target="ISO712"><span class="stdpublisher">ISO</span>b<span class="stddocNumber">712</span>, Appendice 7</fmt-xref>
+          </semx>
+        XML
+
+        result = described_class.equivalent?(input, output,
+                                             match_profile: :spec_friendly,
+                                             verbose: true)
+        expect(result.equivalent?).to be false
+        expect(result.differences.size).to eq(1)
+        # Reason must never contain raw Ruby object inspect output
+        result.differences.each do |diff|
+          expect(diff.reason).not_to match(/#<Canon::Xml::Nodes/)
+          expect(diff.reason).not_to match(/#<Canon::Diff/)
+        end
+      end
+    end
   end
 end

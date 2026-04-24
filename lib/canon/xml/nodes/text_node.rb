@@ -29,6 +29,10 @@ module Canon
         def node_type
           :text
         end
+
+        def text_content
+          @value
+        end
       end
     end
   end

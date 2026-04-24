@@ -183,7 +183,10 @@ strip_doctype: false)
         # Skip whitespace-only text nodes unless:
         # 1. preserve_whitespace is true, OR
         # 2. The content contains CR (from &#xD; entities) which must be preserved for C14N
-        if !@preserve_whitespace && decoded_string.strip.empty? && parent.node_type == :element && !decoded_string.include?("\r")
+        #
+        # Use \p{Space} to match all Unicode whitespace (including NBSP U+00A0)
+        # so that NBSP-only text nodes are stripped consistently with regular spaces.
+        if !@preserve_whitespace && decoded_string.gsub(/\p{Space}/, "").empty? && parent.node_type == :element && !decoded_string.include?("\r")
           # Only skip if parent is an element (not root)
           return
         end
