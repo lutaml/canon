@@ -223,9 +223,15 @@ Profile values: `strict`, `rendered`, `spec_friendly`, `content_only`
 |`match: { element_hierarchy: :strict }`
 |`config.canon.xml.match.options = { element_hierarchy: :strict }`
 |`CANON_ELEMENT_HIERARCHY=strict`
+
+|Whitespace Type
+|`--whitespace-type normalize`
+|`match: { whitespace_type: :normalize }`
+|`config.canon.xml.match.options = { whitespace_type: :normalize }`
+|`CANON_WHITESPACE_TYPE=normalize`
 |===
 
-Values: `strict`, `normalize`, `ignore` (or `strict`, `ignore` for structure/position/hierarchy)
+Values: `strict`, `normalize`, `ignore` (or `strict`, `ignore` for structure/position/hierarchy). `whitespace_type` values: `strict` (default), `normalize`
 
 ==== XML/HTML-Specific Match Dimensions
 

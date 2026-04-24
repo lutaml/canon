@@ -145,6 +145,9 @@ Individual dimension control (overrides profile settings):
 
 |`--comments BEHAVIOR`
 |Comments: `strict`, `normalize`, `ignore`
+
+|`--whitespace-type BEHAVIOR`
+|Whitespace type sensitivity: `strict` (default), `normalize`
 |===
 
 See link:../features/match-options/[Match Options] for details.

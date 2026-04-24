@@ -210,12 +210,23 @@ Canon::Comparison.equivalent?(doc1, doc2,
     structural_whitespace: :ignore,     # ignore, normalize, strict
     attribute_order: :ignore,           # ignore, strict (XML/HTML)
     attribute_values: :normalize,       # normalize, strict, ignore
-    comments: :ignore                   # ignore, normalize, strict
+    comments: :ignore,                  # ignore, normalize, strict
+    whitespace_type: :strict            # strict (default), normalize
   }
 )
 ----
 
 **Remember**: Match options behave differently with each algorithm! See link:../features/match-options/algorithm-specific-behavior.adoc[Algorithm-Specific Behavior].
+
+==== Whitespace Type Sensitivity
+
+By default, Canon distinguishes between different Unicode whitespace types
+(e.g. regular space U+0020 vs non-breaking space U+00A0 vs ideographic space
+U+3000). This catches accidental insertion of wrong whitespace characters.
+
+Use `whitespace_type: :normalize` when all Unicode whitespace variants should
+be treated as equivalent (e.g. when output from different tools may use
+different whitespace types for the same visual result).
 
 === Layer 4: Diff Formatting
 

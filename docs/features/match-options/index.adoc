@@ -92,6 +92,46 @@ Canon.equivalent?(
 `:ignore`:: Structural whitespace is completely ignored
 
 
+=== whitespace_type
+
+**Applies to**: XML, HTML
+
+**Purpose**: Controls whether different Unicode whitespace characters (space, NBSP, ideographic space, etc.) are treated as equivalent or distinct.
+
+**Behaviors**:
+
+`:strict`:: (default) Different Unicode whitespace types are significant.
+Space (U+0020) and NBSP (U+00A0) are treated as different characters.
+This is useful for catching accidental insertion of wrong whitespace types
+(e.g., a pasted NBSP where a regular space was intended).
+
+`:normalize`:: All Unicode whitespace characters are collapsed to a single space
+before comparison. Space, NBSP, ideographic space (U+3000), and other Unicode
+whitespace characters are treated as equivalent.
+
+.Using whitespace_type: :strict (default)
+[example]
+====
+[source,ruby]
+----
+# By default, space and NBSP are different
+xml1 = '<root><span>ISO</span> <span>712</span></root>'
+xml2 = '<root><span>ISO</span>&#xa0;<span>712</span></root>'
+
+Canon::Comparison.equivalent?(xml1, xml2,
+  match_profile: :spec_friendly
+)
+# => false (NBSP detected as different from space)
+
+# Opt into treating all whitespace types as equivalent
+Canon::Comparison.equivalent?(xml1, xml2,
+  match_profile: :spec_friendly,
+  match: { whitespace_type: :normalize }
+)
+# => true
+----
+====
+
 === Whitespace sensitivity at element level
 
 ==== General
