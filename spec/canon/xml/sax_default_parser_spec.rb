@@ -18,40 +18,40 @@ RSpec.describe "SAX parser as default" do
     end
 
     it "validates the value" do
-      expect {
+      expect do
         Canon::Config.instance.xml.diff.parser = :invalid
-      }.to raise_error(ArgumentError, /Invalid value/)
+      end.to raise_error(ArgumentError, /Invalid value/)
     end
   end
 
   describe "comparison results match" do
-    let(:xml1) { "<root><item>Hello</item></root>" }
-    let(:xml2) { "<root><item>World</item></root>" }
+    let(:xml_hello) { "<root><item>Hello</item></root>" }
+    let(:xml_world) { "<root><item>World</item></root>" }
 
     it "SAX and DOM produce equivalent? results" do
       Canon::Config.instance.xml.diff.parser = :sax
-      sax_result = Canon::Comparison.equivalent?(xml1, xml2)
+      sax_result = Canon::Comparison.equivalent?(xml_hello, xml_world)
 
       Canon::Config.instance.xml.diff.parser = :dom
-      dom_result = Canon::Comparison.equivalent?(xml1, xml2)
+      dom_result = Canon::Comparison.equivalent?(xml_hello, xml_world)
 
       expect(sax_result).to eq(dom_result)
     end
 
     it "SAX produces correct equivalence for identical documents" do
-      expect(Canon::Comparison.equivalent?(xml1, xml1)).to be true
+      expect(Canon::Comparison.equivalent?(xml_hello, xml_hello)).to be true
     end
 
     it "SAX produces correct non-equivalence for differing documents" do
-      expect(Canon::Comparison.equivalent?(xml1, xml2)).to be false
+      expect(Canon::Comparison.equivalent?(xml_hello, xml_world)).to be false
     end
 
     it "SAX produces same verbose differences as DOM" do
       Canon::Config.instance.xml.diff.parser = :sax
-      sax_result = Canon::Comparison.equivalent?(xml1, xml2, verbose: true)
+      sax_result = Canon::Comparison.equivalent?(xml_hello, xml_world, verbose: true)
 
       Canon::Config.instance.xml.diff.parser = :dom
-      dom_result = Canon::Comparison.equivalent?(xml1, xml2, verbose: true)
+      dom_result = Canon::Comparison.equivalent?(xml_hello, xml_world, verbose: true)
 
       expect(sax_result.equivalent?).to eq(dom_result.equivalent?)
       expect(sax_result.differences.size).to eq(dom_result.differences.size)

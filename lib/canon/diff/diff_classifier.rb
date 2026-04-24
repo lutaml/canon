@@ -170,8 +170,6 @@ module Canon
                  node.content
                elsif node.respond_to?(:value)
                  node.value
-               else
-                 nil
                end
         if text && Canon::Comparison::WhitespaceSensitivity.contains_nbsp?(text)
           return true

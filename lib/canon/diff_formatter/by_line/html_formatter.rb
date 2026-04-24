@@ -12,6 +12,7 @@ module Canon
       class HtmlFormatter < BaseFormatter
         attr_reader :html_version
 
+        # rubocop:disable Metrics/ParameterLists
         def initialize(use_color: true, context_lines: 3,
                        diff_grouping_lines: nil, visualization_map: nil,
                        html_version: :html4, show_diffs: :all, differences: [],
@@ -26,6 +27,7 @@ module Canon
                 character_visualization: character_visualization)
           @html_version = html_version
         end
+        # rubocop:enable Metrics/ParameterLists
 
         # Format DOM-guided HTML diff
         #

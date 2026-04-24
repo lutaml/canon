@@ -23,7 +23,7 @@ RSpec.describe "Normative diffs visible in by_line mode" do
         show_diffs: :normative,
       )
       output = formatter.format(result, :xml, doc1: xml_compact,
-                                               doc2: xml_expanded)
+                                              doc2: xml_expanded)
 
       # The output MUST contain the normative change markers
       expect(output).to include("-")
@@ -41,7 +41,7 @@ RSpec.describe "Normative diffs visible in by_line mode" do
         show_diffs: :all,
       )
       output = formatter.format(result, :xml, doc1: xml_compact,
-                                               doc2: xml_expanded)
+                                              doc2: xml_expanded)
 
       expect(output).to include("-")
       expect(output).to include("+")
@@ -65,7 +65,7 @@ RSpec.describe "Normative diffs visible in by_line mode" do
         show_diffs: :normative,
       )
       output = formatter.format(result, :xml, doc1: xml_compact,
-                                               doc2: xml_expanded)
+                                              doc2: xml_expanded)
 
       # No normative diffs should appear
       expect(output).not_to include("World")

@@ -236,6 +236,7 @@ module Canon
         # @return [Boolean] true if whitespace is between inline siblings
         def inline_whitespace_significant?(text_node)
           return false unless text_node.respond_to?(:parent)
+
           parent = text_node.parent
           return false unless parent
           return false unless parent.respond_to?(:children)
@@ -402,8 +403,6 @@ module Canon
             parent
           elsif parent.respond_to?(:node_type) && parent.node_type == :element
             parent
-          else
-            nil
           end
         end
 

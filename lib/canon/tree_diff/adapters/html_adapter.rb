@@ -306,8 +306,8 @@ module Canon
             child_tree = to_tree(child)
             next if child_tree.nil?
 
-            if child_tree.label == "text" && !whitespace_sensitive?(element_node)
-              next if formatting_whitespace?(child_tree.value)
+            if child_tree.label == "text" && !whitespace_sensitive?(element_node) && formatting_whitespace?(child_tree.value)
+              next
             end
 
             tree_node.add_child(child_tree)

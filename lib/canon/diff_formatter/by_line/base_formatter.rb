@@ -45,6 +45,7 @@ module Canon
           end
         end
 
+        # rubocop:disable Metrics/ParameterLists
         def initialize(use_color: true, context_lines: 3,
                        diff_grouping_lines: nil, visualization_map: nil,
                        show_diffs: :all, differences: [],
@@ -64,6 +65,7 @@ module Canon
           @theme = theme
           @character_visualization = character_visualization
         end
+        # rubocop:enable Metrics/ParameterLists
 
         # Get the resolved theme hash
         # @return [Hash] Theme hash

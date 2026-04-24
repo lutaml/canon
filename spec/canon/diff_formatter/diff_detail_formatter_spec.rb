@@ -564,7 +564,7 @@ RSpec.describe "DiffDetailFormatter helpers" do
         node2 = element_node("span", "ISO 712, ")
         diff = Canon::Diff::DiffNode.new(
           node1: node1, node2: node2,
-          dimension: :element_structure, reason: "element name differs",
+          dimension: :element_structure, reason: "element name differs"
         )
 
         detail1, detail2, changes = Canon::DiffFormatter::DiffDetailFormatterHelpers::DimensionFormatter.format_element_structure_details(diff, false)
@@ -581,7 +581,7 @@ RSpec.describe "DiffDetailFormatter helpers" do
         node2 = element_node("span", "text", attrs: { "class" => "new" })
         diff = Canon::Diff::DiffNode.new(
           node1: node1, node2: node2,
-          dimension: :element_structure, reason: "element name differs",
+          dimension: :element_structure, reason: "element name differs"
         )
 
         detail1, detail2, _changes = Canon::DiffFormatter::DiffDetailFormatterHelpers::DimensionFormatter.format_element_structure_details(diff, false)
@@ -597,7 +597,7 @@ RSpec.describe "DiffDetailFormatter helpers" do
         node2 = element_node("div", "new text")
         diff = Canon::Diff::DiffNode.new(
           node1: node1, node2: node2,
-          dimension: :element_structure, reason: "element structure mismatch",
+          dimension: :element_structure, reason: "element structure mismatch"
         )
 
         detail1, detail2, changes = Canon::DiffFormatter::DiffDetailFormatterHelpers::DimensionFormatter.format_element_structure_details(diff, false)
@@ -613,7 +613,7 @@ RSpec.describe "DiffDetailFormatter helpers" do
         node1 = element_node("removed", "content")
         diff = Canon::Diff::DiffNode.new(
           node1: node1, node2: nil,
-          dimension: :element_structure, reason: "element removed",
+          dimension: :element_structure, reason: "element removed"
         )
 
         detail1, detail2, changes = Canon::DiffFormatter::DiffDetailFormatterHelpers::DimensionFormatter.format_element_structure_details(diff, false)
@@ -630,7 +630,7 @@ RSpec.describe "DiffDetailFormatter helpers" do
         node2 = element_node("added", "content")
         diff = Canon::Diff::DiffNode.new(
           node1: nil, node2: node2,
-          dimension: :element_structure, reason: "element inserted",
+          dimension: :element_structure, reason: "element inserted"
         )
 
         detail1, detail2, changes = Canon::DiffFormatter::DiffDetailFormatterHelpers::DimensionFormatter.format_element_structure_details(diff, false)
@@ -648,7 +648,7 @@ RSpec.describe "DiffDetailFormatter helpers" do
         node2 = element_node("br")
         diff = Canon::Diff::DiffNode.new(
           node1: node1, node2: node2,
-          dimension: :element_structure, reason: "element name differs",
+          dimension: :element_structure, reason: "element name differs"
         )
 
         detail1, detail2, _changes = Canon::DiffFormatter::DiffDetailFormatterHelpers::DimensionFormatter.format_element_structure_details(diff, false)

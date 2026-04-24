@@ -45,6 +45,7 @@ module Canon
 
       def colorize(text, *colors)
         return text unless @use_color
+
         "\e[0m#{Paint[text, *colors]}"
       end
     end

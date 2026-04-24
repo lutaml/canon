@@ -13,8 +13,10 @@ module Canon
         # @param use_color [Boolean] Whether to use colors
         # @param compact [Boolean] Whether to serialize element nodes as compact XML
         # @return [String] Formatted dimension details
+        # rubocop:disable Lint/UnusedMethodArgument
         def self.format_dimension_details(diff, use_color, compact: false,
 expand_difference: false)
+          # rubocop:enable Lint/UnusedMethodArgument
           dimension = extract_dimension(diff)
 
           case dimension

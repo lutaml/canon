@@ -82,14 +82,14 @@ RSpec.describe "Canon::Comparison.summarize" do
     it "equivalent? still returns plain boolean" do
       xml = "<root><item>Hello</item></root>"
       result = Canon::Comparison.equivalent?(xml, xml)
-      expect(result).to eq(true)
+      expect(result).to be(true)
     end
 
     it "equivalent? returns false for differing docs" do
       xml1 = "<root><item>Hello</item></root>"
       xml2 = "<root><item>World</item></root>"
       result = Canon::Comparison.equivalent?(xml1, xml2)
-      expect(result).to eq(false)
+      expect(result).to be(false)
     end
 
     it "accepts same opts as equivalent?" do
