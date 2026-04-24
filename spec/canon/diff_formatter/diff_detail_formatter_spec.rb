@@ -567,7 +567,9 @@ RSpec.describe "DiffDetailFormatter helpers" do
           dimension: :element_structure, reason: "element name differs"
         )
 
-        detail1, detail2, changes = Canon::DiffFormatter::DiffDetailFormatterHelpers::DimensionFormatter.format_element_structure_details(diff, false)
+        detail1, detail2, changes = Canon::DiffFormatter::DiffDetailFormatterHelpers::DimensionFormatter.format_element_structure_details(
+          diff, false
+        )
 
         expect(detail1).to eq("<biblio-tag>ISO 712, </biblio-tag>")
         expect(detail2).to eq("<span>ISO 712, </span>")
@@ -584,7 +586,9 @@ RSpec.describe "DiffDetailFormatter helpers" do
           dimension: :element_structure, reason: "element name differs"
         )
 
-        detail1, detail2, _changes = Canon::DiffFormatter::DiffDetailFormatterHelpers::DimensionFormatter.format_element_structure_details(diff, false)
+        detail1, detail2, _changes = Canon::DiffFormatter::DiffDetailFormatterHelpers::DimensionFormatter.format_element_structure_details(
+          diff, false
+        )
 
         expect(detail1).to include("class=\"old\"")
         expect(detail2).to include("class=\"new\"")
@@ -600,7 +604,9 @@ RSpec.describe "DiffDetailFormatter helpers" do
           dimension: :element_structure, reason: "element structure mismatch"
         )
 
-        detail1, detail2, changes = Canon::DiffFormatter::DiffDetailFormatterHelpers::DimensionFormatter.format_element_structure_details(diff, false)
+        detail1, detail2, changes = Canon::DiffFormatter::DiffDetailFormatterHelpers::DimensionFormatter.format_element_structure_details(
+          diff, false
+        )
 
         expect(detail1).to eq("<div>old text</div>")
         expect(detail2).to eq("<div>new text</div>")
@@ -616,7 +622,9 @@ RSpec.describe "DiffDetailFormatter helpers" do
           dimension: :element_structure, reason: "element removed"
         )
 
-        detail1, detail2, changes = Canon::DiffFormatter::DiffDetailFormatterHelpers::DimensionFormatter.format_element_structure_details(diff, false)
+        detail1, detail2, changes = Canon::DiffFormatter::DiffDetailFormatterHelpers::DimensionFormatter.format_element_structure_details(
+          diff, false
+        )
 
         expect(detail1).to eq("<removed>content</removed>")
         expect(detail2).to eq("(not present)")
@@ -633,7 +641,9 @@ RSpec.describe "DiffDetailFormatter helpers" do
           dimension: :element_structure, reason: "element inserted"
         )
 
-        detail1, detail2, changes = Canon::DiffFormatter::DiffDetailFormatterHelpers::DimensionFormatter.format_element_structure_details(diff, false)
+        detail1, detail2, changes = Canon::DiffFormatter::DiffDetailFormatterHelpers::DimensionFormatter.format_element_structure_details(
+          diff, false
+        )
 
         expect(detail1).to eq("(not present)")
         expect(detail2).to eq("<added>content</added>")
@@ -651,7 +661,9 @@ RSpec.describe "DiffDetailFormatter helpers" do
           dimension: :element_structure, reason: "element name differs"
         )
 
-        detail1, detail2, _changes = Canon::DiffFormatter::DiffDetailFormatterHelpers::DimensionFormatter.format_element_structure_details(diff, false)
+        detail1, detail2, _changes = Canon::DiffFormatter::DiffDetailFormatterHelpers::DimensionFormatter.format_element_structure_details(
+          diff, false
+        )
 
         expect(detail1).to eq("<empty/>")
         expect(detail2).to eq("<br/>")
@@ -661,7 +673,8 @@ RSpec.describe "DiffDetailFormatter helpers" do
 
   # ── Issue #91: diff report readability for whitespace differences ──────────
 
-  describe Canon::DiffFormatter::DiffDetailFormatter, "Reason line formatting (Issue #91)" do
+  describe Canon::DiffFormatter::DiffDetailFormatter,
+           "Reason line formatting (Issue #91)" do
     def build_diff(reason:, text1: "a", text2: "b")
       n1 = Canon::Xml::Nodes::TextNode.new(value: text1)
       n2 = Canon::Xml::Nodes::TextNode.new(value: text2)
@@ -701,7 +714,8 @@ RSpec.describe "DiffDetailFormatter helpers" do
     end
   end
 
-  describe Canon::DiffFormatter::DiffDetailFormatter, "Expected/Actual layout (Issue #91)" do
+  describe Canon::DiffFormatter::DiffDetailFormatter,
+           "Expected/Actual layout (Issue #91)" do
     def build_diff(text1:, text2:)
       n1 = Canon::Xml::Nodes::TextNode.new(value: text1)
       n2 = Canon::Xml::Nodes::TextNode.new(value: text2)
@@ -739,7 +753,9 @@ RSpec.describe "DiffDetailFormatter helpers" do
     end
 
     context "when a value is 30+ chars" do
-      let(:long_text) { "this is a value that exceeds thirty characters easily" }
+      let(:long_text) do
+        "this is a value that exceeds thirty characters easily"
+      end
 
       it "renders values on separate indented lines" do
         diff = build_diff(text1: "short", text2: long_text)

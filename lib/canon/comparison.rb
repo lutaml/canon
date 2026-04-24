@@ -757,7 +757,6 @@ module Canon
 
         # If the serialization re-encoded characters as entities,
         # that's fine — the XML parser understands numeric refs like &#160;
-        
       end
 
       # Detect the format of an object (delegates to FormatDetector)

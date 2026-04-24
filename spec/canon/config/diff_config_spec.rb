@@ -674,9 +674,16 @@ RSpec.describe Canon::Config::DiffConfig do
   describe "enum validation" do
     describe ".validate_config_value!" do
       it "accepts valid mode values" do
-        expect { described_class.validate_config_value!(:mode, :by_line) }.not_to raise_error
-        expect { described_class.validate_config_value!(:mode, :by_object) }.not_to raise_error
-        expect { described_class.validate_config_value!(:mode, :pretty_diff) }.not_to raise_error
+        expect do
+          described_class.validate_config_value!(:mode, :by_line)
+        end.not_to raise_error
+        expect do
+          described_class.validate_config_value!(:mode, :by_object)
+        end.not_to raise_error
+        expect do
+          described_class.validate_config_value!(:mode,
+                                                 :pretty_diff)
+        end.not_to raise_error
       end
 
       it "rejects invalid mode values" do
@@ -685,9 +692,17 @@ RSpec.describe Canon::Config::DiffConfig do
       end
 
       it "accepts valid show_diffs values" do
-        expect { described_class.validate_config_value!(:show_diffs, :all) }.not_to raise_error
-        expect { described_class.validate_config_value!(:show_diffs, :normative) }.not_to raise_error
-        expect { described_class.validate_config_value!(:show_diffs, :informative) }.not_to raise_error
+        expect do
+          described_class.validate_config_value!(:show_diffs, :all)
+        end.not_to raise_error
+        expect do
+          described_class.validate_config_value!(:show_diffs,
+                                                 :normative)
+        end.not_to raise_error
+        expect do
+          described_class.validate_config_value!(:show_diffs,
+                                                 :informative)
+        end.not_to raise_error
       end
 
       it "rejects invalid show_diffs values" do
@@ -696,8 +711,13 @@ RSpec.describe Canon::Config::DiffConfig do
       end
 
       it "accepts valid algorithm values" do
-        expect { described_class.validate_config_value!(:algorithm, :dom) }.not_to raise_error
-        expect { described_class.validate_config_value!(:algorithm, :semantic) }.not_to raise_error
+        expect do
+          described_class.validate_config_value!(:algorithm, :dom)
+        end.not_to raise_error
+        expect do
+          described_class.validate_config_value!(:algorithm,
+                                                 :semantic)
+        end.not_to raise_error
       end
 
       it "rejects invalid algorithm values" do
@@ -707,7 +727,9 @@ RSpec.describe Canon::Config::DiffConfig do
 
       it "accepts valid theme values" do
         %i[light dark retro claude cyberpunk].each do |val|
-          expect { described_class.validate_config_value!(:theme, val) }.not_to raise_error
+          expect do
+            described_class.validate_config_value!(:theme, val)
+          end.not_to raise_error
         end
       end
 
@@ -717,41 +739,85 @@ RSpec.describe Canon::Config::DiffConfig do
       end
 
       it "accepts valid indent_type values" do
-        expect { described_class.validate_config_value!(:pretty_printer_indent_type, :space) }.not_to raise_error
-        expect { described_class.validate_config_value!(:pretty_printer_indent_type, :tab) }.not_to raise_error
+        expect do
+          described_class.validate_config_value!(:pretty_printer_indent_type,
+                                                 :space)
+        end.not_to raise_error
+        expect do
+          described_class.validate_config_value!(:pretty_printer_indent_type,
+                                                 :tab)
+        end.not_to raise_error
       end
 
       it "rejects invalid indent_type values" do
-        expect { described_class.validate_config_value!(:pretty_printer_indent_type, :foo) }
-          .to raise_error(ArgumentError, /Invalid value :foo for pretty_printer_indent_type/)
+        expect do
+          described_class.validate_config_value!(:pretty_printer_indent_type,
+                                                 :foo)
+        end
+          .to raise_error(ArgumentError,
+                          /Invalid value :foo for pretty_printer_indent_type/)
       end
 
       it "accepts valid character_visualization values" do
-        expect { described_class.validate_config_value!(:character_visualization, true) }.not_to raise_error
-        expect { described_class.validate_config_value!(:character_visualization, false) }.not_to raise_error
-        expect { described_class.validate_config_value!(:character_visualization, :content_only) }.not_to raise_error
+        expect do
+          described_class.validate_config_value!(:character_visualization,
+                                                 true)
+        end.not_to raise_error
+        expect do
+          described_class.validate_config_value!(:character_visualization,
+                                                 false)
+        end.not_to raise_error
+        expect do
+          described_class.validate_config_value!(:character_visualization,
+                                                 :content_only)
+        end.not_to raise_error
       end
 
       it "rejects invalid character_visualization values" do
-        expect { described_class.validate_config_value!(:character_visualization, :foo) }
-          .to raise_error(ArgumentError, /Invalid value :foo for character_visualization/)
+        expect do
+          described_class.validate_config_value!(:character_visualization, :foo)
+        end
+          .to raise_error(ArgumentError,
+                          /Invalid value :foo for character_visualization/)
       end
 
       it "accepts valid display_preprocessing values" do
-        expect { described_class.validate_config_value!(:display_preprocessing, :none) }.not_to raise_error
-        expect { described_class.validate_config_value!(:display_preprocessing, :pretty_print) }.not_to raise_error
-        expect { described_class.validate_config_value!(:display_preprocessing, :normalize_pretty_print) }.not_to raise_error
-        expect { described_class.validate_config_value!(:display_preprocessing, :c14n) }.not_to raise_error
+        expect do
+          described_class.validate_config_value!(:display_preprocessing,
+                                                 :none)
+        end.not_to raise_error
+        expect do
+          described_class.validate_config_value!(:display_preprocessing,
+                                                 :pretty_print)
+        end.not_to raise_error
+        expect do
+          described_class.validate_config_value!(:display_preprocessing,
+                                                 :normalize_pretty_print)
+        end.not_to raise_error
+        expect do
+          described_class.validate_config_value!(:display_preprocessing,
+                                                 :c14n)
+        end.not_to raise_error
       end
 
       it "accepts valid display_format values" do
-        expect { described_class.validate_config_value!(:display_format, :raw) }.not_to raise_error
-        expect { described_class.validate_config_value!(:display_format, :canonical) }.not_to raise_error
+        expect do
+          described_class.validate_config_value!(:display_format,
+                                                 :raw)
+        end.not_to raise_error
+        expect do
+          described_class.validate_config_value!(:display_format,
+                                                 :canonical)
+        end.not_to raise_error
       end
 
       it "rejects keys with no defined enum (no-op)" do
-        expect { described_class.validate_config_value!(:max_file_size, 99) }.not_to raise_error
-        expect { described_class.validate_config_value!(:context_lines, 5) }.not_to raise_error
+        expect do
+          described_class.validate_config_value!(:max_file_size, 99)
+        end.not_to raise_error
+        expect do
+          described_class.validate_config_value!(:context_lines, 5)
+        end.not_to raise_error
       end
     end
 
@@ -778,22 +844,26 @@ RSpec.describe Canon::Config::DiffConfig do
 
       it "pretty_printer.indent_type= raises on invalid value" do
         expect { config.pretty_printer.indent_type = :foo }
-          .to raise_error(ArgumentError, /Invalid value :foo for pretty_printer_indent_type/)
+          .to raise_error(ArgumentError,
+                          /Invalid value :foo for pretty_printer_indent_type/)
       end
 
       it "display_preprocessing= raises on invalid value" do
         expect { config.display_preprocessing = :foo }
-          .to raise_error(ArgumentError, /Invalid value :foo for display_preprocessing/)
+          .to raise_error(ArgumentError,
+                          /Invalid value :foo for display_preprocessing/)
       end
 
       it "display_format= raises on invalid value" do
         expect { config.display_format = :foo }
-          .to raise_error(ArgumentError, /Invalid value :foo for display_format/)
+          .to raise_error(ArgumentError,
+                          /Invalid value :foo for display_format/)
       end
 
       it "character_visualization= raises on invalid value" do
         expect { config.character_visualization = :foo }
-          .to raise_error(ArgumentError, /Invalid value :foo for character_visualization/)
+          .to raise_error(ArgumentError,
+                          /Invalid value :foo for character_visualization/)
       end
 
       it "apply_profile_data raises on invalid value" do
@@ -807,9 +877,13 @@ RSpec.describe Canon::Config::DiffConfig do
         expect { config.algorithm = :semantic }.not_to raise_error
         expect { config.theme = :dark }.not_to raise_error
         expect { config.pretty_printer.indent_type = :tab }.not_to raise_error
-        expect { config.display_preprocessing = :pretty_print }.not_to raise_error
+        expect do
+          config.display_preprocessing = :pretty_print
+        end.not_to raise_error
         expect { config.display_format = :canonical }.not_to raise_error
-        expect { config.character_visualization = :content_only }.not_to raise_error
+        expect do
+          config.character_visualization = :content_only
+        end.not_to raise_error
       end
     end
   end

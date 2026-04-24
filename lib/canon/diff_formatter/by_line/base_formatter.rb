@@ -661,7 +661,9 @@ module Canon
           visual = if @character_visualization == :content_only
                      visualize_content_only(token.to_s)
                    else
-                     token.to_s.chars.map { |char| @visualization_map.fetch(char, char) }.join
+                     token.to_s.chars.map do |char|
+                       @visualization_map.fetch(char, char)
+                     end.join
                    end
 
           if color && @use_color
@@ -705,7 +707,9 @@ module Canon
           if content.nil? || content.empty?
             indent
           else
-            indent + content.chars.map { |char| @visualization_map.fetch(char, char) }.join
+            indent + content.chars.map { |char|
+              @visualization_map.fetch(char, char)
+            }.join
           end
         end
 

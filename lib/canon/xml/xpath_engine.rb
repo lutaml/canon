@@ -167,7 +167,9 @@ module Canon
       end
 
       def position_predicate?(node, position)
-        siblings = node.parent&.children&.select { |n| n.is_a?(Nodes::ElementNode) && n.name == node.name } || []
+        siblings = node.parent&.children&.select do |n|
+          n.is_a?(Nodes::ElementNode) && n.name == node.name
+        end || []
         idx = siblings.index(node)
         idx && (idx + 1) == position
       end

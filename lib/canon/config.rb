@@ -300,7 +300,8 @@ module Canon
         show_diffs: %i[all normative informative],
         algorithm: %i[dom semantic],
         parser: %i[sax dom],
-        display_preprocessing: %i[none pretty_print normalize_pretty_print c14n],
+        display_preprocessing: %i[none pretty_print normalize_pretty_print
+                                  c14n],
         display_format: %i[raw canonical],
         pretty_printer_indent_type: %i[space tab],
         character_visualization: [true, false, :content_only],
