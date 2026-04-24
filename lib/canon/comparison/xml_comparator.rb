@@ -599,7 +599,13 @@ differences)
                         end
               return "element '#{node.name}'#{ns_info}: #{diff1} vs #{diff2}"
             elsif node.respond_to?(:name) && !node.respond_to?(:namespace_uri)
-              return "element missing: #{node}"
+              # TextNode and other nodes without namespace_uri
+              display = if node.respond_to?(:value) && node.node_type == :text
+                          "\"#{truncate_text(node.value)}\""
+                        else
+                          node.name.to_s
+                        end
+              return "element missing: #{display}"
             end
           end
 

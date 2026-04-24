@@ -21,6 +21,10 @@ module Canon
         def node_type
           :comment
         end
+
+        def text_content
+          @value
+        end
       end
     end
   end

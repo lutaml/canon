@@ -54,6 +54,10 @@ module Canon
         def node_info
           "name: #{name} namespace_uri: #{namespace_uri} prefix: #{prefix}"
         end
+
+        def to_s
+          "<#{qname}>"
+        end
       end
     end
   end

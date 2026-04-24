@@ -24,6 +24,13 @@ module Canon
         @in_node_set = value
       end
 
+      # Return the text content of this node and all descendants.
+      # ElementNode concatenates children's text_content; other nodes
+      # (TextNode, CommentNode, etc.) return their value.
+      def text_content
+        children.map(&:text_content).join
+      end
+
       protected
 
       attr_writer :parent
