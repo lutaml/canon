@@ -102,7 +102,8 @@ RSpec.describe Canon::Xml::C14n do
 
       it "includes comments when with_comments: true" do
         xml = "<root><a><!-- inner -->text</a></root>"
-        result = described_class.canonicalize_subset(xml, "//a", with_comments: true)
+        result = described_class.canonicalize_subset(xml, "//a",
+                                                     with_comments: true)
         expect(result).to include("<!-- inner -->")
       end
     end

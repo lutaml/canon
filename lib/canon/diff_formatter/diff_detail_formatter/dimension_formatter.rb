@@ -202,13 +202,15 @@ expand_difference: false)
             compact1 = NodeUtils.serialize_node_compact(node1)
             detail1 = ColorHelper.colorize(compact1, :red, use_color)
             detail2 = ColorHelper.colorize("(not present)", :green, use_color)
-            changes = "Element removed: #{ColorHelper.colorize(compact1, :red, use_color)}"
+            changes = "Element removed: #{ColorHelper.colorize(compact1, :red,
+                                                               use_color)}"
           else
             # Element added
             compact2 = NodeUtils.serialize_node_compact(node2)
             detail1 = ColorHelper.colorize("(not present)", :red, use_color)
             detail2 = ColorHelper.colorize(compact2, :green, use_color)
-            changes = "Element added: #{ColorHelper.colorize(compact2, :green, use_color)}"
+            changes = "Element added: #{ColorHelper.colorize(compact2, :green,
+                                                             use_color)}"
           end
 
           [detail1, detail2, changes]

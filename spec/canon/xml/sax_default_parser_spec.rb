@@ -48,10 +48,12 @@ RSpec.describe "SAX parser as default" do
 
     it "SAX produces same verbose differences as DOM" do
       Canon::Config.instance.xml.diff.parser = :sax
-      sax_result = Canon::Comparison.equivalent?(xml_hello, xml_world, verbose: true)
+      sax_result = Canon::Comparison.equivalent?(xml_hello, xml_world,
+                                                 verbose: true)
 
       Canon::Config.instance.xml.diff.parser = :dom
-      dom_result = Canon::Comparison.equivalent?(xml_hello, xml_world, verbose: true)
+      dom_result = Canon::Comparison.equivalent?(xml_hello, xml_world,
+                                                 verbose: true)
 
       expect(sax_result.equivalent?).to eq(dom_result.equivalent?)
       expect(sax_result.differences.size).to eq(dom_result.differences.size)

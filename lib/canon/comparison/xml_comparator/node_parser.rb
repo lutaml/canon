@@ -75,7 +75,8 @@ module Canon
         # @param preserve_whitespace [Boolean] Whether to preserve whitespace-only text nodes
         # @param parser [Symbol, nil] Parser backend override
         # @return [Canon::Xml::Node] Converted node
-        def self.convert_from_node(node, preserve_whitespace: false, parser: nil)
+        def self.convert_from_node(node, preserve_whitespace: false,
+parser: nil)
           # Convert to XML string then parse through selected backend
           xml_str = if node.respond_to?(:to_xml)
                       node.to_xml

@@ -30,10 +30,12 @@ RSpec.describe "Canon::DiffFormatter content_only character visualization" do
 
   describe "character_visualization: :content_only" do
     it "leaves structural indentation plain while visualizing content" do
-      result = Canon::Comparison.equivalent?(xml_with_space, xml_without_space, verbose: true)
+      result = Canon::Comparison.equivalent?(xml_with_space, xml_without_space,
+                                             verbose: true)
 
       formatter = build_formatter(:content_only)
-      output = formatter.format(result, :xml, doc1: xml_with_space, doc2: xml_without_space)
+      output = formatter.format(result, :xml, doc1: xml_with_space,
+                                              doc2: xml_without_space)
 
       lines = output.split("\n")
       content_lines = lines.select { |l| l.include?("Hello") }
@@ -42,10 +44,13 @@ RSpec.describe "Canon::DiffFormatter content_only character visualization" do
     end
 
     it "produces different output than character_visualization: true" do
-      result = Canon::Comparison.equivalent?(xml_with_space, xml_without_space, verbose: true)
+      result = Canon::Comparison.equivalent?(xml_with_space, xml_without_space,
+                                             verbose: true)
 
-      output_full = build_formatter(true).format(result, :xml, doc1: xml_with_space, doc2: xml_without_space)
-      output_content = build_formatter(:content_only).format(result, :xml, doc1: xml_with_space, doc2: xml_without_space)
+      output_full = build_formatter(true).format(result, :xml,
+                                                 doc1: xml_with_space, doc2: xml_without_space)
+      output_content = build_formatter(:content_only).format(result, :xml,
+                                                             doc1: xml_with_space, doc2: xml_without_space)
 
       # With full visualization, indentation spaces are visualized
       # With content_only, indentation should be plain spaces
@@ -55,13 +60,17 @@ RSpec.describe "Canon::DiffFormatter content_only character visualization" do
 
   describe "character_visualization: true (regression guard)" do
     it "visualizes whitespace everywhere including indentation" do
-      result = Canon::Comparison.equivalent?(xml_with_space, xml_without_space, verbose: true)
+      result = Canon::Comparison.equivalent?(xml_with_space, xml_without_space,
+                                             verbose: true)
 
       formatter = build_formatter(true)
-      output = formatter.format(result, :xml, doc1: xml_with_space, doc2: xml_without_space)
+      output = formatter.format(result, :xml, doc1: xml_with_space,
+                                              doc2: xml_without_space)
 
       lines = output.split("\n")
-      tag_lines = lines.select { |l| l.include?("<root>") || l.include?("<item>") }
+      tag_lines = lines.select do |l|
+        l.include?("<root>") || l.include?("<item>")
+      end
 
       expect(tag_lines.any? { |l| l.include?("░") }).to be true
     end
@@ -69,10 +78,12 @@ RSpec.describe "Canon::DiffFormatter content_only character visualization" do
 
   describe "character_visualization: false" do
     it "produces no visualization at all" do
-      result = Canon::Comparison.equivalent?(xml_with_space, xml_without_space, verbose: true)
+      result = Canon::Comparison.equivalent?(xml_with_space, xml_without_space,
+                                             verbose: true)
 
       formatter = build_formatter(false)
-      output = formatter.format(result, :xml, doc1: xml_with_space, doc2: xml_without_space)
+      output = formatter.format(result, :xml, doc1: xml_with_space,
+                                              doc2: xml_without_space)
 
       expect(output).not_to include("░")
       expect(output).not_to include("⇥")
