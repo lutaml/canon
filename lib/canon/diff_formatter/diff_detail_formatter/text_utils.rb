@@ -83,6 +83,33 @@ module Canon
           end.join
         end
 
+        # Whether two text values would be visually indistinguishable when
+        # rendered through the standard JSON-quoting path.
+        #
+        # Covers three cases that collapse to near-identical short strings
+        # like +""+ / +" "+ / +":"+ / +":"+:
+        #   * both sides empty
+        #   * both sides whitespace-only (possibly with different whitespace
+        #     that JSON.generate preserves verbatim but a reader cannot tell
+        #     apart from plain spaces)
+        #   * both sides equal (the comparator reported a diff based on
+        #     something the text-only extraction does not surface — e.g. a
+        #     sibling text node that exists on one side and not the other)
+        #
+        # Callers should fall back to rendering parent-element context
+        # instead.
+        #
+        # @param text1 [String, nil]
+        # @param text2 [String, nil]
+        # @return [Boolean]
+        def self.ambiguous_text_pair?(text1, text2)
+          blank_or_whitespace = ->(t) { t.nil? || t.empty? || t.match?(/\A\s+\z/) }
+          return true if blank_or_whitespace.call(text1) &&
+            blank_or_whitespace.call(text2)
+
+          text1 == text2
+        end
+
         # Check if text contains non-ASCII or non-printable characters
         #
         # @param text [String] Text to check
