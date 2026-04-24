@@ -104,11 +104,16 @@ module Canon
           # Create child_opts with resolved options
           child_opts = opts.merge(child_opts)
 
-          # Determine if we should preserve whitespace during parsing
-          # Preserve when structural_whitespace is :strict OR whitespace_type is :strict
-          # (so the comparator can detect different Unicode whitespace types)
-          preserve_whitespace = match_opts_hash[:structural_whitespace] == :strict ||
-            (match_opts_hash[:whitespace_type] || :strict) == :strict
+          # Determine if we should preserve whitespace during parsing.
+          # Only structural_whitespace: :strict forces whitespace-only text
+          # nodes to survive parsing.  whitespace_type is about distinguishing
+          # Unicode whitespace *types* in surviving text-node content, and
+          # does NOT require indent text nodes to be kept — libxml's NOBLANKS
+          # only strips pure-ASCII whitespace-only nodes, so NBSP-only nodes
+          # survive regardless.  Coupling whitespace_type: :strict to
+          # parsing-time preservation made pretty-printed fixtures produce
+          # spurious element-position diffs (issue #112).
+          preserve_whitespace = match_opts_hash[:structural_whitespace] == :strict
 
           # Parse nodes if they are strings, applying preprocessing if needed
           node1 = parse_node(n1, match_opts_hash[:preprocessing],
