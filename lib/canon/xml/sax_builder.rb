@@ -182,11 +182,16 @@ strip_doctype: false)
 
         # Skip whitespace-only text nodes unless:
         # 1. preserve_whitespace is true, OR
-        # 2. The content contains CR (from &#xD; entities) which must be preserved for C14N
+        # 2. The content contains CR (from &#xD; entities) which must be preserved for C14N, OR
+        # 3. The content contains non-ASCII whitespace (NBSP U+00A0, ideographic
+        #    space U+3000, etc.) — those are semantically meaningful content,
+        #    not pretty-print indentation, and must survive parsing so the
+        #    comparator can detect Unicode whitespace-type differences.
         #
-        # Use \p{Space} to match all Unicode whitespace (including NBSP U+00A0)
-        # so that NBSP-only text nodes are stripped consistently with regular spaces.
-        if !@preserve_whitespace && decoded_string.gsub(/\p{Space}/,
+        # Strip only when the node is pure ASCII whitespace (space, tab, CR, LF).
+        # This lets pretty-printed fixtures work (indent nodes stripped) while
+        # preserving NBSP-only text nodes.
+        if !@preserve_whitespace && decoded_string.gsub(/[ \t\r\n]/,
                                                         "").empty? && parent.node_type == :element && !decoded_string.include?("\r")
           # Only skip if parent is an element (not root)
           return
