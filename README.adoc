@@ -770,6 +770,15 @@ Each dimension can have one of three behaviors:
 * **`:normalize`**: Differences are normalized; only semantic changes are normative
 * **`:ignore`**: Differences are informative only (don't affect equivalence)
 
+In addition, the `whitespace_type` option controls how Unicode whitespace
+characters are compared:
+
+* **`whitespace_type: :strict`** (default): Different whitespace types (space,
+NBSP, ideographic space, etc.) are detected as differences — useful for catching
+accidental insertion of wrong whitespace.
+* **`whitespace_type: :normalize`**: All Unicode whitespace types are treated as
+equivalent.
+
 .Example: Whitespace handling
 [example]
 ====
