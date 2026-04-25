@@ -340,9 +340,24 @@ diff_children, differences)
       # @param node [Object] Node to check
       # @return [Boolean] true if node is a text node
       def self.text_node?(node)
-        (node.respond_to?(:text?) && node.text? &&
-          !node.respond_to?(:element?)) ||
-          (node.respond_to?(:node_type) && node.node_type == :text)
+        return false unless node
+
+        # Nokogiri text nodes (XML, HTML4, HTML5) — call element? rather
+        # than respond_to?(:element?), which always returns true for
+        # Nokogiri::XML::Node and made this predicate vacuously false
+        # for every Nokogiri text node. See issue #118.
+        if node.is_a?(Nokogiri::XML::Node)
+          return node.text? && !node.element?
+        end
+
+        # Canon::Xml::Nodes types and other ducktyped nodes.
+        if node.respond_to?(:text?) && node.text? &&
+            !node.respond_to?(:element?)
+          return true
+        end
+
+        # Symbol-style node_type (Canon's own node objects).
+        node.respond_to?(:node_type) && node.node_type == :text
       end
 
       # Extract text content from a node

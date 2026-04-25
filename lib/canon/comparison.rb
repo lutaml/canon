@@ -631,28 +631,26 @@ module Canon
             # parsers can mutate the DOM).
             opts[:_original_str1] = obj1.dup if obj1.is_a?(String)
             opts[:_original_str2] = obj2.dup if obj2.is_a?(String)
-            if opts[:format] == :html5
-              # HTML5 fragment parsing is safe — it normalizes without
-              # destructive content-model mutations.
-              obj1 = HtmlParser.parse(obj1, :html5) if obj1.is_a?(String)
-              obj2 = HtmlParser.parse(obj2, :html5) if obj2.is_a?(String)
-            else
-              # HTML4 fragment parsing mutates the DOM (strips <body>
-              # attributes, re-parents <h1> content, etc.).  Use XML
-              # fragment parsing which preserves structure faithfully.
-              # But XML parsing doesn't understand HTML entities (&nbsp;
-              # etc.), so decode them to numeric character references first.
-              if obj1.is_a?(String)
-                obj1 = Nokogiri::XML.fragment(
-                  decode_html_entities(strip_xml_preamble(obj1)),
-                )
-              end
-              if obj2.is_a?(String)
-                obj2 = Nokogiri::XML.fragment(
-                  decode_html_entities(strip_xml_preamble(obj2)),
-                )
-              end
-            end
+            # Parse all HTML formats (:html, :html4, :html5) with
+            # Nokogiri::HTML5 so that html4 and html5 share HTML's
+            # whitespace-sensitivity semantics (issue #118).
+            #
+            # The previous html/html4 branch used Nokogiri::XML.fragment
+            # to dodge Nokogiri::HTML4.fragment's destructive DOM
+            # mutations. That avoided one problem but introduced a
+            # bigger one: XML whitespace rules were being applied to
+            # HTML content. HTML's content model — identical between
+            # HTML4 and HTML5 — treats whitespace-only text between
+            # block-level children as insignificant; XML treats every
+            # whitespace text node as significant. Routing html4 input
+            # through an XML parser therefore made
+            # be_html4_equivalent_to reject inputs that
+            # be_html5_equivalent_to (correctly) accepts.
+            # Nokogiri::HTML5.fragment is non-destructive (the original
+            # HTML4.fragment concern does not apply to it) and applies
+            # HTML's content model uniformly.
+            obj1 = HtmlParser.parse(obj1, :html5) if obj1.is_a?(String)
+            obj2 = HtmlParser.parse(obj2, :html5) if obj2.is_a?(String)
           end
         else
           format1 = FormatDetector.detect(obj1)

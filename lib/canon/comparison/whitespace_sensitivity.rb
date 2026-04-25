@@ -245,14 +245,34 @@ module Canon
           idx = siblings.index(text_node)
           return false unless idx
 
-          prev_inline = siblings[0...idx].reverse_each.any? do |s|
-            inline_element?(s)
-          end
-          next_inline = siblings[(idx + 1)..].any? do |s|
-            inline_element?(s)
-          end
+          # Look at the IMMEDIATE non-whitespace-text neighbour on each
+          # side. Whitespace at a block boundary is collapsed per CSS,
+          # so both immediate neighbours must be inline for the
+          # whitespace to be significant. Walking all siblings (the
+          # earlier behaviour) misclassified whitespace at a block
+          # boundary as significant whenever any inline element existed
+          # elsewhere among the siblings.
+          prev_neighbour = nearest_non_whitespace_sibling(siblings, idx, -1)
+          next_neighbour = nearest_non_whitespace_sibling(siblings, idx,  1)
 
-          prev_inline && next_inline
+          inline_element?(prev_neighbour) && inline_element?(next_neighbour)
+        end
+
+        # Walk outward from +idx+ in +direction+ (+1 forward, -1 back),
+        # skipping whitespace-only text nodes, and return the first
+        # non-whitespace sibling found.  Returns nil if none.
+        def nearest_non_whitespace_sibling(siblings, idx, direction)
+          i = idx + direction
+          while i >= 0 && i < siblings.length
+            s = siblings[i]
+            unless s.respond_to?(:text?) && s.text? &&
+                s.respond_to?(:content) && s.content.to_s.strip.empty?
+              return s
+            end
+
+            i += direction
+          end
+          nil
         end
 
         # Check if text content contains a non-breaking space (U+00A0).
