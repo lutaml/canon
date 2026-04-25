@@ -228,8 +228,8 @@ RSpec.describe "Pretty-print roundtrip (issue #116)" do
       OUTPUT
     end
 
-    # putting on hold
-    xit "raw output is html4-equivalent to canon_013_pretty_print (hardcoded old style)" do
+    it "raw output is html4-equivalent to canon_013_pretty_print (hardcoded old style)",
+       skip: "on hold, there's a lot of fixing of Canon whitespace behaviour in progress, and I may or may not end up requiring it to be addressed" do
       expect(raw_output).to be_html4_equivalent_to(canon_013_pretty_print)
     end
 
