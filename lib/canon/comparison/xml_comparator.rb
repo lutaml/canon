@@ -251,8 +251,20 @@ module Canon
             serialize_node(node1).gsub("><", ">\n<"),
             serialize_node(node2).gsub("><", ">\n<"),
           ]
-          original1 = n1.is_a?(String) ? n1 : (n1.respond_to?(:to_xml) ? n1.to_xml : n1.to_s)
-          original2 = n2.is_a?(String) ? n2 : (n2.respond_to?(:to_xml) ? n2.to_xml : n2.to_s)
+          original1 = if n1.is_a?(String)
+                        n1
+                      elsif n1.respond_to?(:to_xml)
+                        n1.to_xml
+                      else
+                        n1.to_s
+                      end
+          original2 = if n2.is_a?(String)
+                        n2
+                      elsif n2.respond_to?(:to_xml)
+                        n2.to_xml
+                      else
+                        n2.to_s
+                      end
 
           ComparisonResult.new(
             differences: [],
