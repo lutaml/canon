@@ -44,6 +44,8 @@ Canon automatically detects HTML version:
 
 Detection is based on DOCTYPE or parsing mode.
 
+NOTE: Whitespace sensitivity does not differ between HTML4 and HTML5 — both apply HTML's content-model whitespace rules. `be_html4_equivalent_to` and `be_html5_equivalent_to` therefore agree on whether two inputs are whitespace-equivalent. Differences between the matchers are limited to genuine HTML4/HTML5 distinctions such as case sensitivity. Internally Canon parses both via `Nokogiri::HTML5` to share the content-model logic.
+
 === Whitespace Preservation
 
 Certain HTML elements require strict whitespace preservation regardless of the

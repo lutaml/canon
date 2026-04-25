@@ -19,7 +19,7 @@ Canon supports HTML 4, HTML5, and XHTML with automatic format detection.
 **Key features:**
 
 * Automatic HTML vs XHTML detection
-* HTML5 parser for modern HTML
+* HTML5 parser for HTML input regardless of declared version (HTML4 and HTML5 share the same content model and parsing whitespace rules — see <<html4-html5-parity>>)
 * XML parser for XHTML
 * Consistent attribute ordering
 * Whitespace normalization
@@ -203,9 +203,16 @@ Automatically detects HTML5, HTML4, or XHTML based on DOCTYPE and structure.
 ----
 ====
 
+[[html4-html5-parity]]
+=== HTML4 / HTML5 parity
+
+`be_html4_equivalent_to` and `be_html5_equivalent_to` apply the same whitespace-sensitivity rules. Whitespace sensitivity is a property of HTML's content model and is identical across the two HTML versions, so any input that compares equivalent under one matcher must compare equivalent under the other.
+
+Internally, both matchers parse input via `Nokogiri::HTML5.fragment`. (Earlier releases routed `:html` and `:html4` through `Nokogiri::XML.fragment`, which silently applied XML whitespace rules — meaning `be_html4_equivalent_to` could reject inputs that `be_html5_equivalent_to` correctly accepted.) See https://github.com/lutaml/canon/issues/118 for the full background.
+
 === Whitespace handling
 
-HTML whitespace is collapsed per CSS rendering rules. Empty text nodes between elements are removed.
+HTML whitespace is collapsed per CSS rendering rules. Empty text nodes between elements are removed. Whitespace-only text between two adjacent inline elements (`<span>A</span> <span>B</span>`) is preserved because it renders as a visible space; whitespace at a block boundary (between an inline element and a block element, or between two block siblings) is collapsed.
 
 .Whitespace handling example
 [example]

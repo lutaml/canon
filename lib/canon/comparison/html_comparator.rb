@@ -13,6 +13,7 @@ require_relative "../diff/diff_classifier"
 require_relative "strategies/match_strategy_factory"
 require_relative "../html/data_model"
 require_relative "xml_node_comparison"
+require_relative "xml_comparator/diff_node_builder"
 # Whitespace sensitivity module (single source of truth for sensitive elements)
 require_relative "whitespace_sensitivity"
 
@@ -172,10 +173,42 @@ module Canon
         # @param node2 [Object] Second node
         # @return [Boolean] true if both are document fragments
         def fragment_nodes?(node1, node2)
-          (node1.is_a?(Nokogiri::HTML4::DocumentFragment) ||
-           node1.is_a?(Nokogiri::XML::DocumentFragment)) &&
-            (node2.is_a?(Nokogiri::HTML4::DocumentFragment) ||
-             node2.is_a?(Nokogiri::XML::DocumentFragment))
+          fragment_node?(node1) && fragment_node?(node2)
+        end
+
+        # Check if a single node is a recognised document fragment.
+        # All three Nokogiri fragment types (XML, HTML4, HTML5) must be
+        # accepted: dom_diff routes html/html4/html5 input through
+        # Nokogiri::HTML5.fragment per #118.
+        def fragment_node?(node)
+          node.is_a?(Nokogiri::XML::DocumentFragment) ||
+            node.is_a?(Nokogiri::HTML4::DocumentFragment) ||
+            node.is_a?(Nokogiri::HTML5::DocumentFragment)
+        end
+
+        # Record a DiffNode for a fragment-level child-count mismatch.
+        # Each surplus child becomes its own MISSING_NODE diff so the
+        # downstream report shows what was added or removed.
+        def record_fragment_length_mismatch(_node1, _node2, children1,
+                                            children2, differences)
+          longer, shorter, side = if children1.length > children2.length
+                                    [children1, children2, :removed]
+                                  else
+                                    [children2, children1, :added]
+                                  end
+
+          longer[shorter.length...].each do |orphan|
+            n1 = side == :removed ? orphan : nil
+            n2 = side == :removed ? nil    : orphan
+            differences <<
+              Canon::Comparison::DiffNodeBuilder.build(
+                node1: n1,
+                node2: n2,
+                diff1: Comparison::MISSING_NODE,
+                diff2: Comparison::MISSING_NODE,
+                dimension: :element_structure,
+              )
+          end
         end
 
         # Compare children of document fragments
@@ -196,6 +229,13 @@ module Canon
           children2 = XmlNodeComparison.filter_children(all_children2, opts)
 
           if children1.length != children2.length
+            # Record the length mismatch as a DiffNode so verbose mode
+            # surfaces it. Without this, equivalent? wraps an empty
+            # differences array and incorrectly reports the inputs as
+            # equivalent.
+            record_fragment_length_mismatch(node1, node2,
+                                            children1, children2,
+                                            differences)
             return Comparison::UNEQUAL_ELEMENTS
           elsif children1.empty?
             return Comparison::EQUIVALENT
