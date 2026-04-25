@@ -63,6 +63,18 @@ module Canon
         # @return [Boolean, Array] true if equivalent, or array of diffs if
         #   verbose
         def equivalent?(n1, n2, opts = {}, child_opts = {})
+          # FAST PATH: Object identity - same object is always equivalent
+          # Skip when semantic_diff is requested (caller needs tree diff metadata)
+          if n1.equal?(n2) && !opts.dig(:match, :semantic_diff)
+            return build_trivial_equivalent_result(n1, n2, opts)
+          end
+
+          # FAST PATH: String content equality - identical strings are equivalent
+          # Skip in verbose mode since caller may need full metadata (e.g. tree_diff statistics)
+          if !opts[:verbose] && n1.is_a?(String) && n2.is_a?(String) && n1 == n2
+            return true
+          end
+
           opts = DEFAULT_OPTS.merge(opts)
 
           # Resolve match options with format-specific defaults
@@ -220,8 +232,43 @@ module Canon
                                                  preserve_whitespace: preserve_whitespace)
         end
 
+        # Build result for trivially equivalent inputs (same object or identical strings)
+        #
+        # Returns plain `true` in non-verbose mode, or a ComparisonResult in verbose mode.
+        #
+        # @param n1 [Object] First input
+        # @param n2 [Object] Second input
+        # @param opts [Hash] Raw options (before merge with DEFAULT_OPTS)
+        # @return [Boolean, ComparisonResult]
+        def build_trivial_equivalent_result(n1, n2, opts)
+          return true unless opts[:verbose]
+
+          # Parse nodes for verbose display
+          preserve_whitespace = true
+          node1 = parse_node(n1, :none, preserve_whitespace: preserve_whitespace)
+          node2 = parse_node(n2, :none, preserve_whitespace: preserve_whitespace)
+          preprocessed = [
+            serialize_node(node1).gsub("><", ">\n<"),
+            serialize_node(node2).gsub("><", ">\n<"),
+          ]
+          original1 = n1.is_a?(String) ? n1 : (n1.respond_to?(:to_xml) ? n1.to_xml : n1.to_s)
+          original2 = n2.is_a?(String) ? n2 : (n2.respond_to?(:to_xml) ? n2.to_xml : n2.to_s)
+
+          ComparisonResult.new(
+            differences: [],
+            preprocessed_strings: preprocessed,
+            original_strings: [original1, original2],
+            format: :xml,
+            match_options: {},
+            algorithm: :dom,
+          )
+        end
+
         # Main comparison dispatcher
         def compare_nodes(n1, n2, opts, child_opts, diff_children, differences)
+          # FAST PATH: Object identity - same object is always equivalent
+          return Comparison::EQUIVALENT if n1.equal?(n2)
+
           # Handle DocumentFragment nodes - compare their children instead
           if n1.is_a?(Nokogiri::XML::DocumentFragment) &&
               n2.is_a?(Nokogiri::XML::DocumentFragment)

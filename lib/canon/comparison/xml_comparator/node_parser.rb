@@ -77,7 +77,13 @@ module Canon
         # @return [Canon::Xml::Node] Converted node
         def self.convert_from_node(node, preserve_whitespace: false,
 parser: nil)
-          # Convert to XML string then parse through selected backend
+          # FAST PATH: Convert Nokogiri/Moxml nodes directly without string round-trip
+          if defined?(Nokogiri::XML::Node) && node.is_a?(Nokogiri::XML::Node)
+            return Canon::Xml::DataModel.build_from_nokogiri(node,
+preserve_whitespace: preserve_whitespace)
+          end
+
+          # SLOW PATH: Fallback to string serialization for unknown node types
           xml_str = if node.respond_to?(:to_xml)
                       node.to_xml
                     elsif node.respond_to?(:to_s)

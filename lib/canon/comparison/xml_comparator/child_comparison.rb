@@ -28,6 +28,9 @@ module Canon
           # @return [Integer] Comparison result code
           def compare(node1, node2, comparator, opts, child_opts,
 diff_children, differences)
+            # FAST PATH: Object identity - same object means equivalent children
+            return Comparison::EQUIVALENT if node1.equal?(node2)
+
             # Apply side-specific pretty-print heuristic when either flag is set:
             # pretty_printed_expected → drop \n-starting whitespace nodes from node1
             # pretty_printed_received → drop \n-starting whitespace nodes from node2
@@ -42,6 +45,9 @@ diff_children, differences)
 
             # Quick check: if both have no children, they're equivalent
             return Comparison::EQUIVALENT if children1.empty? && children2.empty?
+
+            # FAST PATH: Identical children arrays mean equivalent subtrees
+            return Comparison::EQUIVALENT if children1.equal?(children2)
 
             # Check if we can use ElementMatcher (requires Canon::Xml::DataModel nodes)
             if can_use_element_matcher?(children1, children2)

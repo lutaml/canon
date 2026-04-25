@@ -134,6 +134,9 @@ module Canon
 
       # Match children recursively
       def match_children(children1, children2, path)
+        # FAST PATH: Same array object means all children match
+        return if children1.equal?(children2)
+
         # Filter to only element nodes
         elems1 = children1.select { |n| n.node_type == :element }
         elems2 = children2.select { |n| n.node_type == :element }
