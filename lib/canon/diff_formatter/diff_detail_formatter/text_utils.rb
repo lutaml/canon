@@ -103,7 +103,9 @@ module Canon
         # @param text2 [String, nil]
         # @return [Boolean]
         def self.ambiguous_text_pair?(text1, text2)
-          blank_or_whitespace = ->(t) { t.nil? || t.empty? || t.match?(/\A\s+\z/) }
+          blank_or_whitespace = ->(t) {
+            t.nil? || t.empty? || t.match?(/\A\s+\z/)
+          }
           return true if blank_or_whitespace.call(text1) &&
             blank_or_whitespace.call(text2)
 

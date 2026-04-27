@@ -26,52 +26,52 @@ RSpec.describe "HTML4/HTML5 whitespace-sensitivity parity (#118)" do
   end
 
   describe "whitespace at block boundaries is collapsed" do
-    include_examples "agrees across html4 and html5",
-                     "whitespace between block divs",
-                     "<body><div>x</div><div>y</div></body>",
-                     "<body>\n  <div>x</div>\n  <div>y</div>\n</body>",
-                     true
+    it_behaves_like "agrees across html4 and html5",
+                    "whitespace between block divs",
+                    "<body><div>x</div><div>y</div></body>",
+                    "<body>\n  <div>x</div>\n  <div>y</div>\n</body>",
+                    true
 
-    include_examples "agrees across html4 and html5",
-                     "whitespace flanking inline <br> between block divs",
-                     "<body><div>x</div><br><div>y</div></body>",
-                     "<body>\n  <div>x</div>\n  <br/>\n  <div>y</div>\n</body>",
-                     true
+    it_behaves_like "agrees across html4 and html5",
+                    "whitespace flanking inline <br> between block divs",
+                    "<body><div>x</div><br><div>y</div></body>",
+                    "<body>\n  <div>x</div>\n  <br/>\n  <div>y</div>\n</body>",
+                    true
 
-    include_examples "agrees across html4 and html5",
-                     "whitespace around html→head/body",
-                     "<html><head></head><body><p>x</p></body></html>",
-                     "<html>\n  <head/>\n  <body><p>x</p></body>\n</html>",
-                     true
+    it_behaves_like "agrees across html4 and html5",
+                    "whitespace around html→head/body",
+                    "<html><head></head><body><p>x</p></body></html>",
+                    "<html>\n  <head/>\n  <body><p>x</p></body>\n</html>",
+                    true
   end
 
   describe "whitespace between adjacent inline siblings is significant" do
-    include_examples "agrees across html4 and html5",
-                     "space between two <span>s present vs absent",
-                     "<body><p><span>A</span><span>B</span></p></body>",
-                     "<body><p><span>A</span> <span>B</span></p></body>",
-                     false
+    it_behaves_like "agrees across html4 and html5",
+                    "space between two <span>s present vs absent",
+                    "<body><p><span>A</span><span>B</span></p></body>",
+                    "<body><p><span>A</span> <span>B</span></p></body>",
+                    false
   end
 
   describe "NBSP is never collapsed" do
-    include_examples "agrees across html4 and html5",
-                     "&nbsp; vs empty inside <p>",
-                     "<body><p>&nbsp;</p></body>",
-                     "<body><p></p></body>",
-                     false
+    it_behaves_like "agrees across html4 and html5",
+                    "&nbsp; vs empty inside <p>",
+                    "<body><p>&nbsp;</p></body>",
+                    "<body><p></p></body>",
+                    false
   end
 
   describe "real content differences are still detected" do
-    include_examples "agrees across html4 and html5",
-                     "different text content",
-                     "<body><p>hello</p></body>",
-                     "<body><p>world</p></body>",
-                     false
+    it_behaves_like "agrees across html4 and html5",
+                    "different text content",
+                    "<body><p>hello</p></body>",
+                    "<body><p>world</p></body>",
+                    false
 
-    include_examples "agrees across html4 and html5",
-                     "extra child element",
-                     "<body><div>x</div></body>",
-                     "<body><div>x</div><div>y</div></body>",
-                     false
+    it_behaves_like "agrees across html4 and html5",
+                    "extra child element",
+                    "<body><div>x</div></body>",
+                    "<body><div>x</div><div>y</div></body>",
+                    false
   end
 end

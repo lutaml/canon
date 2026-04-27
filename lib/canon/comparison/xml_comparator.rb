@@ -250,8 +250,10 @@ module Canon
 
           # Parse nodes for verbose display
           preserve_whitespace = true
-          node1 = parse_node(n1, :none, preserve_whitespace: preserve_whitespace)
-          node2 = parse_node(n2, :none, preserve_whitespace: preserve_whitespace)
+          node1 = parse_node(n1, :none,
+                             preserve_whitespace: preserve_whitespace)
+          node2 = parse_node(n2, :none,
+                             preserve_whitespace: preserve_whitespace)
           preprocessed = [
             serialize_node(node1).gsub("><", ">\n<"),
             serialize_node(node2).gsub("><", ">\n<"),
