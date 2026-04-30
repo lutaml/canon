@@ -294,6 +294,45 @@ RSpec.describe "DiffDetailFormatter helpers" do
         end
       end
 
+      context "with a Nokogiri XML element (issue #120)" do
+        it "renders tag, attributes, and children as compact XML" do
+          frag = Nokogiri::XML.fragment(
+            '<div class="extra"><p>2</p></div>',
+          )
+          element = frag.children.first
+          expect(nu.serialize_node_compact(element)).to \
+            eq('<div class="extra"><p>2</p></div>')
+        end
+
+        it "produces a self-closing tag for empty Nokogiri elements" do
+          frag = Nokogiri::XML.fragment("<br/>")
+          expect(nu.serialize_node_compact(frag.children.first)).to eq("<br/>")
+        end
+
+        it "escapes HTML entities in attribute values" do
+          frag = Nokogiri::XML.fragment('<a href="x&amp;y">link</a>')
+          expect(nu.serialize_node_compact(frag.children.first)).to \
+            eq('<a href="x&amp;y">link</a>')
+        end
+
+        it "escapes HTML entities in text children" do
+          frag = Nokogiri::XML.fragment("<p>1 &lt; 2</p>")
+          expect(nu.serialize_node_compact(frag.children.first)).to \
+            eq("<p>1 &lt; 2</p>")
+        end
+
+        it "renders Nokogiri text nodes as escaped text" do
+          text_node = Nokogiri::XML::Text.new("<>&", Nokogiri::XML::Document.new)
+          expect(nu.serialize_node_compact(text_node)).to eq("&lt;&gt;&amp;")
+        end
+
+        it "renders Nokogiri comments as <!--…-->" do
+          frag = Nokogiri::XML.fragment("<!-- hi -->")
+          comment = frag.children.first
+          expect(nu.serialize_node_compact(comment)).to eq("<!-- hi -->")
+        end
+      end
+
       context "with nil" do
         it "returns an empty string" do
           expect(nu.serialize_node_compact(nil)).to eq("")

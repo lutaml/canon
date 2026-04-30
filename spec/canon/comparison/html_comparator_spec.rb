@@ -406,5 +406,35 @@ RSpec.describe Canon::Comparison::HtmlComparator do
         expect(described_class.equivalent?(html1, html2)).to be true
       end
     end
+
+    context "fragment-level child-count mismatch (issue #120)" do
+      # When two HTML fragments have a different number of top-level
+      # children, the diff report must identify the orphan element by
+      # tag and attributes, not as raw concatenated text content.
+      it "reports the orphan element structurally in element_structure diffs" do
+        html1 = "<div><p>1</p></div>"
+        html2 = '<div><p>1</p></div><div class="extra"><p>2</p></div>'
+
+        result = Canon::Comparison.equivalent?(
+          html1, html2, format: :html4, verbose: true
+        )
+
+        structural = result.differences.grep(Canon::Diff::DiffNode).find do |d|
+          d.dimension == :element_structure
+        end
+        expect(structural).not_to be_nil
+
+        # Render the changes text via the same formatter the user sees.
+        require "canon/diff_formatter/diff_detail_formatter/dimension_formatter"
+        formatter =
+          Canon::DiffFormatter::DiffDetailFormatterHelpers::DimensionFormatter
+        _, _, changes = formatter.format_element_structure_details(
+          structural, false
+        )
+
+        expect(changes).to include('<div class="extra">')
+        expect(changes).to include("<p>2</p>")
+      end
+    end
   end
 end
