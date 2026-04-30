@@ -82,18 +82,35 @@ module Canon
 
         # Normalize HTML to ensure consistent parsing by HTML4.fragment
         #
-        # The key issue is that HTML4.fragment treats whitespace after </head>
-        # differently than no whitespace, causing inconsistent parsing:
-        # - "</head>\n<body>" parses to [body, ...] (body is treated as content)
-        # - "</head><body>" parses to [meta, div, ...] (wrapper tags stripped)
+        # Two normalizations are applied:
         #
-        # This method normalizes the HTML to ensure consistent parsing.
+        # 1. Strip a leading +<?xml …?>+ processing instruction. HTML5
+        #    fragment parsing treats such PIs as a "bogus comment" — they
+        #    become a Nokogiri::XML::Comment node at the head of the
+        #    fragment, which then counts as a top-level child and breaks
+        #    fragment-length comparison in HtmlComparator. The PI is not
+        #    legal HTML to begin with; mirror the DOCTYPE strip already
+        #    applied in HtmlComparator.parse_node. See lutaml/canon#122.
+        #
+        # 2. Collapse whitespace between +</head>+ and +<body>+. HTML4
+        #    fragment parsing treats +</head>\n<body>+ differently from
+        #    +</head><body>+, causing formatted and minified HTML to
+        #    parse to different fragment shapes. Normalizing makes the
+        #    two parse identically.
         #
         # @param content [String] HTML content
         # @return [String] Normalized HTML content
         def normalize_html_for_parsing(content)
-          # Remove whitespace between </head> and <body> to ensure consistent parsing
-          # This makes formatted and minified HTML parse the same way
+          # 1. Strip a leading <?xml …?> PI. Use index-based slicing
+          #    rather than a regex to avoid ReDoS, mirroring the
+          #    DOCTYPE strip in HtmlComparator.parse_node.
+          stripped = content.lstrip
+          if stripped.start_with?("<?xml")
+            pi_end = stripped.index("?>")
+            content = stripped[(pi_end + 2)..] if pi_end
+          end
+
+          # 2. Collapse whitespace between </head> and <body>.
           content.gsub(%r{</head>\s*<body>}i, "</head><body>")
         end
       end

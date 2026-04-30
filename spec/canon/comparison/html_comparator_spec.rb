@@ -407,6 +407,28 @@ RSpec.describe Canon::Comparison::HtmlComparator do
       end
     end
 
+    context "leading <?xml ?> processing instruction (issue #122)" do
+      let(:without_pi) do
+        "<html><body><div class=\"title\"/><br/><div class=\"main\"/></body></html>"
+      end
+      let(:with_pi) do
+        "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n#{without_pi}"
+      end
+
+      it "treats the PI as document overhead under :html4" do
+        expect(described_class.equivalent?(with_pi, without_pi)).to be true
+        expect(
+          Canon::Comparison.equivalent?(with_pi, without_pi, format: :html4),
+        ).to be true
+      end
+
+      it "treats the PI as document overhead under :html5" do
+        expect(
+          Canon::Comparison.equivalent?(with_pi, without_pi, format: :html5),
+        ).to be true
+      end
+    end
+
     context "fragment-level child-count mismatch (issue #120)" do
       # When two HTML fragments have a different number of top-level
       # children, the diff report must identify the orphan element by

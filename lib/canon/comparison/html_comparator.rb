@@ -472,6 +472,16 @@ module Canon
             node = node.strip
           end
 
+          # Strip a leading <?xml …?> processing instruction. Nokogiri::XML
+          # fragment parsing keeps the PI as a top-level node; HTML5
+          # fragment parsing converts it to a bogus comment. Either way it
+          # breaks fragment-length comparison and is not legal HTML to
+          # begin with. See lutaml/canon#122.
+          if node.start_with?("<?xml")
+            pi_end = node.index("?>")
+            node = node[(pi_end + 2)..].lstrip if pi_end
+          end
+
           # Apply preprocessing to HTML string before parsing
           html_string = case preprocessing
                         when :normalize

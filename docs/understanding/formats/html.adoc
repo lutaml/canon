@@ -210,6 +210,16 @@ Automatically detects HTML5, HTML4, or XHTML based on DOCTYPE and structure.
 
 Internally, both matchers parse input via `Nokogiri::HTML5.fragment`. (Earlier releases routed `:html` and `:html4` through `Nokogiri::XML.fragment`, which silently applied XML whitespace rules — meaning `be_html4_equivalent_to` could reject inputs that `be_html5_equivalent_to` correctly accepted.) See https://github.com/lutaml/canon/issues/118 for the full background.
 
+[[html-input-normalization]]
+=== Input normalization
+
+Before parsing, Canon strips two kinds of document-overhead syntax that would otherwise become spurious top-level nodes in the parsed fragment and cause false comparison mismatches:
+
+* `<!DOCTYPE …>` declarations (any case, any DTD) are removed. HTML version detection runs against the original input first, so detection is unaffected.
+* A leading `<?xml … ?>` processing instruction is removed. HTML5 fragment parsing treats such a PI as a "bogus comment" — it would otherwise survive as a `Nokogiri::XML::Comment` node at the head of the fragment, breaking fragment-level child-count comparison. This commonly occurs when one side of a comparison is HTML produced from an XML pipeline (for example a Nokogiri-serialized document that retains its XML declaration). See https://github.com/lutaml/canon/issues/122.
+
+Both rules apply only to syntax at the very start of the input — mid-document `<?xml ?>` PIs are left untouched.
+
 === Whitespace handling
 
 HTML whitespace is collapsed per CSS rendering rules. Empty text nodes between elements are removed. Whitespace-only text between two adjacent inline elements (`<span>A</span> <span>B</span>`) is preserved because it renders as a visible space; whitespace at a block boundary (between an inline element and a block element, or between two block siblings) is collapsed.
