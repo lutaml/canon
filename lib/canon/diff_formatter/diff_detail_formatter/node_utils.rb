@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "nokogiri"
 require_relative "../../xml/namespace_helper"
 
 module Canon
@@ -260,12 +261,15 @@ module Canon
           end
         end
 
-        # Serialize a Canon Xml node tree as compact XML for display.
+        # Serialize a node tree as compact XML for display.
         #
         # Produces a human-readable inline XML string without namespace
         # declarations and without indentation — suitable for use in Semantic
-        # Diff Report entries.  Only handles Canon::Xml::Nodes types; for any
-        # other node (Nokogiri, etc.) falls back to +get_node_text+.
+        # Diff Report entries.  Handles both +Canon::Xml::Nodes+ types and
+        # Nokogiri XML/HTML nodes (the html DOM comparison path uses
+        # Nokogiri nodes, so element-structure diffs originating there must
+        # be rendered structurally too — see issue #120).  For any other
+        # node type, falls back to +get_node_text+.
         #
         # @param node [Object] Node to serialize
         # @return [String] Compact XML string
@@ -294,8 +298,25 @@ module Canon
           when Canon::Xml::Nodes::CommentNode
             text = node.respond_to?(:value) ? node.value.to_s : ""
             "<!--#{CGI.escapeHTML(text)}-->"
+          when Nokogiri::XML::Text, Nokogiri::XML::CDATA
+            CGI.escapeHTML(node.content.to_s)
+          when Nokogiri::XML::Comment
+            "<!--#{CGI.escapeHTML(node.content.to_s)}-->"
+          when Nokogiri::XML::Element
+            tag = node.name.to_s
+            attrs = node.attribute_nodes.map do |a|
+              " #{a.name}=\"#{CGI.escapeHTML(a.value.to_s)}\""
+            end.join
+            children_xml = node.children.map do |c|
+              serialize_node_compact(c)
+            end.join
+            if children_xml.empty?
+              "<#{tag}#{attrs}/>"
+            else
+              "<#{tag}#{attrs}>#{children_xml}</#{tag}>"
+            end
           else
-            # Nokogiri nodes or other unknown types — fall back to text extraction
+            # Unknown node types — fall back to text extraction
             get_node_text(node)
           end
         end
