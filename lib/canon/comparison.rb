@@ -122,6 +122,56 @@ module Canon
     UNEQUAL_TYPES = 15
     UNEQUAL_PRIMITIVES = 16
 
+    # Human-readable labels for the integer comparison-result constants
+    # above.  Used by the diff reason builders so user-facing reason text
+    # never leaks raw numeric codes (e.g. "7 vs 7" — see lutaml/canon#127).
+    # String diff codes (e.g. "position 3" emitted by ChildComparison)
+    # pass through +code_label+ unchanged.
+    CODE_LABELS = {
+      EQUIVALENT => "equivalent",
+      MISSING_ATTRIBUTE => "missing attribute",
+      MISSING_NODE => "missing",
+      UNEQUAL_ATTRIBUTES => "attributes differ",
+      UNEQUAL_COMMENTS => "comments differ",
+      UNEQUAL_DOCUMENTS => "documents differ",
+      UNEQUAL_ELEMENTS => "elements differ",
+      UNEQUAL_NODES_TYPES => "node types differ",
+      UNEQUAL_TEXT_CONTENTS => "text content differs",
+      MISSING_HASH_KEY => "missing hash key",
+      UNEQUAL_HASH_VALUES => "hash values differ",
+      UNEQUAL_HASH_KEY_ORDER => "hash key order differs",
+      UNEQUAL_ARRAY_LENGTHS => "array lengths differ",
+      UNEQUAL_ARRAY_ELEMENTS => "array elements differ",
+      UNEQUAL_TYPES => "types differ",
+      UNEQUAL_PRIMITIVES => "primitives differ",
+    }.freeze
+
+    # Translate a comparison result code (Integer constant or String label
+    # like "position 3") into a human-readable reason fragment.  Unknown
+    # values pass through via +to_s+ as a defensive fallback.
+    #
+    # @param code [Integer, String] Comparison result code
+    # @return [String] Human-readable label
+    def self.code_label(code)
+      return code if code.is_a?(String)
+
+      CODE_LABELS[code] || code.to_s
+    end
+
+    # Build a "diff1 [vs diff2]" reason fragment that never leaks raw
+    # integer constants.  When both codes are equal, returns the single
+    # label (e.g. "elements differ") rather than "elements differ vs
+    # elements differ".  See lutaml/canon#127.
+    #
+    # @param diff1 [Integer, String] First diff code
+    # @param diff2 [Integer, String] Second diff code
+    # @return [String] Reason fragment
+    def self.code_pair_label(diff1, diff2)
+      return code_label(diff1) if diff1 == diff2
+
+      "#{code_label(diff1)} vs #{code_label(diff2)}"
+    end
+
     class << self
       # Auto-detect format and compare two objects
       #

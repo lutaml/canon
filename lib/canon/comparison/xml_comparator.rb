@@ -709,8 +709,16 @@ differences)
 
           if diff1 == Canon::Comparison::MISSING_NODE && diff2 == Canon::Comparison::MISSING_NODE
             "element structure mismatch (children differ)"
+          elsif dimension == :element_structure &&
+              diff1 == Canon::Comparison::UNEQUAL_ELEMENTS &&
+              diff2 == Canon::Comparison::UNEQUAL_ELEMENTS &&
+              node1.respond_to?(:name) && node2.respond_to?(:name) &&
+              node1.name && node2.name && node1.name != node2.name
+            # Most common case: differing element names.  Surface the
+            # actual names rather than a generic "elements differ".
+            "different element name (<#{node1.name}> vs <#{node2.name}>)"
           else
-            "#{diff1} vs #{diff2}"
+            Canon::Comparison.code_pair_label(diff1, diff2)
           end
         end
 

@@ -805,4 +805,52 @@ RSpec.describe Canon::Comparison do
       end
     end
   end
+
+  describe ".code_label (issue #127)" do
+    it "maps integer constants to human-readable labels" do
+      expect(described_class.code_label(described_class::UNEQUAL_ELEMENTS))
+        .to eq("elements differ")
+      expect(described_class.code_label(described_class::MISSING_NODE))
+        .to eq("missing")
+      expect(described_class.code_label(described_class::UNEQUAL_NODES_TYPES))
+        .to eq("node types differ")
+    end
+
+    it "passes string codes through unchanged" do
+      expect(described_class.code_label("position 3")).to eq("position 3")
+    end
+
+    it "falls back to to_s for unknown codes" do
+      expect(described_class.code_label(:unknown_symbol))
+        .to eq("unknown_symbol")
+      expect(described_class.code_label(99_999)).to eq("99999")
+    end
+  end
+
+  describe ".code_pair_label (issue #127)" do
+    it "returns a single label when both codes are equal" do
+      label = described_class.code_pair_label(
+        described_class::UNEQUAL_ELEMENTS,
+        described_class::UNEQUAL_ELEMENTS,
+      )
+      expect(label).to eq("elements differ")
+    end
+
+    it "joins with ' vs ' when codes differ" do
+      label = described_class.code_pair_label(
+        described_class::UNEQUAL_ELEMENTS,
+        described_class::UNEQUAL_NODES_TYPES,
+      )
+      expect(label).to eq("elements differ vs node types differ")
+    end
+
+    it "never leaks raw integer constants" do
+      label = described_class.code_pair_label(
+        described_class::UNEQUAL_ELEMENTS,
+        described_class::UNEQUAL_ELEMENTS,
+      )
+      expect(label).not_to match(/\A\d+ vs \d+\z/)
+      expect(label).not_to match(/\A\d+\z/)
+    end
+  end
 end
