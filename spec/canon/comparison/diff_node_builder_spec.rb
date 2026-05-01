@@ -90,5 +90,65 @@ RSpec.describe Canon::Comparison::DiffNodeBuilder do
         expect(reason).to include("different values: class")
       end
     end
+
+    # Issue #127: previously this fallback rendered the raw integer
+    # constant value (e.g. "7 vs 7" for UNEQUAL_ELEMENTS) into the user-
+    # facing reason text.  After the fix it routes through
+    # Canon::Comparison.code_pair_label and produces a human-readable
+    # label, with a more specific "different element name" reason when
+    # the dimension is :element_structure and both nodes carry differing
+    # tag names.
+    describe "default fallback (issue #127)" do
+      it "uses 'different element name (<a> vs <b>)' for differing element names" do
+        doc1 = Nokogiri::XML("<i>x</i>").children.first
+        doc2 = Nokogiri::XML("<br/>").children.first
+
+        reason = described_class.build_reason(
+          doc1, doc2,
+          Canon::Comparison::UNEQUAL_ELEMENTS,
+          Canon::Comparison::UNEQUAL_ELEMENTS,
+          :element_structure
+        )
+
+        expect(reason).to eq("different element name (<i> vs <br>)")
+        expect(reason).not_to match(/\A\d+ vs \d+\z/)
+      end
+
+      it "uses the human-readable label when both codes are equal" do
+        node = Nokogiri::XML("<x/>").children.first
+
+        reason = described_class.build_reason(
+          node, node,
+          Canon::Comparison::UNEQUAL_NODES_TYPES,
+          Canon::Comparison::UNEQUAL_NODES_TYPES,
+          :element_position
+        )
+
+        expect(reason).to eq("node types differ")
+      end
+
+      it "joins differing labels with ' vs '" do
+        node = Nokogiri::XML("<x/>").children.first
+
+        reason = described_class.build_reason(
+          node, node,
+          Canon::Comparison::UNEQUAL_ELEMENTS,
+          Canon::Comparison::UNEQUAL_NODES_TYPES,
+          :element_position
+        )
+
+        expect(reason).to eq("elements differ vs node types differ")
+      end
+
+      it "passes through string diff codes unchanged (e.g. 'position 3')" do
+        node = Nokogiri::XML("<x/>").children.first
+
+        reason = described_class.build_reason(
+          node, node, "position 3", "position 5", :element_position
+        )
+
+        expect(reason).to eq("position 3 vs position 5")
+      end
+    end
   end
 end

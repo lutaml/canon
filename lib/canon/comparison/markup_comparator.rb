@@ -328,7 +328,7 @@ module Canon
           if diff1 == Canon::Comparison::MISSING_NODE && diff2 == Canon::Comparison::MISSING_NODE
             "element structure mismatch (children differ)"
           else
-            "#{diff1} vs #{diff2}"
+            Canon::Comparison.code_pair_label(diff1, diff2)
           end
         end
 
