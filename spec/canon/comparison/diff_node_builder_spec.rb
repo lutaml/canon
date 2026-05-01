@@ -149,6 +149,28 @@ RSpec.describe Canon::Comparison::DiffNodeBuilder do
 
         expect(reason).to eq("position 3 vs position 5")
       end
+
+      # PR #126's first cut covered the *fallback* line at the end of
+      # build_reason but missed the namespace-prefixed early return at
+      # build_reason line ~62, which interpolated the same raw codes.
+      # This regression guard locks the early-return path too.
+      # Canon::Xml::Nodes::ElementNode (not Nokogiri::XML::Element) is
+      # used because the early-return only fires for nodes that respond
+      # to namespace_uri, which Canon nodes do but Nokogiri elements
+      # do not.
+      it "uses code_pair_label in the namespace-prefixed text_content branch" do
+        node = Canon::Xml::Nodes::ElementNode.new(name: "body")
+
+        reason = described_class.build_reason(
+          node, nil,
+          Canon::Comparison::MISSING_NODE,
+          Canon::Comparison::MISSING_NODE,
+          :text_content
+        )
+
+        expect(reason).to eq("element 'body': missing")
+        expect(reason).not_to match(/\d+ vs \d+/)
+      end
     end
   end
 end
