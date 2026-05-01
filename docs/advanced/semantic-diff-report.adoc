@@ -14,6 +14,39 @@ The Semantic Diff Report provides dimension-specific, actionable details for eac
 
 The report is automatically shown in verbose mode when differences exist, appearing before the detailed diff output.
 
+== Parse errors
+
+When Canon's underlying parser (libxml for XML, HTML5 for HTML) reports errors during input parsing, Canon surfaces them at the top of the diff report in a banner section before any per-difference output. The banner names the offending side and warns that the diff below describes the parsed tree, not the input — content the parser could not represent has been silently dropped from the comparison tree.
+
+This is purely a transparency feature: Canon does not modify the parse to "fix" invalid input. The user is responsible for deciding whether the parse failure was expected (e.g. testing legacy fixtures during a migration) or symptomatic of an upstream bug.
+
+.Example: Banner for a duplicate-attribute FATAL on the received side
+[example]
+====
+[source]
+----
+======================================================================
+  ⚠️  PARSE ERRORS
+======================================================================
+  Received side:
+    Attribute xml:lang redefined
+
+  ⚠️  The diff below describes the parsed tree, not the input.
+      Content that the parser could not represent has been
+      dropped and may appear as "missing" in the report.
+======================================================================
+----
+====
+
+Common triggers in HTML / XHTML round-trips:
+
+* Duplicate attributes (XML strict; HTML5 permissive — only XML mode triggers a banner)
+* Stray processing instructions in fragment context
+* Malformed namespace declarations
+* DOCTYPE in unexpected positions
+
+The banner is rendered when `Canon::Comparison::ComparisonResult#parse_errors?` is true. Programmatic callers can read `parse_errors_expected` and `parse_errors_received` directly off the result.
+
 == Key Features
 
 * XPath locations for XML/HTML elements

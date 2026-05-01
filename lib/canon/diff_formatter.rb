@@ -392,6 +392,18 @@ module Canon
         output << "" # Blank line for spacing
       end
 
+      # Parse-error banner.  When libxml flagged any errors during
+      # parsing, surface them at the top of the report so the user
+      # is not left chasing diffs that describe a partial tree.
+      # See lutaml/canon#130.
+      if comparison_result.is_a?(Canon::Comparison::ComparisonResult) &&
+          comparison_result.parse_errors?
+        output << format_parse_error_banner(
+          comparison_result.parse_errors_expected,
+          comparison_result.parse_errors_received,
+        )
+      end
+
       # 1. CANON VERBOSE tables (ONLY if CANON_VERBOSE=1)
       verbose_tables = DebugOutput.verbose_tables_only(
         comparison_result,
@@ -506,6 +518,53 @@ module Canon
     end
 
     private
+
+    # Render the parse-error banner that appears at the top of the
+    # diff report when libxml flagged any errors during parsing.
+    # Names the offending side(s) and warns that the diff below
+    # describes the parsed tree, not the input.  See lutaml/canon#130.
+    #
+    # @param errors_expected [Array<String>] Errors from the expected side
+    # @param errors_received [Array<String>] Errors from the received side
+    # @return [String] Multi-line banner
+    def format_parse_error_banner(errors_expected, errors_received)
+      lines = []
+      rule = "=" * 70
+      lines << colorize(rule, :yellow, :bold)
+      lines << colorize("  ⚠️  PARSE ERRORS", :yellow, :bold)
+      lines << colorize(rule, :yellow, :bold)
+
+      if errors_expected.any?
+        lines << colorize("  Expected side:", :yellow, :bold)
+        errors_expected.each do |err|
+          lines << "    #{colorize(err, :red)}"
+        end
+      end
+
+      if errors_received.any?
+        lines << colorize("  Received side:", :yellow, :bold)
+        errors_received.each do |err|
+          lines << "    #{colorize(err, :red)}"
+        end
+      end
+
+      lines << ""
+      lines << colorize(
+        "  ⚠️  The diff below describes the parsed tree, not the input.",
+        :yellow,
+      )
+      lines << colorize(
+        "      Content that the parser could not represent has been",
+        :yellow,
+      )
+      lines << colorize(
+        "      dropped and may appear as \"missing\" in the report.",
+        :yellow,
+      )
+      lines << colorize(rule, :yellow, :bold)
+      lines << ""
+      lines.join("\n")
+    end
 
     # Normalize content for display in diffs
     #

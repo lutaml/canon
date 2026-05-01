@@ -93,6 +93,23 @@ strip_doctype: false)
         # Track in-scope namespaces at each level
         # Each entry is a hash of prefix => uri
         @namespace_stack = [build_initial_namespaces]
+        # Captured libxml errors during SAX parsing.  Surfaced on the
+        # resulting RootNode so the diff report can warn the user
+        # when a FATAL parse error has caused content loss
+        # (see lutaml/canon#130).
+        @parse_errors = []
+      end
+
+      # SAX callbacks for libxml errors and warnings.  Without these
+      # overrides the default handlers swallow the events; with them,
+      # libxml's "Attribute xml:lang redefined" and similar messages
+      # land in @parse_errors and ride through to ComparisonResult.
+      def error(string)
+        @parse_errors << string.to_s.strip
+      end
+
+      def warning(string)
+        @parse_errors << string.to_s.strip
       end
 
       # Called when an element starts
@@ -229,6 +246,7 @@ strip_doctype: false)
         # followed by PIs and comments outside the document element
         # (C14N requires this ordering)
         reorder_children(@root)
+        @root.parse_errors = @parse_errors if @parse_errors.any?
         @root
       end
 
