@@ -119,6 +119,86 @@ Location:   /html/body/div[@id="main"]
 ----
 ====
 
+=== Element Structure
+
+Shows when an element has been added, removed, or has a different name or
+child structure.  Nokogiri nodes and Canon nodes are both rendered as
+compact XML (issue #120), with attributes preserved and self-closing
+form for empty elements.
+
+.Example: Element name differs
+[example]
+====
+[source]
+----
+🔍 DIFFERENCE #1/1 [NORMATIVE]
+──────────────────────────────────────────────────────────────────────
+Dimension: element_structure
+Reason:  different element name (<i> vs <br>)
+
+⊖ Expected (File 1):
+   <i>Subject: non-user</i>
+⊕ Actual (File 2):
+   <br/>
+
+✨ Changes:
+   Element structure changed: <i>Subject: non-user</i> → <br/>
+----
+====
+
+The `Reason:` text uses short human-readable labels, never raw integer
+comparison codes (issue #127).  Recognised labels include:
+
+* `elements differ` (`Comparison::UNEQUAL_ELEMENTS`)
+* `node types differ` (`Comparison::UNEQUAL_NODES_TYPES`)
+* `missing` (`Comparison::MISSING_NODE`)
+* `attributes differ`, `comments differ`, `text content differs`, etc.
+
+For the most common offender — both sides being `UNEQUAL_ELEMENTS` with
+differing element names — the reason is replaced with the more specific
+`different element name (<a> vs <b>)`.
+
+==== Inserted or removed elements
+
+When one side has an element that the other side does not, the missing
+side renders as `(not present)`:
+
+[source]
+----
+🔍 DIFFERENCE #1/1 [NORMATIVE]
+──────────────────────────────────────────────────────────────────────
+Dimension: element_structure
+Reason:  missing
+
+⊖ Expected (File 1):
+   <removed>content</removed>
+⊕ Actual (File 2):
+   (not present)
+
+✨ Changes:
+   Element removed: <removed>content</removed>
+----
+
+==== Fragment-level child-count mismatches
+
+When two HTML fragments differ by one or more top-level children, Canon
+identifies the orphan region by walking aligned prefix and suffix from
+both ends of the child lists and treating the gap as the orphan set
+(issue #128).  This points the report at the *actual* offending element
+even when it sits at the head or middle of the document — the previous
+behaviour always blamed the tail of the longer side, which produced
+diffs remote from the real cause.
+
+[NOTE]
+====
+A common trigger is a leading `<?xml ?>` processing instruction in HTML
+input: `Nokogiri::HTML5.fragment` parses the PI as a bogus comment node
+which becomes a top-level fragment child.  Canon does not strip this
+input (see closed PR #124 for the maintainer's rationale), but the
+orphan-locator now identifies the bogus comment correctly rather than
+blaming an unrelated tail element.
+====
+
 === Text Content
 
 Shows when element text differs.

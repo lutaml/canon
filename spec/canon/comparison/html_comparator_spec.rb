@@ -481,5 +481,70 @@ RSpec.describe Canon::Comparison::HtmlComparator do
         expect(changes).not_to include("</div>")
       end
     end
+
+    context "fragment orphan position (issue #128)" do
+      # When fragments differ by one extra top-level child, the orphan
+      # locator must identify the actual offending element by walking
+      # aligned prefix and suffix from both ends of the child lists.
+      # The previous behaviour always blamed the *tail* of the longer
+      # side, which produced misleading diffs whenever the real
+      # disruption sat at the head or middle of the document.
+      def fetch_structural_diffs(left, right)
+        result = Canon::Comparison.equivalent?(left, right, format: :html5,
+                                                            verbose: true)
+        result.differences.grep(Canon::Diff::DiffNode).select do |d|
+          d.dimension == :element_structure
+        end
+      end
+
+      it "reports the head element when the extra is at the head" do
+        without_meta = <<~HTML
+          <html>
+            <head><style></style></head>
+            <body>
+              <div class="WordSection2">A</div>
+              <p><br clear="all" class="section"/></p>
+              <div class="WordSection3"><aside id="ftn1"><p>X</p></aside></div>
+            </body>
+          </html>
+        HTML
+        with_meta = without_meta.sub(
+          "<head><style></style></head>",
+          %(<head><meta http-equiv="Content-Type" ) +
+            %(content="text/html; charset=UTF-8"/><style></style></head>),
+        )
+
+        diffs = fetch_structural_diffs(without_meta, with_meta)
+        expect(diffs).not_to be_empty
+
+        orphan_node = diffs.first.node1 || diffs.first.node2
+        expect(orphan_node.respond_to?(:name) && orphan_node.name)
+          .to eq("meta")
+      end
+
+      it "reports the middle element when the extra is at the middle" do
+        left  = "<div>A</div><p>B</p><span>D</span>"
+        right = "<div>A</div><p>B</p><section>C</section><span>D</span>"
+
+        diffs = fetch_structural_diffs(left, right)
+        expect(diffs).not_to be_empty
+
+        orphan_node = diffs.first.node1 || diffs.first.node2
+        expect(orphan_node.name).to eq("section")
+      end
+
+      it "still reports the tail element when the extra is at the tail" do
+        # Regression guard for the previous behaviour, which is correct
+        # for tail-only insertions and must keep working.
+        left  = "<div>A</div><p>B</p>"
+        right = "<div>A</div><p>B</p><span>C</span>"
+
+        diffs = fetch_structural_diffs(left, right)
+        expect(diffs).not_to be_empty
+
+        orphan_node = diffs.first.node1 || diffs.first.node2
+        expect(orphan_node.name).to eq("span")
+      end
+    end
   end
 end
