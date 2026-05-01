@@ -245,6 +245,41 @@ RSpec.describe Canon::Comparison::YamlComparator do
       end
     end
 
+    context "with leading/trailing whitespace" do
+      it "handles YAML with leading whitespace before document start" do
+        yaml1 = " ---\nkey: value\n"
+        yaml2 = "---\nkey: value\n"
+
+        expect(described_class.equivalent?(yaml1, yaml2)).to be true
+      end
+
+      it "handles YAML with trailing whitespace" do
+        yaml1 = "key: value\n  "
+        yaml2 = "key: value"
+
+        expect(described_class.equivalent?(yaml1, yaml2)).to be true
+      end
+
+      it "handles heredoc-style YAML with inconsistent indentation" do
+        yaml1 = <<~YAML
+           ---
+          key: value
+          list:
+          - item1
+          - item2
+        YAML
+        yaml2 = <<~YAML
+          ---
+          key: value
+          list:
+          - item1
+          - item2
+        YAML
+
+        expect(described_class.equivalent?(yaml1, yaml2)).to be true
+      end
+    end
+
     context "with Ruby objects" do
       it "handles pre-parsed Ruby hashes" do
         obj1 = { "key" => "value" }
