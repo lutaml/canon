@@ -931,9 +931,13 @@ module Canon
 
       if %i[html html4 html5].include?(format)
         require "canon/pretty_printer/html"
+        # Fixture-ready mode actually indents (libxml FORMAT save flag
+        # via AS_XHTML).  The default mode is structurally faithful but
+        # does not indent on HTML5 input -- see lutaml/canon#133.
         printer = Canon::PrettyPrinter::Html.new(
           indent: @pretty_printer_indent,
           indent_type: indent_type_str,
+          fixture_ready: true,
         )
       elsif format == :xml
         require "canon/pretty_printer/xml"

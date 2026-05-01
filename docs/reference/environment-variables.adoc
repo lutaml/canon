@@ -194,7 +194,9 @@ export CANON_JSON_FORMAT_PREPROCESSING=normalize
 |`CANON_SHOW_PRETTYPRINT_RECEIVED`
 |boolean
 |`false`
-|Show only the RECEIVED (actual) block in the fixture-ready pretty-printed section.  This is the most common fixture-update workflow: enable this option to get a copy-pasteable pretty-printed form of the generated output that can replace the old fixture heredoc.  Format-specific: `CANON_{FORMAT}_DIFF_SHOW_PRETTYPRINT_RECEIVED`
+|Show only the RECEIVED (actual) block in the fixture-ready pretty-printed section.  This is the most common fixture-update workflow: enable this option to get a copy-pasteable pretty-printed form of the generated output that can replace the old fixture heredoc.  Format-specific: `CANON_{FORMAT}_DIFF_SHOW_PRETTYPRINT_RECEIVED`.
+
+For HTML / HTML4 / HTML5 inputs, the pretty-printed output is XHTML-shaped: void elements are self-closed (`<br/>`, `<meta/>`), non-void elements are paired (`<a></a>`), and Nokogiri may add `xmlns="http://www.w3.org/1999/xhtml"` on `<html>` and an `xml:lang` mirror of `lang`.  This is a display-only serialisation chosen because libxml's `FORMAT` save flag (the only path that actually indents HTML5 input) requires the XHTML save mode -- `Nokogiri::HTML5#to_html` silently ignores its `indent:` keyword.  See lutaml/canon#133.
 |All formats (display only)
 
 |`CANON_COMPACT_SEMANTIC_REPORT`
