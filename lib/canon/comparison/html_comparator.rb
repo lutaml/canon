@@ -14,6 +14,7 @@ require_relative "strategies/match_strategy_factory"
 require_relative "../html/data_model"
 require_relative "xml_node_comparison"
 require_relative "xml_comparator/diff_node_builder"
+require_relative "alignment_helpers"
 # Whitespace sensitivity module (single source of truth for sensitive elements)
 require_relative "whitespace_sensitivity"
 
@@ -205,7 +206,7 @@ module Canon
                                     [children2, children1, :added]
                                   end
 
-          orphans = locate_fragment_orphans(longer, shorter)
+          orphans = AlignmentHelpers.locate_orphans(longer, shorter)
 
           orphans.each do |orphan|
             n1 = side == :removed ? orphan : nil
@@ -219,64 +220,6 @@ module Canon
                 dimension: :element_structure,
               )
           end
-        end
-
-        # Identify the orphan region in +longer+ given the corresponding
-        # +shorter+ child list.  Walks aligned prefix and suffix from
-        # both ends; the gap between is the set of orphans.  Falls back
-        # to the whole surplus tail (the previous behaviour) when no
-        # alignment exists at either end.
-        #
-        # @param longer [Array] The longer child list
-        # @param shorter [Array] The shorter child list
-        # @return [Array] Orphan child nodes from +longer+
-        def locate_fragment_orphans(longer, shorter)
-          prefix = aligned_prefix_length(longer, shorter)
-          suffix = aligned_suffix_length(longer, shorter, prefix)
-          longer[prefix...(longer.length - suffix)]
-        end
-
-        # Longest run from the start where corresponding nodes align.
-        def aligned_prefix_length(longer, shorter)
-          i = 0
-          i += 1 while i < shorter.length && nodes_align?(longer[i],
-                                                          shorter[i])
-          i
-        end
-
-        # Longest run from the end where corresponding nodes align,
-        # never crossing into the prefix region.
-        def aligned_suffix_length(longer, shorter, prefix)
-          i = 0
-          while i < (shorter.length - prefix) &&
-              nodes_align?(longer[longer.length - 1 - i],
-                           shorter[shorter.length - 1 - i])
-            i += 1
-          end
-          i
-        end
-
-        # Two nodes align for orphan-locating purposes when they have
-        # the same node kind, the same name (for elements), and the
-        # same attribute key set.  This is intentionally a shallow
-        # check: deep equality would defeat the whole point of running
-        # the alignment to *locate* a structural difference.
-        def nodes_align?(node_a, node_b)
-          return false unless node_a && node_b
-          return false unless node_a.instance_of?(node_b.class)
-
-          a_name = node_a.respond_to?(:name) ? node_a.name : nil
-          b_name = node_b.respond_to?(:name) ? node_b.name : nil
-          return false unless a_name == b_name
-
-          node_attribute_keys(node_a) == node_attribute_keys(node_b)
-        end
-
-        # Sorted attribute key list for a node, or [] for non-elements.
-        def node_attribute_keys(node)
-          return [] unless node.respond_to?(:attribute_nodes)
-
-          node.attribute_nodes.map { |a| a.name.to_s }.sort
         end
 
         # Compare children of document fragments

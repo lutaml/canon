@@ -199,6 +199,34 @@ orphan-locator now identifies the bogus comment correctly rather than
 blaming an unrelated tail element.
 ====
 
+==== Element-aware alignment for per-element children
+
+The same two-ended alignment is applied one level deeper, in
+`XmlComparatorHelpers::ChildComparison#use_positional_comparison`,
+when comparing an element's children (issue #132).  Naive zip pairing
+broke catastrophically under inter-sibling whitespace asymmetry: a
+pretty-printed expected fixture (with `\n  ` between every `<br/>`
+and `<b>`) and a compacted received output (with no whitespace
+between siblings) misaligned at every position downstream of the
+first whitespace mismatch, producing a cascade of spurious "element
+X missing" / "text Y added" diffs at scattered positions.
+
+Element-aware alignment skips whitespace-only text nodes during the
+prefix/suffix scan: scanning advances past whitespace on each side
+independently so that the matched-element skeleton aligns even when
+the inter-element whitespace differs.  Whitespace text nodes that
+fall in the gap region surface as their own orphans (correctly named
+as text); element orphans surface as elements; nothing is hidden.
+
+For a fixture where both sides have the same 3 `<br/>` and 2 `<b>`
+elements but the expected side has whitespace text between them and
+the received does not, the report now contains diffs only for the
+asymmetric whitespace text nodes -- never for the `<br/>` or `<b>`
+elements, which are correctly identified as matched on both sides.
+
+The alignment helpers are shared between this site and the
+fragment-level mismatch reporter via `Canon::Comparison::AlignmentHelpers`.
+
 === Text Content
 
 Shows when element text differs.
