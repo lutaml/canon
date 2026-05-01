@@ -31,7 +31,20 @@ module Canon
         check_for_relative_namespace_uris(doc)
 
         # Convert to XPath data model
-        build_from_nokogiri(doc, preserve_whitespace: preserve_whitespace)
+        result = build_from_nokogiri(doc,
+                                     preserve_whitespace: preserve_whitespace)
+
+        # Carry libxml's parse errors on the resulting tree so the diff
+        # report can surface them (see lutaml/canon#130).  libxml's
+        # FATAL conditions (e.g. duplicate attributes) silently drop
+        # content from the parse tree; without surfacing the error
+        # list, downstream diffs describe the partial tree, not the
+        # input.
+        errors = Array(doc.errors).map(&:to_s)
+        result.parse_errors = errors if errors.any? &&
+          result.respond_to?(:parse_errors=)
+
+        result
       end
 
       # Normalize XML string encoding to UTF-8

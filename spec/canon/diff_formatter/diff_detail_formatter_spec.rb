@@ -508,7 +508,7 @@ RSpec.describe "DiffDetailFormatter helpers" do
       comparison_result = double("comparison_result")
       allow(comparison_result).to receive(:is_a?).with(Canon::Comparison::ComparisonResult).and_return(true)
       allow(comparison_result).to receive_messages(algorithm: :dom,
-                                                   differences: [diff], equivalent?: false, original_strings: ["<root/>", "<root/>"], html_version: nil, match_options: nil)
+                                                   differences: [diff], equivalent?: false, original_strings: ["<root/>", "<root/>"], html_version: nil, match_options: nil, parse_errors?: false, parse_errors_expected: [], parse_errors_received: [])
 
       output = formatter.format_comparison_result(comparison_result, "<root/>",
                                                   "<root/>")
@@ -572,7 +572,7 @@ RSpec.describe "DiffDetailFormatter helpers" do
       comparison_result = double("comparison_result")
       allow(comparison_result).to receive(:is_a?).with(Canon::Comparison::ComparisonResult).and_return(true)
       allow(comparison_result).to receive_messages(algorithm: :dom,
-                                                   differences: [diff], equivalent?: false, original_strings: ["<root/>", "<root/>"], html_version: nil, match_options: nil)
+                                                   differences: [diff], equivalent?: false, original_strings: ["<root/>", "<root/>"], html_version: nil, match_options: nil, parse_errors?: false, parse_errors_expected: [], parse_errors_received: [])
 
       output = formatter.format_comparison_result(comparison_result, "<root/>",
                                                   "<root/>")
