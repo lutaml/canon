@@ -177,15 +177,25 @@ diff_children, differences)
                                 Comparison::MISSING_NODE, Comparison::MISSING_NODE,
                                 dimension, opts, differences)
               else
+                # Per-child dimension based on the orphan's actual node
+                # type — an element orphan must be tagged
+                # :element_structure (not the prevailing positional
+                # default) so the diff formatter renders it as the
+                # element it is, rather than as +text ""+.  See
+                # lutaml/canon#125 follow-up.
                 mismatched_children.each do |child|
+                  child_dim = comparator.send(:determine_node_dimension,
+                                              child)
                   if children1.length > children2.length # rubocop:disable Metrics/BlockNesting
                     comparator.send(:add_difference, child, nil,
-                                    Comparison::MISSING_NODE, Comparison::MISSING_NODE,
-                                    dimension, opts, differences)
+                                    Comparison::MISSING_NODE,
+                                    Comparison::MISSING_NODE,
+                                    child_dim, opts, differences)
                   else
                     comparator.send(:add_difference, nil, child,
-                                    Comparison::MISSING_NODE, Comparison::MISSING_NODE,
-                                    dimension, opts, differences)
+                                    Comparison::MISSING_NODE,
+                                    Comparison::MISSING_NODE,
+                                    child_dim, opts, differences)
                   end
                 end
               end
