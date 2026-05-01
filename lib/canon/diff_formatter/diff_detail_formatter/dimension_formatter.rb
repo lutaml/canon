@@ -366,17 +366,20 @@ expand_difference: false)
           node1 = extract_node1(diff)
           node2 = extract_node2(diff)
 
+          # Symmetric one-sided rendering for missing/extra text nodes.
+          # When exactly one side is nil, render "(not present)" on that
+          # side and the present side's raw text content (whitespace-
+          # visualised, with a brief parent open-tag hint for context).
+          # Mirrors format_element_structure_details above.  Without this
+          # short-circuit, the ambiguous-pair fallback further down would
+          # serialize the present side's *parent subtree* in full,
+          # producing a misleading diff payload.  See lutaml/canon#125.
+          if node1.nil? ^ node2.nil?
+            return format_text_content_one_sided(node1, node2, use_color)
+          end
+
           text1 = NodeUtils.node_to_display(node1, compact: compact)
           text2 = NodeUtils.node_to_display(node2, compact: compact)
-
-          # Handle cases where one node is missing (e.g. text added or removed)
-          if node1.nil? || node2.nil?
-            if node1.nil?
-              text2 = NodeUtils.node_to_display(node2, compact: compact)
-            else
-              text1 = NodeUtils.node_to_display(node1, compact: compact)
-            end
-          end
 
           if NodeUtils.inside_preserve_element?(node1) || NodeUtils.inside_preserve_element?(node2)
             detail1 = ColorHelper.colorize(
@@ -428,6 +431,43 @@ expand_difference: false)
           end
 
           changes = "Content differs: #{detail1} → #{detail2}"
+
+          [detail1, detail2, changes]
+        end
+
+        # Render a one-sided text-content diff (one node nil, the other a
+        # text node).  Mirrors the +has1+/+has2+ branches of
+        # +format_element_structure_details+: "(not present)" on the nil
+        # side, the present side's raw text content (whitespace-visualised
+        # and quoted) plus a brief parent open-tag hint for context.
+        #
+        # @param node1 [Object, nil] First node (nil if removed)
+        # @param node2 [Object, nil] Second node (nil if added)
+        # @param use_color [Boolean] Whether to apply ANSI colours
+        # @return [Array<String>] Tuple of [detail1, detail2, changes]
+        def self.format_text_content_one_sided(node1, node2, use_color)
+          require_relative "color_helper"
+          require_relative "node_utils"
+          require_relative "text_utils"
+
+          present = node1 || node2
+          removed = node2.nil?
+
+          raw     = NodeUtils.raw_text_value(present)
+          visible = TextUtils.visualize_whitespace(raw)
+          parent  = NodeUtils.parent_of(present)
+          context = parent ? " in #{NodeUtils.serialize_open_tag(parent)}" : ""
+          present_str = "text \"#{visible}\"#{context}"
+
+          if removed
+            detail1 = ColorHelper.colorize(present_str, :red, use_color)
+            detail2 = ColorHelper.colorize("(not present)", :green, use_color)
+            changes = "Text removed: #{detail1}"
+          else
+            detail1 = ColorHelper.colorize("(not present)", :red, use_color)
+            detail2 = ColorHelper.colorize(present_str, :green, use_color)
+            changes = "Text added: #{detail2}"
+          end
 
           [detail1, detail2, changes]
         end

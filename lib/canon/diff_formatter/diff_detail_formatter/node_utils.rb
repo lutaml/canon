@@ -321,6 +321,59 @@ module Canon
           end
         end
 
+        # Serialize a node's open tag only — name + attributes, no children,
+        # no closing tag.  Used by +format_text_content_one_sided+ to render
+        # a brief parent-element context hint (e.g. +<div id="A">+) for a
+        # one-sided text diff, instead of the full ancestor subtree that
+        # +serialize_node_compact+ would produce.  See lutaml/canon#125.
+        #
+        # @param node [Object] Element node to serialize
+        # @return [String] Open-tag string, or "" for non-elements / nil
+        def self.serialize_open_tag(node)
+          require "cgi"
+          return "" unless node
+
+          case node
+          when Canon::Xml::Nodes::ElementNode
+            tag = node.name.to_s
+            attrs = node.attribute_nodes.map do |attr|
+              attr_name  = attr.respond_to?(:name)  ? attr.name.to_s  : attr.to_s
+              attr_value = attr.respond_to?(:value) ? attr.value.to_s : ""
+              " #{attr_name}=\"#{CGI.escapeHTML(attr_value)}\""
+            end.join
+            "<#{tag}#{attrs}>"
+          when Nokogiri::XML::Element
+            tag = node.name.to_s
+            attrs = node.attribute_nodes.map do |a|
+              " #{a.name}=\"#{CGI.escapeHTML(a.value.to_s)}\""
+            end.join
+            "<#{tag}#{attrs}>"
+          else
+            ""
+          end
+        end
+
+        # Return the raw text content of a text node without stripping
+        # whitespace.  +get_node_text+ strips ASCII whitespace, which
+        # destroys whitespace-only payloads that callers (e.g. one-sided
+        # text-content diff rendering) need to display verbatim.
+        #
+        # @param node [Object] Text node
+        # @return [String] Raw text content, or "" if not a text-bearing node
+        def self.raw_text_value(node)
+          return "" unless node
+
+          if node.respond_to?(:value) && !node.is_a?(Nokogiri::XML::Node)
+            node.value.to_s
+          elsif node.respond_to?(:content)
+            node.content.to_s
+          elsif node.respond_to?(:text)
+            node.text.to_s
+          else
+            ""
+          end
+        end
+
         # Return the best display string for a node.
         #
         # When +compact: true+ and the node is a Canon ElementNode, returns a
