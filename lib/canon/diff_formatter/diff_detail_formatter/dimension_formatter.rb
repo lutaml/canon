@@ -435,6 +435,21 @@ expand_difference: false)
           [detail1, detail2, changes]
         end
 
+        # Whether a node is an element (Canon or Nokogiri), used to
+        # detect element-shaped diffs that have been misclassified as
+        # :text_content and route them to element-structure rendering.
+        # See lutaml/canon#125 follow-up.
+        def self.present_is_element?(node)
+          return false unless node
+
+          if node.respond_to?(:node_type) && node.node_type.is_a?(Symbol)
+            return node.node_type == :element
+          end
+          return true if node.respond_to?(:element?) && node.element?
+
+          false
+        end
+
         # Render a one-sided text-content diff (one node nil, the other a
         # text node).  Mirrors the +has1+/+has2+ branches of
         # +format_element_structure_details+: "(not present)" on the nil
@@ -451,6 +466,22 @@ expand_difference: false)
           require_relative "text_utils"
 
           present = node1 || node2
+
+          # Defensive: if a one-sided text-content diff carries an
+          # *element* on the present side (e.g. because an upstream
+          # comparator misclassified an element orphan as
+          # :text_content), delegate to the element-structure
+          # formatter rather than rendering the element as +text ""+.
+          # The construction-side fix in lutaml/canon#125 follow-up
+          # removes the immediate failure mode, but other paths could
+          # still misclassify and the formatter must produce a
+          # best-effort element representation, never +text ""+.
+          if present_is_element?(present)
+            return format_element_structure_details(
+              { node1: node1, node2: node2 }, use_color
+            )
+          end
+
           removed = node2.nil?
 
           raw     = NodeUtils.raw_text_value(present)

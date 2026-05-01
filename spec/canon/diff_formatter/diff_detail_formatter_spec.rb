@@ -852,6 +852,106 @@ RSpec.describe "DiffDetailFormatter helpers" do
         expect(changes).to start_with("Text removed:")
       end
     end
+
+    # Defensive: the one-sided text formatter must not render an element
+    # node as +text ""+ if it somehow arrives misclassified as
+    # :text_content.  Should delegate to the element-structure formatter.
+    # See lutaml/canon#125 follow-up.
+    describe "element node misclassified as :text_content" do
+      it "delegates to element-structure rendering for Canon ElementNode" do
+        node = Canon::Xml::Nodes::ElementNode.new(name: "br")
+        diff = Canon::Diff::DiffNode.new(
+          node1: node, node2: nil,
+          dimension: :text_content,
+          reason: "element missing: br"
+        )
+
+        detail1, detail2, changes = df.format_text_content_details(diff, false)
+
+        expect(detail1).to eq("<br/>")
+        expect(detail2).to eq("(not present)")
+        expect(changes).to include("Element removed:")
+        expect(detail1).not_to include("text \"\"")
+      end
+
+      it "delegates to element-structure rendering for Nokogiri Element" do
+        require "nokogiri"
+        frag = Nokogiri::XML.fragment("<root><br/></root>")
+        br = frag.at("br")
+        diff = Canon::Diff::DiffNode.new(
+          node1: br, node2: nil,
+          dimension: :text_content,
+          reason: "element missing: br"
+        )
+
+        detail1, detail2, changes = df.format_text_content_details(diff, false)
+
+        expect(detail1).to eq("<br/>")
+        expect(detail2).to eq("(not present)")
+        expect(changes).to include("Element removed:")
+      end
+
+      it "still renders text nodes correctly (regression guard)" do
+        node = Canon::Xml::Nodes::TextNode.new(value: " ")
+        diff = Canon::Diff::DiffNode.new(
+          node1: node, node2: nil,
+          dimension: :text_content,
+          reason: "element missing: text"
+        )
+
+        detail1, detail2, changes = df.format_text_content_details(diff, false)
+
+        expect(detail1).to eq("text \"·\"")
+        expect(detail2).to eq("(not present)")
+        expect(changes).to start_with("Text removed:")
+      end
+    end
+  end
+
+  # ── Issue #125 follow-up: per-child dimension classification ────────────────
+  #
+  # ChildComparison.use_positional_comparison must tag per-child orphan
+  # diffs with the dimension that matches the orphan's own node type.
+  # An element orphan tagged :text_content would route through the
+  # one-sided text formatter and render as +text ""+; tagged
+  # :element_structure it renders as the element it is.
+  describe "per-child orphan dimension (issue #125 follow-up)" do
+    it "tags element orphans as :element_structure end-to-end" do
+      expected = "<div><h1 class='Annex'>" \
+                 "\n  <b>X</b>\n  <br/>\n  <b>Y</b>\n</h1></div>"
+      received = '<div><h1 class="Annex"><b>X</b><br/><b>Y</b></h1></div>'
+
+      result = Canon::Comparison.equivalent?(expected, received,
+                                             format: :html5, verbose: true)
+
+      element_orphan_diffs = result.differences.grep(Canon::Diff::DiffNode)
+        .select do |d|
+        n = d.node1 || d.node2
+        n.respond_to?(:name) && n.name == "br" && (d.node1.nil? || d.node2.nil?)
+      end
+
+      element_orphan_diffs.each do |d|
+        expect(d.dimension).to eq(:element_structure),
+                               "br orphan must be :element_structure, got #{d.dimension}"
+      end
+    end
+
+    it "renders the element orphan as <br/>, never as text \"\"" do
+      expected = "<div><h1 class='Annex'>" \
+                 "\n  <b>X</b>\n  <br/>\n  <b>Y</b>\n</h1></div>"
+      received = '<div><h1 class="Annex"><b>X</b><br/><b>Y</b></h1></div>'
+
+      result = Canon::Comparison.equivalent?(expected, received,
+                                             format: :html5, verbose: true)
+
+      formatter = Canon::DiffFormatter.new(use_color: false)
+      output = formatter.format_comparison_result(result, expected, received)
+
+      # The misclassified-as-text rendering shape must not appear
+      # anywhere in the report.
+      expect(output).not_to include('text "" in')
+      expect(output).not_to match(/Text (added|removed): text ""/)
+    end
   end
 
   # ── Issue #91: diff report readability for whitespace differences ──────────

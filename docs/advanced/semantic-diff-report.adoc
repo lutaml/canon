@@ -179,6 +179,38 @@ Reason:  Text: "¬······:¬······"
 
 This fallback is implemented in `Canon::DiffFormatter::DiffDetailFormatterHelpers::DimensionFormatter.format_text_content_details` and only triggers when `TextUtils.ambiguous_text_pair?` returns `true` _and_ at least one side has a parent element to render.
 
+==== One-sided text diffs (added or removed text nodes)
+
+When a `text_content` difference carries a text node on one side and `nil` on the other (issue #125) -- the shape that fragment-length mismatches and child-comparison emit when a text-node child is missing -- the renderer mirrors `element_structure`: the missing side reads `(not present)`, and the present side reads the text-node content (whitespace-visualised) plus a brief parent open-tag hint for context. The full ancestor subtree is *not* dumped; only the immediate parent's opening tag is shown, so a missing whitespace text node cannot make the diff look like the entire ancestor differs.
+
+.Example: Whitespace text node missing on the received side
+[example]
+====
+[source]
+----
+🔍 DIFFERENCE #1/1 [NORMATIVE]
+──────────────────────────────────────────────────────────────────────
+Dimension: text_content
+Reason:  element missing: text
+
+⊖ Expected (File 1):
+   text "¬············" in <div id="A">
+⊕ Actual (File 2):
+   (not present)
+
+✨ Changes:
+   Text removed: text "¬············" in <div id="A">
+----
+====
+
+The `Changes:` line uses `Text removed:` or `Text added:` to mirror the `Element removed:` / `Element added:` phrasing of `element_structure`.
+
+==== Element-shaped diffs misclassified as text_content
+
+In rare cases an upstream comparator may emit an *element*-shaped one-sided diff under `dimension: :text_content`.  Without a guard, the one-sided text formatter would call `raw_text_value` on the element (which returns `""` for an empty element such as `<br/>`) and render `text "" in <parent>` -- meaningless when an element is what's actually missing.
+
+The formatter detects element-shaped present-side nodes (Canon `ElementNode` or Nokogiri `Element`) and delegates to `format_element_structure_details`, so the rendered output reads `<br/>` and `Element removed:` rather than `text ""` and `Text removed:`.  This is defence in depth -- the construction-side fix in `XmlComparatorHelpers::ChildComparison` ensures element orphans are now tagged `:element_structure` at source -- but a misclassified diff still renders meaningfully if any path slips through.
+
 === Structural Whitespace
 
 Shows whitespace-only differences (usually informative).
