@@ -59,7 +59,8 @@ module Canon
                       else
                         " (namespace: #{ns})"
                       end
-            return "element '#{node.name}'#{ns_info}: #{diff1} vs #{diff2}"
+            label = Canon::Comparison.code_pair_label(diff1, diff2)
+            return "element '#{node.name}'#{ns_info}: #{label}"
           end
         end
 

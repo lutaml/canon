@@ -667,7 +667,8 @@ differences)
                         else
                           " (namespace: #{ns})"
                         end
-              return "element '#{node.name}'#{ns_info}: #{diff1} vs #{diff2}"
+              label = Canon::Comparison.code_pair_label(diff1, diff2)
+              return "element '#{node.name}'#{ns_info}: #{label}"
             elsif node.respond_to?(:name) && !node.respond_to?(:namespace_uri)
               # TextNode and other nodes without namespace_uri
               display = if node.respond_to?(:value) && node.node_type == :text
