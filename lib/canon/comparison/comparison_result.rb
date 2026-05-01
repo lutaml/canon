@@ -6,7 +6,8 @@ module Canon
     # Provides methods to query equivalence based on normative diffs
     class ComparisonResult
       attr_reader :differences, :preprocessed_strings, :format, :html_version,
-                  :match_options, :algorithm, :original_strings
+                  :match_options, :algorithm, :original_strings,
+                  :parse_errors_expected, :parse_errors_received
 
       # @param differences [Array<DiffNode>] Array of difference nodes
       # @param preprocessed_strings [Array<String, String>] Pre-processed content for display
@@ -15,8 +16,11 @@ module Canon
       # @param match_options [Hash, nil] Resolved match options used for comparison
       # @param algorithm [Symbol] Diff algorithm used (:dom or :semantic)
       # @param original_strings [Array<String, String>, nil] Original unprocessed content for line diff
+      # @param parse_errors_expected [Array<String>, nil] Parser errors from the expected side
+      # @param parse_errors_received [Array<String>, nil] Parser errors from the received side
       def initialize(differences:, preprocessed_strings:, format:,
-html_version: nil, match_options: nil, algorithm: :dom, original_strings: nil)
+html_version: nil, match_options: nil, algorithm: :dom, original_strings: nil,
+parse_errors_expected: nil, parse_errors_received: nil)
         @differences = differences
         @preprocessed_strings = preprocessed_strings
         @original_strings = original_strings || preprocessed_strings
@@ -24,6 +28,16 @@ html_version: nil, match_options: nil, algorithm: :dom, original_strings: nil)
         @html_version = html_version
         @match_options = match_options
         @algorithm = algorithm
+        @parse_errors_expected = Array(parse_errors_expected)
+        @parse_errors_received = Array(parse_errors_received)
+      end
+
+      # Whether either side reported parse errors.  Used by the diff
+      # formatter to decide whether to render the parse-error banner.
+      #
+      # @return [Boolean]
+      def parse_errors?
+        @parse_errors_expected.any? || @parse_errors_received.any?
       end
 
       # Check if documents are semantically equivalent (no normative diffs)

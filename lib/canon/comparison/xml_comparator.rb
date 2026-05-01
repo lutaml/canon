@@ -160,6 +160,8 @@ module Canon
               format: :xml,
               match_options: match_opts_hash,
               algorithm: :dom,
+              parse_errors_expected: Comparison.parse_errors_for(node1),
+              parse_errors_received: Comparison.parse_errors_for(node2),
             )
           elsif result != Comparison::EQUIVALENT && !differences.empty?
             # Non-verbose mode: check equivalence
@@ -222,6 +224,8 @@ module Canon
               format: :xml,
               match_options: match_opts_hash.merge(strategy.metadata),
               algorithm: :semantic,
+              parse_errors_expected: Comparison.parse_errors_for(node1),
+              parse_errors_received: Comparison.parse_errors_for(node2),
             )
           else
             # Simple boolean result - equivalent if no normative differences

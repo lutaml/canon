@@ -24,6 +24,21 @@ module Canon
         @in_node_set = value
       end
 
+      # Parse-time errors carried alongside the node tree, captured at
+      # parse boundaries (Canon::Xml::DataModel.from_xml, etc.) so the
+      # diff report can surface libxml-level FATAL conditions that
+      # would otherwise be silently swallowed and produce misleading
+      # diffs against a partially-loaded tree.  See lutaml/canon#130.
+      #
+      # @return [Array<String>] Parse errors as strings (empty by default)
+      def parse_errors
+        instance_variable_defined?(:@parse_errors) ? @parse_errors : []
+      end
+
+      def parse_errors=(value)
+        @parse_errors = Array(value)
+      end
+
       # Return the text content of this node and all descendants.
       # ElementNode concatenates children's text_content; other nodes
       # (TextNode, CommentNode, etc.) return their value.
