@@ -546,5 +546,62 @@ RSpec.describe Canon::Comparison::HtmlComparator do
         expect(orphan_node.name).to eq("span")
       end
     end
+
+    context "per-element child alignment under whitespace asymmetry (issue #132)" do
+      # Both sides have the same elements (3 brs, 2 bs).  The only
+      # difference is inter-sibling whitespace text nodes that exist in
+      # one fixture and not the other.  The diff report must NOT name
+      # any of the brs as "missing" — they're all present on both
+      # sides.  Whitespace text nodes can surface as their own
+      # diffs, but element orphans must not be invented.
+      it "does not report element orphans when only whitespace text differs" do
+        expected = <<~HTML
+          <div><h1 class="Annex">
+            <b><b>Aldono</b> A</b>
+            <br/>
+            (normative)
+            <br/>
+            <br/>
+            <b>Annex</b>
+          </h1></div>
+        HTML
+        received = "<div><h1 class=\"Annex\">" \
+                   "<b><b>Aldono</b> A</b><br/>(normative)" \
+                   "<br/><br/><b>Annex</b></h1></div>"
+
+        result = Canon::Comparison.equivalent?(expected, received,
+                                               format: :html5, verbose: true)
+
+        diffs = result.differences.grep(Canon::Diff::DiffNode)
+        element_names = %w[br b].freeze
+        element_orphan_diffs = diffs.select do |d|
+          n = d.node1 || d.node2
+          n.respond_to?(:name) && element_names.include?(n.name) &&
+            (d.node1.nil? || d.node2.nil?)
+        end
+
+        expect(element_orphan_diffs).to be_empty,
+                                        "no <br> or <b> orphan should be " \
+                                        "reported (count is the same on " \
+                                        "both sides), got: #{element_orphan_diffs.map(&:reason)}"
+      end
+
+      it "still surfaces real element orphans when an element is genuinely missing" do
+        expected = "<root><a/><b/><c/></root>"
+        received = "<root><a/><c/></root>"
+
+        result = Canon::Comparison.equivalent?(expected, received,
+                                               format: :html5, verbose: true)
+
+        diffs = result.differences.grep(Canon::Diff::DiffNode)
+        b_orphan_diffs = diffs.select do |d|
+          n = d.node1 || d.node2
+          n.respond_to?(:name) && n.name == "b"
+        end
+
+        expect(b_orphan_diffs).not_to be_empty,
+                                      "missing <b> should still be reported"
+      end
+    end
   end
 end

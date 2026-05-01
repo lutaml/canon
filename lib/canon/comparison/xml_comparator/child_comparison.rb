@@ -154,70 +154,82 @@ diff_children, differences)
           end
 
           # Use simple positional comparison for children
+          #
+          # When length differs between sides, locate orphans via the
+          # same two-ended alignment scan that PR #129 added at the
+          # fragment level: peel aligned prefix and suffix from both
+          # ends, emit per-orphan diffs in the gap region, and recurse
+          # into the aligned-prefix and aligned-suffix pairs to find
+          # deeper differences.  The previous naive zip approach
+          # produced a cascade of spurious type-mismatch diffs at every
+          # position downstream of the first whitespace asymmetry; the
+          # new approach collapses those to the actual orphans (often
+          # whitespace text nodes only).  See lutaml/canon#132.
           def use_positional_comparison(
             children1, children2, _parent_node, comparator,
             opts, child_opts, diff_children, differences
           )
-            has_mismatch = false
+            has_mismatch = children1.length != children2.length
 
-            # Length check
-            unless children1.length == children2.length
-              has_mismatch = true
-              dimension = determine_dimension_for_mismatch(
-                children1, children2, comparator
-              )
+            aligned_pairs = if has_mismatch
+                              locate_orphans_and_emit(
+                                children1, children2, comparator, opts,
+                                differences
+                              )
+                            else
+                              children1.zip(children2)
+                            end
 
-              mismatched_children, children1, children2 =
-                determine_mismatch_children(
-                  children1, children2, comparator
-                )
-
-              if mismatched_children.empty?
-                comparator.send(:add_difference, parent_node, parent_node,
-                                Comparison::MISSING_NODE, Comparison::MISSING_NODE,
-                                dimension, opts, differences)
-              else
-                # Per-child dimension based on the orphan's actual node
-                # type — an element orphan must be tagged
-                # :element_structure (not the prevailing positional
-                # default) so the diff formatter renders it as the
-                # element it is, rather than as +text ""+.  See
-                # lutaml/canon#125 follow-up.
-                mismatched_children.each do |child|
-                  child_dim = comparator.send(:determine_node_dimension,
-                                              child)
-                  if children1.length > children2.length # rubocop:disable Metrics/BlockNesting
-                    comparator.send(:add_difference, child, nil,
-                                    Comparison::MISSING_NODE,
-                                    Comparison::MISSING_NODE,
-                                    child_dim, opts, differences)
-                  else
-                    comparator.send(:add_difference, nil, child,
-                                    Comparison::MISSING_NODE,
-                                    Comparison::MISSING_NODE,
-                                    child_dim, opts, differences)
-                  end
-                end
-              end
-              # Continue comparing children to find deeper differences like attribute values
-              # Use zip to compare up to the shorter length
-            end
-
-            # Compare children pairwise by position
+            # Compare aligned pairs deeply for content / attribute
+            # differences.
             result = has_mismatch ? Comparison::UNEQUAL_ELEMENTS : Comparison::EQUIVALENT
-            children1.zip(children2).each do |child1, child2|
-              # Skip if one is nil (due to different lengths)
+            aligned_pairs.each do |child1, child2|
               next if child1.nil? || child2.nil?
 
               child_result = comparator.send(:compare_nodes, child1, child2,
-                                             child_opts, child_opts, diff_children, differences)
-
-              unless child_result == Comparison::EQUIVALENT
-                result = child_result
-              end
+                                             child_opts, child_opts,
+                                             diff_children, differences)
+              result = child_result unless child_result == Comparison::EQUIVALENT
             end
 
             result
+          end
+
+          # Use AlignmentHelpers (element-aware, whitespace-skipping)
+          # to find orphans and emit per-orphan diffs with per-orphan
+          # dimension.  Returns the aligned-position pairs in
+          # (children1, children2) ordering for the caller to recurse
+          # into.
+          #
+          # @return [Array<Array(Object, Object)>] aligned (child1, child2) pairs
+          def locate_orphans_and_emit(children1, children2, comparator, opts,
+                                       differences)
+            require_relative "../alignment_helpers"
+
+            alignment = AlignmentHelpers.align_with_pairs(children1, children2)
+
+            alignment[:orphans].each do |orphan|
+              # Per-child dimension based on the orphan's actual node
+              # type — an element orphan must be tagged
+              # :element_structure (not the prevailing positional
+              # default) so the diff formatter renders it as the
+              # element it is, rather than as +text ""+.  See
+              # lutaml/canon#125 follow-up.
+              child_dim = comparator.send(:determine_node_dimension, orphan)
+              if alignment[:orphan_side] == :first
+                comparator.send(:add_difference, orphan, nil,
+                                Comparison::MISSING_NODE,
+                                Comparison::MISSING_NODE,
+                                child_dim, opts, differences)
+              else
+                comparator.send(:add_difference, nil, orphan,
+                                Comparison::MISSING_NODE,
+                                Comparison::MISSING_NODE,
+                                child_dim, opts, differences)
+              end
+            end
+
+            alignment[:aligned_pairs]
           end
 
           # Determine dimension for length mismatch
