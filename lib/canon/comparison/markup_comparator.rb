@@ -328,7 +328,7 @@ module Canon
           if diff1 == Canon::Comparison::MISSING_NODE && diff2 == Canon::Comparison::MISSING_NODE
             "element structure mismatch (children differ)"
           else
-            "#{diff1} vs #{diff2}"
+            Canon::Comparison.code_pair_label(diff1, diff2)
           end
         end
 
@@ -444,18 +444,27 @@ module Canon
 
         # Determine the appropriate dimension for a node type
         #
+        # Used by ChildComparison to tag per-child orphan diffs with a
+        # dimension that matches what the node *is*, so the formatter
+        # renders correctly.  An element orphan tagged :text_content
+        # would otherwise route through PR #126's one-sided text
+        # formatter and render as +text ""+ instead of as the actual
+        # element (see lutaml/canon#125 follow-up).
+        #
         # @param node [Object] The node to check
         # @return [Symbol] The dimension symbol
         def determine_node_dimension(node)
           # Canon::Xml::Node types
           if node.respond_to?(:node_type) && node.node_type.is_a?(Symbol)
             case node.node_type
+            when :element then :element_structure
             when :comment then :comments
             when :text, :cdata then :text_content
             when :processing_instruction then :processing_instructions
             else :text_content
             end
-          # Moxml/Nokogiri types
+          # Moxml/Nokogiri types: check element? before the catch-all
+          # default so element orphans are correctly classified.
           elsif node.respond_to?(:comment?) && node.comment?
             :comments
           elsif node.respond_to?(:text?) && node.text?
@@ -464,6 +473,8 @@ module Canon
             :text_content
           elsif node.respond_to?(:processing_instruction?) && node.processing_instruction?
             :processing_instructions
+          elsif node.respond_to?(:element?) && node.element?
+            :element_structure
           else
             :text_content
           end

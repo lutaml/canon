@@ -710,6 +710,250 @@ RSpec.describe "DiffDetailFormatter helpers" do
     end
   end
 
+  # ── Issue #125: text_content one-sided rendering ───────────────────────────
+  #
+  # When a :text_content DiffNode carries a text node on one side and nil on
+  # the other, render symmetrically with :element_structure: "(not present)"
+  # on the nil side, the text node's raw content (whitespace-visualised) plus
+  # a brief parent open-tag hint on the present side.  The previous behaviour
+  # serialized the present side's parent subtree in full — a misleading payload
+  # that suggested the whole ancestor differed.
+
+  describe "text_content one-sided diff display (issue #125)" do
+    let(:df) { Canon::DiffFormatter::DiffDetailFormatterHelpers::DimensionFormatter }
+
+    def parented_text_node(value, parent_name: "div", parent_attrs: {})
+      parent = Canon::Xml::Nodes::ElementNode.new(name: parent_name)
+      parent_attrs.each do |k, v|
+        parent.add_attribute(
+          Canon::Xml::Nodes::AttributeNode.new(name: k, value: v),
+        )
+      end
+      text = Canon::Xml::Nodes::TextNode.new(value: value)
+      parent.add_child(text)
+      text
+    end
+
+    describe "text removed (node2 is nil)" do
+      let(:text_node) do
+        parented_text_node("\n            ", parent_name: "div",
+                                             parent_attrs: { "id" => "A" })
+      end
+      let(:diff) do
+        Canon::Diff::DiffNode.new(node1: text_node, node2: nil,
+                                  dimension: :text_content,
+                                  reason: "element missing: text")
+      end
+
+      it "renders the present side as quoted whitespace text with parent open-tag hint" do
+        detail1, detail2, _changes = df.format_text_content_details(diff, false)
+
+        expect(detail1).to eq("text \"¬············\" in <div id=\"A\">")
+        expect(detail2).to eq("(not present)")
+      end
+
+      it "does not dump the parent subtree (no closing tag, no children)" do
+        detail1, _detail2, changes = df.format_text_content_details(diff, false)
+
+        expect(detail1).not_to include("</div>")
+        expect(changes).not_to include("</div>")
+      end
+
+      it "uses 'Text removed:' in the change line" do
+        _detail1, _detail2, changes = df.format_text_content_details(diff, false)
+
+        expect(changes).to start_with("Text removed:")
+      end
+    end
+
+    describe "text added (node1 is nil)" do
+      let(:text_node) do
+        parented_text_node("\n   ", parent_name: "div",
+                                    parent_attrs: { "id" => "B" })
+      end
+      let(:diff) do
+        Canon::Diff::DiffNode.new(node1: nil, node2: text_node,
+                                  dimension: :text_content,
+                                  reason: "element missing: text")
+      end
+
+      it "renders the present side on the second side, (not present) on the first" do
+        detail1, detail2, changes = df.format_text_content_details(diff, false)
+
+        expect(detail1).to eq("(not present)")
+        expect(detail2).to eq("text \"¬···\" in <div id=\"B\">")
+        expect(changes).to start_with("Text added:")
+      end
+    end
+
+    describe "orphan text node (no parent)" do
+      let(:diff) do
+        text_node = Canon::Xml::Nodes::TextNode.new(value: " ")
+        Canon::Diff::DiffNode.new(node1: text_node, node2: nil,
+                                  dimension: :text_content,
+                                  reason: "element missing: text")
+      end
+
+      it "omits the 'in <…>' suffix" do
+        detail1, _detail2, _changes = df.format_text_content_details(diff, false)
+
+        expect(detail1).to eq("text \"·\"")
+      end
+    end
+
+    describe "two-sided ambiguous-pair fallback (regression guard)" do
+      let(:expected_parent) do
+        n = Canon::Xml::Nodes::ElementNode.new(name: "p")
+        n.add_child(Canon::Xml::Nodes::TextNode.new(value: " "))
+        n
+      end
+      let(:received_parent) do
+        n = Canon::Xml::Nodes::ElementNode.new(name: "p")
+        n.add_child(Canon::Xml::Nodes::TextNode.new(value: "\t"))
+        n
+      end
+      let(:diff) do
+        Canon::Diff::DiffNode.new(node1: expected_parent.children.first,
+                                  node2: received_parent.children.first,
+                                  dimension: :text_content,
+                                  reason: "whitespace differs")
+      end
+
+      it "still falls back to parent serialization when both sides are present" do
+        detail1, detail2, _changes = df.format_text_content_details(diff, false)
+
+        # The two-sided fallback at lines 388-401 must remain untouched.
+        expect(detail1).to include("<p>")
+        expect(detail2).to include("<p>")
+      end
+    end
+
+    describe "Nokogiri text node with element parent" do
+      let(:diff) do
+        require "nokogiri"
+        frag = Nokogiri::XML.fragment(
+          "<div id=\"A\"><a id=\"x\"/>\n   <a id=\"y\"/></div>",
+        )
+        ws = frag.at("div").children.find do |c|
+          c.text? && c.content.match?(/\A\s+\z/)
+        end
+        Canon::Diff::DiffNode.new(node1: ws, node2: nil,
+                                  dimension: :text_content,
+                                  reason: "element missing: text")
+      end
+
+      it "renders Nokogiri text node parents as open-tag hints too" do
+        detail1, detail2, changes = df.format_text_content_details(diff, false)
+
+        expect(detail1).to include("text \"¬···\"")
+        expect(detail1).to include("in <div id=\"A\">")
+        expect(detail1).not_to include("</div>")
+        expect(detail2).to eq("(not present)")
+        expect(changes).to start_with("Text removed:")
+      end
+    end
+
+    # Defensive: the one-sided text formatter must not render an element
+    # node as +text ""+ if it somehow arrives misclassified as
+    # :text_content.  Should delegate to the element-structure formatter.
+    # See lutaml/canon#125 follow-up.
+    describe "element node misclassified as :text_content" do
+      it "delegates to element-structure rendering for Canon ElementNode" do
+        node = Canon::Xml::Nodes::ElementNode.new(name: "br")
+        diff = Canon::Diff::DiffNode.new(
+          node1: node, node2: nil,
+          dimension: :text_content,
+          reason: "element missing: br"
+        )
+
+        detail1, detail2, changes = df.format_text_content_details(diff, false)
+
+        expect(detail1).to eq("<br/>")
+        expect(detail2).to eq("(not present)")
+        expect(changes).to include("Element removed:")
+        expect(detail1).not_to include("text \"\"")
+      end
+
+      it "delegates to element-structure rendering for Nokogiri Element" do
+        require "nokogiri"
+        frag = Nokogiri::XML.fragment("<root><br/></root>")
+        br = frag.at("br")
+        diff = Canon::Diff::DiffNode.new(
+          node1: br, node2: nil,
+          dimension: :text_content,
+          reason: "element missing: br"
+        )
+
+        detail1, detail2, changes = df.format_text_content_details(diff, false)
+
+        expect(detail1).to eq("<br/>")
+        expect(detail2).to eq("(not present)")
+        expect(changes).to include("Element removed:")
+      end
+
+      it "still renders text nodes correctly (regression guard)" do
+        node = Canon::Xml::Nodes::TextNode.new(value: " ")
+        diff = Canon::Diff::DiffNode.new(
+          node1: node, node2: nil,
+          dimension: :text_content,
+          reason: "element missing: text"
+        )
+
+        detail1, detail2, changes = df.format_text_content_details(diff, false)
+
+        expect(detail1).to eq("text \"·\"")
+        expect(detail2).to eq("(not present)")
+        expect(changes).to start_with("Text removed:")
+      end
+    end
+  end
+
+  # ── Issue #125 follow-up: per-child dimension classification ────────────────
+  #
+  # ChildComparison.use_positional_comparison must tag per-child orphan
+  # diffs with the dimension that matches the orphan's own node type.
+  # An element orphan tagged :text_content would route through the
+  # one-sided text formatter and render as +text ""+; tagged
+  # :element_structure it renders as the element it is.
+  describe "per-child orphan dimension (issue #125 follow-up)" do
+    it "tags element orphans as :element_structure end-to-end" do
+      expected = "<div><h1 class='Annex'>" \
+                 "\n  <b>X</b>\n  <br/>\n  <b>Y</b>\n</h1></div>"
+      received = '<div><h1 class="Annex"><b>X</b><br/><b>Y</b></h1></div>'
+
+      result = Canon::Comparison.equivalent?(expected, received,
+                                             format: :html5, verbose: true)
+
+      element_orphan_diffs = result.differences.grep(Canon::Diff::DiffNode)
+        .select do |d|
+        n = d.node1 || d.node2
+        n.respond_to?(:name) && n.name == "br" && (d.node1.nil? || d.node2.nil?)
+      end
+
+      element_orphan_diffs.each do |d|
+        expect(d.dimension).to eq(:element_structure),
+                               "br orphan must be :element_structure, got #{d.dimension}"
+      end
+    end
+
+    it "renders the element orphan as <br/>, never as text \"\"" do
+      expected = "<div><h1 class='Annex'>" \
+                 "\n  <b>X</b>\n  <br/>\n  <b>Y</b>\n</h1></div>"
+      received = '<div><h1 class="Annex"><b>X</b><br/><b>Y</b></h1></div>'
+
+      result = Canon::Comparison.equivalent?(expected, received,
+                                             format: :html5, verbose: true)
+
+      formatter = Canon::DiffFormatter.new(use_color: false)
+      output = formatter.format_comparison_result(result, expected, received)
+
+      # The misclassified-as-text rendering shape must not appear
+      # anywhere in the report.
+      expect(output).not_to include('text "" in')
+      expect(output).not_to match(/Text (added|removed): text ""/)
+    end
+  end
+
   # ── Issue #91: diff report readability for whitespace differences ──────────
 
   describe Canon::DiffFormatter::DiffDetailFormatter,

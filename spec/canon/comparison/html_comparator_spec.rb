@@ -436,5 +436,50 @@ RSpec.describe Canon::Comparison::HtmlComparator do
         expect(changes).to include("<p>2</p>")
       end
     end
+
+    context "text_content one-sided diff rendering (issue #125)" do
+      # When two HTML fragments differ only in inter-sibling whitespace
+      # (e.g. a fixture with newlines between empty inline elements vs a
+      # generator that emits them adjacent), the resulting :text_content
+      # diffs carry a text node on one side and nil on the other.  The
+      # rendered output must show "(not present)" on the nil side and a
+      # brief, quoted text payload on the present side — not the entire
+      # ancestor element subtree (the regression this issue addresses).
+      it "renders missing whitespace text without dumping the ancestor subtree" do
+        html1 = "<div id=\"A\"><a id=\"x\"></a>\n   <a id=\"y\"></a></div>"
+        html2 = "<div id=\"A\"><a id=\"x\"></a><a id=\"y\"></a></div>"
+
+        result = Canon::Comparison.equivalent?(
+          html1, html2, format: :html5, verbose: true
+        )
+
+        text_diffs = result.differences.grep(Canon::Diff::DiffNode).select do |d|
+          d.dimension == :text_content
+        end
+        expect(text_diffs).not_to be_empty
+
+        require "canon/diff_formatter/diff_detail_formatter/dimension_formatter"
+        formatter =
+          Canon::DiffFormatter::DiffDetailFormatterHelpers::DimensionFormatter
+        detail1, detail2, changes = formatter.format_text_content_details(
+          text_diffs.first, false
+        )
+
+        # One side renders "(not present)", the other renders quoted text
+        # with the parent open-tag hint.
+        expect([detail1, detail2]).to include("(not present)")
+        expect(changes).to match(/Text (added|removed):/)
+
+        present = detail1 == "(not present)" ? detail2 : detail1
+        expect(present).to start_with("text \"")
+        expect(present).to include("in <div id=\"A\">")
+
+        # Critically: no full-subtree dump.  The parent open-tag hint must
+        # not include a closing tag or any child elements.
+        expect(present).not_to include("</div>")
+        expect(present).not_to include("<a")
+        expect(changes).not_to include("</div>")
+      end
+    end
   end
 end
