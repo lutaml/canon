@@ -1,0 +1,140 @@
+---
+title: Whitespace adjacency in diff reports
+parent: Diff Formatting
+nav_order: 8
+---
+= Whitespace adjacency in diff reports
+:toc:
+:toclevels: 2
+
+== Purpose
+
+Canon's diff reports anchor whitespace-only text nodes that have no
+counterpart on the other side to a dedicated `:whitespace_adjacency`
+dimension instead of letting them cascade into 3-4 misaligned
+`:text_content` mismatches against neighbouring content nodes.
+
+This is a *report-only* contract — equivalence verdicts are unchanged.
+Inputs that were non-equivalent before this feature remain non-equivalent;
+only the *shape* of the diff report changes.
+
+== The problem
+
+Consider an HTML fragment compared as `be_html_equivalent_to`:
+
+[source,html]
+----
+<!-- expected -->
+<p>
+  <span>ISO </span>
+  <span>20483</span>
+  ,
+  <i>Cereals and pulses</i>
+</p>
+
+<!-- actual -->
+<p><span>ISO </span><span>20483</span>, <i>Cereals and pulses</i></p>
+----
+
+Both render identically in a browser — the indentation is structural HTML
+formatting, not content. Before this feature, the diff report contained
+four entries:
+
+[source]
+----
+DIFFERENCE #1 — element_structure: parent <p> "missing children"
+DIFFERENCE #2 — text_content: ""  vs  "20483"        (visualised: ↵░░░░)
+DIFFERENCE #3 — text_content: "20483"  vs  ","
+DIFFERENCE #4 — text_content: ","  vs  "Cereals and pulses"
+----
+
+The cascade comes from positional `zip()` alignment in
+`Canon::Comparison::XmlComparatorHelpers::ChildComparison`: with the
+expected side carrying extra whitespace-only text nodes and the actual
+side carrying none, every child slides by one slot and gets paired
+against the wrong neighbour.
+
+== The contract
+
+When `ChildComparison` aligns child sequences and encounters a
+whitespace-only text node on one side paired against a non-whitespace
+node on the other, it:
+
+1. Treats the whitespace node as a *single-side gap* in the alignment.
+2. Emits one `:whitespace_adjacency` diff entry anchored at the
+   whitespace node itself (not at its mis-paired neighbour).
+3. Advances only the cursor that carries the whitespace, so the next
+   iteration aligns content against content.
+
+The asymmetric whitespace still produces a non-equivalent verdict — the
+`:whitespace_adjacency` dimension is classified as normative
+unconditionally — so any test that previously failed on whitespace
+asymmetry continues to fail.
+
+After the new contract, the cascade above collapses to:
+
+[source]
+----
+DIFFERENCE #1 — whitespace_adjacency: Whitespace surrounding "20483":
+                  present on EXPECTED ("↵░░"), absent on ACTUAL
+DIFFERENCE #2 — whitespace_adjacency: Whitespace surrounding ",":
+                  present on EXPECTED ("↵░░"), absent on ACTUAL
+DIFFERENCE #3 — text_content: "↵░░,↵░░"  vs  ", "
+----
+
+== Adjacency positions
+
+The Reason line names the adjacency position of the whitespace node
+relative to its non-whitespace siblings:
+
+`:preceding`::  Whitespace at the start of its parent (no non-whitespace
+sibling before it, has one after it).
+
+`:following`::  Whitespace at the end of its parent (has a non-whitespace
+sibling before it, none after).
+
+`:surrounding`::  Sandwiched between two non-whitespace siblings.
+
+`:isolated`::  No non-whitespace siblings at all (degenerate; rarely
+emitted).
+
+== What this contract does NOT do
+
+* **Does not change equivalence outcomes.** A non-equivalent comparison
+  before #137 remains non-equivalent after — only the diff-report shape
+  changes.
+* **Does not silently filter whitespace.** The asymmetric whitespace is
+  always reported; it is just labelled `:whitespace_adjacency` and
+  anchored at the whitespace node, instead of cascading as
+  `:text_content` against unrelated content nodes.
+* **Does not affect symmetric whitespace.** When both sides carry
+  parallel whitespace-only nodes, those compare normally
+  (no `:whitespace_adjacency` entry, no cascade).
+
+== Where it runs
+
+The contract is implemented as a re-alignment walk inside
+`Canon::Comparison::XmlComparatorHelpers::ChildComparison.use_positional_comparison`.
+It activates whenever the existing positional `zip()` alignment would
+pair a whitespace-only text node against a content node — that is, in
+every whitespace context where the upstream filter has not already
+dropped the whitespace nodes.
+
+For elements where whitespace is preserved by configuration
+(`preserve_whitespace_elements`) the upstream filter does not drop
+indentation, and the re-alignment walk surfaces every asymmetric
+whitespace node as a single normative `:whitespace_adjacency` diff.
+
+== Related
+
+* link:../../advanced/diff-classification.adoc[Diff classification] —
+  Normative vs informative differences.
+* link:../match-options/index.adoc[Match options] — Configuring
+  `preserve_whitespace_elements`, `collapse_whitespace_elements`, and
+  `strip_whitespace_elements`.
+
+== History
+
+The cascade behaviour was reported in
+https://github.com/lutaml/canon/issues/137[issue #137]. The fix landed
+as a report-only re-alignment in PR #138.

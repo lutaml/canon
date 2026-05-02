@@ -28,6 +28,9 @@ Canon's diff formatting includes:
 * **Context and grouping**: Control how much surrounding context to show
 * **Algorithm-specific output**: Different output styles for different diff
   algorithms
+* **Whitespace adjacency**: Stray whitespace-only text nodes are anchored at
+  themselves instead of cascading into mismatches against neighbouring
+  content (link:./whitespace-adjacency.adoc[details])
 
 == Available formatting options
 
