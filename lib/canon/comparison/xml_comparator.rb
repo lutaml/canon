@@ -476,51 +476,13 @@ module Canon
           # Create DiffNode in verbose mode when raw content differs
           # This ensures informative diffs are created even for :ignore/:normalize
           if raw_differs && opts[:verbose]
-            # (b) #137: when one side is whitespace-only against the other
-            # side's content, prefer the :whitespace_adjacency dimension so
-            # the report names the adjacency position (preceding / following
-            # / surrounding) instead of rendering a misleading text mismatch.
-            # Only kicks in for :preserve / :strict contexts (in :collapse
-            # contexts (a) already filtered the whitespace out before
-            # alignment).
-            adj_dim = whitespace_adjacency_dimension(n1, n2, text1, text2,
-                                                    opts, sensitive_element)
-            effective_dim = adj_dim || dimension
             add_difference(n1, n2, Comparison::UNEQUAL_TEXT_CONTENTS,
-                           Comparison::UNEQUAL_TEXT_CONTENTS, effective_dim,
+                           Comparison::UNEQUAL_TEXT_CONTENTS, dimension,
                            opts, differences)
           end
 
           # Return based on whether behavior makes difference acceptable
           matches_per_behavior ? Comparison::EQUIVALENT : Comparison::UNEQUAL_TEXT_CONTENTS
-        end
-
-        # Determine whether a text mismatch is actually a whitespace-adjacency
-        # mismatch (one side is whitespace-only against the other side's
-        # content, in a :preserve / :strict context where the whitespace is
-        # significant).  Returns +:whitespace_adjacency+ when the upgrade
-        # applies, else +nil+ (caller falls back to +:text_content+).
-        #
-        # See lutaml/canon#137 part (b).
-        def whitespace_adjacency_dimension(n1, n2, text1, text2, _opts,
-                                           sensitive_element)
-          return nil unless sensitive_element
-
-          ws1 = MatchOptions.normalize_text(text1.to_s).empty?
-          ws2 = MatchOptions.normalize_text(text2.to_s).empty?
-
-          # Exactly one side whitespace-only, the other has content
-          return nil unless ws1 ^ ws2
-
-          # Confirm the whitespace-only side actually has whitespace content
-          # (an empty string vs. content is a different kind of difference and
-          # is left as :text_content).
-          ws_node = ws1 ? n1 : n2
-          ws_text = ws1 ? text1 : text2
-          return nil if ws_text.to_s.empty?
-          return nil unless ws_node
-
-          :whitespace_adjacency
         end
 
         # Check if whitespace should be preserved strictly for these text nodes
@@ -732,13 +694,6 @@ differences)
             return build_text_diff_reason(text1, text2)
           end
 
-          # For whitespace-adjacency differences (#137 part b), name the
-          # adjacency position (preceding / following / surrounding) of the
-          # whitespace-only text node relative to its content neighbours.
-          if dimension == :whitespace_adjacency
-            return build_whitespace_adjacency_reason(node1, node2)
-          end
-
           # For attribute values differences, show the actual values
           if dimension == :attribute_values
             attrs1 = extract_attributes(node1)
@@ -876,89 +831,6 @@ differences)
           vis2 = visualize_whitespace(text2)
 
           "Text: \"#{vis1}\" vs \"#{vis2}\""
-        end
-
-        # Build a Reason line for a :whitespace_adjacency diff (#137 part b).
-        # Names which side has the whitespace, the position of the whitespace
-        # relative to its content neighbours (preceding / following /
-        # surrounding), and surfaces the whitespace itself with visible
-        # markers so the reader can see what was missed.
-        def build_whitespace_adjacency_reason(node1, node2)
-          text1 = extract_text_from_node(node1)
-          text2 = extract_text_from_node(node2)
-
-          ws_on_first = whitespace_only?(text1) && !whitespace_only?(text2)
-          ws_on_second = whitespace_only?(text2) && !whitespace_only?(text1)
-
-          if ws_on_first
-            ws_node = node1
-            ws_text = text1
-            content_text = text2
-            present_side = "EXPECTED"
-            absent_side = "ACTUAL"
-          elsif ws_on_second
-            ws_node = node2
-            ws_text = text2
-            content_text = text1
-            present_side = "ACTUAL"
-            absent_side = "EXPECTED"
-          else
-            # Fallback: shouldn't happen, but be defensive
-            return build_text_diff_reason(text1, text2)
-          end
-
-          position = whitespace_adjacency_position(ws_node)
-          ws_vis = visualize_whitespace(ws_text)
-          content_vis = visualize_whitespace(truncate_text(content_text))
-
-          "Whitespace #{position} \"#{content_vis}\": present on #{present_side} (\"#{ws_vis}\"), absent on #{absent_side}"
-        end
-
-        # Determine the adjacency position of a whitespace-only text node
-        # relative to its parent's other (non-whitespace) children.
-        #
-        # * +:preceding+  — whitespace at the start of the parent (no
-        #   non-whitespace sibling before it, has one after it)
-        # * +:following+  — whitespace at the end of the parent (has a
-        #   non-whitespace sibling before it, none after)
-        # * +:surrounding+ — sandwiched between two non-whitespace siblings
-        # * +:isolated+   — no non-whitespace siblings at all (degenerate)
-        def whitespace_adjacency_position(ws_node)
-          return :isolated unless ws_node.respond_to?(:parent)
-
-          parent = ws_node.parent
-          return :isolated if parent.nil?
-          return :isolated unless parent.respond_to?(:children)
-
-          siblings = parent.children
-          idx = siblings.index(ws_node)
-          return :isolated unless idx
-
-          before = sibling_with_content?(siblings, idx, -1)
-          after = sibling_with_content?(siblings, idx, +1)
-
-          if before && after then :surrounding
-          elsif before then :following
-          elsif after then :preceding
-          else :isolated
-          end
-        end
-
-        # Walk siblings outward from +idx+ in +direction+, skipping
-        # whitespace-only text nodes.  Returns true if any non-whitespace
-        # sibling exists in that direction.
-        def sibling_with_content?(siblings, idx, direction)
-          i = idx + direction
-          while i >= 0 && i < siblings.length
-            s = siblings[i]
-            unless s.respond_to?(:text?) && s.text? &&
-                s.respond_to?(:content) && s.content.to_s.strip.empty?
-              return true
-            end
-
-            i += direction
-          end
-          false
         end
 
         # Check if text is only whitespace

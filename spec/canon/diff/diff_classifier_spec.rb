@@ -342,30 +342,5 @@ RSpec.describe Canon::Diff::DiffClassifier do
       expect(diff_nodes[0].informative?).to be true
       expect(diff_nodes[1].informative?).to be true
     end
-
-    describe ":whitespace_adjacency dimension classification (#137 part b)" do
-      let(:match_options) do
-        Canon::Comparison::ResolvedMatchOptions.new({}, format: :xml)
-      end
-      let(:classifier) { described_class.new(match_options) }
-
-      it "classifies :whitespace_adjacency as normative regardless of match options" do
-        # The new dimension is a reporting-only re-label of a text mismatch
-        # in :preserve / :strict contexts. Equivalence outcome is unchanged
-        # so the diff stays normative — only the Reason line and label differ.
-        diff_node = Canon::Diff::DiffNode.new(
-          node1: nil,
-          node2: nil,
-          dimension: :whitespace_adjacency,
-          reason: 'Whitespace surrounding "<span>x</span>": present on EXPECTED, absent on ACTUAL',
-        )
-
-        classifier.classify(diff_node)
-
-        expect(diff_node.normative?).to be true
-        expect(diff_node.informative?).to be false
-        expect(diff_node.formatting?).to be false
-      end
-    end
   end
 end

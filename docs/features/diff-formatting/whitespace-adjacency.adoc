@@ -150,69 +150,8 @@ strict-whitespace rules apply.
   `preserve_whitespace_elements`, `collapse_whitespace_elements`, and
   `strip_whitespace_elements`.
 
-== The `:whitespace_adjacency` diff dimension
-
-For `:preserve` and `:strict` contexts where the alignment-time filter from
-the previous section deliberately does NOT apply, the same reader confusion
-can still occur: an expected whitespace-only text node lined up against an
-actual content node produces a misleading raw-text mismatch report.
-
-To address this, canon classifies these mismatches under a new diff
-dimension `:whitespace_adjacency` rather than the generic `:text_content`.
-The renderer names the **position** of the whitespace relative to its
-content neighbours so the reader can see at a glance what changed.
-
-=== The three sub-categories
-
-`preceding`:: Whitespace at the **start** of the parent — no
-non-whitespace sibling before the whitespace node, has one after.
-
-`following`:: Whitespace at the **end** of the parent — has a
-non-whitespace sibling before, none after.
-
-`surrounding`:: Whitespace **between two non-whitespace siblings**.
-
-=== Example renderings
-
-[source]
-----
-DIFFERENCE [NORMATIVE]
-Dimension: whitespace_adjacency
-Reason:    Whitespace surrounding "<span>20483</span>": present on EXPECTED ("↵░░░░"), absent on ACTUAL
-
-DIFFERENCE [NORMATIVE]
-Dimension: whitespace_adjacency
-Reason:    Whitespace preceding "first content": present on ACTUAL ("↵░░"), absent on EXPECTED
-----
-
-=== Equivalence is not changed
-
-`:whitespace_adjacency` is a **reporting-only** re-classification. Under
-`:preserve` / `:strict`, the underlying mismatch remains NORMATIVE — the
-documents are still considered non-equivalent. Only the *label* and the
-*Reason* line change. The diff classifier emits these as normative
-differences via `DiffClassifier#classify` so the comparison's overall
-equivalence outcome is identical to what the previous `:text_content`
-dimension would have produced.
-
-=== When it kicks in
-
-The upgrade from `:text_content` to `:whitespace_adjacency` happens in
-`Canon::Comparison::XmlComparator#compare_text_nodes` when ALL of the
-following hold:
-
-* The parent element is whitespace-sensitive (`:preserve`, or any element
-  classified as `:strict` via `xml:space="preserve"`).
-* Exactly one side's text content is whitespace-only (after
-  `MatchOptions.normalize_text` collapses).
-* The other side's text content is non-empty.
-
-In `:collapse` contexts the whitespace was already filtered out at
-alignment time, so this branch never sees those nodes. In `:strip`
-contexts the whitespace was filtered upstream, so likewise.
-
 == History
 
 The cascade behaviour was reported in
-https://github.com/lutaml/canon/issues/137[issue #137]. Both parts (the
-alignment-time filter and the new dimension) shipped in the same PR.
+https://github.com/lutaml/canon/issues/137[issue #137]. The fix landed in
+the same PR.
