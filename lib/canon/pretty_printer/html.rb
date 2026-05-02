@@ -2,10 +2,11 @@
 
 require "nokogiri"
 require "stringio"
+require_relative "html_void_elements"
 
 module Canon
   module PrettyPrinter
-    # Pretty printer for HTML with consistent indentation
+    # Pretty printer for HTML with consistent indentation.
     #
     # Two modes:
     #
@@ -22,10 +23,11 @@ module Canon
     #    (the +CANON_<FORMAT>_DIFF_SHOW_PRETTYPRINT_RECEIVED+ surface)
     #    so the user can read or paste the formatted output directly
     #    into a fixture heredoc.  Output is XHTML-shaped (void
-    #    elements self-closed, non-void paired) and prefixed with
-    #    +<?xml ...?>+; this is a display-only serialisation.
+    #    elements self-closed, non-void paired) via the +AS_XHTML+
+    #    save flag; the +NO_DECLARATION+ flag suppresses the
+    #    +<?xml ...?>+ prefix.
     #
-    # See lutaml/canon#133.
+    # See lutaml/canon#133, lutaml/canon#135.
     class Html
       def initialize(indent: 2, indent_type: "space", fixture_ready: false)
         @indent = indent.to_i
@@ -33,11 +35,9 @@ module Canon
         @fixture_ready = fixture_ready
       end
 
-      # Pretty print HTML with consistent indentation
       def format(html_string)
         return format_fixture_ready(html_string) if @fixture_ready
 
-        # Detect if this is XHTML or HTML
         if xhtml?(html_string)
           format_as_xhtml(html_string)
         else
@@ -48,28 +48,25 @@ module Canon
       private
 
       def xhtml?(html_string)
-        # Check for XHTML DOCTYPE or xmlns attribute
         html_string.include?("XHTML") ||
           html_string.include?('xmlns="http://www.w3.org/1999/xhtml"')
       end
 
       def format_as_xhtml(html_string)
-        # Parse as XML for XHTML
         doc = Nokogiri::XML(html_string, &:noblanks)
 
-        # Use Nokogiri's built-in pretty printing
-        if @indent_type == "tab"
-          doc.to_xml(indent: 1, indent_text: "\t", encoding: "UTF-8")
-        else
-          doc.to_xml(indent: @indent, encoding: "UTF-8")
-        end
+        out = if @indent_type == "tab"
+                doc.to_xml(indent: 1, indent_text: "\t", encoding: "UTF-8")
+              else
+                doc.to_xml(indent: @indent, encoding: "UTF-8")
+              end
+
+        expand_non_void_self_closing(out)
       end
 
       def format_as_html(html_string)
-        # Parse as HTML5
         doc = Nokogiri::HTML5(html_string)
 
-        # Use Nokogiri's built-in pretty printing
         if @indent_type == "tab"
           doc.to_html(indent: 1, indent_text: "\t", encoding: "UTF-8")
         else
@@ -82,10 +79,8 @@ module Canon
       # input shapes), then write through libxml's XML writer with
       # +FORMAT+ + +AS_XHTML+ + +NO_DECLARATION+.  +FORMAT+ inserts
       # indentation; +AS_XHTML+ produces well-shaped output (void
-      # elements self-closed, non-void paired) which is the format
-      # users want to paste into a fixture heredoc.  +NO_DECLARATION+
-      # suppresses the +<?xml ...?>+ prefix that libxml otherwise
-      # emits in XML-writer mode.
+      # elements self-closed, non-void paired); +NO_DECLARATION+
+      # suppresses the +<?xml ...?>+ prefix.
       def format_fixture_ready(html_string)
         doc = Nokogiri::HTML5(html_string)
         io = StringIO.new
@@ -103,6 +98,21 @@ module Canon
         Nokogiri::XML::Node::SaveOptions::FORMAT |
           Nokogiri::XML::Node::SaveOptions::AS_XHTML |
           Nokogiri::XML::Node::SaveOptions::NO_DECLARATION
+      end
+
+      # Rewrite +<tag …/>+ into +<tag …></tag>+ for every element name
+      # that is not an HTML5 void element. +<a/>+ is illegal HTML;
+      # void tags like +<br/>+ and +<img …/>+ pass through unchanged.
+      def expand_non_void_self_closing(html)
+        html.gsub(%r{<([A-Za-z][A-Za-z0-9:_-]*)((?:\s+[^<>"]*(?:"[^"]*"[^<>"]*)*)?)/>}) do
+          name = ::Regexp.last_match(1)
+          attrs = ::Regexp.last_match(2)
+          if HtmlVoidElements.void?(name)
+            "<#{name}#{attrs}/>"
+          else
+            "<#{name}#{attrs}></#{name}>"
+          end
+        end
       end
     end
   end
