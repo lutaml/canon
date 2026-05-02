@@ -143,5 +143,46 @@ RSpec.describe Canon::PrettyPrinter::Html do
         expect(out_count).to eq(3)
       end
     end
+
+    context "fixture_ready: true — XHTML shape (regression #135)" do
+      subject { described_class.new(indent: 2, fixture_ready: true) }
+
+      it "emits XHTML shape: void self-closed, non-void paired" do
+        result = subject.format('<html><body><a href="#"></a><br><img src="y"><hr></body></html>')
+        expect(result).to include('<a href="#"></a>')
+        expect(result).to match(%r{<br\s*/>})
+        expect(result).to match(%r{<img src="y"\s*/>})
+        expect(result).to match(%r{<hr\s*/>})
+        expect(result).not_to match(%r{<a [^>]*/>})
+      end
+    end
+
+    context "regression #135 — XHTML branch must not self-close non-void elements" do
+      subject { described_class.new(indent: 2) }
+
+      let(:xhtml) do
+        <<~XHTML
+          <?xml version="1.0"?>
+          <html xmlns="http://www.w3.org/1999/xhtml"><body><a href="x"></a><span></span><div></div><br/><img src="y"/><hr/></body></html>
+        XHTML
+      end
+
+      it "writes empty non-void elements as <tag></tag>" do
+        result = subject.format(xhtml)
+        expect(result).to include('<a href="x"></a>')
+        expect(result).to include("<span></span>")
+        expect(result).to include("<div></div>")
+        expect(result).not_to match(%r{<a [^>]*/>})
+        expect(result).not_to include("<span/>")
+        expect(result).not_to include("<div/>")
+      end
+
+      it "leaves void elements self-closed (XHTML shape)" do
+        result = subject.format(xhtml)
+        expect(result).to include("<br/>")
+        expect(result).to include('<img src="y"/>')
+        expect(result).to include("<hr/>")
+      end
+    end
   end
 end
