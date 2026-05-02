@@ -153,9 +153,16 @@ diff_children, differences)
             all_equivalent ? Comparison::EQUIVALENT : Comparison::UNEQUAL_ELEMENTS
           end
 
-          # Use simple positional comparison for children
+          # Use simple positional comparison for children, with
+          # whitespace-asymmetry-aware re-alignment.  When positional
+          # +zip()+ would pair a whitespace-only text node on one side
+          # against a content node on the other, treat the whitespace
+          # node as a single-side gap: emit one +:whitespace_adjacency+
+          # diff anchored at the whitespace node and advance only the
+          # cursor carrying the whitespace, so the next iteration aligns
+          # content against content.  See lutaml/canon#137.
           def use_positional_comparison(
-            children1, children2, _parent_node, comparator,
+            children1, children2, parent_node, comparator,
             opts, child_opts, diff_children, differences
           )
             has_mismatch = false
@@ -163,26 +170,31 @@ diff_children, differences)
             # Length check
             unless children1.length == children2.length
               has_mismatch = true
-              dimension = determine_dimension_for_mismatch(
-                children1, children2, comparator
+
+              ws_asymmetric = asymmetric_whitespace_explains_length_diff?(
+                children1, children2
               )
 
-              mismatched_children, children1, children2 =
-                determine_mismatch_children(
+              if ws_asymmetric
+                dimension = nil
+                mismatched_children = []
+              else
+                dimension = determine_dimension_for_mismatch(
                   children1, children2, comparator
                 )
+                mismatched_children, children1, children2 =
+                  determine_mismatch_children(
+                    children1, children2, comparator
+                  )
+              end
 
               if mismatched_children.empty?
-                comparator.send(:add_difference, parent_node, parent_node,
-                                Comparison::MISSING_NODE, Comparison::MISSING_NODE,
-                                dimension, opts, differences)
+                unless ws_asymmetric
+                  comparator.send(:add_difference, parent_node, parent_node,
+                                  Comparison::MISSING_NODE, Comparison::MISSING_NODE,
+                                  dimension, opts, differences)
+                end
               else
-                # Per-child dimension based on the orphan's actual node
-                # type — an element orphan must be tagged
-                # :element_structure (not the prevailing positional
-                # default) so the diff formatter renders it as the
-                # element it is, rather than as +text ""+.  See
-                # lutaml/canon#125 follow-up.
                 mismatched_children.each do |child|
                   child_dim = comparator.send(:determine_node_dimension,
                                               child)
@@ -199,25 +211,122 @@ diff_children, differences)
                   end
                 end
               end
-              # Continue comparing children to find deeper differences like attribute values
-              # Use zip to compare up to the shorter length
             end
 
-            # Compare children pairwise by position
             result = has_mismatch ? Comparison::UNEQUAL_ELEMENTS : Comparison::EQUIVALENT
-            children1.zip(children2).each do |child1, child2|
-              # Skip if one is nil (due to different lengths)
-              next if child1.nil? || child2.nil?
+            walk_result = walk_children_with_realignment(
+              children1, children2, comparator,
+              child_opts, diff_children, opts, differences
+            )
+            result = walk_result unless walk_result == Comparison::EQUIVALENT
+            result
+          end
 
-              child_result = comparator.send(:compare_nodes, child1, child2,
-                                             child_opts, child_opts, diff_children, differences)
+          # Two-cursor walk over paired children that re-aligns past
+          # asymmetric whitespace-only text nodes.  Returns the worst
+          # child result encountered.
+          def walk_children_with_realignment(
+            children1, children2, comparator,
+            child_opts, diff_children, opts, differences
+          )
+            result = Comparison::EQUIVALENT
+            i = 0
+            j = 0
 
-              unless child_result == Comparison::EQUIVALENT
-                result = child_result
+            while i < children1.length || j < children2.length
+              c1 = children1[i]
+              c2 = children2[j]
+
+              if c1.nil?
+                j += 1
+                next
+              elsif c2.nil?
+                i += 1
+                next
               end
+
+              ws1 = whitespace_only_text_node?(c1)
+              ws2 = whitespace_only_text_node?(c2)
+
+              if ws1 && !ws2
+                comparator.send(:add_difference, c1, c2,
+                                Comparison::UNEQUAL_TEXT_CONTENTS,
+                                Comparison::UNEQUAL_TEXT_CONTENTS,
+                                :whitespace_adjacency, opts, differences)
+                result = Comparison::UNEQUAL_TEXT_CONTENTS
+                i += 1
+                next
+              elsif ws2 && !ws1
+                comparator.send(:add_difference, c1, c2,
+                                Comparison::UNEQUAL_TEXT_CONTENTS,
+                                Comparison::UNEQUAL_TEXT_CONTENTS,
+                                :whitespace_adjacency, opts, differences)
+                result = Comparison::UNEQUAL_TEXT_CONTENTS
+                j += 1
+                next
+              end
+
+              child_result = comparator.send(:compare_nodes, c1, c2,
+                                             child_opts, child_opts,
+                                             diff_children, differences)
+              result = child_result unless child_result == Comparison::EQUIVALENT
+              i += 1
+              j += 1
             end
 
             result
+          end
+
+          # True when the length difference between the two child arrays
+          # is fully explained by asymmetric whitespace-only text nodes.
+          def asymmetric_whitespace_explains_length_diff?(children1, children2)
+            non_ws1 = children1.reject { |c| whitespace_only_text_node?(c) }
+            non_ws2 = children2.reject { |c| whitespace_only_text_node?(c) }
+            non_ws1.length == non_ws2.length
+          end
+
+          # True if +node+ is a text node whose content is whitespace-only.
+          # Empty-string text nodes are not treated as whitespace-only for
+          # re-alignment purposes — those represent a genuine
+          # empty-vs-content asymmetry, not a pretty-print indentation
+          # artefact.
+          def whitespace_only_text_node?(node)
+            return false if node.nil?
+            return false unless node_is_text?(node)
+
+            text = node_text_content(node).to_s
+            return false if text.empty?
+
+            text.strip.empty?
+          end
+
+          # Backend-agnostic text-node check.  Handles Canon::Xml::Node
+          # (node_type is Symbol), Nokogiri::XML::Node (node_type is
+          # Integer), and any node exposing +:text?+ without +:element?+.
+          def node_is_text?(node)
+            if node.respond_to?(:node_type) && node.node_type.is_a?(Symbol)
+              return node.node_type == :text
+            end
+
+            if node.respond_to?(:node_type) && node.node_type.is_a?(Integer)
+              if defined?(Nokogiri::XML::Node::TEXT_NODE)
+                return node.node_type == Nokogiri::XML::Node::TEXT_NODE
+              end
+
+              return node.node_type == 3
+            end
+
+            node.respond_to?(:text?) && node.text? &&
+              !node.respond_to?(:element?)
+          end
+
+          # Backend-agnostic text-content reader.
+          def node_text_content(node)
+            return node.value.to_s if node.respond_to?(:value) && !node.respond_to?(:element?)
+            return node.content.to_s if node.respond_to?(:content)
+            return node.text.to_s if node.respond_to?(:text)
+
+            node.to_s
           end
 
           # Determine dimension for length mismatch
