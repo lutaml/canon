@@ -940,6 +940,7 @@ module Canon
         printer = Canon::PrettyPrinter::Html.new(
           indent: @pretty_printer_indent,
           indent_type: indent_type_str,
+          pretty: true,
         )
       elsif format == :xml
         require "canon/pretty_printer/xml"

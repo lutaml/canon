@@ -7,13 +7,30 @@ module Canon
   module PrettyPrinter
     # Pretty printer for HTML with consistent indentation
     class Html
-      def initialize(indent: 2, indent_type: "space")
+      def initialize(indent: 2, indent_type: "space", pretty: false)
         @indent = indent.to_i
         @indent_type = indent_type
+        @pretty = pretty
       end
 
-      # Pretty print HTML with consistent indentation
+      # Pretty print HTML with consistent indentation.
+      #
+      # When +pretty: true+, parse the input as an HTML5 fragment (no
+      # <html><body> wrapper, no <?xml?> prologue) and serialise via
+      # +to_xhtml+, which puts each block-level element on its own line
+      # while keeping inline mixed content together. Output is XHTML-shaped:
+      # void elements self-close (`<br />`, `<img src="x" />`), every
+      # non-void empty element uses an explicit pair (`<a href="x"></a>`).
+      # Suitable for fixture-ready copy-paste output.
+      #
+      # When +pretty: false+ (default), preserve the legacy behaviour used
+      # by internal consumers (LineRangeMapper, fixture-integrity checks):
+      # bare HTML5 serialisation via +to_html+ on parsed input, with the
+      # XHTML branch only triggering for inputs that announce XHTML
+      # explicitly (xmlns / "XHTML" string).
       def format(html_string)
+        return format_pretty(html_string) if @pretty
+
         if xhtml?(html_string)
           format_as_xhtml(html_string)
         else
@@ -38,6 +55,20 @@ module Canon
               end
 
         expand_non_void_self_closing(out)
+      end
+
+      # XHTML-shaped fragment serialisation used for fixture-ready output.
+      # Block-level elements end up on their own lines; inline mixed content
+      # stays together; void elements self-close; non-void empty elements
+      # are written as `<tag></tag>`.
+      def format_pretty(html_string)
+        frag = Nokogiri::HTML5.fragment(html_string)
+
+        if @indent_type == "tab"
+          frag.to_xhtml(indent: 1, indent_text: "\t")
+        else
+          frag.to_xhtml(indent: @indent)
+        end
       end
 
       def format_as_html(html_string)
