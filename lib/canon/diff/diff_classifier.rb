@@ -73,6 +73,18 @@ module Canon
           return diff_node
         end
 
+        # SECOND-AND-A-HALF (#137 part b): :whitespace_adjacency is a
+        # reporting-only re-classification of a :text_content mismatch.
+        # Equivalence behaviour is unchanged — under :preserve / :strict the
+        # underlying text mismatch is normative.  We mark this dimension as
+        # normative so the classifier surfaces it; the formatter renders it
+        # with a position-aware Reason line instead of a raw text mismatch.
+        if diff_node.dimension == :whitespace_adjacency
+          diff_node.formatting = false
+          diff_node.normative = true
+          return diff_node
+        end
+
         # THIRD: Determine if this dimension is normative based on CompareProfile
         # This respects the policy settings (strict/normalize/ignore)
         is_normative = profile.normative_dimension?(diff_node.dimension)

@@ -34,6 +34,8 @@ expand_difference: false)
             format_attribute_order_details(diff, use_color)
           when :text_content
             format_text_content_details(diff, use_color, compact: compact)
+          when :whitespace_adjacency
+            format_whitespace_adjacency_details(diff, use_color)
           when :structural_whitespace
             format_structural_whitespace_details(diff, use_color)
           when :comments
@@ -499,6 +501,52 @@ expand_difference: false)
             detail2 = ColorHelper.colorize(present_str, :green, use_color)
             changes = "Text added: #{detail2}"
           end
+
+          [detail1, detail2, changes]
+        end
+
+        # Format a :whitespace_adjacency diff (#137 part b).
+        #
+        # The reason line built by XmlComparator already names the position
+        # (preceding / following / surrounding) and which side has the
+        # whitespace.  This renderer returns it verbatim as the +changes+
+        # column with the two sides surfaced separately for the side-by-side
+        # display.
+        #
+        # @param diff [DiffNode, Hash] Difference node
+        # @param use_color [Boolean] Whether to use colors
+        # @return [Array] Tuple of [detail1, detail2, changes]
+        def self.format_whitespace_adjacency_details(diff, use_color)
+          require_relative "color_helper"
+          require_relative "node_utils"
+          require_relative "text_utils"
+
+          node1 = extract_node1(diff)
+          node2 = extract_node2(diff)
+
+          text1 = NodeUtils.get_node_text(node1).to_s
+          text2 = NodeUtils.get_node_text(node2).to_s
+
+          detail1 = ColorHelper.colorize(
+            "\"#{TextUtils.visualize_whitespace(text1)}\"",
+            :red, use_color
+          )
+          detail2 = ColorHelper.colorize(
+            "\"#{TextUtils.visualize_whitespace(text2)}\"",
+            :green, use_color
+          )
+
+          # The DiffNode's reason already encodes the adjacency position
+          # (preceding / following / surrounding) and which side carries the
+          # whitespace.  Surface it verbatim so the reader sees the labelled
+          # interpretation rather than a raw text mismatch.
+          reason = if diff.respond_to?(:reason)
+                     diff.reason
+                   else
+                     diff.is_a?(Hash) ? diff[:reason] : nil
+                   end
+
+          changes = reason || "Whitespace adjacency differs: #{detail1} → #{detail2}"
 
           [detail1, detail2, changes]
         end
