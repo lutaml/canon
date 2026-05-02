@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "nokogiri"
+require_relative "html_void_elements"
 
 module Canon
   module PrettyPrinter
@@ -34,10 +35,27 @@ module Canon
         doc = Nokogiri::XML(html_string, &:noblanks)
 
         # Use Nokogiri's built-in pretty printing
-        if @indent_type == "tab"
-          doc.to_xml(indent: 1, indent_text: "\t", encoding: "UTF-8")
-        else
-          doc.to_xml(indent: @indent, encoding: "UTF-8")
+        out = if @indent_type == "tab"
+                doc.to_xml(indent: 1, indent_text: "\t", encoding: "UTF-8")
+              else
+                doc.to_xml(indent: @indent, encoding: "UTF-8")
+              end
+
+        expand_non_void_self_closing(out)
+      end
+
+      # Rewrite `<tag …/>` into `<tag …></tag>` for every element name that
+      # is not an HTML5 void element. `<a/>` is illegal HTML; void tags like
+      # `<br/>` and `<img …/>` pass through unchanged.
+      def expand_non_void_self_closing(html)
+        html.gsub(%r{<([A-Za-z][A-Za-z0-9:_-]*)((?:\s+[^<>"]*(?:"[^"]*"[^<>"]*)*)?)/>}) do
+          name = ::Regexp.last_match(1)
+          attrs = ::Regexp.last_match(2)
+          if HtmlVoidElements.void?(name)
+            "<#{name}#{attrs}/>"
+          else
+            "<#{name}#{attrs}></#{name}>"
+          end
         end
       end
 

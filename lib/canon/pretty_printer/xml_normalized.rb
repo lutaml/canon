@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "nokogiri"
+require_relative "html_void_elements"
 
 module Canon
   module PrettyPrinter
@@ -133,12 +134,14 @@ module Canon
                      collapse_whitespace_elements: [],
                      strip_whitespace_elements: [],
                      pretty_printed: false,
-                     sort_attributes: false)
+                     sort_attributes: false,
+                     html_mode: false)
         @indent = indent.to_i
         @indent_char = indent_type == "tab" ? "\t" : " "
         @vis_map = visualization_map || default_vis_map
         @pretty_printed = pretty_printed
         @sort_attributes = sort_attributes
+        @html_mode = html_mode
 
         @strict_ws  = Set.new((preserve_whitespace_elements || []).map(&:to_s))
         @norm_ws    = Set.new((collapse_whitespace_elements || []).map(&:to_s))
@@ -151,10 +154,10 @@ module Canon
       # @return [String] Serialized XML, one node per line, with content
       #   whitespace visualized at line boundaries
       def format(xml_string)
-        doc = Nokogiri::XML(xml_string)
+        doc = @html_mode ? Nokogiri::HTML5(xml_string) : Nokogiri::XML(xml_string)
         lines = []
 
-        if doc.version
+        if !@html_mode && doc.version
           enc = doc.encoding ? " encoding=\"#{doc.encoding}\"" : ""
           lines << "<?xml version=\"#{doc.version}\"#{enc}?>"
         end
@@ -198,6 +201,10 @@ module Canon
         children = node.children.reject { |c| c.text? && c.content.empty? }
 
         if children.empty?
+          if @html_mode && !HtmlVoidElements.void?(node.name)
+            return "#{ind(depth)}#{open_tag(node)}</#{node.name}>"
+          end
+
           return "#{ind(depth)}#{open_tag(node,
                                           self_close: true)}"
         end

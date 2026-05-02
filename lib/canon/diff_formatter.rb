@@ -850,6 +850,7 @@ module Canon
         collapse_whitespace_elements: @collapse_whitespace_elements,
         strip_whitespace_elements: @strip_whitespace_elements,
         sort_attributes: @pretty_printer_sort_attributes,
+        html_mode: %i[html html4 html5].include?(format),
       }
 
       printer_expected = Canon::PrettyPrinter::XmlNormalized.new(

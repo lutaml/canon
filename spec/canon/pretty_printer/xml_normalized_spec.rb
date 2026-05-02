@@ -544,4 +544,33 @@ RSpec.describe Canon::PrettyPrinter::XmlNormalized do
       expect(result).to include('c="3" a:y="2" b:x="1"')
     end
   end
+
+  describe "html_mode (regression #135)" do
+    let(:html_printer) { described_class.new(indent: 2, html_mode: true) }
+
+    it "writes empty non-void elements as <tag></tag>" do
+      html = '<div><a href="x"></a><span></span></div>'
+      result = html_printer.format(html)
+      expect(result).to include('<a href="x"></a>')
+      expect(result).to include("<span></span>")
+      expect(result).not_to match(%r{<a [^>]*/>})
+      expect(result).not_to include("<span/>")
+    end
+
+    it "self-closes void elements (XHTML shape) without nesting siblings" do
+      html = '<div><br><img src="y"><p>after</p></div>'
+      result = html_printer.format(html)
+      expect(result).to include("<br/>")
+      expect(result).to include('<img src="y"/>')
+      # void elements must NOT swallow following siblings as descendants
+      expect(result).not_to include("</br>")
+      expect(result).not_to include("</img>")
+      expect(result).to include("<p>")
+    end
+
+    it "leaves XML mode (html_mode: false) behaviour unchanged — empty elements self-close" do
+      xml = "<root><empty/></root>"
+      expect(printer.format(xml)).to include("<empty/>")
+    end
+  end
 end
