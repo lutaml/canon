@@ -155,7 +155,7 @@ diff_children, differences)
 
           # Use simple positional comparison for children
           def use_positional_comparison(
-            children1, children2, _parent_node, comparator,
+            children1, children2, parent_node, comparator,
             opts, child_opts, diff_children, differences
           )
             has_mismatch = false
@@ -163,19 +163,41 @@ diff_children, differences)
             # Length check
             unless children1.length == children2.length
               has_mismatch = true
-              dimension = determine_dimension_for_mismatch(
+
+              # Short-circuit: when the length difference is fully
+              # explained by asymmetric whitespace-only text nodes (one
+              # side has pretty-print indentation the other doesn't),
+              # skip orphan detection entirely and defer to the
+              # two-cursor walk below — it will emit one
+              # :whitespace_adjacency entry per stray whitespace node,
+              # anchored at the node itself rather than at the parent.
+              # See lutaml/canon#137.  Without this short-circuit,
+              # determine_mismatch_children falsely tags real content
+              # nodes as orphans when the array indices diverge past
+              # interspersed whitespace.
+              ws_asymmetric = asymmetric_whitespace_explains_length_diff?(
                 children1, children2, comparator
               )
 
-              mismatched_children, children1, children2 =
-                determine_mismatch_children(
+              if ws_asymmetric
+                dimension = nil
+                mismatched_children = []
+              else
+                dimension = determine_dimension_for_mismatch(
                   children1, children2, comparator
                 )
+                mismatched_children, children1, children2 =
+                  determine_mismatch_children(
+                    children1, children2, comparator
+                  )
+              end
 
               if mismatched_children.empty?
-                comparator.send(:add_difference, parent_node, parent_node,
-                                Comparison::MISSING_NODE, Comparison::MISSING_NODE,
-                                dimension, opts, differences)
+                unless ws_asymmetric
+                  comparator.send(:add_difference, parent_node, parent_node,
+                                  Comparison::MISSING_NODE, Comparison::MISSING_NODE,
+                                  dimension, opts, differences)
+                end
               else
                 # Per-child dimension based on the orphan's actual node
                 # type — an element orphan must be tagged
@@ -199,25 +221,158 @@ diff_children, differences)
                   end
                 end
               end
-              # Continue comparing children to find deeper differences like attribute values
-              # Use zip to compare up to the shorter length
             end
 
-            # Compare children pairwise by position
+            # Compare children with whitespace-asymmetry-aware re-alignment.
+            # When zip would pair a whitespace-only text node on one side
+            # against a content node on the other, treat the whitespace node
+            # as a single-side gap: emit one :whitespace_adjacency diff
+            # anchored at the whitespace node and advance only the cursor
+            # carrying the whitespace, so the next iteration aligns content
+            # against content.  Equivalence behaviour matches pre-#137:
+            # the asymmetric whitespace still produces a non-equivalent
+            # verdict (it is now reported as :whitespace_adjacency rather
+            # than as a cascade of misaligned :text_content mismatches).
             result = has_mismatch ? Comparison::UNEQUAL_ELEMENTS : Comparison::EQUIVALENT
-            children1.zip(children2).each do |child1, child2|
-              # Skip if one is nil (due to different lengths)
-              next if child1.nil? || child2.nil?
+            walk_result = walk_children_with_realignment(
+              children1, children2, comparator,
+              child_opts, diff_children, opts, differences
+            )
+            result = walk_result unless walk_result == Comparison::EQUIVALENT
+            result
+          end
 
-              child_result = comparator.send(:compare_nodes, child1, child2,
-                                             child_opts, child_opts, diff_children, differences)
+          # Two-cursor walk over paired children that re-aligns past
+          # asymmetric whitespace-only text nodes.  See use_positional_comparison
+          # for the contract.  Returns the worst child result encountered.
+          def walk_children_with_realignment(
+            children1, children2, comparator,
+            child_opts, diff_children, opts, differences
+          )
+            result = Comparison::EQUIVALENT
+            i = 0
+            j = 0
 
-              unless child_result == Comparison::EQUIVALENT
-                result = child_result
+            while i < children1.length || j < children2.length
+              c1 = children1[i]
+              c2 = children2[j]
+
+              if c1.nil?
+                # Trailing tail on side2 — already accounted for by the
+                # length-mismatch handler above.
+                j += 1
+                next
+              elsif c2.nil?
+                i += 1
+                next
               end
+
+              ws1 = whitespace_only_text_node?(c1, comparator)
+              ws2 = whitespace_only_text_node?(c2, comparator)
+
+              if ws1 && !ws2
+                # Pair the whitespace node against its right-hand
+                # neighbour so the Reason renderer can name what sits
+                # opposite.  The second-side node here is contextual,
+                # not paired-as-equivalent — the report's label
+                # (:whitespace_adjacency) and Reason make clear that
+                # the whitespace is present-on-expected, absent-on-actual.
+                comparator.send(:add_difference, c1, c2,
+                                Comparison::UNEQUAL_TEXT_CONTENTS,
+                                Comparison::UNEQUAL_TEXT_CONTENTS,
+                                :whitespace_adjacency, opts, differences)
+                result = Comparison::UNEQUAL_TEXT_CONTENTS
+                i += 1
+                next
+              elsif ws2 && !ws1
+                comparator.send(:add_difference, c1, c2,
+                                Comparison::UNEQUAL_TEXT_CONTENTS,
+                                Comparison::UNEQUAL_TEXT_CONTENTS,
+                                :whitespace_adjacency, opts, differences)
+                result = Comparison::UNEQUAL_TEXT_CONTENTS
+                j += 1
+                next
+              end
+
+              child_result = comparator.send(:compare_nodes, c1, c2,
+                                             child_opts, child_opts,
+                                             diff_children, differences)
+              result = child_result unless child_result == Comparison::EQUIVALENT
+              i += 1
+              j += 1
             end
 
             result
+          end
+
+          # True when the length difference between the two child arrays
+          # is fully explained by asymmetric whitespace-only text nodes —
+          # i.e. dropping whitespace-only text nodes from both sides
+          # leaves equal-length sequences.  Used to suppress the
+          # parent-anchored MISSING_NODE diff in favour of per-node
+          # :whitespace_adjacency diffs from the re-alignment walk.
+          def asymmetric_whitespace_explains_length_diff?(
+            children1, children2, comparator
+          )
+            non_ws1 = children1.reject do |c|
+              whitespace_only_text_node?(c, comparator)
+            end
+            non_ws2 = children2.reject do |c|
+              whitespace_only_text_node?(c, comparator)
+            end
+            non_ws1.length == non_ws2.length
+          end
+
+          # True if +node+ is a text node whose content is empty after
+          # stripping (whitespace-only).  Empty-string text nodes are not
+          # treated as whitespace-only for re-alignment purposes — those
+          # represent a genuine empty-vs-content asymmetry, not a
+          # pretty-print indentation artefact.
+          #
+          # Self-contained type check: MarkupComparator#text_node? mishandles
+          # Nokogiri text nodes (Nokogiri exposes :element? returning false
+          # and :node_type returning Integer 3 rather than Symbol :text).
+          # Recognise Canon::Xml::Node TextNode, Nokogiri text nodes, and
+          # any other node exposing :node_type == :text directly here so
+          # the alignment walk works across all backends.
+          def whitespace_only_text_node?(node, _comparator)
+            return false if node.nil?
+            return false unless node_is_text?(node)
+
+            text = node_text_content(node).to_s
+            return false if text.empty?
+
+            text.strip.empty?
+          end
+
+          # Backend-agnostic text-node check.
+          def node_is_text?(node)
+            # Canon::Xml::Node — node_type is a Symbol
+            if node.respond_to?(:node_type) && node.node_type.is_a?(Symbol)
+              return node.node_type == :text
+            end
+
+            # Nokogiri::XML::Node — node_type is Integer; TEXT_NODE == 3
+            if node.respond_to?(:node_type) && node.node_type.is_a?(Integer)
+              if defined?(Nokogiri::XML::Node::TEXT_NODE)
+                return node.node_type == Nokogiri::XML::Node::TEXT_NODE
+              end
+
+              return node.node_type == 3
+            end
+
+            # Last resort — :text? without :element? (Canon TextNode shape)
+            node.respond_to?(:text?) && node.text? &&
+              !node.respond_to?(:element?)
+          end
+
+          # Backend-agnostic text-content reader.
+          def node_text_content(node)
+            return node.value.to_s if node.respond_to?(:value) && !node.respond_to?(:element?)
+            return node.content.to_s if node.respond_to?(:content)
+            return node.text.to_s if node.respond_to?(:text)
+
+            node.to_s
           end
 
           # Determine dimension for length mismatch

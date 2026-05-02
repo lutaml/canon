@@ -694,6 +694,13 @@ differences)
             return build_text_diff_reason(text1, text2)
           end
 
+          # For whitespace-adjacency differences (#137), name the adjacency
+          # position (preceding / following / surrounding) of the
+          # whitespace-only text node relative to its content neighbours.
+          if dimension == :whitespace_adjacency
+            return build_whitespace_adjacency_reason(node1, node2)
+          end
+
           # For attribute values differences, show the actual values
           if dimension == :attribute_values
             attrs1 = extract_attributes(node1)
@@ -831,6 +838,116 @@ differences)
           vis2 = visualize_whitespace(text2)
 
           "Text: \"#{vis1}\" vs \"#{vis2}\""
+        end
+
+        # Build a Reason line for a :whitespace_adjacency diff (#137).
+        # Names which side has the whitespace, the position of the whitespace
+        # relative to its content neighbours (preceding / following /
+        # surrounding), and surfaces the whitespace itself with visible
+        # markers so the reader can see what was missed.
+        def build_whitespace_adjacency_reason(node1, node2)
+          text1 = extract_text_from_node(node1)
+          text2 = extract_text_from_node(node2)
+
+          # Decide which side carries the whitespace text node by node
+          # type, not by extracted text — an empty element (e.g. <a/>)
+          # also extracts to "" and would otherwise be misclassified as
+          # whitespace-only.
+          node1_is_ws_text = ws_text_node?(node1, text1)
+          node2_is_ws_text = ws_text_node?(node2, text2)
+          ws_on_first = node1_is_ws_text && !node2_is_ws_text
+          ws_on_second = node2_is_ws_text && !node1_is_ws_text
+
+          if ws_on_first
+            ws_node = node1
+            ws_text = text1
+            content_text = text2
+            present_side = "EXPECTED"
+            absent_side = "ACTUAL"
+          elsif ws_on_second
+            ws_node = node2
+            ws_text = text2
+            content_text = text1
+            present_side = "ACTUAL"
+            absent_side = "EXPECTED"
+          else
+            return build_text_diff_reason(text1, text2)
+          end
+
+          position = whitespace_adjacency_position(ws_node)
+          ws_vis = visualize_whitespace(ws_text)
+          content_vis = if content_text
+                          visualize_whitespace(truncate_text(content_text))
+                        else
+                          "(none)"
+                        end
+
+          "Whitespace #{position} \"#{content_vis}\": present on #{present_side} (\"#{ws_vis}\"), absent on #{absent_side}"
+        end
+
+        # True when +node+ is a text node whose content is whitespace-only.
+        # Used by build_whitespace_adjacency_reason to identify the side
+        # carrying the stray whitespace node by node-type rather than by
+        # extracted text (an empty element extracts to "" and would
+        # otherwise be misclassified).
+        def ws_text_node?(node, text)
+          return false if node.nil?
+          return false if text.nil? || text.to_s.empty?
+          return false unless text.to_s.strip.empty?
+
+          if node.respond_to?(:node_type) && node.node_type.is_a?(Symbol)
+            node.node_type == :text
+          elsif node.respond_to?(:node_type) && node.node_type.is_a?(Integer)
+            const = defined?(Nokogiri::XML::Node::TEXT_NODE) ? Nokogiri::XML::Node::TEXT_NODE : 3
+            node.node_type == const
+          else
+            node.respond_to?(:text?) && node.text? &&
+              !node.respond_to?(:element?)
+          end
+        end
+
+        # Determine the adjacency position of a whitespace-only text node
+        # relative to its parent's other (non-whitespace) children.
+        #
+        # * +:preceding+   — whitespace at the start of the parent
+        # * +:following+   — whitespace at the end of the parent
+        # * +:surrounding+ — sandwiched between two non-whitespace siblings
+        # * +:isolated+    — no non-whitespace siblings at all (degenerate)
+        def whitespace_adjacency_position(ws_node)
+          return :isolated unless ws_node.respond_to?(:parent)
+
+          parent = ws_node.parent
+          return :isolated if parent.nil?
+          return :isolated unless parent.respond_to?(:children)
+
+          siblings = parent.children
+          idx = siblings.index(ws_node)
+          return :isolated unless idx
+
+          before = sibling_with_content?(siblings, idx, -1)
+          after = sibling_with_content?(siblings, idx, +1)
+
+          if before && after then :surrounding
+          elsif before then :following
+          elsif after then :preceding
+          else :isolated
+          end
+        end
+
+        # Walk siblings outward from +idx+ in +direction+, skipping
+        # whitespace-only text nodes.  Returns true if any non-whitespace
+        # sibling exists in that direction.
+        def sibling_with_content?(siblings, idx, direction)
+          i = idx + direction
+          while i >= 0 && i < siblings.length
+            s = siblings[i]
+            text_only = s.respond_to?(:text?) && s.text? &&
+              s.respond_to?(:content) && s.content.to_s.strip.empty?
+            return true unless text_only
+
+            i += direction
+          end
+          false
         end
 
         # Check if text is only whitespace

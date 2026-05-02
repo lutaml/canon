@@ -73,6 +73,19 @@ module Canon
           return diff_node
         end
 
+        # SECOND-AND-A-HALF (#137): :whitespace_adjacency is a reporting-only
+        # re-label of an asymmetric whitespace mismatch emitted by
+        # ChildComparison's two-cursor walk.  Equivalence behaviour is
+        # unchanged — the underlying mismatch is normative regardless of
+        # match options — but the diff is rendered with a position-aware
+        # Reason line instead of as a raw text mismatch against a wrongly
+        # paired neighbour.
+        if diff_node.dimension == :whitespace_adjacency
+          diff_node.formatting = false
+          diff_node.normative = true
+          return diff_node
+        end
+
         # THIRD: Determine if this dimension is normative based on CompareProfile
         # This respects the policy settings (strict/normalize/ignore)
         is_normative = profile.normative_dimension?(diff_node.dimension)

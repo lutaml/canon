@@ -437,15 +437,15 @@ RSpec.describe Canon::Comparison::HtmlComparator do
       end
     end
 
-    context "text_content one-sided diff rendering (issue #125)" do
-      # When two HTML fragments differ only in inter-sibling whitespace
-      # (e.g. a fixture with newlines between empty inline elements vs a
-      # generator that emits them adjacent), the resulting :text_content
-      # diffs carry a text node on one side and nil on the other.  The
-      # rendered output must show "(not present)" on the nil side and a
-      # brief, quoted text payload on the present side — not the entire
-      # ancestor element subtree (the regression this issue addresses).
-      it "renders missing whitespace text without dumping the ancestor subtree" do
+    context "one-sided whitespace asymmetry rendering (issues #125 + #137)" do
+      # When two HTML fragments differ only in inter-sibling whitespace,
+      # the asymmetry is re-classified as :whitespace_adjacency (#137,
+      # report-only) and rendered via format_whitespace_adjacency_details.
+      # Two invariants together — the original #125 invariant (no
+      # ancestor-subtree dump in the rendered output) and the #137
+      # contract (the dimension is :whitespace_adjacency, not a
+      # cascading :text_content mismatch).
+      it "re-classifies whitespace asymmetry as :whitespace_adjacency without dumping ancestor subtree" do
         html1 = "<div id=\"A\"><a id=\"x\"></a>\n   <a id=\"y\"></a></div>"
         html2 = "<div id=\"A\"><a id=\"x\"></a><a id=\"y\"></a></div>"
 
@@ -453,32 +453,29 @@ RSpec.describe Canon::Comparison::HtmlComparator do
           html1, html2, format: :html5, verbose: true
         )
 
-        text_diffs = result.differences.grep(Canon::Diff::DiffNode).select do |d|
-          d.dimension == :text_content
+        ws_adj_diffs = result.differences.grep(Canon::Diff::DiffNode).select do |d|
+          d.dimension == :whitespace_adjacency
         end
-        expect(text_diffs).not_to be_empty
+        expect(ws_adj_diffs).not_to be_empty
 
         require "canon/diff_formatter/diff_detail_formatter/dimension_formatter"
         formatter =
           Canon::DiffFormatter::DiffDetailFormatterHelpers::DimensionFormatter
-        detail1, detail2, changes = formatter.format_text_content_details(
-          text_diffs.first, false
+        detail1, detail2, changes = formatter.format_whitespace_adjacency_details(
+          ws_adj_diffs.first, false
         )
 
-        # One side renders "(not present)", the other renders quoted text
-        # with the parent open-tag hint.
-        expect([detail1, detail2]).to include("(not present)")
-        expect(changes).to match(/Text (added|removed):/)
+        # Critically (#125): no full-subtree dump in the rendered output.
+        [detail1, detail2, changes].each do |part|
+          next if part.nil?
 
-        present = detail1 == "(not present)" ? detail2 : detail1
-        expect(present).to start_with("text \"")
-        expect(present).to include("in <div id=\"A\">")
+          expect(part).not_to include("</div>")
+          expect(part).not_to include("<a")
+        end
 
-        # Critically: no full-subtree dump.  The parent open-tag hint must
-        # not include a closing tag or any child elements.
-        expect(present).not_to include("</div>")
-        expect(present).not_to include("<a")
-        expect(changes).not_to include("</div>")
+        # The Reason (`changes`) must name the adjacency position
+        # (#137 contract) rather than read as a raw text mismatch.
+        expect(changes).to include("Whitespace")
       end
     end
   end
