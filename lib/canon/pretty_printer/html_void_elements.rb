@@ -9,9 +9,8 @@ module Canon
     # element with no children must be written as `<tag></tag>` in HTML;
     # writing `<a/>` is illegal HTML and is parsed as `<a>` (start tag only).
     module HtmlVoidElements
-      VOID = Set.new(%w[
-        area base br col embed hr img input link meta param source track wbr
-      ]).freeze
+      VOID = Set.new(%w[area base br col embed hr img input link meta param
+                        source track wbr]).freeze
 
       def self.void?(name)
         VOID.include?(name.to_s.downcase)
