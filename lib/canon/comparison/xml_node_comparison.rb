@@ -235,38 +235,28 @@ diff_children, differences)
         # HTML-specific: NBSP (U+00A0) is never insignificant whitespace —
         # it always renders as a visible non-breaking space.
         format = opts[:format] || match_opts[:format]
-        if %i[html html4 html5].include?(format) &&
-            WhitespaceSensitivity.contains_nbsp?(node_text(node))
-          return false
-        end
+        if %i[html html4 html5].include?(format)
+          return false if WhitespaceSensitivity.contains_nbsp?(node_text(node))
 
-        # Drop "\n"-leading whitespace-only text nodes inside :collapse
-        # elements unconditionally — even when sandwiched between two inline
-        # siblings.  These are structural indentation (from a pretty-printer
-        # or hand-formatted source) and never meaningful inside collapse
-        # parents like <p>, <li>, <td>.  This must run BEFORE the
-        # inline_whitespace_significant check below so that pretty-print
-        # `\n   ` between two <span>s does not survive alignment.
-        # Filtering them here also stops the diff report from cascading:
-        # positional zip alignment in ChildComparison would otherwise pair
-        # an expected "\n      " against an actual "20483", producing 3-4
-        # misleading text_content mismatches per real structural change.
-        # Space-only nodes (no initial "\n") are kept — those represent
-        # real inline content (e.g. " " between inline siblings).
-        # :preserve elements are always left unchanged.  See lutaml/canon#137.
-        ws_class = WhitespaceSensitivity.classify_text_node(node, opts)
-        return true if ws_class == :collapse && node_text(node).start_with?("\n")
-
-        if %i[html html4 html5].include?(format) &&
-            WhitespaceSensitivity.inline_whitespace_significant?(node)
           # Whitespace between inline element siblings is semantically
           # significant (renders as a visible gap) and must not be stripped.
-          return false
+          return false if WhitespaceSensitivity.inline_whitespace_significant?(node)
         end
 
         return true unless WhitespaceSensitivity.whitespace_preserved?(
           node.parent, match_opts
         )
+
+        # When the pretty-print-side flag is active (set by opts_for_side in
+        # ChildComparison.compare), drop whitespace-only text nodes that start
+        # with "\n" inside :collapse elements — they are structural indentation
+        # from the pretty-printer, not content.  Space-only nodes (no "\n") are
+        # real inline content and are kept for normalised comparison.
+        # :preserve elements are always left unchanged.
+        if match_opts[:_pretty_print_side_active]
+          ws_class = WhitespaceSensitivity.classify_text_node(node, opts)
+          return true if ws_class == :collapse && node_text(node).start_with?("\n")
+        end
 
         false
       end

@@ -28,10 +28,6 @@ Canon's diff formatting includes:
 * **Context and grouping**: Control how much surrounding context to show
 * **Algorithm-specific output**: Different output styles for different diff
   algorithms
-* **Whitespace adjacency**: Pretty-print indentation inside `:collapse` parents
-  is filtered before alignment so a single delta does not cascade into
-  multiple misleading "content differs" entries
-  (link:./whitespace-adjacency.adoc[details])
 
 == Available formatting options
 

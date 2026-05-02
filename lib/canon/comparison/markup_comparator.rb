@@ -194,23 +194,6 @@ module Canon
             return false
           end
 
-          # Drop "\n"-leading whitespace-only text nodes inside :collapse
-          # elements unconditionally — even when sandwiched between two inline
-          # siblings.  These are structural indentation (from a pretty-printer
-          # or hand-formatted source) and never meaningful inside collapse
-          # parents like <p>, <li>, <td>.  This must run BEFORE the
-          # inline_whitespace_significant check below so that pretty-print
-          # `\n   ` between two <span>s does not survive alignment.
-          # Filtering them here also stops the diff report from cascading:
-          # positional zip alignment in ChildComparison would otherwise pair
-          # an expected "\n      " against an actual "20483", producing 3-4
-          # misleading text_content mismatches per real structural change.
-          # Space-only nodes (no initial "\n") are kept — those represent
-          # real inline content (e.g. " " between inline siblings).
-          # :preserve elements are always left unchanged.  See lutaml/canon#137.
-          ws_class = WhitespaceSensitivity.classify_text_node(node, opts)
-          return true if ws_class == :collapse && node_text(node).start_with?("\n")
-
           if %i[html html4
                 html5].include?(format) && WhitespaceSensitivity.inline_whitespace_significant?(node)
             # Whitespace between inline element siblings is semantically
@@ -221,6 +204,17 @@ module Canon
           return true unless WhitespaceSensitivity.whitespace_preserved?(
             node.parent, match_opts
           )
+
+          # When the pretty-print-side flag is active (set by opts_for_side in
+          # ChildComparison.compare), drop whitespace-only text nodes that start
+          # with "\n" inside :collapse elements — they are structural indentation
+          # from the pretty-printer, not content.  Space-only nodes (no initial "\n") are
+          # real inline content and are kept for normalised comparison.
+          # :preserve elements are always left unchanged.
+          if match_opts[:_pretty_print_side_active]
+            ws_class = WhitespaceSensitivity.classify_text_node(node, opts)
+            return true if ws_class == :collapse && node_text(node).start_with?("\n")
+          end
 
           false
         end
@@ -272,26 +266,9 @@ module Canon
         # @param node [Object] Node to check
         # @return [Boolean] true if node is a text node
         def text_node?(node)
-          # Canon::Xml::Node TextNode (responds to :text? but not :element?)
-          if node.respond_to?(:text?) && node.text? &&
-              !node.respond_to?(:element?)
-            return true
-          end
-
-          # Canon::Xml::Node generic check via node_type symbol
-          if node.respond_to?(:node_type) && node.node_type.is_a?(Symbol)
-            return node.node_type == :text
-          end
-
-          # Nokogiri text node — node_type is Integer constant TEXT_NODE (3),
-          # and the node responds to BOTH :text? and :element? (the latter
-          # returns false). Use the integer node_type as the canonical check.
-          if node.respond_to?(:node_type) && node.node_type.is_a?(Integer) &&
-              defined?(Nokogiri::XML::Node::TEXT_NODE)
-            return node.node_type == Nokogiri::XML::Node::TEXT_NODE
-          end
-
-          false
+          (node.respond_to?(:text?) && node.text? &&
+            !node.respond_to?(:element?)) ||
+            (node.respond_to?(:node_type) && node.node_type == :text)
         end
 
         # Get text content from a node

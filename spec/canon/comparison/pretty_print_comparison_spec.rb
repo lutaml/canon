@@ -73,15 +73,8 @@ RSpec.describe "pretty_printed_expected / pretty_printed_received match options"
       "<root><fmt-title>\n  <semx>Foreword</semx>\n</fmt-title></root>"
     end
 
-    it "is equivalent by default (\\n-leading whitespace in :collapse parents is structural, see #137)" do
-      # Issue #137: \n-leading whitespace-only text nodes in :collapse
-      # contexts are now filtered unconditionally (not just when
-      # pretty_printed_expected/received is set). This stops the
-      # ChildComparison cascade and aligns with the practical reality
-      # that pretty-print indentation inside <p>/<li>/<td> etc. is never
-      # meaningful.  pretty_printed_* flags are now no-ops for :collapse
-      # parents — they only affect :preserve contexts.
-      expect(equivalent?(indented_xml, compact_xml, **norm_opts)).to be true
+    it "is NOT equivalent by default (whitespace nodes present in one side)" do
+      expect(equivalent?(indented_xml, compact_xml, **norm_opts)).to be false
     end
 
     it "is equivalent when pretty_printed_expected: true (strip from expected)" do
@@ -139,32 +132,24 @@ RSpec.describe "pretty_printed_expected / pretty_printed_received match options"
                          pretty_printed_received: true)).to be true
     end
 
-    it "is equivalent regardless of asymmetric flags in :collapse contexts (#137)" do
-      # Issue #137: in :collapse parents, \n-leading whitespace is now
-      # filtered from BOTH sides unconditionally.  The pretty_printed_*
-      # flags become no-ops here — both directions are equivalent.
+    it "pretty_printed_expected: true does NOT strip from received" do
+      # expected=compact (no \n nodes), received=indented (\n nodes present)
+      # Flag is only for expected → received \n nodes are kept → NOT equivalent
       expect(equivalent?(compact_xml, indented_xml,
                          **norm_opts,
                          pretty_printed_expected: true,
-                         pretty_printed_received: false)).to be true
+                         pretty_printed_received: false)).to be false
+    end
+
+    it "pretty_printed_received: true does NOT strip from expected" do
+      # expected=indented (\n nodes present), received=compact (no \n nodes)
+      # Flag is only for received → expected \n nodes are kept → NOT equivalent
       expect(equivalent?(indented_xml, compact_xml,
                          **norm_opts,
                          pretty_printed_expected: false,
-                         pretty_printed_received: true)).to be true
+                         pretty_printed_received: true)).to be false
     end
   end
-
-  # ──────────────────────────────────────────────────────────────────────────
-  # Issue #137: cascade prevention in :collapse parents with inline siblings
-  # ──────────────────────────────────────────────────────────────────────────
-
-  # NOTE: end-to-end coverage for issue #137's cascade-prevention behaviour
-  # in HTML lives in the metanorma-iso suite (`spec/isodoc/iso_spec.rb:114`),
-  # which exercises the full HTML diff pipeline metanorma actually uses.
-  # A canon-internal regression here would need to reconstruct that pipeline
-  # (custom profile, HTML parsing path, ResolvedMatchOptions wiring), which
-  # is brittle. The XML-mode coverage above (`in :normalize elements`) plus
-  # the metanorma integration test together cover the regression surface.
 
   # ──────────────────────────────────────────────────────────────────────────
   # :strict context — whitespace always preserved
