@@ -14,7 +14,6 @@ module Canon
 
       # Pretty print HTML with consistent indentation
       def format(html_string)
-        # Detect if this is XHTML or HTML
         if xhtml?(html_string)
           format_as_xhtml(html_string)
         else
@@ -25,16 +24,13 @@ module Canon
       private
 
       def xhtml?(html_string)
-        # Check for XHTML DOCTYPE or xmlns attribute
         html_string.include?("XHTML") ||
           html_string.include?('xmlns="http://www.w3.org/1999/xhtml"')
       end
 
       def format_as_xhtml(html_string)
-        # Parse as XML for XHTML
         doc = Nokogiri::XML(html_string, &:noblanks)
 
-        # Use Nokogiri's built-in pretty printing
         out = if @indent_type == "tab"
                 doc.to_xml(indent: 1, indent_text: "\t", encoding: "UTF-8")
               else
@@ -42,6 +38,16 @@ module Canon
               end
 
         expand_non_void_self_closing(out)
+      end
+
+      def format_as_html(html_string)
+        doc = Nokogiri::HTML5(html_string)
+
+        if @indent_type == "tab"
+          doc.to_html(indent: 1, indent_text: "\t", encoding: "UTF-8")
+        else
+          doc.to_html(indent: @indent, encoding: "UTF-8")
+        end
       end
 
       # Rewrite `<tag …/>` into `<tag …></tag>` for every element name that
@@ -56,18 +62,6 @@ module Canon
           else
             "<#{name}#{attrs}></#{name}>"
           end
-        end
-      end
-
-      def format_as_html(html_string)
-        # Parse as HTML5
-        doc = Nokogiri::HTML5(html_string)
-
-        # Use Nokogiri's built-in pretty printing
-        if @indent_type == "tab"
-          doc.to_html(indent: 1, indent_text: "\t", encoding: "UTF-8")
-        else
-          doc.to_html(indent: @indent, encoding: "UTF-8")
         end
       end
     end

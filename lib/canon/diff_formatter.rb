@@ -366,8 +366,13 @@ module Canon
     # @param actual [Object] Actual value
     # @return [String] Formatted diff output
     def format_comparison_result(comparison_result, expected, actual)
-      # Detect format from expected content
-      format = Canon::Comparison::FormatDetector.detect(expected)
+      # Prefer the matcher-supplied format (e.g. :html4 from
+      # be_html4_equivalent_to). Auto-detection from the expected string
+      # cannot distinguish HTML from XML for fragments like
+      # `<div class="x"></div>` and would mis-route HTML fixtures
+      # through the XML pretty-printer (issue #135).
+      format = (comparison_result.respond_to?(:format) && comparison_result.format) ||
+        Canon::Comparison::FormatDetector.detect(expected)
 
       formatter_options = {
         use_color: @use_color,
