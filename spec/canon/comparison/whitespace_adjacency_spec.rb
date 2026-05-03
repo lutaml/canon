@@ -52,8 +52,8 @@ RSpec.describe ":whitespace_adjacency diff dimension (#137)" do
       bad_pairs = result.differences.select do |d|
         next false unless d.dimension == :text_content
 
-        n1_text = node_text_for(d.respond_to?(:node1) ? d.node1 : nil)
-        n2_text = node_text_for(d.respond_to?(:node2) ? d.node2 : nil)
+        n1_text = node_text_for(d.node1)
+        n2_text = node_text_for(d.node2)
         next false unless n1_text && n2_text
 
         (n1_text.strip.empty? && !n2_text.strip.empty?) ||
@@ -110,27 +110,34 @@ RSpec.describe ":whitespace_adjacency diff dimension (#137)" do
     end
 
     it "says 'after' when the whitespace trails the partner at parent edge" do
-      # Asymmetric whitespace after the last content sibling — no
-      # non-whitespace sibling exists after the whitespace node, so the
-      # partner sits before it.
-      html1 = "<a><span>ISO </span><span>712</span>\n   </a>"
-      html2 = "<a><span>ISO </span><span>712</span></a>"
+      # Trailing whitespace inside a whitespace-preserving element (<code>)
+      # paired against an extra element on the other side.  The whitespace
+      # has a backward non-ws sibling (<b>A</b>) but no forward non-ws
+      # sibling, so the direction is "after".
+      html1 = "<code><b>A</b>\n</code>"
+      html2 = "<code><b>A</b><b>B</b></code>"
 
-      reason = reason_for(html1, html2)
-      # The trailing whitespace may or may not survive the upstream
-      # pretty-print filter; only assert when a :whitespace_adjacency
-      # diff actually surfaces.
-      expect(reason).to include('Whitespace after "712"') unless reason.empty?
+      expect(reason_for(html1, html2)).to include('Whitespace after "B"')
+    end
+
+    it "says 'adjacent to' when the whitespace has no non-ws siblings" do
+      # A whitespace-only text node as the sole child of a
+      # whitespace-preserving element, paired against content on the
+      # other side.  No non-ws siblings in either direction.
+      html1 = "<code>\n</code>"
+      html2 = "<code><b>A</b></code>"
+
+      expect(reason_for(html1, html2)).to include('Whitespace adjacent to "A"')
     end
   end
 
   def node_text_for(node)
     return nil if node.nil?
 
-    if node.respond_to?(:value) && !node.respond_to?(:element?)
-      node.value.to_s
-    elsif node.respond_to?(:content)
-      node.content.to_s
+    case node
+    when Canon::Xml::Nodes::TextNode then node.value.to_s
+    when Canon::Xml::Node then node.value.to_s
+    when Nokogiri::XML::Node then node.content.to_s
     end
   end
 end

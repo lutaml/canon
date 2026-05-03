@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative "../comparison" # Load base module with constants
+require_relative "node_inspector"
 require_relative "../diff/diff_node"
 require_relative "../diff/path_builder"
 
@@ -87,23 +88,20 @@ module Canon
           return nil if node.nil?
 
           # Canon::Xml::Node types
-          if node.is_a?(Canon::Xml::Nodes::RootNode)
+          case node
+          when Canon::Xml::Nodes::RootNode
             # Serialize all children of root
             node.children.map { |child| serialize_node(child) }.join
-          elsif node.is_a?(Canon::Xml::Nodes::ElementNode)
+          when Canon::Xml::Nodes::ElementNode
             serialize_element_node(node)
-          elsif node.is_a?(Canon::Xml::Nodes::TextNode)
+          when Canon::Xml::Nodes::TextNode
             # Use original text (with entity references) if available,
             # otherwise fall back to value (decoded text)
             node.original || node.value
-          elsif node.is_a?(Canon::Xml::Nodes::CommentNode)
+          when Canon::Xml::Nodes::CommentNode
             "<!--#{node.value}-->"
-          elsif node.is_a?(Canon::Xml::Nodes::ProcessingInstructionNode)
+          when Canon::Xml::Nodes::ProcessingInstructionNode
             "<?#{node.target} #{node.data}?>"
-          elsif node.respond_to?(:to_xml)
-            node.to_xml
-          elsif node.respond_to?(:to_html)
-            node.to_html
           else
             node.to_s
           end
@@ -121,8 +119,8 @@ module Canon
             node.attribute_nodes.to_h do |attr|
               [attr.name, attr.value]
             end
-          # Nokogiri nodes
-          elsif node.respond_to?(:attributes)
+          # Nokogiri elements
+          elsif node.is_a?(Nokogiri::XML::Element)
             node.attributes.to_h do |_, attr|
               [attr.name, attr.value]
             end
@@ -227,8 +225,8 @@ module Canon
         def same_node_type?(node1, node2)
           return false if node1.class != node2.class
 
-          # For Nokogiri/Canon::Xml nodes, check node type
-          if node1.respond_to?(:node_type) && node2.respond_to?(:node_type)
+          case node1
+          when Canon::Xml::Node, Nokogiri::XML::Node
             node1.node_type == node2.node_type
           else
             true
@@ -245,20 +243,7 @@ module Canon
         # @param node [Object] Node to check
         # @return [Boolean] true if node is a comment
         def comment_node?(node)
-          return true if node.respond_to?(:comment?) && node.comment?
-          return true if node.respond_to?(:node_type) && node.node_type == :comment
-
-          # HTML comments are parsed as TEXT nodes by Nokogiri
-          # Check if this is a text node with HTML comment content
-          if text_node?(node)
-            text = node_text(node)
-            # Strip whitespace and backslashes for comparison
-            # Nokogiri escapes HTML comments as "<\\!-- comment -->" in full documents
-            text_stripped = text.to_s.strip.gsub("\\", "")
-            return true if text_stripped.start_with?("<!--") && text_stripped.end_with?("-->")
-          end
-
-          false
+          NodeInspector.comment_node?(node)
         end
 
         # Check if a node is a text node
@@ -266,9 +251,7 @@ module Canon
         # @param node [Object] Node to check
         # @return [Boolean] true if node is a text node
         def text_node?(node)
-          (node.respond_to?(:text?) && node.text? &&
-            !node.respond_to?(:element?)) ||
-            (node.respond_to?(:node_type) && node.node_type == :text)
+          NodeInspector.text_node?(node)
         end
 
         # Get text content from a node
@@ -276,15 +259,7 @@ module Canon
         # @param node [Object] Node to get text from
         # @return [String] Text content
         def node_text(node)
-          # Canon::Xml::Node TextNode uses .value
-          if node.respond_to?(:value)
-            node.value.to_s
-          # Nokogiri nodes use .content
-          elsif node.respond_to?(:content)
-            node.content.to_s
-          else
-            node.to_s
-          end
+          NodeInspector.text_content(node)
         end
 
         # Check if difference between two texts is only whitespace
@@ -371,26 +346,18 @@ module Canon
         def extract_text_content_from_node(node)
           return nil if node.nil?
 
-          # For Canon::Xml::Nodes::TextNode
-          return node.value if node.respond_to?(:value) && node.is_a?(Canon::Xml::Nodes::TextNode)
-
-          # For XML/HTML nodes with text_content method
-          return node.text_content if node.respond_to?(:text_content)
-
-          # For nodes with text method
-          return node.text if node.respond_to?(:text)
-
-          # For nodes with content method (Moxml::Text)
-          return node.content if node.respond_to?(:content)
-
-          # For nodes with value method (other types)
-          return node.value if node.respond_to?(:value)
-
-          # For simple text nodes or strings
-          return node.to_s if node.is_a?(String)
-
-          # For other node types, try to_s
-          node.to_s
+          case node
+          when Canon::Xml::Nodes::TextNode
+            node.value
+          when Canon::Xml::Node
+            node.text_content
+          when Nokogiri::XML::Node
+            node.content.to_s
+          when String
+            node
+          else
+            node.to_s
+          end
         rescue StandardError
           nil
         end
@@ -454,8 +421,8 @@ module Canon
         # @param node [Object] The node to check
         # @return [Symbol] The dimension symbol
         def determine_node_dimension(node)
-          # Canon::Xml::Node types
-          if node.respond_to?(:node_type) && node.node_type.is_a?(Symbol)
+          case node
+          when Canon::Xml::Node
             case node.node_type
             when :element then :element_structure
             when :comment then :comments
@@ -463,18 +430,18 @@ module Canon
             when :processing_instruction then :processing_instructions
             else :text_content
             end
-          # Moxml/Nokogiri types: check element? before the catch-all
-          # default so element orphans are correctly classified.
-          elsif node.respond_to?(:comment?) && node.comment?
-            :comments
-          elsif node.respond_to?(:text?) && node.text?
-            :text_content
-          elsif node.respond_to?(:cdata?) && node.cdata?
-            :text_content
-          elsif node.respond_to?(:processing_instruction?) && node.processing_instruction?
-            :processing_instructions
-          elsif node.is_a?(Nokogiri::XML::Element)
-            :element_structure
+          when Nokogiri::XML::Node
+            if node.comment?
+              :comments
+            elsif node.text? || node.cdata?
+              :text_content
+            elsif node.processing_instruction?
+              :processing_instructions
+            elsif node.element?
+              :element_structure
+            else
+              :text_content
+            end
           else
             :text_content
           end

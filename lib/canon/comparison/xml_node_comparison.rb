@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require_relative "node_inspector"
+
 module Canon
   module Comparison
     # XML Node Comparison Utilities
@@ -180,13 +182,9 @@ differences)
       # @return [Symbol] Comparison result constant
       def self.dispatch_by_node_type(node1, node2, opts, child_opts,
 diff_children, differences)
-        # Canon::Xml::Node types use .node_type method that returns symbols
-        # Nokogiri also has .node_type but returns integers, so check for Symbol
-        if node1.respond_to?(:node_type) && node2.respond_to?(:node_type) &&
-            node1.node_type.is_a?(Symbol) && node2.node_type.is_a?(Symbol)
+        if node1.is_a?(Canon::Xml::Node) && node2.is_a?(Canon::Xml::Node)
           dispatch_canon_node_type(node1, node2, opts, child_opts,
                                    diff_children, differences)
-        # Moxml/Nokogiri types use .element?, .text?, etc. methods
         else
           dispatch_legacy_node_type(node1, node2, opts, child_opts,
                                     diff_children, differences)
@@ -286,8 +284,8 @@ diff_children, differences)
       def self.same_node_type?(node1, node2)
         return false if node1.class != node2.class
 
-        # For Nokogiri/Canon::Xml nodes, check node type
-        if node1.respond_to?(:node_type) && node2.respond_to?(:node_type)
+        case node1
+        when Canon::Xml::Node, Nokogiri::XML::Node
           node1.node_type == node2.node_type
         else
           true
@@ -305,34 +303,13 @@ diff_children, differences)
       # @param check_children [Boolean] Whether to check child nodes
       # @return [Boolean] true if node is a comment
       def self.comment_node?(node, check_children: false)
-        result = false
-        return true if node.respond_to?(:comment?) && node.comment?
-        return true if node.respond_to?(:node_type) && node.node_type == :comment
+        return true if NodeInspector.comment_node?(node)
 
-        if node.is_a?(Nokogiri::XML::Element) && !node.children.empty? && check_children
-          node.children.each do |child|
-            # Recursively check child nodes for comments
-            # limit depth to avoid infinite recursion
-            # in case of circular structures (if any)
-            if comment_node?(child, check_children: false)
-              result = true
-              break
-            end
-          end
+        if check_children && node.is_a?(Nokogiri::XML::Element) && !node.children.empty?
+          node.children.any? { |child| NodeInspector.comment_node?(child) }
+        else
+          false
         end
-        return true if result
-
-        # HTML comments are parsed as TEXT nodes by Nokogiri
-        # Check if this is a text node with HTML comment content
-        if text_node?(node)
-          text = node_text(node)
-          # Strip whitespace and backslashes for comparison
-          # Nokogiri escapes HTML comments as "<\\!-- comment -->" in full documents
-          text_stripped = text.to_s.strip.gsub("\\", "")
-          return true if text_stripped.start_with?("<!--") && text_stripped.end_with?("-->")
-        end
-
-        result
       end
 
       # Check if a node is a text node
@@ -340,24 +317,7 @@ diff_children, differences)
       # @param node [Object] Node to check
       # @return [Boolean] true if node is a text node
       def self.text_node?(node)
-        return false unless node
-
-        # Nokogiri text nodes (XML, HTML4, HTML5) — call element? rather
-        # than respond_to?(:element?), which always returns true for
-        # Nokogiri::XML::Node and made this predicate vacuously false
-        # for every Nokogiri text node. See issue #118.
-        if node.is_a?(Nokogiri::XML::Node)
-          return node.text? && !node.element?
-        end
-
-        # Canon::Xml::Nodes types and other ducktyped nodes.
-        if node.respond_to?(:text?) && node.text? &&
-            !node.respond_to?(:element?)
-          return true
-        end
-
-        # Symbol-style node_type (Canon's own node objects).
-        node.respond_to?(:node_type) && node.node_type == :text
+        NodeInspector.text_node?(node)
       end
 
       # Extract text content from a node
@@ -367,15 +327,7 @@ diff_children, differences)
       def self.node_text(node)
         return "" unless node
 
-        if node.respond_to?(:content)
-          node.content.to_s
-        elsif node.respond_to?(:text)
-          node.text.to_s
-        elsif node.respond_to?(:value)
-          node.value.to_s
-        else
-          ""
-        end
+        NodeInspector.text_content(node)
       end
 
       # Dispatch by Canon::Xml::Node type
@@ -411,21 +363,26 @@ diff_children, differences)
         # Import XmlComparator to use its comparison methods
         require_relative "xml_comparator"
 
-        if node1.respond_to?(:element?) && node1.element?
-          XmlComparator.compare_element_nodes(node1, node2, opts, child_opts,
-                                              diff_children, differences)
-        elsif node1.respond_to?(:text?) && node1.text?
-          XmlComparator.compare_text_nodes(node1, node2, opts, differences)
-        elsif node1.respond_to?(:comment?) && node1.comment?
-          XmlComparator.compare_comment_nodes(node1, node2, opts, differences)
-        elsif node1.respond_to?(:cdata?) && node1.cdata?
-          XmlComparator.compare_text_nodes(node1, node2, opts, differences)
-        elsif node1.respond_to?(:processing_instruction?) && node1.processing_instruction?
-          XmlComparator.compare_processing_instruction_nodes(node1, node2,
-                                                             opts, differences)
-        elsif node1.respond_to?(:root)
+        case node1
+        when Nokogiri::XML::Document
           XmlComparator.compare_document_nodes(node1, node2, opts, child_opts,
                                                diff_children, differences)
+        when Nokogiri::XML::Node
+          if node1.element?
+            XmlComparator.compare_element_nodes(node1, node2, opts, child_opts,
+                                                diff_children, differences)
+          elsif node1.text?
+            XmlComparator.compare_text_nodes(node1, node2, opts, differences)
+          elsif node1.comment?
+            XmlComparator.compare_comment_nodes(node1, node2, opts, differences)
+          elsif node1.cdata?
+            XmlComparator.compare_text_nodes(node1, node2, opts, differences)
+          elsif node1.processing_instruction?
+            XmlComparator.compare_processing_instruction_nodes(node1, node2,
+                                                               opts, differences)
+          else
+            Comparison::EQUIVALENT
+          end
         else
           Comparison::EQUIVALENT
         end
@@ -457,10 +414,11 @@ differences)
       # @param node [Canon::Xml::Node, Object] Node to serialize
       # @return [String] XML string representation
       def self.serialize_node_to_xml(node)
-        if node.is_a?(Canon::Xml::Nodes::RootNode)
+        case node
+        when Canon::Xml::Nodes::RootNode
           # Serialize all children of root
           node.children.map { |child| serialize_node_to_xml(child) }.join
-        elsif node.is_a?(Canon::Xml::Nodes::ElementNode)
+        when Canon::Xml::Nodes::ElementNode
           # Serialize element with attributes and children
           attrs = node.attribute_nodes.map do |a|
             " #{a.name}=\"#{a.value}\""
@@ -474,14 +432,12 @@ differences)
           else
             "<#{node.name}#{attrs}>#{children_xml}</#{node.name}>"
           end
-        elsif node.is_a?(Canon::Xml::Nodes::TextNode)
+        when Canon::Xml::Nodes::TextNode
           node.value
-        elsif node.is_a?(Canon::Xml::Nodes::CommentNode)
+        when Canon::Xml::Nodes::CommentNode
           "<!--#{node.value}-->"
-        elsif node.is_a?(Canon::Xml::Nodes::ProcessingInstructionNode)
+        when Canon::Xml::Nodes::ProcessingInstructionNode
           "<?#{node.target} #{node.data}?>"
-        elsif node.respond_to?(:to_xml)
-          node.to_xml
         else
           node.to_s
         end

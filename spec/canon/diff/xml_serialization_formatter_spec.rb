@@ -8,9 +8,8 @@ RSpec.describe Canon::Diff::XmlSerializationFormatter do
   describe ".serialization_formatting?" do
     context "with self-closing vs explicit closing tags" do
       it "detects empty text nodes from self-closing vs explicit closing" do
-        # Create mock text nodes
-        node1 = double("TextNode", value: "")
-        node2 = double("TextNode", value: "   ")
+        node1 = Canon::Xml::Nodes::TextNode.new(value: "")
+        node2 = Canon::Xml::Nodes::TextNode.new(value: "   ")
 
         diff_node = Canon::Diff::DiffNode.new(
           node1: node1,
@@ -23,8 +22,8 @@ RSpec.describe Canon::Diff::XmlSerializationFormatter do
       end
 
       it "detects whitespace-only text nodes from self-closing vs explicit closing" do
-        node1 = double("TextNode", value: "\n")
-        node2 = double("TextNode", value: "  \t  ")
+        node1 = Canon::Xml::Nodes::TextNode.new(value: "\n")
+        node2 = Canon::Xml::Nodes::TextNode.new(value: "  \t  ")
 
         diff_node = Canon::Diff::DiffNode.new(
           node1: node1,
@@ -37,8 +36,8 @@ RSpec.describe Canon::Diff::XmlSerializationFormatter do
       end
 
       it "returns false for non-text_content dimensions" do
-        node1 = double("TextNode", value: "")
-        node2 = double("TextNode", value: "")
+        node1 = Canon::Xml::Nodes::TextNode.new(value: "")
+        node2 = Canon::Xml::Nodes::TextNode.new(value: "")
 
         diff_node = Canon::Diff::DiffNode.new(
           node1: node1,
@@ -53,8 +52,8 @@ RSpec.describe Canon::Diff::XmlSerializationFormatter do
 
     context "with actual content differences" do
       it "returns false for text with actual content" do
-        node1 = double("TextNode", value: "Hello")
-        node2 = double("TextNode", value: "Goodbye")
+        node1 = Canon::Xml::Nodes::TextNode.new(value: "Hello")
+        node2 = Canon::Xml::Nodes::TextNode.new(value: "Goodbye")
 
         diff_node = Canon::Diff::DiffNode.new(
           node1: node1,
@@ -67,8 +66,8 @@ RSpec.describe Canon::Diff::XmlSerializationFormatter do
       end
 
       it "returns false when one text is blank and one has content" do
-        node1 = double("TextNode", value: "")
-        node2 = double("TextNode", value: "Hello")
+        node1 = Canon::Xml::Nodes::TextNode.new(value: "")
+        node2 = Canon::Xml::Nodes::TextNode.new(value: "Hello")
 
         diff_node = Canon::Diff::DiffNode.new(
           node1: node1,
@@ -226,10 +225,10 @@ RSpec.describe Canon::Diff::XmlSerializationFormatter do
       end
     end
 
-    context "with objects with value method" do
-      it "returns true for objects with value method" do
-        obj = double("TextNode", value: "text")
-        expect(described_class.send(:text_node?, obj)).to be true
+    context "with unknown objects" do
+      it "returns false for unknown objects without a recognized type" do
+        obj = Object.new
+        expect(described_class.send(:text_node?, obj)).to be false
       end
     end
 
@@ -293,31 +292,16 @@ RSpec.describe Canon::Diff::XmlSerializationFormatter do
       end
     end
 
-    context "with objects with various content methods" do
-      it "tries text_content method first" do
-        obj = double("Node", text_content: "via text_content", text: "via text")
+    context "with Canon::Xml::Node element nodes" do
+      it "extracts text_content from element nodes" do
+        node = Canon::Xml::Nodes::ElementNode.new(name: "p")
+        node.add_child(Canon::Xml::Nodes::TextNode.new(value: "via text_content"))
         expect(described_class.send(:extract_text_content,
-                                    obj)).to eq("via text_content")
+                                    node)).to eq("via text_content")
       end
+    end
 
-      it "falls back to text method" do
-        obj = double("Node", text: "via text")
-        expect(described_class.send(:extract_text_content,
-                                    obj)).to eq("via text")
-      end
-
-      it "falls back to content method" do
-        obj = double("Node", content: "via content")
-        expect(described_class.send(:extract_text_content,
-                                    obj)).to eq("via content")
-      end
-
-      it "falls back to value method" do
-        obj = double("Node", value: "via value")
-        expect(described_class.send(:extract_text_content,
-                                    obj)).to eq("via value")
-      end
-
+    context "with unknown objects" do
       it "falls back to to_s" do
         obj = double("Node", to_s: "via to_s")
         expect(described_class.send(:extract_text_content,
@@ -327,17 +311,17 @@ RSpec.describe Canon::Diff::XmlSerializationFormatter do
 
     context "with error handling" do
       it "returns nil when extraction raises an error" do
-        obj = double("Node")
-        allow(obj).to receive(:text_content).and_raise(StandardError, "error")
-        expect(described_class.send(:extract_text_content, obj)).to be_nil
+        node = Canon::Xml::Nodes::ElementNode.new(name: "p")
+        allow(node).to receive(:text_content).and_raise(StandardError, "error")
+        expect(described_class.send(:extract_text_content, node)).to be_nil
       end
     end
   end
 
   describe ".empty_text_content_serialization_diff?" do
     it "returns false for non-text_content dimensions" do
-      node1 = double("TextNode", value: "")
-      node2 = double("TextNode", value: "")
+      node1 = Canon::Xml::Nodes::TextNode.new(value: "")
+      node2 = Canon::Xml::Nodes::TextNode.new(value: "")
 
       diff_node = Canon::Diff::DiffNode.new(
         node1: node1,
@@ -351,8 +335,8 @@ RSpec.describe Canon::Diff::XmlSerializationFormatter do
     end
 
     it "returns false when nodes are not text nodes" do
-      node1 = double("ElementNode", name: "div")
-      node2 = double("ElementNode", name: "div")
+      node1 = Canon::Xml::Nodes::ElementNode.new(name: "div")
+      node2 = Canon::Xml::Nodes::ElementNode.new(name: "div")
 
       diff_node = Canon::Diff::DiffNode.new(
         node1: node1,
@@ -366,8 +350,8 @@ RSpec.describe Canon::Diff::XmlSerializationFormatter do
     end
 
     it "returns true when both texts are blank" do
-      node1 = double("TextNode", value: "")
-      node2 = double("TextNode", value: "   ")
+      node1 = Canon::Xml::Nodes::TextNode.new(value: "")
+      node2 = Canon::Xml::Nodes::TextNode.new(value: "   ")
 
       diff_node = Canon::Diff::DiffNode.new(
         node1: node1,
@@ -381,8 +365,8 @@ RSpec.describe Canon::Diff::XmlSerializationFormatter do
     end
 
     it "returns false when only one text is blank" do
-      node1 = double("TextNode", value: "")
-      node2 = double("TextNode", value: "text")
+      node1 = Canon::Xml::Nodes::TextNode.new(value: "")
+      node2 = Canon::Xml::Nodes::TextNode.new(value: "text")
 
       diff_node = Canon::Diff::DiffNode.new(
         node1: node1,
