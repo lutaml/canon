@@ -172,32 +172,13 @@ module Canon
       "#{code_label(diff1)} vs #{code_label(diff2)}"
     end
 
-    # Extract parse-time errors from a parsed-tree or Nokogiri-fragment
-    # node, regardless of which parser produced it.  Used by the
-    # comparators to plumb libxml's error list through to
-    # +ComparisonResult+ so the diff report can surface FATAL parse
-    # conditions that would otherwise silently drop content from the
-    # comparison tree.  See lutaml/canon#130.
+    # Extract parse-time errors from a parsed-tree or Nokogiri fragment.
+    # Delegates to NodeInspector for cross-backend type dispatch.
     #
-    # @param node [Object, nil] Parsed node (Canon::Xml::Node, Nokogiri
-    #   fragment/document, or nil)
+    # @param node [Object, nil] Parsed node
     # @return [Array<String>] Parse errors as strings (empty by default)
     def self.parse_errors_for(node)
-      return [] if node.nil?
-
-      # Canon::Xml::Node carries errors via the parse_errors accessor.
-      if node.respond_to?(:parse_errors)
-        errors = node.parse_errors
-        return Array(errors).map(&:to_s) if errors && !errors.empty?
-      end
-
-      # Nokogiri::XML::Document, Nokogiri::HTML5::DocumentFragment etc.
-      # expose errors natively.
-      if node.respond_to?(:errors)
-        return Array(node.errors).map(&:to_s)
-      end
-
-      []
+      NodeInspector.parse_errors(node)
     end
 
     class << self

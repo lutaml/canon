@@ -32,7 +32,7 @@ module Canon
       #
       # @return [Array<String>] Parse errors as strings (empty by default)
       def parse_errors
-        instance_variable_defined?(:@parse_errors) ? @parse_errors : []
+        @parse_errors || []
       end
 
       def parse_errors=(value)

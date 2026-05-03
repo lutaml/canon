@@ -337,9 +337,7 @@ module Canon
           when Canon::Xml::Nodes::ElementNode
             tag = node.name.to_s
             attrs = node.attribute_nodes.map do |attr|
-              attr_name  = attr.respond_to?(:name)  ? attr.name.to_s  : attr.to_s
-              attr_value = attr.respond_to?(:value) ? attr.value.to_s : ""
-              " #{attr_name}=\"#{CGI.escapeHTML(attr_value)}\""
+              " #{attr.name}=\"#{CGI.escapeHTML(attr.value.to_s)}\""
             end.join
             "<#{tag}#{attrs}>"
           when Nokogiri::XML::Element
@@ -363,12 +361,11 @@ module Canon
         def self.raw_text_value(node)
           return "" unless node
 
-          if node.respond_to?(:value) && !node.is_a?(Nokogiri::XML::Node)
+          case node
+          when Canon::Xml::Node
             node.value.to_s
-          elsif node.respond_to?(:content)
+          when Nokogiri::XML::Node
             node.content.to_s
-          elsif node.respond_to?(:text)
-            node.text.to_s
           else
             ""
           end

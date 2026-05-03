@@ -41,8 +41,7 @@ module Canon
         # list, downstream diffs describe the partial tree, not the
         # input.
         errors = Array(doc.errors).map(&:to_s)
-        result.parse_errors = errors if errors.any? &&
-          result.respond_to?(:parse_errors=)
+        result.parse_errors = errors if errors.any?
 
         result
       end

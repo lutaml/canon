@@ -444,12 +444,14 @@ expand_difference: false)
         def self.present_is_element?(node)
           return false unless node
 
-          if node.respond_to?(:node_type) && node.node_type.is_a?(Symbol)
-            return node.node_type == :element
+          case node
+          when Canon::Xml::Node
+            node.node_type == :element
+          when Nokogiri::XML::Node
+            node.element?
+          else
+            false
           end
-          return true if node.respond_to?(:element?) && node.element?
-
-          false
         end
 
         # Render a one-sided text-content diff (one node nil, the other a
@@ -532,7 +534,7 @@ expand_difference: false)
             :green, use_color
           )
 
-          reason = if diff.respond_to?(:reason)
+          reason = if diff.is_a?(Canon::Diff::DiffNode)
                      diff.reason
                    else
                      diff.is_a?(Hash) ? diff[:reason] : nil

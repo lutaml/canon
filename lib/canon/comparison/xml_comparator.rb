@@ -287,6 +287,8 @@ module Canon
           )
         end
 
+        public
+
         # Main comparison dispatcher
         def compare_nodes(n1, n2, opts, child_opts, diff_children, differences)
           # FAST PATH: Object identity - same object is always equivalent
@@ -377,7 +379,6 @@ module Canon
         end
 
         # Public comparison methods - exposed for XmlNodeComparison module
-        public
 
         # Compare two element nodes
         def compare_element_nodes(n1, n2, opts, child_opts, diff_children,
@@ -721,7 +722,8 @@ differences)
           elsif dimension == :element_structure &&
               diff1 == Canon::Comparison::UNEQUAL_ELEMENTS &&
               diff2 == Canon::Comparison::UNEQUAL_ELEMENTS &&
-              node1.respond_to?(:name) && node2.respond_to?(:name) &&
+              (node1.is_a?(Canon::Xml::Node) || node1.is_a?(Nokogiri::XML::Node)) &&
+              (node2.is_a?(Canon::Xml::Node) || node2.is_a?(Nokogiri::XML::Node)) &&
               node1.name && node2.name && node1.name != node2.name
             # Most common case: differing element names.  Surface the
             # actual names rather than a generic "elements differ".
@@ -849,11 +851,11 @@ differences)
           text1 = extract_text_from_node(node1)
           text2 = extract_text_from_node(node2)
 
-          cc = XmlComparatorHelpers::ChildComparison
-          ws_on_first = cc.send(:whitespace_only_text_node?, node1) &&
-            !cc.send(:whitespace_only_text_node?, node2)
-          ws_on_second = cc.send(:whitespace_only_text_node?, node2) &&
-            !cc.send(:whitespace_only_text_node?, node1)
+          ni = NodeInspector
+          ws_on_first = ni.whitespace_only_text?(node1) &&
+            !ni.whitespace_only_text?(node2)
+          ws_on_second = ni.whitespace_only_text?(node2) &&
+            !ni.whitespace_only_text?(node1)
 
           if ws_on_first
             ws_text = text1
@@ -879,14 +881,12 @@ differences)
             "present on #{present_side} (\"#{ws_vis}\"), absent on #{absent_side}"
         end
 
-        # Determine the adjacency position of a whitespace-only text
-        # node relative to its parent's other (non-whitespace) children.
         def whitespace_adjacency_position(ws_node)
-          return :isolated unless ws_node.respond_to?(:parent)
+          return :isolated unless ws_node.is_a?(Canon::Xml::Node) ||
+            ws_node.is_a?(Nokogiri::XML::Node)
 
           parent = ws_node.parent
           return :isolated if parent.nil?
-          return :isolated unless parent.respond_to?(:children)
 
           siblings = parent.children
           idx = siblings.index(ws_node)
@@ -902,16 +902,13 @@ differences)
           end
         end
 
-        # Walk siblings outward from +idx+ in +direction+, skipping
-        # whitespace-only text nodes.  Returns true if any non-whitespace
-        # sibling exists in that direction.
         def sibling_with_content?(siblings, idx, direction)
           i = idx + direction
           while i >= 0 && i < siblings.length
             s = siblings[i]
-            text_only = s.respond_to?(:text?) && s.text? &&
-              s.respond_to?(:content) && s.content.to_s.strip.empty?
-            return true unless text_only
+            is_ws_text = NodeInspector.text_node?(s) &&
+              NodeInspector.text_content(s).strip.empty?
+            return true unless is_ws_text
 
             i += direction
           end

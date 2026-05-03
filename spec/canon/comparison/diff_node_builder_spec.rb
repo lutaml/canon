@@ -50,9 +50,8 @@ RSpec.describe Canon::Comparison::DiffNodeBuilder do
 
     describe ":text_content dimension" do
       it "shows truncated text when both have content" do
-        node1 = double("node",
-                       text_content: "This is some very long text content that exceeds the limit")
-        node2 = double("node", text_content: "This is some short content")
+        node1 = Canon::Xml::Nodes::TextNode.new(value: "This is some very long text content that exceeds the limit")
+        node2 = Canon::Xml::Nodes::TextNode.new(value: "This is some short content")
 
         reason = described_class.build_reason(
           node1, node2, 9, 9, :text_content
@@ -62,14 +61,14 @@ RSpec.describe Canon::Comparison::DiffNodeBuilder do
       end
 
       it "handles missing text gracefully" do
-        node1 = double("node", text_content: nil)
-        node2 = double("node", text_content: "present")
+        node1 = Canon::Xml::Nodes::TextNode.new(value: "")
+        node2 = Canon::Xml::Nodes::TextNode.new(value: "present")
 
         reason = described_class.build_reason(
           node1, node2, 9, 9, :text_content
         )
 
-        expect(reason).to eq("missing vs 'present'")
+        expect(reason).to eq("'' vs 'present'")
       end
     end
 

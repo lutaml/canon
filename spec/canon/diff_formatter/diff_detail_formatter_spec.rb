@@ -505,10 +505,18 @@ RSpec.describe "DiffDetailFormatter helpers" do
         compact_semantic_report: true,
       )
       # Simulate comparison_result
-      comparison_result = double("comparison_result")
+      comparison_result = double("comparison_result",
+                                 algorithm: :dom,
+                                 differences: [diff],
+                                 equivalent?: false,
+                                 original_strings: ["<root/>", "<root/>"],
+                                 html_version: nil,
+                                 match_options: nil,
+                                 parse_errors?: false,
+                                 parse_errors_expected: [],
+                                 parse_errors_received: [])
       allow(comparison_result).to receive(:is_a?).with(Canon::Comparison::ComparisonResult).and_return(true)
-      allow(comparison_result).to receive_messages(algorithm: :dom,
-                                                   differences: [diff], equivalent?: false, original_strings: ["<root/>", "<root/>"], html_version: nil, match_options: nil, parse_errors?: false, parse_errors_expected: [], parse_errors_received: [])
+      allow(comparison_result).to receive(:format).and_return(:xml)
 
       output = formatter.format_comparison_result(comparison_result, "<root/>",
                                                   "<root/>")
@@ -569,10 +577,18 @@ RSpec.describe "DiffDetailFormatter helpers" do
         use_color: false,
         expand_difference: true,
       )
-      comparison_result = double("comparison_result")
+      comparison_result = double("comparison_result",
+                                 algorithm: :dom,
+                                 differences: [diff],
+                                 equivalent?: false,
+                                 original_strings: ["<root/>", "<root/>"],
+                                 html_version: nil,
+                                 match_options: nil,
+                                 parse_errors?: false,
+                                 parse_errors_expected: [],
+                                 parse_errors_received: [])
       allow(comparison_result).to receive(:is_a?).with(Canon::Comparison::ComparisonResult).and_return(true)
-      allow(comparison_result).to receive_messages(algorithm: :dom,
-                                                   differences: [diff], equivalent?: false, original_strings: ["<root/>", "<root/>"], html_version: nil, match_options: nil, parse_errors?: false, parse_errors_expected: [], parse_errors_received: [])
+      allow(comparison_result).to receive(:format).and_return(:xml)
 
       output = formatter.format_comparison_result(comparison_result, "<root/>",
                                                   "<root/>")
