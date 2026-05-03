@@ -873,12 +873,34 @@ differences)
             return build_text_diff_reason(text1, text2)
           end
 
-          direction = whitespace_partner_direction(ws_node)
           ws_vis = visualize_whitespace(ws_text)
-          content_vis = content_text ? visualize_whitespace(truncate_text(content_text)) : "(none)"
 
-          "Whitespace #{direction} \"#{content_vis}\": " \
-            "present on #{present_side} (\"#{ws_vis}\"), absent on #{absent_side}"
+          if content_text.nil? || content_text.strip.empty?
+            # Partner content extracts to "" / whitespace-only — naming it
+            # in the Reason ("Whitespace before \"\"") gives the reader
+            # nothing.  Fall back to the parent element name so the
+            # diff carries structural context (issue #112's contract,
+            # extended from :text_content to :whitespace_adjacency).
+            parent_label = whitespace_adjacency_parent_label(ws_node)
+            "Whitespace inside #{parent_label}: " \
+              "present on #{present_side} (\"#{ws_vis}\"), absent on #{absent_side}"
+          else
+            direction = whitespace_partner_direction(ws_node)
+            content_vis = visualize_whitespace(truncate_text(content_text))
+            "Whitespace #{direction} \"#{content_vis}\": " \
+              "present on #{present_side} (\"#{ws_vis}\"), absent on #{absent_side}"
+          end
+        end
+
+        def whitespace_adjacency_parent_label(ws_node)
+          return "(unknown parent)" unless ws_node.is_a?(Canon::Xml::Node) ||
+            ws_node.is_a?(Nokogiri::XML::Node)
+
+          parent = ws_node.parent
+          return "(unknown parent)" if parent.nil?
+
+          name = parent.name
+          name && !name.empty? ? "<#{name}>" : "(unknown parent)"
         end
 
         # Direction of the partner content relative to the whitespace node,
