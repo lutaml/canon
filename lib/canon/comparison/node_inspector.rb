@@ -50,6 +50,39 @@ module Canon
         !text.empty? && text.strip.empty?
       end
 
+      # True when +node+ is a comment node.
+      # For HTML, also detects comments that Nokogiri parses as TEXT nodes
+      # (content like "<!-- comment -->" or escaped "<\\!-- comment -->").
+      def self.comment_node?(node)
+        case node
+        when Canon::Xml::Node
+          node.node_type == :comment
+        when Nokogiri::XML::Node
+          return true if node.comment?
+
+          # HTML comments are parsed as TEXT nodes by Nokogiri
+          if node.text?
+            text_stripped = text_content(node).to_s.strip.gsub("\\", "")
+            return true if text_stripped.start_with?("<!--") && text_stripped.end_with?("-->")
+          end
+          false
+        else
+          false
+        end
+      end
+
+      # True when +node+ is an element node.
+      def self.element_node?(node)
+        case node
+        when Canon::Xml::Node
+          node.node_type == :element
+        when Nokogiri::XML::Node
+          node.element?
+        else
+          false
+        end
+      end
+
       # Extract parse-time errors carried on a node or its owning document.
       # Returns an Array of Strings.
       def self.parse_errors(node)

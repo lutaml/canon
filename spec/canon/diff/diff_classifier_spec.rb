@@ -152,10 +152,8 @@ RSpec.describe Canon::Diff::DiffClassifier do
         let(:classifier) { described_class.new(match_options) }
 
         it "classifies as formatting when only whitespace differs" do
-          text1 = double("TextNode")
-          text2 = double("TextNode")
-          allow(text1).to receive(:value).and_return("Hello  world")
-          allow(text2).to receive(:value).and_return("Hello world")
+          text1 = Canon::Xml::Nodes::TextNode.new(value: "Hello  world")
+          text2 = Canon::Xml::Nodes::TextNode.new(value: "Hello world")
 
           diff_node = Canon::Diff::DiffNode.new(
             node1: text1,
@@ -182,10 +180,8 @@ RSpec.describe Canon::Diff::DiffClassifier do
         let(:classifier) { described_class.new(match_options) }
 
         it "classifies as informative when content differs" do
-          text1 = double("TextNode")
-          text2 = double("TextNode")
-          allow(text1).to receive(:value).and_return("Hello")
-          allow(text2).to receive(:value).and_return("Goodbye")
+          text1 = Canon::Xml::Nodes::TextNode.new(value: "Hello")
+          text2 = Canon::Xml::Nodes::TextNode.new(value: "Goodbye")
 
           diff_node = Canon::Diff::DiffNode.new(
             node1: text1,
@@ -215,11 +211,8 @@ RSpec.describe Canon::Diff::DiffClassifier do
         let(:classifier) { described_class.new(match_options) }
 
         it "classifies whitespace differences as formatting" do
-          # Structural whitespace nodes with content that differs only in whitespace
-          ws1 = double("WhitespaceNode")
-          ws2 = double("WhitespaceNode")
-          allow(ws1).to receive(:value).and_return("<div>  content  </div>")
-          allow(ws2).to receive(:value).and_return("<div> content </div>")
+          ws1 = Canon::Xml::Nodes::TextNode.new(value: "<div>  content  </div>")
+          ws2 = Canon::Xml::Nodes::TextNode.new(value: "<div> content </div>")
 
           diff_node = Canon::Diff::DiffNode.new(
             node1: ws1,

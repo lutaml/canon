@@ -91,28 +91,20 @@ module Canon
       def self.text_node?(node)
         return false if node.nil?
 
-        # Canon::Xml::Nodes::TextNode
-        return true if node.is_a?(Canon::Xml::Nodes::TextNode)
-
-        # Moxml::Text (check before generic node_type check)
-        return true if node.is_a?(Moxml::Text)
-
-        # Nokogiri text nodes (node_type returns integer constant like 3)
-        return true if node.respond_to?(:node_type) &&
-          node.node_type.is_a?(Integer) &&
+        case node
+        when Canon::Xml::Nodes::TextNode
+          true
+        when Canon::Xml::Node
+          node.node_type == :text
+        when Nokogiri::XML::Node
           node.node_type == Nokogiri::XML::Node::TEXT_NODE
-
-        # Moxml text nodes (node_type returns symbol) - for when using Moxml adapters
-        return true if node.respond_to?(:node_type) && node.node_type == :text
-
-        # String
-        return true if node.is_a?(String)
-
-        # Test doubles or objects with text node-like interface
-        # Check if it has a value method (contains text content)
-        return true if node.respond_to?(:value)
-
-        false
+        when Moxml::Node
+          node.text?
+        when String
+          true
+        else
+          false
+        end
       end
 
       # Extract text content from a node
@@ -121,28 +113,21 @@ module Canon
       def self.extract_text_content(node)
         return nil if node.nil?
 
-        # For TextNode with value attribute (Canon::Xml::Nodes::TextNode)
-        return node.value if node.respond_to?(:value) && node.is_a?(Canon::Xml::Nodes::TextNode)
-
-        # For XML/HTML nodes with text_content method
-        return node.text_content if node.respond_to?(:text_content)
-
-        # For nodes with content method (try before text, as Moxml::Text.text returns "")
-        return node.content if node.respond_to?(:content)
-
-        # For nodes with text method
-        return node.text if node.respond_to?(:text)
-
-        # For nodes with value method (other types)
-        return node.value if node.respond_to?(:value)
-
-        # For simple text nodes or strings
-        return node.to_s if node.is_a?(String)
-
-        # For other node types, try to_s
-        node.to_s
+        case node
+        when Canon::Xml::Nodes::TextNode
+          node.value
+        when Canon::Xml::Node
+          node.text_content
+        when Nokogiri::XML::Node
+          node.content.to_s
+        when Moxml::Node
+          node.content.to_s
+        when String
+          node
+        else
+          node.to_s
+        end
       rescue StandardError
-        # If extraction fails, return nil (not a serialization difference)
         nil
       end
 
