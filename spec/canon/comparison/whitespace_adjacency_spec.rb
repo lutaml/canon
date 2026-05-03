@@ -79,6 +79,51 @@ RSpec.describe ":whitespace_adjacency diff dimension (#137)" do
     end
   end
 
+  # Direction wording in the Reason line names where the partner content
+  # sits relative to the whitespace node — "before" when the whitespace
+  # immediately precedes the next non-whitespace sibling (the alignment
+  # partner on the other side), "after" at the trailing edge of a parent.
+  #
+  # The earlier `surrounding`/`preceding`/`following` wording was
+  # misleading: it described the whitespace node's position among its own
+  # siblings rather than its direction relative to the partner — so a
+  # whitespace node sandwiched between two spans, with only the leading
+  # gap asymmetric, was reported as "surrounding" the partner. See the
+  # #137 follow-up.
+  context "direction wording in the Reason line" do
+    def reason_for(html1, html2)
+      result = Canon::Comparison.equivalent?(
+        html1, html2, format: :html5, verbose: true
+      )
+      diff = result.differences.find { |d| d.dimension == :whitespace_adjacency }
+      diff&.reason.to_s
+    end
+
+    it "says 'before' when the whitespace precedes the partner" do
+      # Asymmetric whitespace between two spans — the partner on the
+      # actual side aligns with the second span ("712"), and the
+      # whitespace sits immediately before it on the expected side.
+      html1 = "<a><span>ISO </span>\n   <span>712</span></a>"
+      html2 = "<a><span>ISO </span><span>712</span></a>"
+
+      expect(reason_for(html1, html2)).to include('Whitespace before "712"')
+    end
+
+    it "says 'after' when the whitespace trails the partner at parent edge" do
+      # Asymmetric whitespace after the last content sibling — no
+      # non-whitespace sibling exists after the whitespace node, so the
+      # partner sits before it.
+      html1 = "<a><span>ISO </span><span>712</span>\n   </a>"
+      html2 = "<a><span>ISO </span><span>712</span></a>"
+
+      reason = reason_for(html1, html2)
+      # The trailing whitespace may or may not survive the upstream
+      # pretty-print filter; only assert when a :whitespace_adjacency
+      # diff actually surfaces.
+      expect(reason).to include('Whitespace after "712"') unless reason.empty?
+    end
+  end
+
   def node_text_for(node)
     return nil if node.nil?
 

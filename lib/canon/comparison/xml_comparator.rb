@@ -873,36 +873,39 @@ differences)
             return build_text_diff_reason(text1, text2)
           end
 
-          position = whitespace_adjacency_position(ws_node)
+          direction = whitespace_partner_direction(ws_node)
           ws_vis = visualize_whitespace(ws_text)
           content_vis = content_text ? visualize_whitespace(truncate_text(content_text)) : "(none)"
 
-          "Whitespace #{position} \"#{content_vis}\": " \
+          "Whitespace #{direction} \"#{content_vis}\": " \
             "present on #{present_side} (\"#{ws_vis}\"), absent on #{absent_side}"
         end
 
-        def whitespace_adjacency_position(ws_node)
-          return :isolated unless ws_node.is_a?(Canon::Xml::Node) ||
+        # Direction of the partner content relative to the whitespace node,
+        # phrased from the partner's point of view: "before" when the
+        # whitespace immediately precedes its next non-whitespace sibling
+        # (the alignment partner on the other side), "after" when the
+        # whitespace trails the previous non-whitespace sibling, or
+        # "adjacent to" as a degenerate fallback when neither neighbour
+        # exists.
+        def whitespace_partner_direction(ws_node)
+          return "adjacent to" unless ws_node.is_a?(Canon::Xml::Node) ||
             ws_node.is_a?(Nokogiri::XML::Node)
 
           parent = ws_node.parent
-          return :isolated if parent.nil?
+          return "adjacent to" if parent.nil?
 
           siblings = parent.children
           idx = siblings.index(ws_node)
-          return :isolated unless idx
+          return "adjacent to" unless idx
 
-          before = sibling_with_content?(siblings, idx, -1)
-          after = sibling_with_content?(siblings, idx, 1)
-
-          if before && after then :surrounding
-          elsif before then :following
-          elsif after then :preceding
-          else :isolated
+          if non_ws_sibling_exists?(siblings, idx, 1) then "before"
+          elsif non_ws_sibling_exists?(siblings, idx, -1) then "after"
+          else "adjacent to"
           end
         end
 
-        def sibling_with_content?(siblings, idx, direction)
+        def non_ws_sibling_exists?(siblings, idx, direction)
           i = idx + direction
           while i >= 0 && i < siblings.length
             s = siblings[i]
