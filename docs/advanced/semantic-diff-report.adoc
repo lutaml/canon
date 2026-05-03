@@ -212,6 +212,8 @@ Reason:  Text: "¬······:¬······"
 
 This fallback is implemented in `Canon::DiffFormatter::DiffDetailFormatterHelpers::DimensionFormatter.format_text_content_details` and only triggers when `TextUtils.ambiguous_text_pair?` returns `true` _and_ at least one side has a parent element to render.
 
+The same fallback also applies to the `whitespace_adjacency` dimension (see <<whitespace-adjacency,Whitespace adjacency>>): when the alignment partner of a stray whitespace node extracts to an empty / whitespace-only string, the Reason line reads `Whitespace inside <PARENT>` (rather than `Whitespace before ""`), and the Expected/Actual block surfaces each side's parent element compactly. See `format_whitespace_adjacency_details` and `Canon::Comparison::XmlComparator#build_whitespace_adjacency_reason`.
+
 ==== One-sided text diffs (added or removed text nodes)
 
 When a `text_content` difference carries a text node on one side and `nil` on the other (issue #125) -- the shape that fragment-length mismatches and child-comparison emit when a text-node child is missing -- the renderer mirrors `element_structure`: the missing side reads `(not present)`, and the present side reads the text-node content (whitespace-visualised) plus a brief parent open-tag hint for context. The full ancestor subtree is *not* dumped; only the immediate parent's opening tag is shown, so a missing whitespace text node cannot make the diff look like the entire ancestor differs.
