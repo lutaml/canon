@@ -473,7 +473,7 @@ module Canon
             :text_content
           elsif node.respond_to?(:processing_instruction?) && node.processing_instruction?
             :processing_instructions
-          elsif node.respond_to?(:element?) && node.element?
+          elsif node.is_a?(Nokogiri::XML::Element)
             :element_structure
           else
             :text_content

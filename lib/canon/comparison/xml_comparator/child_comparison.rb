@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require_relative "../node_inspector"
+
 module Canon
   module Comparison
     module XmlComparatorHelpers
@@ -27,7 +29,7 @@ module Canon
           # @param differences [Array] Array to collect differences
           # @return [Integer] Comparison result code
           def compare(node1, node2, comparator, opts, child_opts,
-diff_children, differences)
+                      diff_children, differences)
             # FAST PATH: Object identity - same object means equivalent children
             return Comparison::EQUIVALENT if node1.equal?(node2)
 
@@ -40,8 +42,8 @@ diff_children, differences)
             opts1 = XmlNodeComparison.opts_for_side(opts, :expected)
             opts2 = XmlNodeComparison.opts_for_side(opts, :received)
 
-            children1 = comparator.send(:filter_children, node1.children, opts1)
-            children2 = comparator.send(:filter_children, node2.children, opts2)
+            children1 = comparator.filter_children(node1.children, opts1)
+            children2 = comparator.filter_children(node2.children, opts2)
 
             # Quick check: if both have no children, they're equivalent
             return Comparison::EQUIVALENT if children1.empty? && children2.empty?
@@ -97,9 +99,9 @@ diff_children, differences)
 
             # If no matches and children exist, they're all different
             if matches.empty? && (!children1.empty? || !children2.empty?)
-              comparator.send(:add_difference, parent_node, parent_node,
-                              Comparison::MISSING_NODE, Comparison::MISSING_NODE,
-                              :text_content, opts, differences)
+              comparator.add_difference(parent_node, parent_node,
+                                        Comparison::MISSING_NODE, Comparison::MISSING_NODE,
+                                        :text_content, opts, differences)
               return Comparison::UNEQUAL_ELEMENTS
             end
 
@@ -122,30 +124,30 @@ diff_children, differences)
 
                   # Only create DiffNode if element_position is not :ignore
                   if position_behavior != :ignore
-                    comparator.send(:add_difference, match.elem1, match.elem2,
-                                    "position #{match.pos1}", "position #{match.pos2}",
-                                    :element_position, opts, differences)
+                    comparator.add_difference(match.elem1, match.elem2,
+                                              "position #{match.pos1}", "position #{match.pos2}",
+                                              :element_position, opts, differences)
                     all_equivalent = false if position_behavior == :strict
                   end
                 end
 
                 # Compare the matched elements for content/attribute differences
-                result = comparator.send(:compare_nodes, match.elem1, match.elem2,
-                                         child_opts, child_opts, diff_children, differences)
+                result = comparator.compare_nodes(match.elem1, match.elem2,
+                                                  child_opts, child_opts, diff_children, differences)
                 all_equivalent = false unless result == Comparison::EQUIVALENT
 
               when :deleted
                 # Element present in first tree but not second
-                comparator.send(:add_difference, match.elem1, nil,
-                                Comparison::MISSING_NODE, Comparison::MISSING_NODE,
-                                :element_structure, opts, differences)
+                comparator.add_difference(match.elem1, nil,
+                                          Comparison::MISSING_NODE, Comparison::MISSING_NODE,
+                                          :element_structure, opts, differences)
                 all_equivalent = false
 
               when :inserted
                 # Element present in second tree but not first
-                comparator.send(:add_difference, nil, match.elem2,
-                                Comparison::MISSING_NODE, Comparison::MISSING_NODE,
-                                :element_structure, opts, differences)
+                comparator.add_difference(nil, match.elem2,
+                                          Comparison::MISSING_NODE, Comparison::MISSING_NODE,
+                                          :element_structure, opts, differences)
                 all_equivalent = false
               end
             end
@@ -190,24 +192,23 @@ diff_children, differences)
 
               if mismatched_children.empty?
                 unless ws_asymmetric
-                  comparator.send(:add_difference, parent_node, parent_node,
-                                  Comparison::MISSING_NODE, Comparison::MISSING_NODE,
-                                  dimension, opts, differences)
+                  comparator.add_difference(parent_node, parent_node,
+                                            Comparison::MISSING_NODE, Comparison::MISSING_NODE,
+                                            dimension, opts, differences)
                 end
               else
                 mismatched_children.each do |child|
-                  child_dim = comparator.send(:determine_node_dimension,
-                                              child)
-                  if children1.length > children2.length # rubocop:disable Metrics/BlockNesting
-                    comparator.send(:add_difference, child, nil,
-                                    Comparison::MISSING_NODE,
-                                    Comparison::MISSING_NODE,
-                                    child_dim, opts, differences)
+                  child_dim = comparator.determine_node_dimension(child)
+                  if children1.length > children2.length
+                    comparator.add_difference(child, nil,
+                                              Comparison::MISSING_NODE,
+                                              Comparison::MISSING_NODE,
+                                              child_dim, opts, differences)
                   else
-                    comparator.send(:add_difference, nil, child,
-                                    Comparison::MISSING_NODE,
-                                    Comparison::MISSING_NODE,
-                                    child_dim, opts, differences)
+                    comparator.add_difference(nil, child,
+                                              Comparison::MISSING_NODE,
+                                              Comparison::MISSING_NODE,
+                                              child_dim, opts, differences)
                   end
                 end
               end
@@ -245,30 +246,30 @@ diff_children, differences)
                 next
               end
 
-              ws1 = whitespace_only_text_node?(c1)
-              ws2 = whitespace_only_text_node?(c2)
+              ws1 = NodeInspector.whitespace_only_text?(c1)
+              ws2 = NodeInspector.whitespace_only_text?(c2)
 
               if ws1 && !ws2
-                comparator.send(:add_difference, c1, c2,
-                                Comparison::UNEQUAL_TEXT_CONTENTS,
-                                Comparison::UNEQUAL_TEXT_CONTENTS,
-                                :whitespace_adjacency, opts, differences)
+                comparator.add_difference(c1, c2,
+                                          Comparison::UNEQUAL_TEXT_CONTENTS,
+                                          Comparison::UNEQUAL_TEXT_CONTENTS,
+                                          :whitespace_adjacency, opts, differences)
                 result = Comparison::UNEQUAL_TEXT_CONTENTS
                 i += 1
                 next
               elsif ws2 && !ws1
-                comparator.send(:add_difference, c1, c2,
-                                Comparison::UNEQUAL_TEXT_CONTENTS,
-                                Comparison::UNEQUAL_TEXT_CONTENTS,
-                                :whitespace_adjacency, opts, differences)
+                comparator.add_difference(c1, c2,
+                                          Comparison::UNEQUAL_TEXT_CONTENTS,
+                                          Comparison::UNEQUAL_TEXT_CONTENTS,
+                                          :whitespace_adjacency, opts, differences)
                 result = Comparison::UNEQUAL_TEXT_CONTENTS
                 j += 1
                 next
               end
 
-              child_result = comparator.send(:compare_nodes, c1, c2,
-                                             child_opts, child_opts,
-                                             diff_children, differences)
+              child_result = comparator.compare_nodes(c1, c2,
+                                                      child_opts, child_opts,
+                                                      diff_children, differences)
               result = child_result unless child_result == Comparison::EQUIVALENT
               i += 1
               j += 1
@@ -280,53 +281,9 @@ diff_children, differences)
           # True when the length difference between the two child arrays
           # is fully explained by asymmetric whitespace-only text nodes.
           def asymmetric_whitespace_explains_length_diff?(children1, children2)
-            non_ws1 = children1.reject { |c| whitespace_only_text_node?(c) }
-            non_ws2 = children2.reject { |c| whitespace_only_text_node?(c) }
+            non_ws1 = children1.reject { |c| NodeInspector.whitespace_only_text?(c) }
+            non_ws2 = children2.reject { |c| NodeInspector.whitespace_only_text?(c) }
             non_ws1.length == non_ws2.length
-          end
-
-          # True if +node+ is a text node whose content is whitespace-only.
-          # Empty-string text nodes are not treated as whitespace-only for
-          # re-alignment purposes — those represent a genuine
-          # empty-vs-content asymmetry, not a pretty-print indentation
-          # artefact.
-          def whitespace_only_text_node?(node)
-            return false if node.nil?
-            return false unless node_is_text?(node)
-
-            text = node_text_content(node).to_s
-            return false if text.empty?
-
-            text.strip.empty?
-          end
-
-          # Backend-agnostic text-node check.  Handles Canon::Xml::Node
-          # (node_type is Symbol), Nokogiri::XML::Node (node_type is
-          # Integer), and any node exposing +:text?+ without +:element?+.
-          def node_is_text?(node)
-            if node.respond_to?(:node_type) && node.node_type.is_a?(Symbol)
-              return node.node_type == :text
-            end
-
-            if node.respond_to?(:node_type) && node.node_type.is_a?(Integer)
-              if defined?(Nokogiri::XML::Node::TEXT_NODE)
-                return node.node_type == Nokogiri::XML::Node::TEXT_NODE
-              end
-
-              return node.node_type == 3
-            end
-
-            node.respond_to?(:text?) && node.text? &&
-              !node.respond_to?(:element?)
-          end
-
-          # Backend-agnostic text-content reader.
-          def node_text_content(node)
-            return node.value.to_s if node.respond_to?(:value) && !node.respond_to?(:element?)
-            return node.content.to_s if node.respond_to?(:content)
-            return node.text.to_s if node.respond_to?(:text)
-
-            node.to_s
           end
 
           # Determine dimension for length mismatch
@@ -338,22 +295,17 @@ diff_children, differences)
             (0...max_len).each do |i|
               if i >= children1.length
                 # Extra child in children2
-                dimension = comparator.send(:determine_node_dimension,
-                                            children2[i])
+                dimension = comparator.determine_node_dimension(children2[i])
                 break
               elsif i >= children2.length
                 # Extra child in children1
-                dimension = comparator.send(:determine_node_dimension,
-                                            children1[i])
+                dimension = comparator.determine_node_dimension(children1[i])
                 break
-              elsif !comparator.send(:same_node_type?, children1[i],
-                                     children2[i])
+              elsif !comparator.same_node_type?(children1[i], children2[i])
                 # Different node types at same position
                 # Check both nodes - if either is a comment, use :comments dimension
-                dim1 = comparator.send(:determine_node_dimension,
-                                       children1[i])
-                dim2 = comparator.send(:determine_node_dimension,
-                                       children2[i])
+                dim1 = comparator.determine_node_dimension(children1[i])
+                dim2 = comparator.determine_node_dimension(children2[i])
                 dimension = [dim1, dim2].include?(:comments) ? :comments : dim1
                 break
               end
@@ -375,7 +327,7 @@ diff_children, differences)
             end
 
             smaller_set_names = smaller_set.filter_map do |c|
-              next nil unless c.respond_to?(:name)
+              next nil unless c.is_a?(Canon::Xml::Node) || c.is_a?(Nokogiri::XML::Node)
               # Exclude generic node-type names (e.g. "#text") that are
               # shared by all text nodes and cannot be used for matching.
               next nil if c.name.start_with?("#")
@@ -390,7 +342,8 @@ diff_children, differences)
                 # If the smaller set has no child at this position,
                 # consider it a mismatch
                 mismatch_children << larger_set[i]
-              elsif larger_set[i].respond_to?(:name) &&
+              elsif (larger_set[i].is_a?(Canon::Xml::Node) ||
+                     larger_set[i].is_a?(Nokogiri::XML::Node)) &&
                   !larger_set[i].name.start_with?("#") &&
                   !smaller_set_names.include?(larger_set[i].name)
                 # If the name of the node is not found in the smaller set,

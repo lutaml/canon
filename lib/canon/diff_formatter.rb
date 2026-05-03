@@ -371,7 +371,7 @@ module Canon
       # cannot distinguish HTML from XML for fragments like
       # `<div class="x"></div>` and would mis-route HTML fixtures
       # through the XML pretty-printer (issue #135).
-      format = (comparison_result.respond_to?(:format) && comparison_result.format) ||
+      format = (comparison_result.is_a?(Canon::Comparison::ComparisonResult) && comparison_result.format) ||
         Canon::Comparison::FormatDetector.detect(expected)
 
       formatter_options = {

@@ -4,6 +4,7 @@ require "set"
 require_relative "../../diff/diff_node"
 require_relative "../../diff/path_builder"
 require_relative "../../diff/node_serializer"
+require_relative "../node_inspector"
 
 module Canon
   module Comparison
@@ -52,7 +53,7 @@ module Canon
         # For deleted/inserted nodes, include namespace information if available
         if dimension == :text_content && (node1.nil? || node2.nil?)
           node = node1 || node2
-          if node.respond_to?(:name) && node.respond_to?(:namespace_uri)
+          if node.is_a?(Canon::Xml::Node) || node.is_a?(Nokogiri::XML::Node)
             ns = node.namespace_uri
             ns_info = if ns.nil? || ns.empty?
                         ""
@@ -91,7 +92,8 @@ module Canon
         elsif dimension == :element_structure &&
             diff1 == Canon::Comparison::UNEQUAL_ELEMENTS &&
             diff2 == Canon::Comparison::UNEQUAL_ELEMENTS &&
-            node1.respond_to?(:name) && node2.respond_to?(:name) &&
+            (node1.is_a?(Canon::Xml::Node) || node1.is_a?(Nokogiri::XML::Node)) &&
+            (node2.is_a?(Canon::Xml::Node) || node2.is_a?(Nokogiri::XML::Node)) &&
             node1.name && node2.name && node1.name != node2.name
           "different element name (<#{node1.name}> vs <#{node2.name}>)"
         else
@@ -183,26 +185,18 @@ module Canon
       def self.extract_text_content(node)
         return nil if node.nil?
 
-        # For Canon::Xml::Nodes::TextNode
-        return node.value if node.respond_to?(:value) && node.is_a?(Canon::Xml::Nodes::TextNode)
-
-        # For XML/HTML nodes with text_content method
-        return node.text_content if node.respond_to?(:text_content)
-
-        # For nodes with text method
-        return node.text if node.respond_to?(:text)
-
-        # For nodes with content method (Moxml::Text)
-        return node.content if node.respond_to?(:content)
-
-        # For nodes with value method (other types)
-        return node.value if node.respond_to?(:value)
-
-        # For simple text nodes or strings
-        return node.to_s if node.is_a?(String)
-
-        # For other node types, try to_s
-        node.to_s
+        case node
+        when Canon::Xml::Nodes::TextNode
+          node.value
+        when Canon::Xml::Node
+          node.text_content
+        when Nokogiri::XML::Node
+          node.content.to_s
+        when String
+          node
+        else
+          node.to_s
+        end
       rescue StandardError
         nil
       end
