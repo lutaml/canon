@@ -75,28 +75,39 @@ After the new contract, the cascade above collapses to:
 
 [source]
 ----
-DIFFERENCE #1 — whitespace_adjacency: Whitespace surrounding "20483":
+DIFFERENCE #1 — whitespace_adjacency: Whitespace before "20483":
                   present on EXPECTED ("↵░░"), absent on ACTUAL
-DIFFERENCE #2 — whitespace_adjacency: Whitespace surrounding ",":
+DIFFERENCE #2 — whitespace_adjacency: Whitespace before ",":
                   present on EXPECTED ("↵░░"), absent on ACTUAL
 DIFFERENCE #3 — text_content: "↵░░,↵░░"  vs  ", "
 ----
 
-== Adjacency positions
+== Direction relative to the partner
 
-The Reason line names the adjacency position of the whitespace node
-relative to its non-whitespace siblings:
+The Reason line names the document-order position of the whitespace
+node relative to the *partner content node* it was zipped against by
+the alignment walk. The partner is the next (or, at parent edge,
+previous) non-whitespace sibling on the whitespace-bearing side, which
+is what aligns against the corresponding content node on the other
+side.
 
-`:preceding`::  Whitespace at the start of its parent (no non-whitespace
-sibling before it, has one after it).
+`before`::  The whitespace immediately precedes its next non-whitespace
+sibling. This is the common case (e.g. indentation between two inline
+spans where the asymmetric whitespace sits on the leading edge of the
+partner).
 
-`:following`::  Whitespace at the end of its parent (has a non-whitespace
-sibling before it, none after).
+`after`::  The whitespace trails the previous non-whitespace sibling
+and has no non-whitespace sibling after it. Emitted at the trailing
+edge of a parent.
 
-`:surrounding`::  Sandwiched between two non-whitespace siblings.
+`adjacent to`::  Degenerate fallback for a whitespace node with no
+non-whitespace siblings at all. Rarely emitted.
 
-`:isolated`::  No non-whitespace siblings at all (degenerate; rarely
-emitted).
+NOTE: An earlier wording (`Whitespace surrounding "X"`) classified the
+*whitespace node's position among its own siblings* rather than its
+direction relative to the partner. That label was misleading when the
+whitespace sat between two element siblings but the asymmetry was
+one-sided — see issue #137 follow-up.
 
 == What this contract does NOT do
 
