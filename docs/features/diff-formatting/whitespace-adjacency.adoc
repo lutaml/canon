@@ -109,6 +109,71 @@ direction relative to the partner. That label was misleading when the
 whitespace sat between two element siblings but the asymmetry was
 one-sided — see issue #137 follow-up.
 
+=== Examples
+
+==== "before" — whitespace between inline element siblings
+
+[source,ruby]
+----
+html1 = "<a><span>ISO </span>\n   <span>712</span></a>"
+html2 = "<a><span>ISO </span><span>712</span></a>"
+
+result = Canon::Comparison.equivalent?(html1, html2,
+  format: :html5, verbose: true)
+# => #<ComparisonResult equivalent=false>
+
+# The stray "\n   " between two spans is the only asymmetric node.
+# It sits immediately before <span>712</span>, its next non-ws sibling.
+result.differences.first.reason
+# => "Whitespace before \"712\": present on EXPECTED (\"░\"), absent on ACTUAL"
+----
+
+==== "after" — trailing whitespace in a whitespace-preserving element
+
+[source,ruby]
+----
+# <code> preserves whitespace, so the trailing newline survives the
+# upstream filter and pairs against the extra <b>B</b> on the other side.
+html1 = "<code><b>A</b>\n</code>"
+html2 = "<code><b>A</b><b>B</b></code>"
+
+result = Canon::Comparison.equivalent?(html1, html2,
+  format: :html5, verbose: true)
+result.differences.first.reason
+# => "Whitespace after \"B\": present on EXPECTED (\"↵\"), absent on ACTUAL"
+----
+
+==== "adjacent to" — sole-child whitespace node
+
+[source,ruby]
+----
+# A whitespace-only text node as the only child of <code>, paired
+# against an element on the other side.  No non-ws siblings exist.
+html1 = "<code>\n</code>"
+html2 = "<code><b>A</b></code>"
+
+result = Canon::Comparison.equivalent?(html1, html2,
+  format: :html5, verbose: true)
+result.differences.first.reason
+# => "Whitespace adjacent to \"A\": present on EXPECTED (\"↵\"), absent on ACTUAL"
+----
+
+== Working with :whitespace_adjacency diffs programmatically
+
+Use the `dimension` field on `DiffNode` to filter:
+
+[source,ruby]
+----
+result = Canon::Comparison.equivalent?(html1, html2,
+  format: :html5, verbose: true)
+
+# Find all whitespace-adjacency diffs
+ws_diffs = result.differences.select { |d| d.dimension == :whitespace_adjacency }
+
+# These are always normative — they affect the equivalence verdict
+ws_diffs.all?(&:normative?)  # => true
+----
+
 == What this contract does NOT do
 
 * **Does not change equivalence outcomes.** A non-equivalent comparison
@@ -148,4 +213,6 @@ whitespace node as a single normative `:whitespace_adjacency` diff.
 
 The cascade behaviour was reported in
 https://github.com/lutaml/canon/issues/137[issue #137]. The fix landed
-as a report-only re-alignment in PR #138.
+as a report-only re-alignment in PR #138. PR #141 replaced the
+misleading `:surrounding`/`:preceding`/`:following` position labels
+with direction-faithful wording (`before`/`after`/`adjacent to`).
