@@ -266,6 +266,22 @@ match dimension but follows the same normative rule as all general dimensions:
   - Structural differences tracked but don't affect equivalence
   - Useful for content-only comparisons where wrapper elements don't matter
 
+==== Whitespace Adjacency
+
+`:whitespace_adjacency` is a derived dimension — emitted when the
+alignment walk pairs a whitespace-only text node on one side against a
+content node on the other. The Reason line describes the whitespace's
+direction relative to the partner content: `before`, `after`, or
+`adjacent to`.
+
+* **Always normative** — differences always affect equivalence
+* **Not user-configurable** — dimension is always tracked when the
+  re-alignment walk encounters an asymmetric whitespace node
+* **Report-only** — does not change equivalence outcomes compared to
+  pre-#137 behaviour; only changes the diff-report shape (see
+  link:../features/diff-formatting/whitespace-adjacency.adoc[Whitespace
+  adjacency] for details)
+
 .Example: Comment handling
 ====
 [source,ruby]

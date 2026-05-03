@@ -614,6 +614,10 @@ See link:docs/MODES[Diff modes] for details.
 * **Formatting diff detection**: Automatically detects and highlights purely cosmetic whitespace/line break differences
 * **Whitespace visualization**: Make invisible characters visible with CJK-safe
   Unicode symbols
+* **Whitespace adjacency reporting**: Stray whitespace-only text nodes are
+  reported as a dedicated `:whitespace_adjacency` dimension with direction
+  wording (`before`/`after`/`adjacent to`) instead of cascading into
+  misleading `:text_content` mismatches
 * **Non-ASCII detection**: Warnings for unexpected Unicode characters
 * **Customizable**: Character maps, context lines, grouping options
 
