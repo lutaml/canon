@@ -430,7 +430,7 @@ pretty-printer. This is a known future work item.
 |✓ Full
 |✓ (via XML serializer)
 |✓ Full
-|`:pretty_print` uses `Canon::PrettyPrinter::Html`; `:normalize_pretty_print` falls back to `XmlNormalized` pending a dedicated `HtmlNormalized`; `:c14n` uses Nokogiri HTML5 serialization
+|`:pretty_print` uses `Canon::PrettyPrinter::Html` in fixture-ready mode (`FORMAT|AS_XHTML|NO_DECLARATION`); `:normalize_pretty_print` falls back to `XmlNormalized` pending a dedicated `HtmlNormalized`; `:c14n` uses Nokogiri HTML5 serialization. In fixture-ready mode, stray structural whitespace (whitespace-only text nodes between block-level siblings) is stripped before formatting so that libxml's `FORMAT` flag produces correct indentation. Whitespace inside `<pre>`, `<script>`, `<style>`, and `<textarea>` is preserved.
 
 |JSON
 |Planned

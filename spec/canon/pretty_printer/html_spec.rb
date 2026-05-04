@@ -184,5 +184,64 @@ RSpec.describe Canon::PrettyPrinter::Html do
         expect(result).to include("<hr/>")
       end
     end
+
+    # libxml's FORMAT save flag does not insert indentation around the
+    # children of an element it sees as mixed content (any
+    # non-whitespace-only text node child).  Real-world HTML5 input
+    # arriving from upstream pipelines often carries stray whitespace
+    # text nodes between block-level siblings (`<body>` -> `<div>`,
+    # `<br>`, `<div>`, ...), which libxml then treats as mixed content
+    # and emits on a single line.  Issue #133's first fix added
+    # FORMAT|AS_XHTML|NO_DECLARATION but did not strip those text
+    # nodes; this regression covers the follow-up that does.
+    context "fixture_ready: true — strips structural whitespace before FORMAT (#133 follow-up)" do
+      subject { described_class.new(indent: 2, fixture_ready: true) }
+
+      it "indents top-level <body> siblings even when source has stray inter-sibling whitespace" do
+        # Mimics the metanorma-iso shape: <body> with <div>, <br>, <div>
+        # siblings and stray text-node whitespace between them.
+        input = "<html><body>\n  <div class=\"a\"><p>x</p></div>\n  <br>\n  <div class=\"b\"><p>y</p></div>\n  <br>\n  <div class=\"c\"><p>z</p></div>\n</body></html>"
+
+        result = subject.format(input)
+
+        expect(result).to match(%r{<body>\s*\n\s+<div class="a">})
+        expect(result).to match(%r{</div>\s*\n\s+<br\s*/>\s*\n\s+<div class="b">})
+        expect(result).to match(%r{<div class="c">\s*\n\s+<p>z</p>\s*\n\s+</div>})
+      end
+
+      it "preserves significant inline whitespace inside mixed-content runs" do
+        # The space between \"foo\" and <em>bar</em> is significant and
+        # must not be stripped.
+        input = "<html><body><p>foo <em>bar</em> baz</p></body></html>"
+
+        result = subject.format(input)
+
+        expect(result).to include("foo <em>bar</em> baz")
+      end
+
+      it "preserves whitespace inside <pre>" do
+        input = "<html><body><pre>line1\n    line2\n  line3</pre></body></html>"
+
+        result = subject.format(input)
+
+        expect(result).to include("line1\n    line2\n  line3")
+      end
+
+      it "preserves whitespace inside <script>" do
+        input = "<html><body><script>\n  var x = 1;\n</script></body></html>"
+
+        result = subject.format(input)
+
+        expect(result).to include("\n  var x = 1;\n")
+      end
+
+      it "preserves whitespace inside <textarea>" do
+        input = "<html><body><textarea>  Hello\n  World\n</textarea></body></html>"
+
+        result = subject.format(input)
+
+        expect(result).to include("  Hello\n  World\n")
+      end
+    end
   end
 end

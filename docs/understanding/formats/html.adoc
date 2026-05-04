@@ -235,6 +235,23 @@ HTML whitespace is collapsed per CSS rendering rules. Empty text nodes between e
 Multiple spaces within text content are collapsed to single spaces when `text_content: :normalize` is used.
 ====
 
+==== Fixture-ready pretty-print and structural whitespace
+
+When using `Canon::PrettyPrinter::Html` with `fixture_ready: true` (the mode
+used by the diff pipeline's *PRETTY-PRINTED INPUTS* section), Canon strips
+stray structural whitespace before formatting.  Real-world HTML5 input from
+upstream pipelines often carries whitespace-only text nodes between block-level
+siblings (`<body>` → `<div>`, `<br>`, `<div>`, ...).  libxml's `FORMAT` flag
+treats any element with a non-whitespace-only text child as mixed content and
+refuses to indent its children — producing a single-line blob instead of a
+readable tree.
+
+The fixture-ready mode removes whitespace-only text nodes from parents that
+are purely structural (no real text content) and are not whitespace-preserving
+elements (`<pre>`, `<script>`, `<style>`, `<textarea>`).  Mixed-content runs
+like `<p>foo <em>bar</em> baz</p>` are left untouched so that significant
+inline whitespace is preserved.
+
 === Attribute order
 
 HTML attributes are inherently unordered per the HTML specification, so default is `:ignore`.

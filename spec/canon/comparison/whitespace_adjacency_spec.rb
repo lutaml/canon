@@ -109,6 +109,36 @@ RSpec.describe ":whitespace_adjacency diff dimension (#137)" do
       expect(reason_for(html1, html2)).to include('Whitespace before "712"')
     end
 
+    it "names the parent element when the partner is empty / whitespace-only (issue #112)" do
+      # The alignment partner on the actual side is a content sibling
+      # whose extracted text is empty (e.g. an element with no text
+      # descendants).  Without this fallback the Reason would read
+      # `Whitespace before ""` — issue #112's contract requires the
+      # parent element name instead so the diff carries structural
+      # context.
+      html1 = "<h1><span>x</span>\n   <span></span></h1>"
+      html2 = "<h1><span>x</span><span></span></h1>"
+
+      reason = reason_for(html1, html2)
+
+      expect(reason).not_to include('"":')
+      expect(reason).not_to include('before ""')
+      expect(reason).to match(/Whitespace inside <h1>/)
+    end
+
+    it "falls back to (unknown parent) when the whitespace node lacks a real parent" do
+      # A bare Nokogiri text node with no parent → NodeInspector.parent_of
+      # returns nil → whitespace_adjacency_parent_label returns "(unknown parent)".
+      ni = Canon::Comparison::NodeInspector
+      expect(ni.parent_of(nil)).to be_nil
+      expect(ni.parent_of("not a node")).to be_nil
+
+      # A detached Nokogiri text node (no parent element).
+      doc = Nokogiri::HTML5("<html><body></body></html>")
+      detached = Nokogiri::XML::Text.new("  ", doc)
+      expect(ni.parent_of(detached)).to be_nil
+    end
+
     it "says 'after' when the whitespace trails the partner at parent edge" do
       # Trailing whitespace inside a whitespace-preserving element (<code>)
       # paired against an extra element on the other side.  The whitespace

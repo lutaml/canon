@@ -103,6 +103,15 @@ edge of a parent.
 `adjacent to`::  Degenerate fallback for a whitespace node with no
 non-whitespace siblings at all. Rarely emitted.
 
+When the alignment partner extracts to an empty / whitespace-only
+string (e.g. an element with no text descendants), the direction
+phrasing degenerates to `Whitespace before ""` which carries no
+information. In that case Canon falls back to naming the parent
+element instead — `Whitespace inside <PARENT>` — and the
+Expected/Actual detail block renders each side's parent element
+compactly per the contract from
+link:../../advanced/semantic-diff-report.adoc#parent-context-fallback-for-ambiguous-text-diffs[issue #112].
+
 NOTE: An earlier wording (`Whitespace surrounding "X"`) classified the
 *whitespace node's position among its own siblings* rather than its
 direction relative to the partner. That label was misleading when the

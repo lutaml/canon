@@ -98,6 +98,15 @@ module Canon
           []
         end
       end
+
+      # Return the parent node of +node+, or nil when +node+ is not a
+      # recognised DOM backend type or has no parent.
+      def self.parent_of(node)
+        case node
+        when Canon::Xml::Node, Nokogiri::XML::Node
+          node.parent
+        end
+      end
     end
   end
 end
