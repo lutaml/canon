@@ -525,14 +525,34 @@ expand_difference: false)
           text1 = NodeUtils.get_node_text(node1).to_s
           text2 = NodeUtils.get_node_text(node2).to_s
 
-          detail1 = ColorHelper.colorize(
-            "\"#{TextUtils.visualize_whitespace(text1)}\"",
-            :red, use_color
-          )
-          detail2 = ColorHelper.colorize(
-            "\"#{TextUtils.visualize_whitespace(text2)}\"",
-            :green, use_color
-          )
+          if TextUtils.ambiguous_text_pair?(text1, text2) &&
+              (NodeUtils.parent_of(node1) || NodeUtils.parent_of(node2))
+            # Both sides extract to empty / whitespace-only strings —
+            # `""` / `""` tells the reader nothing.  Fall back to a
+            # brief parent open-tag hint per #112's contract, but
+            # without dumping the full ancestor subtree (#125).
+            hint1 = NodeUtils.serialize_open_tag(NodeUtils.parent_of(node1))
+            hint2 = NodeUtils.serialize_open_tag(NodeUtils.parent_of(node2))
+            ws1 = TextUtils.visualize_whitespace(text1)
+            ws2 = TextUtils.visualize_whitespace(text2)
+            detail1 = ColorHelper.colorize(
+              "\"#{ws1}\" in #{hint1}",
+              :red, use_color
+            )
+            detail2 = ColorHelper.colorize(
+              "\"#{ws2}\" in #{hint2}",
+              :green, use_color
+            )
+          else
+            detail1 = ColorHelper.colorize(
+              "\"#{TextUtils.visualize_whitespace(text1)}\"",
+              :red, use_color
+            )
+            detail2 = ColorHelper.colorize(
+              "\"#{TextUtils.visualize_whitespace(text2)}\"",
+              :green, use_color
+            )
+          end
 
           reason = if diff.is_a?(Canon::Diff::DiffNode)
                      diff.reason

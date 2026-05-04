@@ -437,7 +437,7 @@ RSpec.describe Canon::Comparison::HtmlComparator do
       end
     end
 
-    context "one-sided whitespace asymmetry rendering (issues #125 + #137)" do
+    context "one-sided whitespace asymmetry rendering (issues #112, #125, #137)" do
       # When two HTML fragments differ only in inter-sibling whitespace,
       # the asymmetry is re-classified as :whitespace_adjacency (#137,
       # report-only) and rendered via format_whitespace_adjacency_details.
@@ -469,8 +469,13 @@ RSpec.describe Canon::Comparison::HtmlComparator do
           expect(part).not_to include("<a")
         end
 
-        # The Reason names the adjacency position (#137 contract).
-        expect(changes).to include("Whitespace")
+        # The Reason names the parent element, not the empty partner text
+        # (#112 contract extended to :whitespace_adjacency).
+        expect(changes).to match(/Whitespace inside <div/)
+
+        # The detail output carries the parent open-tag hint (#112).
+        expect(detail1).to include("in <div")
+        expect(detail2).to include("in <div")
       end
     end
   end

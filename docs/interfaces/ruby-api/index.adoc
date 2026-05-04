@@ -116,6 +116,9 @@ Where:
 `{Format}`:: The format module (`Xml`, `Html`, `Json`)
 `n`:: Number of spaces (default: 2) or tabs (use 1 for tabs)
 `type`:: Indentation type: `'space'` (default) or `'tab'`
+`fixture_ready`:: (HTML only) When `true`, emit indented XHTML-shaped
+output that strips structural whitespace before formatting. Designed for
+copy-paste into RSpec heredoc fixtures. Default: `false`.
 `content`:: The input string
 
 .Pretty-print examples
@@ -150,6 +153,23 @@ Canon::Xml::PrettyPrinter.new(
 # HTML with 2-space indentation
 html_input = '<div><p>Hello</p></div>'
 Canon::Html::PrettyPrinter.new(indent: 2).format(html_input)
+
+# HTML fixture-ready mode: produces indented XHTML-shaped output
+# suitable for pasting into RSpec heredoc fixtures.  Strips stray
+# structural whitespace (inter-element text nodes) so libxml's FORMAT
+# flag can indent block-level siblings that would otherwise be treated
+# as mixed content.  Whitespace inside <pre>, <script>, <style>, and
+# <textarea> is preserved.
+Canon::Html::PrettyPrinter.new(indent: 2, fixture_ready: true)
+  .format('<html><body><div>a</div> <div>b</div></body></html>')
+# =>
+# <html xmlns="http://www.w3.org/1999/xhtml">
+#   <head>...</head>
+#   <body>
+#     <div>a</div>
+#     <div>b</div>
+#   </body>
+# </html>
 
 # JSON with 2-space indentation
 json_input = '{"z":3,"a":{"b":1}}'

@@ -29,6 +29,8 @@ module Canon
     #
     # See lutaml/canon#133, lutaml/canon#135.
     class Html
+      WHITESPACE_PRESERVING_ELEMENTS = %w[pre textarea script style].freeze
+
       def initialize(indent: 2, indent_type: "space", fixture_ready: false)
         @indent = indent.to_i
         @indent_type = indent_type
@@ -83,6 +85,7 @@ module Canon
       # suppresses the +<?xml ...?>+ prefix.
       def format_fixture_ready(html_string)
         doc = Nokogiri::HTML5(html_string)
+        strip_structural_whitespace!(doc)
         io = StringIO.new
         if @indent_type == "tab"
           doc.write_to(io, save_with: fixture_ready_save_options,
@@ -92,6 +95,37 @@ module Canon
                            indent: @indent)
         end
         io.string
+      end
+
+      # libxml's +FORMAT+ save flag does not insert indentation around
+      # the children of any element it sees as mixed content (any
+      # non-whitespace-only text node child).  +Nokogiri::HTML5+ does
+      # not accept the +noblanks+ option that the XML parser uses to
+      # strip these inter-sibling text nodes pre-serialisation, so we
+      # do it manually here: drop whitespace-only text nodes whose
+      # parent is structural (no real text content) and not a
+      # whitespace-preserving element.  Mixed-content runs like
+      # +<p>foo <em>bar</em> baz</p>+ are left alone.
+      def strip_structural_whitespace!(doc)
+        to_remove = []
+        doc.traverse do |node|
+          next unless node.text?
+          next unless node.content.strip.empty?
+
+          parent = node.parent
+          next if parent.nil?
+          next if WHITESPACE_PRESERVING_ELEMENTS.include?(parent.name)
+          next if parent_has_real_text?(parent)
+
+          to_remove << node
+        end
+        to_remove.each(&:remove)
+      end
+
+      def parent_has_real_text?(parent)
+        parent.children.any? do |c|
+          c.text? && !c.content.strip.empty?
+        end
       end
 
       def fixture_ready_save_options
