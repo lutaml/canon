@@ -618,6 +618,11 @@ See link:docs/MODES[Diff modes] for details.
   reported as a dedicated `:whitespace_adjacency` dimension with direction
   wording (`before`/`after`/`adjacent to`) instead of cascading into
   misleading `:text_content` mismatches
+* **Asymmetric comment reporting**: A `<!-- ... -->` node present on only
+  one side is reported as a dedicated `:comments` dimension diff anchored
+  at the comment node, instead of shifting children alignment and
+  surfacing a misleading `:element_structure` "Element removed" diff
+  against an unrelated trailing sibling
 * **Non-ASCII detection**: Warnings for unexpected Unicode characters
 * **Customizable**: Character maps, context lines, grouping options
 

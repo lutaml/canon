@@ -86,6 +86,14 @@ module Canon
           return "Attribute order changed: [#{attrs1.join(', ')}] → [#{attrs2.join(', ')}]"
         end
 
+        # For asymmetric comment nodes (#144), name the side that carries
+        # the comment and surface the comment text rather than reusing
+        # the generic "element structure mismatch" wording.
+        if dimension == :comments
+          comment_reason = build_comment_difference_reason(node1, node2)
+          return comment_reason if comment_reason
+        end
+
         # Default reason
         if diff1 == Canon::Comparison::MISSING_NODE && diff2 == Canon::Comparison::MISSING_NODE
           "element structure mismatch (children differ)"
@@ -215,6 +223,31 @@ module Canon
 
         # Both have content - show truncated versions
         "'#{truncate(text1)}' vs '#{truncate(text2)}'"
+      end
+
+      # Build a Reason line for a +:comments+ diff. Returns +nil+ when
+      # neither side carries a comment (caller falls back to default).
+      def self.build_comment_difference_reason(node1, node2)
+        cm1 = node1 && Canon::Comparison::NodeInspector.comment_node?(node1)
+        cm2 = node2 && Canon::Comparison::NodeInspector.comment_node?(node2)
+
+        return nil unless cm1 || cm2
+
+        if cm1 && !cm2
+          "Comment present on EXPECTED only: " \
+            "<!--#{truncate(comment_text(node1))}-->"
+        elsif cm2 && !cm1
+          "Comment present on ACTUAL only: " \
+            "<!--#{truncate(comment_text(node2))}-->"
+        else
+          t1 = truncate(comment_text(node1))
+          t2 = truncate(comment_text(node2))
+          "Comment text differs: <!--#{t1}--> vs <!--#{t2}-->"
+        end
+      end
+
+      def self.comment_text(node)
+        Canon::Comparison::NodeInspector.text_content(node).to_s
       end
 
       # Truncate text for display in reason messages

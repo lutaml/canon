@@ -156,13 +156,14 @@ module Canon
           end
 
           # Use simple positional comparison for children, with
-          # whitespace-asymmetry-aware re-alignment.  When positional
-          # +zip()+ would pair a whitespace-only text node on one side
-          # against a content node on the other, treat the whitespace
-          # node as a single-side gap: emit one +:whitespace_adjacency+
-          # diff anchored at the whitespace node and advance only the
-          # cursor carrying the whitespace, so the next iteration aligns
-          # content against content.  See lutaml/canon#137.
+          # whitespace- and comment-asymmetry-aware re-alignment.  When
+          # positional +zip()+ would pair a whitespace-only text node or
+          # a comment node on one side against an unrelated node on the
+          # other, treat the asymmetric node as a single-side gap: emit
+          # one +:whitespace_adjacency+ or +:comments+ diff anchored at
+          # the asymmetric node and advance only the cursor carrying it,
+          # so the next iteration aligns content against content.  See
+          # lutaml/canon#137 (whitespace) and #144 (comments).
           def use_positional_comparison(
             children1, children2, parent_node, comparator,
             opts, child_opts, diff_children, differences
@@ -173,11 +174,11 @@ module Canon
             unless children1.length == children2.length
               has_mismatch = true
 
-              ws_asymmetric = asymmetric_whitespace_explains_length_diff?(
+              noise_asymmetric = asymmetric_noise_explains_length_diff?(
                 children1, children2
               )
 
-              if ws_asymmetric
+              if noise_asymmetric
                 dimension = nil
                 mismatched_children = []
               else
@@ -191,7 +192,7 @@ module Canon
               end
 
               if mismatched_children.empty?
-                unless ws_asymmetric
+                unless noise_asymmetric
                   comparator.add_difference(parent_node, parent_node,
                                             Comparison::MISSING_NODE, Comparison::MISSING_NODE,
                                             dimension, opts, differences)
@@ -224,8 +225,8 @@ module Canon
           end
 
           # Two-cursor walk over paired children that re-aligns past
-          # asymmetric whitespace-only text nodes.  Returns the worst
-          # child result encountered.
+          # asymmetric whitespace-only text nodes and asymmetric comment
+          # nodes.  Returns the worst child result encountered.
           def walk_children_with_realignment(
             children1, children2, comparator,
             child_opts, diff_children, opts, differences
@@ -239,9 +240,39 @@ module Canon
               c2 = children2[j]
 
               if c1.nil?
+                # Trailing-edge orphan on side 2.  Emit a diff only for
+                # noise nodes (whitespace / comment); structural orphans
+                # are already recorded at the length-mismatch site in
+                # +use_positional_comparison+.
+                if NodeInspector.whitespace_only_text?(c2)
+                  comparator.add_difference(nil, c2,
+                                            Comparison::UNEQUAL_TEXT_CONTENTS,
+                                            Comparison::UNEQUAL_TEXT_CONTENTS,
+                                            :whitespace_adjacency, opts, differences)
+                  result = Comparison::UNEQUAL_TEXT_CONTENTS
+                elsif NodeInspector.comment_node?(c2)
+                  comparator.add_difference(nil, c2,
+                                            Comparison::MISSING_NODE,
+                                            Comparison::MISSING_NODE,
+                                            :comments, opts, differences)
+                  result = Comparison::UNEQUAL_ELEMENTS
+                end
                 j += 1
                 next
               elsif c2.nil?
+                if NodeInspector.whitespace_only_text?(c1)
+                  comparator.add_difference(c1, nil,
+                                            Comparison::UNEQUAL_TEXT_CONTENTS,
+                                            Comparison::UNEQUAL_TEXT_CONTENTS,
+                                            :whitespace_adjacency, opts, differences)
+                  result = Comparison::UNEQUAL_TEXT_CONTENTS
+                elsif NodeInspector.comment_node?(c1)
+                  comparator.add_difference(c1, nil,
+                                            Comparison::MISSING_NODE,
+                                            Comparison::MISSING_NODE,
+                                            :comments, opts, differences)
+                  result = Comparison::UNEQUAL_ELEMENTS
+                end
                 i += 1
                 next
               end
@@ -267,6 +298,27 @@ module Canon
                 next
               end
 
+              cm1 = NodeInspector.comment_node?(c1)
+              cm2 = NodeInspector.comment_node?(c2)
+
+              if cm1 && !cm2
+                comparator.add_difference(c1, nil,
+                                          Comparison::MISSING_NODE,
+                                          Comparison::MISSING_NODE,
+                                          :comments, opts, differences)
+                result = Comparison::UNEQUAL_ELEMENTS
+                i += 1
+                next
+              elsif cm2 && !cm1
+                comparator.add_difference(nil, c2,
+                                          Comparison::MISSING_NODE,
+                                          Comparison::MISSING_NODE,
+                                          :comments, opts, differences)
+                result = Comparison::UNEQUAL_ELEMENTS
+                j += 1
+                next
+              end
+
               child_result = comparator.compare_nodes(c1, c2,
                                                       child_opts, child_opts,
                                                       diff_children, differences)
@@ -284,6 +336,30 @@ module Canon
             non_ws1 = children1.reject { |c| NodeInspector.whitespace_only_text?(c) }
             non_ws2 = children2.reject { |c| NodeInspector.whitespace_only_text?(c) }
             non_ws1.length == non_ws2.length
+          end
+
+          # True when the length difference between the two child arrays
+          # is fully explained by asymmetric comment nodes.
+          def asymmetric_comments_explain_length_diff?(children1, children2)
+            non_cm1 = children1.reject { |c| NodeInspector.comment_node?(c) }
+            non_cm2 = children2.reject { |c| NodeInspector.comment_node?(c) }
+            non_cm1.length == non_cm2.length
+          end
+
+          # True when the length difference is fully explained by a
+          # combination of asymmetric whitespace-only text nodes and
+          # asymmetric comment nodes — either kind alone, or both
+          # together.  Stripping both noise classes from each side must
+          # equalise the lengths.
+          def asymmetric_noise_explains_length_diff?(children1, children2)
+            signal1 = children1.reject { |c| noise_node?(c) }
+            signal2 = children2.reject { |c| noise_node?(c) }
+            signal1.length == signal2.length
+          end
+
+          def noise_node?(node)
+            NodeInspector.whitespace_only_text?(node) ||
+              NodeInspector.comment_node?(node)
           end
 
           # Determine dimension for length mismatch
