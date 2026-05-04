@@ -188,32 +188,15 @@ module Canon
             node.is_a?(Nokogiri::HTML5::DocumentFragment)
         end
 
-        # Record a DiffNode for a fragment-level child-count mismatch.
-        # Each surplus child becomes its own MISSING_NODE diff so the
-        # downstream report shows what was added or removed.
-        def record_fragment_length_mismatch(_node1, _node2, children1,
-                                            children2, differences)
-          longer, shorter, side = if children1.length > children2.length
-                                    [children1, children2, :removed]
-                                  else
-                                    [children2, children1, :added]
-                                  end
-
-          longer[shorter.length...].each do |orphan|
-            n1 = side == :removed ? orphan : nil
-            n2 = side == :removed ? nil    : orphan
-            differences <<
-              Canon::Comparison::DiffNodeBuilder.build(
-                node1: n1,
-                node2: n2,
-                diff1: Comparison::MISSING_NODE,
-                diff2: Comparison::MISSING_NODE,
-                dimension: :element_structure,
-              )
-          end
-        end
-
         # Compare children of document fragments
+        #
+        # Uses a two-cursor walk that re-aligns past asymmetric
+        # whitespace-only text nodes and asymmetric comment nodes,
+        # emitting +:whitespace_adjacency+ or +:comments+ diffs for the
+        # asymmetric piece and keeping content-against-content alignment
+        # for the rest.  Real surplus elements remain classified as
+        # +:element_structure+.  See lutaml/canon#137 (whitespace) and
+        # lutaml/canon#144 (comments).
         #
         # @param node1 [Nokogiri::DocumentFragment] First fragment
         # @param node2 [Nokogiri::DocumentFragment] Second fragment
@@ -230,29 +213,123 @@ module Canon
           children1 = XmlNodeComparison.filter_children(all_children1, opts)
           children2 = XmlNodeComparison.filter_children(all_children2, opts)
 
-          if children1.length != children2.length
-            # Record the length mismatch as a DiffNode so verbose mode
-            # surfaces it. Without this, equivalent? wraps an empty
-            # differences array and incorrectly reports the inputs as
-            # equivalent.
-            record_fragment_length_mismatch(node1, node2,
-                                            children1, children2,
-                                            differences)
-            return Comparison::UNEQUAL_ELEMENTS
-          elsif children1.empty?
-            return Comparison::EQUIVALENT
-          end
+          return Comparison::EQUIVALENT if children1.empty? && children2.empty?
 
-          # Compare each pair of children
-          children1.zip(children2).each do |child1, child2|
-            child_result = XmlNodeComparison.compare_nodes(child1, child2,
+          walk_fragment_children_with_realignment(
+            children1, children2, opts, child_opts, diff_children,
+            differences
+          )
+        end
+
+        # Two-cursor walk over fragment children that re-aligns past
+        # asymmetric whitespace-only text nodes and asymmetric comment
+        # nodes. Surplus nodes on one side are classified by node kind:
+        # whitespace-only -> :whitespace_adjacency, comment ->
+        # :comments, anything else -> :element_structure.
+        def walk_fragment_children_with_realignment(
+          children1, children2, opts, child_opts, diff_children, differences
+        )
+          worst = Comparison::EQUIVALENT
+          i = 0
+          j = 0
+
+          while i < children1.length || j < children2.length
+            c1 = children1[i]
+            c2 = children2[j]
+
+            if c1.nil?
+              worst = record_fragment_orphan(nil, c2, differences)
+              j += 1
+              next
+            elsif c2.nil?
+              worst = record_fragment_orphan(c1, nil, differences)
+              i += 1
+              next
+            end
+
+            ws1 = NodeInspector.whitespace_only_text?(c1)
+            ws2 = NodeInspector.whitespace_only_text?(c2)
+
+            if ws1 && !ws2
+              differences << Canon::Comparison::DiffNodeBuilder.build(
+                node1: c1, node2: c2,
+                diff1: Comparison::UNEQUAL_TEXT_CONTENTS,
+                diff2: Comparison::UNEQUAL_TEXT_CONTENTS,
+                dimension: :whitespace_adjacency
+              )
+              worst = Comparison::UNEQUAL_TEXT_CONTENTS
+              i += 1
+              next
+            elsif ws2 && !ws1
+              differences << Canon::Comparison::DiffNodeBuilder.build(
+                node1: c1, node2: c2,
+                diff1: Comparison::UNEQUAL_TEXT_CONTENTS,
+                diff2: Comparison::UNEQUAL_TEXT_CONTENTS,
+                dimension: :whitespace_adjacency
+              )
+              worst = Comparison::UNEQUAL_TEXT_CONTENTS
+              j += 1
+              next
+            end
+
+            cm1 = NodeInspector.comment_node?(c1)
+            cm2 = NodeInspector.comment_node?(c2)
+
+            if cm1 && !cm2
+              differences << Canon::Comparison::DiffNodeBuilder.build(
+                node1: c1, node2: nil,
+                diff1: Comparison::MISSING_NODE,
+                diff2: Comparison::MISSING_NODE,
+                dimension: :comments
+              )
+              worst = Comparison::UNEQUAL_ELEMENTS
+              i += 1
+              next
+            elsif cm2 && !cm1
+              differences << Canon::Comparison::DiffNodeBuilder.build(
+                node1: nil, node2: c2,
+                diff1: Comparison::MISSING_NODE,
+                diff2: Comparison::MISSING_NODE,
+                dimension: :comments
+              )
+              worst = Comparison::UNEQUAL_ELEMENTS
+              j += 1
+              next
+            end
+
+            child_result = XmlNodeComparison.compare_nodes(c1, c2,
                                                            opts, child_opts,
                                                            diff_children,
                                                            differences)
-            return child_result if child_result != Comparison::EQUIVALENT
+            worst = child_result unless child_result == Comparison::EQUIVALENT
+            i += 1
+            j += 1
           end
 
-          Comparison::EQUIVALENT
+          worst
+        end
+
+        # Record one orphan at the trailing edge of either side, choosing
+        # the dimension by node kind (whitespace -> :whitespace_adjacency,
+        # comment -> :comments, otherwise :element_structure).
+        def record_fragment_orphan(left, right, differences)
+          orphan = left || right
+          dimension = if NodeInspector.whitespace_only_text?(orphan)
+                        :whitespace_adjacency
+                      elsif NodeInspector.comment_node?(orphan)
+                        :comments
+                      else
+                        :element_structure
+                      end
+
+          differences << Canon::Comparison::DiffNodeBuilder.build(
+            node1: left, node2: right,
+            diff1: Comparison::MISSING_NODE,
+            diff2: Comparison::MISSING_NODE,
+            dimension: dimension
+          )
+
+          Comparison::UNEQUAL_ELEMENTS
         end
 
         # Perform semantic tree diff using SemanticTreeMatchStrategy

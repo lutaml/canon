@@ -1,0 +1,154 @@
+---
+title: Comment asymmetry in diff reports
+parent: Diff Formatting
+nav_order: 9
+---
+= Comment asymmetry in diff reports
+:toc:
+:toclevels: 2
+
+== Purpose
+
+Canon's diff reports anchor `<!-- ... -->` comment nodes that have no
+counterpart on the other side to a dedicated `:comments` dimension
+instead of letting the resulting children-array length mismatch cascade
+into a misleading `:element_structure` "Element removed" diff against
+the trailing named sibling.
+
+This is a *report-only* shape change — equivalence verdicts are
+unchanged. Whether asymmetric comments cause a non-equivalent verdict
+or not depends on the `comments` match option (`:strict` /
+`:ignore` / `:exact`), as before.
+
+== The problem
+
+Consider an HTML fragment compared with `verbose: true`:
+
+[source,html]
+----
+<!-- expected -->
+<body>
+  <div>first</div>
+  <div>second</div>
+  <!-- a comment that exists only on side A -->
+  <div style="mso-element:footnote-list"></div>
+</body>
+
+<!-- actual -->
+<body>
+  <div>first</div>
+  <div>second</div>
+  <div style="mso-element:footnote-list"></div>
+</body>
+----
+
+The `<div style="mso-element:footnote-list">` is byte-identical between
+the two sides; the only real difference is the comment on the expected
+side. Pre-#144, the diff report contained:
+
+[source]
+----
+DIFFERENCE #1 — element_structure: Element removed:
+                  <div style="mso-element:footnote-list"/>
+----
+
+That is the wrong dimension, anchored at the wrong node. The element is
+present on both sides — what is missing is the comment.
+
+The cascade comes from positional alignment in
+`Canon::Comparison::HtmlComparator#compare_fragment_children` (and the
+analogous walker in `XmlComparatorHelpers::ChildComparison`): in
+verbose mode, comments are intentionally kept by `filter_children` so
+informative differences can be recorded, but the resulting unequal
+children-array lengths fell through to a name-based mismatch heuristic
+that filtered out generic `#`-prefixed names (`#text`, `#comment`),
+leaving the trailing named element to take the blame.
+
+== The contract
+
+When the children alignment encounters a comment node on one side
+paired against a non-comment node on the other (or sitting past the
+trailing edge of the shorter side), Canon:
+
+1. Treats the comment as a *single-side gap* in the alignment.
+2. Emits one `:comments` diff entry anchored at the comment node
+   itself (not at a mis-paired neighbouring element).
+3. Advances only the cursor that carries the comment, so the next
+   iteration aligns content against content.
+
+The Reason line names the side that carries the comment and surfaces
+its text:
+
+[source]
+----
+DIFFERENCE #1 — comments: Comment present on EXPECTED only:
+                  <!-- a comment that exists only on side A -->
+----
+
+== Combined with whitespace asymmetry
+
+The same realignment walk handles asymmetric whitespace-only text
+nodes (link:whitespace-adjacency.adoc[issue #137]) and asymmetric
+comment nodes together. When a children mismatch is fully explained by
+a combination of asymmetric whitespace and asymmetric comments, the
+walker emits one diff per asymmetric node with the appropriate
+dimension (`:whitespace_adjacency` for whitespace, `:comments` for
+comments) — no `:element_structure` diff is produced.
+
+When a real structural mismatch coexists with an asymmetric comment,
+both kinds of diff are emitted — the structural one under
+`:element_structure`, the comment one under `:comments`.
+
+== Working with :comments diffs programmatically
+
+[source,ruby]
+----
+result = Canon::Comparison.equivalent?(html1, html2,
+  format: :html5, verbose: true)
+
+comment_diffs = result.differences.select { |d| d.dimension == :comments }
+
+# Whether these affect equivalence depends on the comments match option.
+# Under the default :ignore profile they are informative; under :strict
+# they are normative.
+----
+
+== What this contract does NOT do
+
+* **Does not silence asymmetric comments.** They are always reported
+  in verbose output; the change is the dimension label and the anchor
+  node.
+* **Does not affect symmetric comments.** When both sides carry
+  parallel comment nodes, those compare normally — content-vs-content
+  comparison applies.
+* **Does not change equivalence outcomes.** A comparison whose
+  equivalence verdict was driven by asymmetric comments retains the
+  same verdict; only the report shape changes.
+
+== Where it runs
+
+The contract is implemented in two cooperating sites:
+
+* `Canon::Comparison::HtmlComparator#compare_fragment_children` and its
+  helper `walk_fragment_children_with_realignment` — the HTML fragment
+  path used by `dom_diff` and `equivalent?` for HTML inputs.
+* `Canon::Comparison::XmlComparatorHelpers::ChildComparison` — the XML
+  comparator path. The length-mismatch site uses
+  `asymmetric_noise_explains_length_diff?` to suppress the structural
+  diff when the asymmetry is fully explained by whitespace and/or
+  comment nodes, and the realignment walker emits per-orphan diffs
+  with the appropriate dimension.
+
+== Related
+
+* link:whitespace-adjacency.adoc[Whitespace adjacency] — sibling
+  contract for asymmetric whitespace-only text nodes.
+* link:../../advanced/diff-classification.adoc[Diff classification] —
+  Normative vs informative differences.
+
+== History
+
+The false-positive cascade was reported in
+https://github.com/lutaml/canon/issues/144[issue #144]. The fix
+mirrors the structure of the `:whitespace_adjacency` work in
+https://github.com/lutaml/canon/issues/137[issue #137].
