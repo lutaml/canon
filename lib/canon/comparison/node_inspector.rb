@@ -83,6 +83,32 @@ module Canon
         end
       end
 
+      # Classify +node+ as a noise node and return the diff dimension
+      # it should be reported under, or +nil+ if it is structural content.
+      #
+      # Noise nodes (whitespace-only text, comments) are realigned past
+      # during child comparison so that content nodes line up correctly
+      # across sides.
+      #
+      # @param node [Object] DOM node to classify
+      # @return [Symbol, nil] +:whitespace_adjacency+, +:comments+, or +nil+
+      def self.noise_dimension_for(node)
+        if whitespace_only_text?(node)
+          :whitespace_adjacency
+        elsif comment_node?(node)
+          :comments
+        end
+      end
+
+      # True when +node+ is a noise node (whitespace-only text or comment).
+      # Convenience wrapper around +noise_dimension_for+.
+      #
+      # @param node [Object] DOM node to check
+      # @return [Boolean]
+      def self.noise_node?(node)
+        !noise_dimension_for(node).nil?
+      end
+
       # Extract parse-time errors carried on a node or its owning document.
       # Returns an Array of Strings.
       def self.parse_errors(node)

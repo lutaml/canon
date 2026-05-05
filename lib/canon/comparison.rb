@@ -104,6 +104,8 @@ module Canon
   # - diff_code: Type of difference
   #
   module Comparison
+    autoload :ChildRealignment, "canon/comparison/child_realignment"
+
     # Comparison result constants
     EQUIVALENT = 1
     MISSING_ATTRIBUTE = 2

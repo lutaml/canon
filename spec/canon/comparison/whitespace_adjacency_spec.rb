@@ -95,7 +95,9 @@ RSpec.describe ":whitespace_adjacency diff dimension (#137)" do
       result = Canon::Comparison.equivalent?(
         html1, html2, format: :html5, verbose: true
       )
-      diff = result.differences.find { |d| d.dimension == :whitespace_adjacency }
+      diff = result.differences.find do |d|
+        d.dimension == :whitespace_adjacency
+      end
       diff&.reason.to_s
     end
 
