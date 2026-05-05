@@ -703,6 +703,10 @@ differences)
             return build_whitespace_adjacency_reason(node1, node2)
           end
 
+          if dimension == :comments
+            return build_comments_reason(node1, node2)
+          end
+
           # For attribute values differences, show the actual values
           if dimension == :attribute_values
             attrs1 = extract_attributes(node1)
@@ -932,6 +936,30 @@ differences)
             i += direction
           end
           false
+        end
+
+        # Build a Reason line for a +:comments+ diff (#144).
+        # Names the side that carries the comment and surfaces the
+        # comment text.
+        def build_comments_reason(node1, node2)
+          cm1 = node1 && NodeInspector.comment_node?(node1)
+          cm2 = node2 && NodeInspector.comment_node?(node2)
+
+          if cm1 && !cm2
+            "Comment present on EXPECTED only: <!--#{truncate_text(comment_text(node1))}-->"
+          elsif cm2 && !cm1
+            "Comment present on ACTUAL only: <!--#{truncate_text(comment_text(node2))}-->"
+          elsif cm1 && cm2
+            t1 = truncate_text(comment_text(node1))
+            t2 = truncate_text(comment_text(node2))
+            "Comment text differs: <!--#{t1}--> vs <!--#{t2}-->"
+          else
+            "element structure mismatch (children differ)"
+          end
+        end
+
+        def comment_text(node)
+          NodeInspector.text_content(node).to_s
         end
 
         # Check if text is only whitespace

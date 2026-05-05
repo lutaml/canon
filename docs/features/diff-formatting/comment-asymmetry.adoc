@@ -127,17 +127,23 @@ comment_diffs = result.differences.select { |d| d.dimension == :comments }
 
 == Where it runs
 
-The contract is implemented in two cooperating sites:
+The noise-aware realignment is a single shared implementation:
 
-* `Canon::Comparison::HtmlComparator#compare_fragment_children` and its
-  helper `walk_fragment_children_with_realignment` — the HTML fragment
-  path used by `dom_diff` and `equivalent?` for HTML inputs.
+* `Canon::Comparison::ChildRealignment` — the two-cursor walk that
+  detects noise nodes via `NodeInspector.noise_dimension_for`,
+  emits per-orphan diffs with the appropriate dimension
+  (`:whitespace_adjacency`, `:comments`), and advances only the
+  noise-side cursor so content nodes stay aligned.
+
+Both comparison paths delegate to `ChildRealignment.walk`:
+
+* `Canon::Comparison::HtmlComparator#compare_fragment_children` — the
+  HTML fragment path (passes `emit_structural_orphans: true` because it
+  has no separate length-mismatch step).
 * `Canon::Comparison::XmlComparatorHelpers::ChildComparison` — the XML
-  comparator path. The length-mismatch site uses
-  `asymmetric_noise_explains_length_diff?` to suppress the structural
-  diff when the asymmetry is fully explained by whitespace and/or
-  comment nodes, and the realignment walker emits per-orphan diffs
-  with the appropriate dimension.
+  comparator path (passes `emit_structural_orphans: false`; structural
+  orphans are handled by the pre-walk length-mismatch step via
+  `asymmetric_noise_explains_length_diff?`).
 
 == Related
 

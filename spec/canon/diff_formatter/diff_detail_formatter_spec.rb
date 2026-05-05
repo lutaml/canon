@@ -776,7 +776,8 @@ RSpec.describe "DiffDetailFormatter helpers" do
       end
 
       it "uses 'Text removed:' in the change line" do
-        _detail1, _detail2, changes = df.format_text_content_details(diff, false)
+        _detail1, _detail2, changes = df.format_text_content_details(diff,
+                                                                     false)
 
         expect(changes).to start_with("Text removed:")
       end
@@ -811,7 +812,8 @@ RSpec.describe "DiffDetailFormatter helpers" do
       end
 
       it "omits the 'in <…>' suffix" do
-        detail1, _detail2, _changes = df.format_text_content_details(diff, false)
+        detail1, _detail2, _changes = df.format_text_content_details(diff,
+                                                                     false)
 
         expect(detail1).to eq("text \"·\"")
       end

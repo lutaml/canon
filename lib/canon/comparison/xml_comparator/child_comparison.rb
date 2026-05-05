@@ -98,7 +98,7 @@ module Canon
             end
 
             # If no matches and children exist, they're all different
-            if matches.empty? && (!children1.empty? || !children2.empty?)
+            if matches.empty? && (!children1.empty? || children2.empty?)
               comparator.add_difference(parent_node, parent_node,
                                         Comparison::MISSING_NODE, Comparison::MISSING_NODE,
                                         :text_content, opts, differences)
@@ -156,14 +156,12 @@ module Canon
           end
 
           # Use simple positional comparison for children, with
-          # whitespace- and comment-asymmetry-aware re-alignment.  When
-          # positional +zip()+ would pair a whitespace-only text node or
-          # a comment node on one side against an unrelated node on the
-          # other, treat the asymmetric node as a single-side gap: emit
-          # one +:whitespace_adjacency+ or +:comments+ diff anchored at
-          # the asymmetric node and advance only the cursor carrying it,
-          # so the next iteration aligns content against content.  See
-          # lutaml/canon#137 (whitespace) and #144 (comments).
+          # noise-aware re-alignment via ChildRealignment. When the
+          # children arrays differ in length, a pre-walk step records
+          # structural orphans (or suppresses them when the length
+          # difference is fully explained by noise nodes). The shared
+          # walk then handles noise realignment and content comparison.
+          # See lutaml/canon#137 (whitespace) and #144 (comments).
           def use_positional_comparison(
             children1, children2, parent_node, comparator,
             opts, child_opts, diff_children, differences
@@ -216,150 +214,31 @@ module Canon
             end
 
             result = has_mismatch ? Comparison::UNEQUAL_ELEMENTS : Comparison::EQUIVALENT
-            walk_result = walk_children_with_realignment(
-              children1, children2, comparator,
-              child_opts, diff_children, opts, differences
-            )
+
+            emitter = xml_diff_emitter(comparator, opts, differences)
+            walk_result = ChildRealignment.walk(children1, children2,
+                                                emitter) do |c1, c2|
+              comparator.compare_nodes(c1, c2, child_opts, child_opts,
+                                       diff_children, differences)
+            end
             result = walk_result unless walk_result == Comparison::EQUIVALENT
             result
           end
 
-          # Two-cursor walk over paired children that re-aligns past
-          # asymmetric whitespace-only text nodes and asymmetric comment
-          # nodes.  Returns the worst child result encountered.
-          def walk_children_with_realignment(
-            children1, children2, comparator,
-            child_opts, diff_children, opts, differences
-          )
-            result = Comparison::EQUIVALENT
-            i = 0
-            j = 0
-
-            while i < children1.length || j < children2.length
-              c1 = children1[i]
-              c2 = children2[j]
-
-              if c1.nil?
-                # Trailing-edge orphan on side 2.  Emit a diff only for
-                # noise nodes (whitespace / comment); structural orphans
-                # are already recorded at the length-mismatch site in
-                # +use_positional_comparison+.
-                if NodeInspector.whitespace_only_text?(c2)
-                  comparator.add_difference(nil, c2,
-                                            Comparison::UNEQUAL_TEXT_CONTENTS,
-                                            Comparison::UNEQUAL_TEXT_CONTENTS,
-                                            :whitespace_adjacency, opts, differences)
-                  result = Comparison::UNEQUAL_TEXT_CONTENTS
-                elsif NodeInspector.comment_node?(c2)
-                  comparator.add_difference(nil, c2,
-                                            Comparison::MISSING_NODE,
-                                            Comparison::MISSING_NODE,
-                                            :comments, opts, differences)
-                  result = Comparison::UNEQUAL_ELEMENTS
-                end
-                j += 1
-                next
-              elsif c2.nil?
-                if NodeInspector.whitespace_only_text?(c1)
-                  comparator.add_difference(c1, nil,
-                                            Comparison::UNEQUAL_TEXT_CONTENTS,
-                                            Comparison::UNEQUAL_TEXT_CONTENTS,
-                                            :whitespace_adjacency, opts, differences)
-                  result = Comparison::UNEQUAL_TEXT_CONTENTS
-                elsif NodeInspector.comment_node?(c1)
-                  comparator.add_difference(c1, nil,
-                                            Comparison::MISSING_NODE,
-                                            Comparison::MISSING_NODE,
-                                            :comments, opts, differences)
-                  result = Comparison::UNEQUAL_ELEMENTS
-                end
-                i += 1
-                next
-              end
-
-              ws1 = NodeInspector.whitespace_only_text?(c1)
-              ws2 = NodeInspector.whitespace_only_text?(c2)
-
-              if ws1 && !ws2
-                comparator.add_difference(c1, c2,
-                                          Comparison::UNEQUAL_TEXT_CONTENTS,
-                                          Comparison::UNEQUAL_TEXT_CONTENTS,
-                                          :whitespace_adjacency, opts, differences)
-                result = Comparison::UNEQUAL_TEXT_CONTENTS
-                i += 1
-                next
-              elsif ws2 && !ws1
-                comparator.add_difference(c1, c2,
-                                          Comparison::UNEQUAL_TEXT_CONTENTS,
-                                          Comparison::UNEQUAL_TEXT_CONTENTS,
-                                          :whitespace_adjacency, opts, differences)
-                result = Comparison::UNEQUAL_TEXT_CONTENTS
-                j += 1
-                next
-              end
-
-              cm1 = NodeInspector.comment_node?(c1)
-              cm2 = NodeInspector.comment_node?(c2)
-
-              if cm1 && !cm2
-                comparator.add_difference(c1, nil,
-                                          Comparison::MISSING_NODE,
-                                          Comparison::MISSING_NODE,
-                                          :comments, opts, differences)
-                result = Comparison::UNEQUAL_ELEMENTS
-                i += 1
-                next
-              elsif cm2 && !cm1
-                comparator.add_difference(nil, c2,
-                                          Comparison::MISSING_NODE,
-                                          Comparison::MISSING_NODE,
-                                          :comments, opts, differences)
-                result = Comparison::UNEQUAL_ELEMENTS
-                j += 1
-                next
-              end
-
-              child_result = comparator.compare_nodes(c1, c2,
-                                                      child_opts, child_opts,
-                                                      diff_children, differences)
-              result = child_result unless child_result == Comparison::EQUIVALENT
-              i += 1
-              j += 1
+          # Build a diff emitter for the XML comparator path that
+          # delegates to comparator.add_difference.
+          def xml_diff_emitter(comparator, opts, differences)
+            proc do |n1, n2, d1, d2, dim|
+              comparator.add_difference(n1, n2, d1, d2, dim, opts, differences)
             end
-
-            result
           end
 
-          # True when the length difference between the two child arrays
-          # is fully explained by asymmetric whitespace-only text nodes.
-          def asymmetric_whitespace_explains_length_diff?(children1, children2)
-            non_ws1 = children1.reject { |c| NodeInspector.whitespace_only_text?(c) }
-            non_ws2 = children2.reject { |c| NodeInspector.whitespace_only_text?(c) }
-            non_ws1.length == non_ws2.length
-          end
-
-          # True when the length difference between the two child arrays
-          # is fully explained by asymmetric comment nodes.
-          def asymmetric_comments_explain_length_diff?(children1, children2)
-            non_cm1 = children1.reject { |c| NodeInspector.comment_node?(c) }
-            non_cm2 = children2.reject { |c| NodeInspector.comment_node?(c) }
-            non_cm1.length == non_cm2.length
-          end
-
-          # True when the length difference is fully explained by a
-          # combination of asymmetric whitespace-only text nodes and
-          # asymmetric comment nodes — either kind alone, or both
-          # together.  Stripping both noise classes from each side must
-          # equalise the lengths.
+          # True when the length difference is fully explained by
+          # asymmetric noise nodes (whitespace-only text and/or comments).
           def asymmetric_noise_explains_length_diff?(children1, children2)
-            signal1 = children1.reject { |c| noise_node?(c) }
-            signal2 = children2.reject { |c| noise_node?(c) }
+            signal1 = children1.reject { |c| NodeInspector.noise_node?(c) }
+            signal2 = children2.reject { |c| NodeInspector.noise_node?(c) }
             signal1.length == signal2.length
-          end
-
-          def noise_node?(node)
-            NodeInspector.whitespace_only_text?(node) ||
-              NodeInspector.comment_node?(node)
           end
 
           # Determine dimension for length mismatch
