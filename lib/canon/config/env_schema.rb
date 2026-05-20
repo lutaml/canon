@@ -50,6 +50,12 @@ module Canon
         max_file_size: :integer,
         max_node_count: :integer,
         max_diff_lines: :integer,
+
+        # Rebaseliner: opt-in mode that rewrites failing heredoc
+        # expectations in spec files with the prettyprinted received
+        # value. Read directly by Canon::Rebaseliner.enabled?; schema
+        # entry exists for --env-help discoverability.
+        regenerate_expected: :boolean,
       }.freeze
 
       class << self

@@ -179,6 +179,9 @@ $ canon help
 * **link:docs/CHARACTER_VISUALIZATION[Character visualization]** -
   Whitespace and special characters
 * **link:docs/INPUT_VALIDATION[Input validation]** - Error handling
+* **link:docs/features/regenerate-expected[Regenerating expected heredocs]** -
+  `CANON_REGENERATE_EXPECTED=true` to rewrite failing `be_*_equivalent_to`
+  heredocs in-place from the prettyprinted received value
 
 === Advanced topics
 

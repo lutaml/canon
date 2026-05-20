@@ -1,0 +1,157 @@
+---
+title: Regenerating expected heredocs
+parent: Features
+nav_order: 50
+---
+= Regenerating expected heredocs
+:toc:
+:toclevels: 3
+
+== Purpose
+
+When a Canon matcher (`be_xml_equivalent_to`, `be_html_equivalent_to`, etc.)
+asserts equivalence against a heredoc-literal `expected`, and the
+upstream code legitimately changes its output, the fixture heredoc
+needs to be updated to the new value. The default workflow is:
+
+1. Run `bundle exec rspec` — see N failing assertions.
+2. Copy the prettyprinted received from canon's diff display.
+3. Paste into the `<<~XML ... XML` heredoc in the spec file.
+4. Re-run, iterate.
+
+For large fixture suites (e.g. the metanorma stack — 200+ heredocs per
+rebaseline event) this is slow and error-prone (indent drift, partial
+copies, missed trailing whitespace).
+
+The `CANON_REGENERATE_EXPECTED=true` env var collapses steps 2-3 into
+an automated rewrite.
+
+== Workflow
+
+[source,sh]
+----
+CANON_REGENERATE_EXPECTED=true bundle exec rspec
+git diff           # review what changed
+git commit -am "rebaseline fixtures after upstream X change"
+----
+
+When the env var is set:
+
+* Every failing `be_*_equivalent_to` assertion attempts to rewrite the
+  source heredoc that backs its `expected` argument.
+* The rewrite uses the same `Canon::PrettyPrinter` that powers
+  `CANON_<FORMAT>_DIFF_SHOW_PRETTYPRINT_RECEIVED` — output is identical
+  to what would have appeared in the diff display.
+* Successful rewrites mark the assertion as passing for the run, so CI
+  does not fail mid-rebaseline.
+* Passing assertions are never touched.
+* Negated matchers (`.not_to`) are never rewritten.
+
+Each rewrite (or skip) emits a single-line log to stderr:
+
+[source]
+----
+[canon:rebaseline] rewritten /path/to/spec.rb:123
+[canon:rebaseline] skipped_interpolation /path/to/spec.rb:456
+----
+
+== Supported expected forms (v1)
+
+The rebaseliner uses Prism to parse the caller spec file and locate the
+heredoc backing the `expected` argument. It supports:
+
+* `<<~XML` / `<<-XML` / `<<XML` heredoc assigned to a local variable in
+  the same `it` block.
+* `<<~XML` / `<<-XML` / `<<XML` heredoc passed inline directly to the
+  matcher.
+* *Multiple sequential assignments* to the same local variable within
+  one `it` block (the common metanorma pattern of reassigning `output`
+  before each format-specific expect). The rebaseliner walks backward
+  from the failing `expect` line to the *most-recent* assignment and
+  rewrites that one.
+* Substitution chains on the actual side (e.g.
+  `expect(strip_guid(actual).gsub(...))`) — since the matcher receives
+  the post-substitution value, idempotency holds on the next run.
+
+== Skipped with a warning (v1)
+
+* Heredoc with `#{}` interpolation. Mechanical rewriting would lose
+  the interpolation; v2 (token preservation) is planned.
+* Expected value from a method call (`load_fixture(...)`). The
+  expected is computed at runtime; the rebaseliner cannot identify
+  which on-disk fixture to rewrite.
+* Expected value from a `let` or `shared_context` in a different
+  spec/support file. v1 does not cross file boundaries.
+* Inline string literal expected (no heredoc). There is nothing to
+  re-indent into.
+
+In each skipped case the file is left unchanged and the assertion
+fails normally with the standard Canon diff display.
+
+== Tracking line shifts across multiple rewrites
+
+After a rewrite, the file's on-disk line numbering can shift if the new
+heredoc body has a different line count from the old. Ruby's
+`caller_locations` continues to report the *original* line numbers
+during the same process run (the in-memory source is unchanged), so
+the rebaseliner maintains a per-file cumulative line-shift tracker and
+translates subsequent caller-reported lines accordingly. Multiple
+rewrites within a single `it` block, or across multiple `it` blocks
+in the same spec file, work transparently.
+
+== Limitations and v2 roadmap
+
+The following are intentionally out of v1 scope:
+
+* `#{}` interpolation in heredoc bodies — v2 adds token-preserving
+  rewrites that re-anchor `#{var}` fragments in the prettyprinted
+  actual.
+* JSON and YAML format prettyprinter wiring (v1 covers XML + HTML).
+* A `canon regenerate SPEC_GLOB` Thor subcommand with a summary
+  report.
+* File-locking for `parallel_rspec` safety. v1 documents "do not run
+  rebaseline mode in parallel."
+* Optional `rubocop -A` post-rewrite formatter.
+
+== Architecture
+
+The rebaseliner is a self-contained module under
+`lib/canon/rebaseliner/`:
+
+`Canon::Rebaseliner`::
+  Top-level orchestrator. `enabled?` reads the env var.
+  `rewrite!` is the entry called by the matcher hook on failure.
+
+`CallSiteResolver`::
+  Parses the spec file with Prism and locates the matcher invocation
+  on the failing line. Returns the AST node passed as `expected` and
+  the enclosing `it`/`example` block.
+
+`HeredocLocator`::
+  Classifies the `expected` AST node. For local-variable references,
+  walks the enclosing block backward to find the most-recent
+  assignment. Returns a `HeredocSpec` describing the byte range to
+  rewrite, or a skip reason.
+
+`HeredocRewriter`::
+  Re-indents the new body for `<<~` (squiggly) heredocs and writes the
+  new source via `AtomicWriter`.
+
+`AtomicWriter`::
+  Tempfile-then-rename to avoid half-written files on Ctrl-C.
+
+`Logger`::
+  Single-line stderr writes with the `[canon:rebaseline]` prefix.
+
+The matcher hook lives in `lib/canon/rspec_matchers.rb`. It captures
+`caller_locations` only when the env var is set, so passing
+assertions pay no overhead.
+
+== Testing the rebaseliner
+
+`spec/canon/rebaseliner_spec.rb` runs each fixture under
+`spec/fixtures/rebaseliner/` in a subprocess with the env var set,
+then asserts the file content was (or was not) modified appropriately
+and that the stderr log line is present. Add new fixture cases by
+dropping `*_input.rb` into `spec/fixtures/rebaseliner/` and a new
+example into `rebaseliner_spec.rb`.
