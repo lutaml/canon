@@ -21,6 +21,12 @@ module Canon
 
       FORMAT_ATTRIBUTE_TYPES = {
         preprocessing: :string,
+
+        # Rebaseliner: opt-in mode that rewrites failing heredoc
+        # expectations in spec files with the prettyprinted received
+        # value. Read directly by Canon::Rebaseliner.enabled?; schema
+        # entry exists for --env-help discoverability.
+        regenerate_expected: :boolean,
       }.freeze
 
       class << self
