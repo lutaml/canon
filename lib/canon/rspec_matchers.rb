@@ -4,6 +4,9 @@ require "canon" unless defined?(Canon)
 require "canon/comparison"
 require "canon/diff_formatter"
 require "canon/config"
+require "canon/rebaseliner"
+require "canon/pretty_printer/xml"
+require "canon/pretty_printer/html"
 
 begin
   require "rspec/expectations"
@@ -88,37 +91,19 @@ module Canon
       end
 
       def matches?(target)
-        @target = target
+        # Capture caller_locations only when rebaseliner is enabled so that
+        # passing assertions don't pay for stack walking.
+        @rebaseliner_caller = caller_locations(1, 12) if Canon::Rebaseliner.enabled?
+        equivalent = compute_equivalent(target)
+        return true if equivalent
 
-        # Build comparison options from config and matcher params
-        opts = build_comparison_options
+        attempt_rebaseline
+      end
 
-        # Add format hint if explicitly provided
-        opts[:format] = @format if @format
-
-        # Delegate to Canon::Comparison.equivalent? - the SINGLE source of truth
-        # Comparison handles format detection, HTML parsing, and all business logic
-        @comparison_result = Canon::Comparison.equivalent?(
-          @expected,
-          @target,
-          opts,
-        )
-
-        # When verbose: true, result is a ComparisonResult object
-        # Use the equivalent? method to check for normative differences
-        case @comparison_result
-        when Canon::Comparison::ComparisonResult
-          @comparison_result.equivalent?
-        when Hash
-          # Legacy format - Hash with :differences array and :preprocessed strings
-          @comparison_result[:differences].empty?
-        when Array
-          # Legacy format - XML/JSON/YAML returns []
-          @comparison_result.empty?
-        else
-          # Boolean result
-          @comparison_result
-        end
+      # Skip the rebaseliner path for `.not_to`. RSpec invokes
+      # `does_not_match?` if defined, instead of negating `matches?`.
+      def does_not_match?(target)
+        !compute_equivalent(target)
       end
 
       def failure_message
@@ -142,6 +127,99 @@ module Canon
       end
 
       private
+
+      # Run the actual comparison and set @target / @comparison_result.
+      # Returns the boolean equivalence result.
+      def compute_equivalent(target)
+        @target = target
+
+        opts = build_comparison_options
+        opts[:format] = @format if @format
+
+        @comparison_result = Canon::Comparison.equivalent?(
+          @expected,
+          @target,
+          opts,
+        )
+
+        case @comparison_result
+        when Canon::Comparison::ComparisonResult
+          @comparison_result.equivalent?
+        when Hash
+          @comparison_result[:differences].empty?
+        when Array
+          @comparison_result.empty?
+        else
+          @comparison_result
+        end
+      end
+
+      # When the rebaseliner env var is on and the comparison failed, try to
+      # rewrite the heredoc that backs the expected value. Returns `true` to
+      # the matcher (so the assertion is treated as passing) when a rewrite
+      # succeeded; otherwise `false` so the normal failure path runs.
+      def attempt_rebaseline
+        return false unless Canon::Rebaseliner.enabled?
+        return false unless @rebaseliner_caller
+
+        frame = first_user_frame(@rebaseliner_caller)
+        return false unless frame
+
+        prettyprinted = pretty_print_actual
+        return false unless prettyprinted
+
+        status = Canon::Rebaseliner.rewrite!(
+          spec_path: frame.absolute_path || frame.path,
+          line: frame.lineno,
+          prettyprinted_actual: prettyprinted,
+        )
+        status == :rewritten
+      rescue StandardError => e
+        Canon::Rebaseliner::Logger.log(
+          :error,
+          spec_path: frame&.path.to_s,
+          line: frame&.lineno.to_i,
+          detail: "#{e.class}: #{e.message}",
+        )
+        false
+      end
+
+      # Drop frames inside RSpec internals and canon itself; the first
+      # remaining is the user's spec file.
+      def first_user_frame(locations)
+        locations.find do |loc|
+          path = loc.absolute_path || loc.path
+          next false unless path
+          next false if path =~ %r{/gems/rspec-(expectations|core|mocks|support)-}
+          next false if path =~ %r{/lib/rspec/(expectations|core|mocks|support)/}
+          next false if path =~ %r{/canon/lib/canon/}
+          next false if path.end_with?("/lib/canon/rspec_matchers.rb")
+
+          true
+        end
+      end
+
+      # Format the actual value with the appropriate pretty-printer for the
+      # heredoc rewrite. Returns nil when no prettyprinter is wired (e.g.
+      # JSON/YAML in v1).
+      def pretty_print_actual
+        fmt = @format || detect_format
+        case fmt
+        when :xml
+          Canon::PrettyPrinter::Xml.new.format(@target.to_s)
+        when :html, :html4, :html5
+          # fixture_ready: true emits actually-indented XHTML-shaped
+          # output suitable for direct paste into a heredoc.
+          Canon::PrettyPrinter::Html.new(fixture_ready: true)
+            .format(@target.to_s)
+        end
+      end
+
+      def detect_format
+        Canon::Comparison::FormatDetector.detect(@expected)
+      rescue StandardError
+        nil
+      end
 
       def format_name
         # Use explicitly provided format if available
