@@ -410,18 +410,30 @@ module Canon
             return Comparison::UNEQUAL_ELEMENTS
           end
 
+          # Track the worst result across namespace, attribute, and children
+          # comparisons. Do NOT return early on attribute/namespace mismatches —
+          # children must still be compared so structural differences in the
+          # subtree are reported. Early returns caused the comparator to skip
+          # entire subtrees when a root or intermediate element had different
+          # attributes, missing all nested structural changes.
+          worst_result = Comparison::EQUIVALENT
+
           # Compare namespace declarations (xmlns and xmlns:* attributes)
           ns_result = compare_namespace_declarations(n1, n2, opts, differences)
-          return ns_result unless ns_result == Comparison::EQUIVALENT
+          worst_result = ns_result unless ns_result == Comparison::EQUIVALENT
 
           # Compare attributes
           attr_result = compare_attribute_sets(n1, n2, opts, differences)
-          return attr_result unless attr_result == Comparison::EQUIVALENT
+          worst_result = attr_result unless attr_result == Comparison::EQUIVALENT
 
           # Compare children if not ignored
-          return Comparison::EQUIVALENT if opts[:ignore_children]
+          unless opts[:ignore_children]
+            child_result = compare_children(n1, n2, opts, child_opts,
+                                            diff_children, differences)
+            worst_result = child_result unless child_result == Comparison::EQUIVALENT
+          end
 
-          compare_children(n1, n2, opts, child_opts, diff_children, differences)
+          worst_result
         end
 
         # Compare attribute sets
