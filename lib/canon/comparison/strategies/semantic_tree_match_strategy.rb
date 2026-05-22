@@ -125,20 +125,18 @@ module Canon
         # @param doc2 [Object] Second XML document
         # @return [Array<String>] Preprocessed strings
         def preprocess_xml(doc1, doc2)
-          # Serialize XML to string
-          # Use XmlNodeComparison's serializer for Canon::Xml::Node
           xml1 = if doc1.is_a?(Canon::Xml::Node)
                    XmlNodeComparison.serialize_node_to_xml(doc1)
-                 elsif doc1.respond_to?(:to_xml)
-                   doc1.to_xml
+                 elsif Canon::XmlParsing.xml_node?(doc1)
+                   Canon::XmlParsing.serialize(doc1)
                  else
                    doc1.to_s
                  end
 
           xml2 = if doc2.is_a?(Canon::Xml::Node)
                    XmlNodeComparison.serialize_node_to_xml(doc2)
-                 elsif doc2.respond_to?(:to_xml)
-                   doc2.to_xml
+                 elsif Canon::XmlParsing.xml_node?(doc2)
+                   Canon::XmlParsing.serialize(doc2)
                  else
                    doc2.to_s
                  end
@@ -167,7 +165,7 @@ module Canon
                     XmlNodeComparison.serialize_node_to_xml(doc1)
                   elsif doc1.is_a?(Nokogiri::XML::DocumentFragment)
                     doc1.to_s
-                  elsif doc1.respond_to?(:to_html)
+                  elsif Canon::XmlParsing.xml_node?(doc1)
                     doc1.to_html
                   else
                     doc1.to_s
@@ -177,7 +175,7 @@ module Canon
                     XmlNodeComparison.serialize_node_to_xml(doc2)
                   elsif doc2.is_a?(Nokogiri::XML::DocumentFragment)
                     doc2.to_s
-                  elsif doc2.respond_to?(:to_html)
+                  elsif Canon::XmlParsing.xml_node?(doc2)
                     doc2.to_html
                   else
                     doc2.to_s

@@ -122,16 +122,8 @@ module Canon
                              preserve_whitespace: preserve_whitespace)
 
           # Store original strings for line diff display (before preprocessing)
-          original1 = if n1.is_a?(String)
-                        n1
-                      else
-                        (n1.respond_to?(:to_xml) ? n1.to_xml : n1.to_s)
-                      end
-          original2 = if n2.is_a?(String)
-                        n2
-                      else
-                        (n2.respond_to?(:to_xml) ? n2.to_xml : n2.to_s)
-                      end
+          original1 = n1.is_a?(String) ? n1 : serialize_node(n1)
+          original2 = n2.is_a?(String) ? n2 : serialize_node(n2)
 
           differences = []
           diff_children = opts[:diff_children] || false
@@ -187,16 +179,9 @@ module Canon
         # @return [Boolean, ComparisonResult] Result of tree diff comparison
         def perform_semantic_tree_diff(n1, n2, opts, match_opts_hash)
           # Store original strings for line diff display (before preprocessing)
-          original1 = if n1.is_a?(String)
-                        n1
-                      else
-                        (n1.respond_to?(:to_xml) ? n1.to_xml : n1.to_s)
-                      end
-          original2 = if n2.is_a?(String)
-                        n2
-                      else
-                        (n2.respond_to?(:to_xml) ? n2.to_xml : n2.to_s)
-                      end
+          # Store original strings for line diff display (before preprocessing)
+          original1 = n1.is_a?(String) ? n1 : serialize_node(n1)
+          original2 = n2.is_a?(String) ? n2 : serialize_node(n2)
 
           # Parse to Canon::Xml::Node (preserves preprocessing)
           node1 = parse_node(n1, match_opts_hash[:preprocessing])
@@ -262,20 +247,8 @@ module Canon
             serialize_node(node1).gsub("><", ">\n<"),
             serialize_node(node2).gsub("><", ">\n<"),
           ]
-          original1 = if n1.is_a?(String)
-                        n1
-                      elsif n1.respond_to?(:to_xml)
-                        n1.to_xml
-                      else
-                        n1.to_s
-                      end
-          original2 = if n2.is_a?(String)
-                        n2
-                      elsif n2.respond_to?(:to_xml)
-                        n2.to_xml
-                      else
-                        n2.to_s
-                      end
+          original1 = n1.is_a?(String) ? n1 : serialize_node(n1)
+          original2 = n2.is_a?(String) ? n2 : serialize_node(n2)
 
           ComparisonResult.new(
             differences: [],
@@ -289,14 +262,19 @@ module Canon
 
         public
 
+        # Public parsing API for external callers
+        def parse(node, preprocessing = :none, preserve_whitespace: false)
+          parse_node(node, preprocessing, preserve_whitespace: preserve_whitespace)
+        end
+
         # Main comparison dispatcher
         def compare_nodes(n1, n2, opts, child_opts, diff_children, differences)
           # FAST PATH: Object identity - same object is always equivalent
           return Comparison::EQUIVALENT if n1.equal?(n2)
 
           # Handle DocumentFragment nodes - compare their children instead
-          if n1.is_a?(Nokogiri::XML::DocumentFragment) &&
-              n2.is_a?(Nokogiri::XML::DocumentFragment)
+          if Canon::XmlParsing.document_fragment?(n1) &&
+              Canon::XmlParsing.document_fragment?(n2)
             children1 = n1.children.to_a
             children2 = n2.children.to_a
 
@@ -392,8 +370,8 @@ module Canon
           end
 
           # Compare namespace URIs - elements with different namespaces are different elements
-          ns1 = n1.respond_to?(:namespace_uri) ? n1.namespace_uri : nil
-          ns2 = n2.respond_to?(:namespace_uri) ? n2.namespace_uri : nil
+          ns1 = Canon::XmlParsing.namespace_uri(n1)
+          ns2 = Canon::XmlParsing.namespace_uri(n2)
 
           unless ns1 == ns2
             # Create descriptive reason showing the actual namespace URIs
@@ -512,7 +490,7 @@ module Canon
         def should_preserve_whitespace_strictly?(n1, n2, opts)
           # Check both n1 and n2 - if either is in a preserve whitespace element, preserve strictly
           [n1, n2].each do |node|
-            next unless node.respond_to?(:parent)
+            next unless Canon::XmlParsing.xml_node?(node) || node.is_a?(Canon::Xml::Node)
 
             parent = node.parent
             next unless parent
@@ -528,15 +506,12 @@ module Canon
         # Check if a node is inside a whitespace-preserving element
         def in_preserve_element?(node, preserve_list)
           current = node.parent
-          while current.respond_to?(:name)
+          while Canon::XmlParsing.xml_node?(current) || current.is_a?(Canon::Xml::Node)
             return true if preserve_list.include?(current.name.downcase)
 
-            # Stop at document root
-            break if current.is_a?(Nokogiri::XML::Document) ||
-              current.is_a?(Nokogiri::HTML4::Document) ||
-              current.is_a?(Nokogiri::HTML5::Document)
+            break if Canon::XmlParsing.document?(current)
 
-            current = current.parent if current.respond_to?(:parent)
+            current = current.parent
             break unless current
           end
           false
@@ -579,8 +554,8 @@ module Canon
             return Comparison::UNEQUAL_NODES_TYPES
           end
 
-          content1 = n1.respond_to?(:content) ? n1.content.to_s.strip : ""
-          content2 = n2.respond_to?(:content) ? n2.content.to_s.strip : ""
+          content1 = Canon::XmlParsing.xml_node?(n1) ? n1.content.to_s.strip : ""
+          content2 = Canon::XmlParsing.xml_node?(n2) ? n2.content.to_s.strip : ""
 
           if content1 == content2
             Comparison::EQUIVALENT
@@ -630,17 +605,19 @@ differences)
           depth = 0
 
           while current && depth < max_depth
-            if current.respond_to?(:name) && current.name
-              path.unshift(current.name)
-            end
+            n = if current.is_a?(Canon::Xml::Node)
+                  current.name
+                elsif Canon::XmlParsing.xml_node?(current)
+                  current.name
+                end
+            path.unshift(n) if n
 
-            break unless current.respond_to?(:parent)
+            break unless Canon::XmlParsing.xml_node?(current) || current.is_a?(Canon::Xml::Node)
 
             current = current.parent
             depth += 1
 
-            # Stop at document root
-            break if current.respond_to?(:root)
+            break if Canon::XmlParsing.document?(current)
           end
 
           path
@@ -677,8 +654,8 @@ differences)
           # For deleted/inserted nodes, include namespace information if available
           if dimension == :text_content && (node1.nil? || node2.nil?)
             node = node1 || node2
-            if node.respond_to?(:name) && node.respond_to?(:namespace_uri)
-              ns = node.namespace_uri
+            if Canon::XmlParsing.xml_node?(node)
+              ns = Canon::XmlParsing.namespace_uri(node)
               ns_info = if ns.nil? || ns.empty?
                           ""
                         else
@@ -686,9 +663,8 @@ differences)
                         end
               label = Canon::Comparison.code_pair_label(diff1, diff2)
               return "element '#{node.name}'#{ns_info}: #{label}"
-            elsif node.respond_to?(:name) && !node.respond_to?(:namespace_uri)
-              # TextNode and other nodes without namespace_uri
-              display = if node.respond_to?(:value) && node.node_type == :text
+            elsif node.is_a?(Canon::Xml::Node)
+              display = if node.is_a?(Canon::Xml::Nodes::TextNode)
                           "\"#{truncate_text(node.value)}\""
                         else
                           node.name.to_s
@@ -738,8 +714,8 @@ differences)
           elsif dimension == :element_structure &&
               diff1 == Canon::Comparison::UNEQUAL_ELEMENTS &&
               diff2 == Canon::Comparison::UNEQUAL_ELEMENTS &&
-              (node1.is_a?(Canon::Xml::Node) || node1.is_a?(Nokogiri::XML::Node)) &&
-              (node2.is_a?(Canon::Xml::Node) || node2.is_a?(Nokogiri::XML::Node)) &&
+              (node1.is_a?(Canon::Xml::Node) || Canon::XmlParsing.xml_node?(node1)) &&
+              (node2.is_a?(Canon::Xml::Node) || Canon::XmlParsing.xml_node?(node2)) &&
               node1.name && node2.name && node1.name != node2.name
             # Most common case: differing element names.  Surface the
             # actual names rather than a generic "elements differ".
@@ -810,27 +786,16 @@ differences)
         # @return [String, nil] Text content or nil
         def extract_text_from_node(node)
           return nil if node.nil?
-
-          # For Canon::Xml::Nodes::TextNode
-          return node.value if node.respond_to?(:value) && node.is_a?(Canon::Xml::Nodes::TextNode)
-
-          # For XML/HTML nodes with text_content method
-          return node.text_content if node.respond_to?(:text_content)
-
-          # For nodes with text method
-          return node.text if node.respond_to?(:text)
-
-          # For nodes with content method (Moxml::Text)
-          return node.content if node.respond_to?(:content)
-
-          # For nodes with value method (other types)
-          return node.value if node.respond_to?(:value)
-
-          # For simple text nodes or strings
           return node.to_s if node.is_a?(String)
 
-          # For other node types, try to_s
-          node.to_s
+          case node
+          when Canon::Xml::Nodes::TextNode
+            node.value
+          when Canon::Xml::Node
+            node.text_content
+          else
+            Canon::XmlParsing.xml_node?(node) ? Canon::XmlParsing.text_content(node).to_s : node.to_s
+          end
         rescue StandardError
           nil
         end

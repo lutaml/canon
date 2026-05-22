@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require "rainbow"
+require "rainbow" unless RUBY_ENGINE == "opal"
 require_relative "../xml/namespace_helper"
 # DiffDetailFormatter helper modules
 require_relative "diff_detail_formatter/text_utils"
@@ -34,10 +34,10 @@ module Canon
 
           # Group differences by normative status
           normative = differences.select do |diff|
-            diff.respond_to?(:normative?) ? diff.normative? : true
+            normative?(diff)
           end
           informative = differences.select do |diff|
-            diff.respond_to?(:normative?) && !diff.normative?
+            !normative?(diff)
           end
 
           # Apply show_diffs filter — same semantics as the line-diff filter
@@ -100,24 +100,14 @@ compact: false, expand_difference: false)
           output = []
 
           # Header - handle both DiffNode and Hash
-          status = section || (if diff.respond_to?(:normative?)
-                                 diff.normative? ? "NORMATIVE" : "INFORMATIVE"
-                               else
-                                 "NORMATIVE" # Hash diffs are always normative
-                               end)
+          status = section || (normative?(diff) ? "NORMATIVE" : "INFORMATIVE")
           status_color = status == "NORMATIVE" ? :green : :yellow
           output << colorize("🔍 DIFFERENCE ##{number}/#{total} [#{status}]",
                              status_color, use_color, bold: true)
           output << colorize("─" * 70, :cyan, use_color)
 
           # Dimension - handle both DiffNode and Hash
-          dimension = if diff.respond_to?(:dimension)
-                        diff.dimension
-                      elsif diff.is_a?(Hash)
-                        diff[:diff_code] || diff[:dimension] || "unknown"
-                      else
-                        "unknown"
-                      end
+          dimension = diff_dimension(diff)
           output << "#{colorize('Dimension:', :cyan, use_color,
                                 bold: true)} #{colorize(dimension.to_s,
                                                         :magenta, use_color)}"
@@ -129,7 +119,7 @@ compact: false, expand_difference: false)
                                                          use_color)}"
 
           # show reason if available
-          if diff.respond_to?(:reason) && diff.reason
+          if diff_reason(diff)
             format_reason_line(output, diff.reason, use_color)
           end
           output << ""
@@ -157,7 +147,7 @@ compact: false, expand_difference: false)
           end
 
           dimension = begin
-            diff.respond_to?(:dimension) ? diff.dimension : "unknown"
+            diff_dimension(diff)
           rescue StandardError
             "unknown"
           end
@@ -175,6 +165,27 @@ compact: false, expand_difference: false)
           ].join("\n")
 
           colorize(error_msg, :red, use_color, bold: true)
+        end
+
+        # Protocol helpers — call DiffNode-like methods safely on any object.
+        # DiffNode, FakeDiff (tests), and Hash all support these via duck typing.
+        # Using rescue avoids respond_to? while remaining polymorphic.
+        def normative?(diff)
+          diff.normative?
+        rescue NoMethodError
+          true
+        end
+
+        def diff_dimension(diff)
+          diff.dimension
+        rescue NoMethodError
+          diff.is_a?(Hash) ? (diff[:diff_code] || diff[:dimension] || "unknown") : "unknown"
+        end
+
+        def diff_reason(diff)
+          diff.reason
+        rescue NoMethodError
+          nil
         end
 
         # Format the Reason line. When the reason contains visualized

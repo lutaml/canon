@@ -91,13 +91,11 @@ module Canon
         # @return [Array<String, String>] Normalized [name, value] pair
         def self.normalize_attribute_pair(key, val)
           if key.is_a?(String)
-            # Nokogiri format: key=name (String), val=attr object
             name = key
-            value = val.respond_to?(:value) ? val.value : val.to_s
+            value = val.is_a?(String) ? val : val.value
           else
-            # Moxml format: key=attr object, val=nil
-            name = key.respond_to?(:name) ? key.name : key.to_s
-            value = key.respond_to?(:value) ? key.value : key.to_s
+            name = key.name
+            value = key.value
           end
 
           [name, value]
@@ -123,12 +121,8 @@ module Canon
           end
         end
 
-        # Check if an attribute name is a namespace declaration
-        #
-        # @param attr_name [String] Attribute name
-        # @return [Boolean] true if it's a namespace declaration
         def self.namespace_declaration?(attr_name)
-          attr_name == "xmlns" || attr_name.start_with?("xmlns:")
+          Canon::Xml::NamespaceHelper.namespace_declaration?(attr_name)
         end
       end
     end

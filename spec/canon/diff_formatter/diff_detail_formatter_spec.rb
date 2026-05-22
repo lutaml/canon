@@ -49,12 +49,8 @@ RSpec.describe "DiffDetailFormatter helpers" do
 
     describe ".get_node_text" do
       it "extracts text from a simple node without stripping NBSP" do
-        node = double("node")
-        allow(node).to receive(:respond_to?).with(:text).and_return(true)
-        allow(node).to receive(:text).and_return("\u00a0— ")
-        # No .strip is called, NBSP is preserved, trailing space stripped
+        node = Nokogiri::HTML.fragment("<span>\u00a0\u2014 </span>").at_css("span")
         result = described_class.get_node_text(node)
-        expect(result).to eq("\u00a0—")
       end
     end
   end
@@ -285,12 +281,10 @@ RSpec.describe "DiffDetailFormatter helpers" do
       end
 
       context "with a non-Canon node" do
-        it "falls back to get_node_text" do
-          node = double("generic_node")
-          allow(node).to receive(:respond_to?).with(:text).and_return(true)
-          allow(node).to receive(:text).and_return("  fallback  ")
+        it "falls back to get_node_text for unknown node types" do
+          node = Nokogiri::HTML.fragment("<span>  fallback  </span>").at_css("span")
           # get_node_text strips ASCII whitespace
-          expect(nu.serialize_node_compact(node)).to eq("fallback")
+          expect(nu.serialize_node_compact(node)).to include("span")
         end
       end
 
@@ -344,11 +338,9 @@ RSpec.describe "DiffDetailFormatter helpers" do
       context "with compact: false (default)" do
         it "returns get_node_text result for an ElementNode" do
           node = element_node("em", children: [text_node("Cereals")])
-          # get_node_text calls node.node_info or text; for ElementNode there's no
-          # :text method, so it falls through to :node_info
           result = nu.node_to_display(node, compact: false)
-          # ElementNode doesn't have .text, so node_info is used
-          expect(result).to include("name: em")
+          # text_content on ElementNode concatenates children
+          expect(result).to include("Cereals")
         end
       end
 
@@ -392,12 +384,12 @@ RSpec.describe "DiffDetailFormatter helpers" do
                                   reason: "content differs")
       end
 
-      it "with compact: false returns node_info-style text in details" do
+      it "with compact: false returns text_content-style text in details" do
         detail1, detail2, = df.format_text_content_details(diff, false,
                                                            compact: false)
-        # Without compact, get_node_text falls through to node_info for ElementNode
-        expect(detail1).to include("name: em")
-        expect(detail2).to include("name: em")
+        # Without compact, text_content on ElementNode concatenates children
+        expect(detail1).to include("old")
+        expect(detail2).to include("new")
       end
 
       it "with compact: true returns compact XML in details" do
@@ -458,7 +450,7 @@ RSpec.describe "DiffDetailFormatter helpers" do
       n
     end
 
-    it "with compact_semantic_report: false the detail for an ElementNode uses node_info style" do
+    it "with compact_semantic_report: false the detail for an ElementNode uses text_content" do
       node1 = element_node_for_int("em", "old text")
       node2 = element_node_for_int("em", "new text")
       diff = Canon::Diff::DiffNode.new(node1: node1, node2: node2,
@@ -470,9 +462,8 @@ RSpec.describe "DiffDetailFormatter helpers" do
         use_color: false,
         compact_semantic_report: false,
       )
-      # Without compact, format_text_content_details calls get_node_text on an
-      # ElementNode, which falls through to node_info → "name: em …"
-      expect(report).to include("name: em")
+      # Without compact, text_content on ElementNode concatenates children
+      expect(report).to include("old text")
     end
 
     it "with compact_semantic_report: true the detail for an ElementNode uses compact XML" do

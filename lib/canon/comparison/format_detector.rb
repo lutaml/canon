@@ -22,27 +22,36 @@ module Canon
         # @param obj [Object] Object to detect format of
         # @return [Symbol] Format type (:xml, :html, :json, :yaml, :ruby_object, :string)
         def detect(obj)
-          case obj
-          when Moxml::Node, Moxml::Document
-            :xml
-          when Nokogiri::HTML::DocumentFragment, Nokogiri::HTML5::DocumentFragment
-            # HTML DocumentFragments
-            :html
-          when Nokogiri::XML::DocumentFragment
-            # XML DocumentFragments - check if it's actually HTML
-            obj.document&.html? ? :html : :xml
-          when Nokogiri::XML::Document, Nokogiri::XML::Node
-            # Check if it's HTML by looking at the document type
-            obj.html? ? :html : :xml
-          when Nokogiri::HTML::Document, Nokogiri::HTML5::Document
-            :html
-          when String
-            detect_string(obj)
-          when Hash, Array
-            # Raw Ruby objects (from parsed JSON/YAML)
-            :ruby_object
+          if XmlBackend.moxml?
+            case obj
+            when Moxml::Node, Moxml::Document
+              :xml
+            when String
+              detect_string(obj)
+            when Hash, Array
+              :ruby_object
+            else
+              raise Canon::Error, "Unknown format for object: #{obj.class}"
+            end
           else
-            raise Canon::Error, "Unknown format for object: #{obj.class}"
+            case obj
+            when Moxml::Node, Moxml::Document
+              :xml
+            when Nokogiri::HTML::DocumentFragment, Nokogiri::HTML5::DocumentFragment
+              :html
+            when Nokogiri::XML::DocumentFragment
+              obj.document&.html? ? :html : :xml
+            when Nokogiri::XML::Document, Nokogiri::XML::Node
+              obj.html? ? :html : :xml
+            when Nokogiri::HTML::Document, Nokogiri::HTML5::Document
+              :html
+            when String
+              detect_string(obj)
+            when Hash, Array
+              :ruby_object
+            else
+              raise Canon::Error, "Unknown format for object: #{obj.class}"
+            end
           end
         end
 

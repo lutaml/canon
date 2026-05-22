@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require "paint"
+require "paint" unless RUBY_ENGINE == "opal"
 require "yaml"
 require_relative "comparison"
 require_relative "diff/diff_block"
@@ -326,7 +326,7 @@ module Canon
         return pretty_diff_formatter.format(d1, d2, format: format)
       end
 
-      no_diffs = if differences.respond_to?(:equivalent?)
+      no_diffs = if differences.is_a?(Canon::Comparison::ComparisonResult)
                    differences.equivalent?
                  else
                    differences.empty?

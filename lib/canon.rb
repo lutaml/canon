@@ -2,6 +2,8 @@
 
 require_relative "canon/version"
 require_relative "canon/errors"
+require_relative "canon/xml_backend"
+require_relative "canon/xml_parsing"
 require_relative "canon/config"
 require_relative "canon/data_model"
 require_relative "canon/html"
@@ -13,7 +15,7 @@ require_relative "canon/formatters/html4_formatter"
 require_relative "canon/formatters/html5_formatter"
 require_relative "canon/comparison"
 
-require_relative "canon/rspec_matchers" if defined?(RSpec)
+require_relative "canon/rspec_matchers" if defined?(RSpec.configure)
 
 module Canon
   SUPPORTED_FORMATS = %i[xml yaml json html html4 html5 string].freeze

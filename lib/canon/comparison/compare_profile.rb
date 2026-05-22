@@ -82,14 +82,11 @@ module Canon
         %i[text_content structural_whitespace].include?(dimension)
       end
 
-      private
-
       # Get the behavior setting for a dimension
       # @param dimension [Symbol] The match dimension
       # @return [Symbol] The behavior (:strict, :normalize, :ignore)
       def behavior_for(dimension)
-        # Handle both ResolvedMatchOptions and Hash
-        if match_options.respond_to?(:behavior_for)
+        if match_options.is_a?(ResolvedMatchOptions)
           match_options.behavior_for(dimension)
         elsif match_options.is_a?(Hash)
           match_options[dimension] || :strict
@@ -97,6 +94,8 @@ module Canon
           :strict
         end
       end
+
+      private
     end
   end
 end

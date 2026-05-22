@@ -797,19 +797,19 @@ _invalid_values)
           return env_theme if env_theme
 
           # Check config theme_inheritance (custom theme with base + overrides)
-          if @config.respond_to?(:xml) && @config.xml.diff.respond_to?(:theme_inheritance)
+          if @config.is_a?(Canon::Config)
             inheritance = @config.xml.diff.theme_inheritance
             return resolve_inheritance_theme(inheritance) if inheritance
           end
 
           # Check config custom_theme (full custom theme hash)
-          if @config.respond_to?(:xml) && @config.xml.diff.respond_to?(:custom_theme)
+          if @config.is_a?(Canon::Config)
             custom = @config.xml.diff.custom_theme
             return custom if custom.is_a?(Hash) && !custom.empty?
           end
 
           # Check config theme name
-          if @config.respond_to?(:xml) && @config.xml.diff.respond_to?(:theme)
+          if @config.is_a?(Canon::Config)
             theme_name = @config.xml.diff.theme
             return Theme[theme_name] if Theme.include?(theme_name)
           end
@@ -826,7 +826,7 @@ _invalid_values)
           return env_name if env_name && Theme.include?(env_name)
 
           # Check config
-          if @config.respond_to?(:xml) && @config.xml.diff.respond_to?(:theme)
+          if @config.is_a?(Canon::Config)
             theme_name = @config.xml.diff.theme
             return theme_name if Theme.include?(theme_name)
           end

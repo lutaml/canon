@@ -22,7 +22,7 @@ module Canon
         @match_options = match_options
         # Use the compare_profile from ResolvedMatchOptions if available (e.g., HtmlCompareProfile)
         # Otherwise create a base CompareProfile
-        @profile = if match_options.respond_to?(:compare_profile) && match_options.compare_profile
+        @profile = if match_options.is_a?(Canon::Comparison::ResolvedMatchOptions) && match_options.compare_profile
                      match_options.compare_profile
                    else
                      Canon::Comparison::CompareProfile.new(match_options)
@@ -65,7 +65,7 @@ module Canon
         # (since the dimension affects equivalence), which would prevent formatting
         # detection from being applied.
         if diff_node.dimension == :text_content &&
-            profile.send(:behavior_for, :text_content) == :normalize &&
+            profile.behavior_for(:text_content) == :normalize &&
             !inside_preserve_element?(diff_node) &&
             formatting_only_diff?(diff_node)
           diff_node.formatting = true
@@ -184,16 +184,12 @@ module Canon
         end
 
         # HTML: non-breaking space (U+00A0) is never insignificant
-        text = if node.respond_to?(:content)
-                 node.content
-               elsif node.respond_to?(:value)
-                 node.value
-               end
+        text = Canon::Comparison::NodeInspector.text_content(node)
         if text && Canon::Comparison::WhitespaceSensitivity.contains_nbsp?(text)
           return true
         end
 
-        return false unless node.respond_to?(:parent)
+        return false unless Canon::XmlParsing.element?(node) || node.is_a?(Canon::Xml::Node)
 
         parent = node.parent
         return false unless parent
@@ -223,49 +219,19 @@ module Canon
       end
 
       # Extract text content from a node for formatting comparison
-      # @param node [Object] The node to extract text from
-      # @return [String, nil] The text content or nil
       def extract_text_content(node)
         return nil if node.nil?
 
-        case node
-        when Canon::Xml::Nodes::TextNode
-          node.value
-        when Canon::Xml::Node
-          node.text_content
-        when Nokogiri::XML::Node
-          node.content.to_s
-        when Moxml::Node
-          node.content.to_s
-        when String
-          node
-        else
-          node.to_s
-        end
+        Canon::Comparison::NodeInspector.text_content(node)
       rescue StandardError
         nil
       end
 
-      # Check if a node is a text node
-      # @param node [Object] The node to check
-      # @return [Boolean] true if the node is a text node
       def text_node?(node)
         return false if node.nil?
+        return true if node.is_a?(String)
 
-        case node
-        when Canon::Xml::Nodes::TextNode
-          true
-        when Canon::Xml::Node
-          node.node_type == :text
-        when Nokogiri::XML::Node
-          node.node_type == Nokogiri::XML::Node::TEXT_NODE
-        when Moxml::Node
-          node.text?
-        when String
-          true
-        else
-          false
-        end
+        Canon::Comparison::NodeInspector.text_node?(node)
       end
     end
   end

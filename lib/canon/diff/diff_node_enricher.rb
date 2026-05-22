@@ -1047,7 +1047,7 @@ module Canon
         end
 
         # search_start now points inside the innermost element
-        line_idx = SourceLocator.send(:find_line_for_offset, search_start,
+        line_idx = SourceLocator.find_line_for_offset(search_start,
                                       line_map)
         return nil unless line_idx
 
@@ -1133,8 +1133,8 @@ range_start, range_end)
         # Walk up ancestors to find one with an "id" attribute
         ancestors = []
         current = node
-        while current.respond_to?(:parent)
-          ancestors << current if current.respond_to?(:name)
+        while current.is_a?(Canon::Xml::Node)
+          ancestors << current
           current = current.parent
         end
 
@@ -1143,14 +1143,14 @@ range_start, range_end)
         anchor_name = nil
         anchor_id = nil
         ancestors.each do |anc|
-          next unless anc.respond_to?(:attribute_nodes) && anc.attribute_nodes
+          next unless anc.attribute_nodes
 
           anc.attribute_nodes.each do |attr|
-            next unless attr.respond_to?(:name) && attr.name == "id"
+            next unless attr.name == "id"
 
             anchor = anc
             anchor_name = anc.name
-            anchor_id = attr.respond_to?(:value) ? attr.value : nil
+            anchor_id = attr.value
             break
           end
           break if anchor
@@ -1219,7 +1219,7 @@ range_start, range_end)
               # Search for value inside leaf element
               value_pos = text.index(value, leaf_tag_end + 1)
               if value_pos && value_pos < leaf_close
-                line_idx = SourceLocator.send(:find_line_for_offset, value_pos,
+                line_idx = SourceLocator.find_line_for_offset(value_pos,
                                               line_map)
                 return nil unless line_idx
 
@@ -1234,7 +1234,7 @@ range_start, range_end)
         # Direct search: value might be directly in the anchor's content
         value_pos = text.index(value, anchor_tag_end + 1)
         if value_pos && value_pos < anchor_close
-          line_idx = SourceLocator.send(:find_line_for_offset, value_pos,
+          line_idx = SourceLocator.find_line_for_offset(value_pos,
                                         line_map)
           return nil unless line_idx
 
@@ -1255,10 +1255,10 @@ range_start, range_end)
       # @param line_map [Array<Hash>] pre-built line offset map
       # @return [Hash, nil] location hash with :char_offset, :line_number, :col or nil
       def locate_textnode_parent(textnode, value, text, line_map)
-        return nil unless textnode.respond_to?(:parent) && textnode.parent
+        return nil unless textnode.is_a?(Canon::Xml::Node) && textnode.parent
 
         parent = textnode.parent
-        return nil unless parent.respond_to?(:name) && parent.name
+        return nil unless parent.name
 
         parent_name = parent.name
         parent_attrs = element_attribute_signature(parent)
@@ -1286,7 +1286,7 @@ range_start, range_end)
             # Search for value within this element
             value_pos = text.index(value, anchor_tag_end + 1)
             if value_pos && value_pos < anchor_close
-              line_idx = SourceLocator.send(:find_line_for_offset, value_pos,
+              line_idx = SourceLocator.find_line_for_offset(value_pos,
                                             line_map)
               return nil unless line_idx
 
@@ -1310,10 +1310,10 @@ range_start, range_end)
       # @param line_map [Array<Hash>] pre-built line offset map
       # @return [Hash, nil] location hash with :char_offset, :line_number, :col or nil
       def locate_element_in_text2(textnode, text, line_map)
-        return nil unless textnode.respond_to?(:parent) && textnode.parent
+        return nil unless textnode.is_a?(Canon::Xml::Node) && textnode.parent
 
         parent = textnode.parent
-        return nil unless parent.respond_to?(:name) && parent.name
+        return nil unless parent.name
 
         parent_name = parent.name
         parent_attrs = element_attribute_signature(parent)
@@ -1340,7 +1340,7 @@ range_start, range_end)
 
             if is_self_closing
               # Self-closing element - return position of <
-              line_idx = SourceLocator.send(:find_line_for_offset, anchor_pos,
+              line_idx = SourceLocator.find_line_for_offset(anchor_pos,
                                             line_map)
               return nil unless line_idx
 
@@ -1349,7 +1349,7 @@ range_start, range_end)
                        col: col }
             else
               # Regular element - return position of >
-              line_idx = SourceLocator.send(:find_line_for_offset, tag_end_pos,
+              line_idx = SourceLocator.find_line_for_offset(tag_end_pos,
                                             line_map)
               return nil unless line_idx
 
@@ -1368,10 +1368,8 @@ range_start, range_end)
       # Build a string representation of an element's attributes for matching.
       def element_attribute_signature(element)
         sig = {}
-        if element.respond_to?(:attribute_nodes) && element.attribute_nodes
+        if element.is_a?(Canon::Xml::Node) && element.attribute_nodes
           element.attribute_nodes.each do |attr|
-            next unless attr.respond_to?(:name) && attr.respond_to?(:value)
-
             sig[attr.name] = attr.value
           end
         end

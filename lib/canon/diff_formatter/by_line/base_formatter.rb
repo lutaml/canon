@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
-require "diff/lcs"
-require "diff/lcs/hunk"
+require "diff/lcs" unless RUBY_ENGINE == "opal"
+require "diff/lcs/hunk" unless RUBY_ENGINE == "opal"
 require_relative "../debug_output"
 require_relative "../theme"
 
@@ -233,7 +233,7 @@ module Canon
         # @return [Rainbow::Presenter] Colorized presenter
         def apply_color(presenter, color)
           valid_colors = normalize_color_for_rainbow(color)
-          valid_colors.each { |c| presenter = presenter.send(c) }
+          valid_colors.each { |c| presenter = presenter.public_send(c) }
           presenter
         end
 
@@ -385,7 +385,7 @@ module Canon
           rainbow = Rainbow.new
           rainbow.enabled = true
           presenter = rainbow.wrap(text)
-          valid_colors.each { |c| presenter = presenter.send(c) }
+          valid_colors.each { |c| presenter = presenter.public_send(c) }
           presenter.to_s
         end
 
@@ -675,13 +675,13 @@ module Canon
             # Handle Rainbow color methods - :bright_blue -> .blue.bright, etc.
             if color.to_s.start_with?("bright_")
               base_color = color.to_s.sub(/^bright_/, "").to_sym
-              presenter = presenter.send(base_color).bright
+              presenter = presenter.public_send(base_color).bright
             elsif color.to_s.start_with?("light_")
               # Rainbow doesn't have light_ versions, treat as white on bg
               base_color = color.to_s.sub(/^light_/, "").to_sym
-              presenter = presenter.send(base_color)
+              presenter = presenter.public_send(base_color)
             else
-              presenter = presenter.send(color)
+              presenter = presenter.public_send(color)
             end
 
             presenter.to_s

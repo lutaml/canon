@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 require "moxml"
-require "nokogiri"
+require "nokogiri" if Canon::XmlBackend.nokogiri?
 require_relative "xml/whitespace_normalizer"
 require_relative "comparison/xml_comparator"
 require_relative "comparison/html_comparator"
@@ -316,7 +316,7 @@ module Canon
 
         # Get global config options if not defined in opts
         # This is needed because semantic_diff doesn't go through dom_diff's config handling
-        if !(opts[:match_profile] || opts[:global_options]) && Canon::Config.instance.respond_to?(format1)
+        if !(opts[:match_profile] || opts[:global_options]) && %i[xml html json yaml string].include?(format1)
           format_config = Canon::Config.instance.public_send(format1)
           if format_config.match.profile
             opts[:match_profile] =
@@ -333,7 +333,7 @@ module Canon
 
         # Also read diff options from config (e.g., max_node_count for large documents)
         # This is independent of match options and needs to be passed to TreeDiffIntegrator
-        if !match_opts_hash[:max_node_count] && Canon::Config.instance.respond_to?(format1)
+        if !match_opts_hash[:max_node_count] && %i[xml html json yaml string].include?(format1)
           diff_max_node = Canon::Config.instance.public_send(format1).diff.max_node_count
           if diff_max_node > 10_000
             match_opts_hash[:max_node_count] =
@@ -564,43 +564,39 @@ module Canon
 
         case format
         when :xml
-          # Delegate to XmlComparator's parse_node - returns Canon::Xml::Node
-          # Adapter now handles Canon::Xml::Node directly
+          # Delegate to XmlComparator's parse - returns Canon::Xml::Node
           doc1 = parse_with_cache(obj1, format, preprocessing) do |doc|
-            XmlComparator.send(:parse_node, doc, preprocessing)
+            XmlComparator.parse(doc, preprocessing)
           end
           doc2 = parse_with_cache(obj2, format, preprocessing) do |doc|
-            XmlComparator.send(:parse_node, doc, preprocessing)
+            XmlComparator.parse(doc, preprocessing)
           end
           [doc1, doc2]
         when :html, :html4, :html5
-          # Delegate to HtmlComparator's parse_node_for_semantic for Canon::Xml::Node
           [
             parse_with_cache(obj1, format, preprocessing) do |doc|
-              HtmlComparator.send(:parse_node_for_semantic, doc, preprocessing)
+              HtmlComparator.parse(doc, preprocessing)
             end,
             parse_with_cache(obj2, format, preprocessing) do |doc|
-              HtmlComparator.send(:parse_node_for_semantic, doc, preprocessing)
+              HtmlComparator.parse(doc, preprocessing)
             end,
           ]
         when :json
-          # Delegate to JsonComparator's parse_json
           [
             parse_with_cache(obj1, format, :none) do |doc|
-              JsonComparator.send(:parse_json, doc)
+              JsonComparator.parse(doc)
             end,
             parse_with_cache(obj2, format, :none) do |doc|
-              JsonComparator.send(:parse_json, doc)
+              JsonComparator.parse(doc)
             end,
           ]
         when :yaml
-          # Delegate to YamlComparator's parse_yaml
           [
             parse_with_cache(obj1, format, :none) do |doc|
-              YamlComparator.send(:parse_yaml, doc)
+              YamlComparator.parse(doc)
             end,
             parse_with_cache(obj2, format, :none) do |doc|
-              YamlComparator.send(:parse_yaml, doc)
+              YamlComparator.parse(doc)
             end,
           ]
         else
@@ -651,12 +647,10 @@ module Canon
           obj
         when Nokogiri::XML::Document, Nokogiri::HTML::Document,
              Nokogiri::XML::DocumentFragment, Nokogiri::HTML::DocumentFragment
-          obj.respond_to?(:to_html) ? obj.to_html : obj.to_xml
+          obj.to_html
         else
-          if obj.respond_to?(:to_html)
-            obj.to_html
-          elsif obj.respond_to?(:to_xml)
-            obj.to_xml
+          if Canon::XmlParsing.xml_node?(obj) || obj.is_a?(Canon::Xml::Node)
+            Canon::XmlParsing.serialize(obj)
           else
             obj.to_s
           end
@@ -667,7 +661,11 @@ module Canon
       def serialize_document(doc, format)
         case format
         when :xml, :html, :html4, :html5
-          doc.respond_to?(:to_html) ? doc.to_html : doc.to_xml
+          if Canon::XmlParsing.xml_node?(doc) || doc.is_a?(Canon::Xml::Node)
+            Canon::XmlParsing.serialize(doc)
+          else
+            doc.to_s
+          end
         when :json
           require "json"
           JSON.pretty_generate(doc)
@@ -750,7 +748,7 @@ module Canon
 
         # get match_profile if it is not defined in options
         # but defined in config
-        if Canon::Config.instance.respond_to?(comparison_format)
+        if %i[xml html json yaml string].include?(comparison_format)
           format_config = Canon::Config.instance.public_send(comparison_format)
           if opts[:global_profile].nil? && format_config.match.profile
             # Config-sourced profile has *global* priority (applied before
