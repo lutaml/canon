@@ -209,7 +209,8 @@ module Canon
               end
             else
               attrs.each_with_object({}) do |(key, val), h|
-                h[key.to_s] = val.is_a?(String) ? val : XmlParsing.text_content(val).to_s
+                h[key.to_s] =
+                  val.is_a?(String) ? val : XmlParsing.text_content(val).to_s
               end
             end
           end
@@ -219,7 +220,9 @@ module Canon
             attrs = element_node.attribute_nodes.map do |a|
               " #{a.name}=\"#{CGI.escapeHTML(a.value.to_s)}\""
             end.join
-            children_xml = element_node.children.map { |c| serialize_node_compact(c) }.join
+            children_xml = element_node.children.map do |c|
+              serialize_node_compact(c)
+            end.join
             children_xml.empty? ? "<#{tag}#{attrs}/>" : "<#{tag}#{attrs}>#{children_xml}</#{tag}>"
           end
 
@@ -241,8 +244,12 @@ module Canon
               "<!--#{CGI.escapeHTML(node.content.to_s)}-->"
             when Nokogiri::XML::Element
               tag = node.name.to_s
-              attrs = node.attribute_nodes.map { |a| " #{a.name}=\"#{CGI.escapeHTML(a.value.to_s)}\"" }.join
-              children_xml = node.children.map { |c| serialize_node_compact(c) }.join
+              attrs = node.attribute_nodes.map do |a|
+                " #{a.name}=\"#{CGI.escapeHTML(a.value.to_s)}\""
+              end.join
+              children_xml = node.children.map do |c|
+                serialize_node_compact(c)
+              end.join
               children_xml.empty? ? "<#{tag}#{attrs}/>" : "<#{tag}#{attrs}>#{children_xml}</#{tag}>"
             else
               get_node_text(node)
@@ -252,7 +259,9 @@ module Canon
           def serialize_backend_open_tag(node)
             if XmlBackend.nokogiri? && node.is_a?(Nokogiri::XML::Element)
               tag = node.name.to_s
-              attrs = node.attribute_nodes.map { |a| " #{a.name}=\"#{CGI.escapeHTML(a.value.to_s)}\"" }.join
+              attrs = node.attribute_nodes.map do |a|
+                " #{a.name}=\"#{CGI.escapeHTML(a.value.to_s)}\""
+              end.join
               "<#{tag}#{attrs}>"
             else
               ""

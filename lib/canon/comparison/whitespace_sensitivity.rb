@@ -247,7 +247,8 @@ module Canon
                 attr.value == "preserve"
             end
           else
-            Canon::XmlParsing.attribute_value(element, "xml:space") == "preserve"
+            Canon::XmlParsing.attribute_value(element,
+                                              "xml:space") == "preserve"
           end
         end
 

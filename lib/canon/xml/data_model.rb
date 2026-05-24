@@ -20,9 +20,11 @@ module Canon
         normalized_xml = normalize_encoding(xml_string)
 
         if Canon::XmlBackend.nokogiri?
-          from_nokogiri_xml(normalized_xml, preserve_whitespace: preserve_whitespace)
+          from_nokogiri_xml(normalized_xml,
+                            preserve_whitespace: preserve_whitespace)
         else
-          from_moxml_xml(normalized_xml, preserve_whitespace: preserve_whitespace)
+          from_moxml_xml(normalized_xml,
+                         preserve_whitespace: preserve_whitespace)
         end
       end
 
@@ -34,7 +36,10 @@ module Canon
         if declared_encoding
           if declared_encoding.upcase != "UTF-8"
             utf8_reinterpreted = try_utf8_reinterpretation(xml_string)
-            return update_xml_declaration(xml_string, "UTF-8") if utf8_reinterpreted
+            if utf8_reinterpreted
+              return update_xml_declaration(xml_string,
+                                            "UTF-8")
+            end
 
             return transcode_to_utf8(xml_string, declared_encoding)
           end
@@ -110,7 +115,8 @@ module Canon
       def self.from_nokogiri_xml(xml_string, preserve_whitespace:)
         doc = Nokogiri::XML(xml_string, &:nonet)
         check_for_relative_namespace_uris(doc)
-        result = build_from_nokogiri(doc, preserve_whitespace: preserve_whitespace)
+        result = build_from_nokogiri(doc,
+                                     preserve_whitespace: preserve_whitespace)
         errors = Array(doc.errors).map(&:to_s)
         result.parse_errors = errors if errors.any?
         result
@@ -157,12 +163,15 @@ module Canon
         root
       end
 
-      def self.build_node_from_nokogiri(nokogiri_node, preserve_whitespace: false)
+      def self.build_node_from_nokogiri(nokogiri_node,
+preserve_whitespace: false)
         case nokogiri_node
         when Nokogiri::XML::Element
-          build_element_node(nokogiri_node, preserve_whitespace: preserve_whitespace)
+          build_element_node(nokogiri_node,
+                             preserve_whitespace: preserve_whitespace)
         when Nokogiri::XML::Text
-          build_text_node(nokogiri_node, preserve_whitespace: preserve_whitespace)
+          build_text_node(nokogiri_node,
+                          preserve_whitespace: preserve_whitespace)
         when Nokogiri::XML::Comment
           build_comment_node(nokogiri_node)
         when Nokogiri::XML::ProcessingInstruction
@@ -268,7 +277,7 @@ module Canon
 
         if moxml_doc.respond_to?(:root) && moxml_doc.root
           root.add_child(build_moxml_element_node(moxml_doc.root,
-                                                   preserve_whitespace: preserve_whitespace))
+                                                  preserve_whitespace: preserve_whitespace))
         end
 
         root
@@ -277,7 +286,8 @@ module Canon
       def self.build_moxml_node(node, preserve_whitespace: false)
         case node
         when Moxml::Element
-          build_moxml_element_node(node, preserve_whitespace: preserve_whitespace)
+          build_moxml_element_node(node,
+                                   preserve_whitespace: preserve_whitespace)
         when Moxml::Text
           build_moxml_text_node(node, preserve_whitespace: preserve_whitespace)
         when Moxml::Comment
@@ -287,7 +297,8 @@ module Canon
         end
       end
 
-      def self.build_moxml_element_node(moxml_element, preserve_whitespace: false)
+      def self.build_moxml_element_node(moxml_element,
+preserve_whitespace: false)
         ns = moxml_element.namespace
         element = Nodes::ElementNode.new(
           name: moxml_element.name,
@@ -299,7 +310,8 @@ module Canon
         build_moxml_attribute_nodes(moxml_element, element)
 
         moxml_element.children.each do |child|
-          node = build_moxml_node(child, preserve_whitespace: preserve_whitespace)
+          node = build_moxml_node(child,
+                                  preserve_whitespace: preserve_whitespace)
           element.add_child(node) if node
         end
 
@@ -315,10 +327,14 @@ module Canon
           element.add_namespace(ns_node)
         end
 
-        element.add_namespace(Nodes::NamespaceNode.new(
-                                prefix: "xml",
-                                uri: "http://www.w3.org/XML/1998/namespace",
-                              )) unless element.namespaces.any? { |n| n.prefix == "xml" }
+        unless element.namespaces.any? do |n|
+          n.prefix == "xml"
+        end
+          element.add_namespace(Nodes::NamespaceNode.new(
+                                  prefix: "xml",
+                                  uri: "http://www.w3.org/XML/1998/namespace",
+                                ))
+        end
       end
 
       def self.build_moxml_attribute_nodes(moxml_element, element)

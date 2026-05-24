@@ -445,8 +445,6 @@ module Canon
           # Propagate upward
           parent&.invalidate_cache
         end
-
-        private
       end
     end
   end

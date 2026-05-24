@@ -94,8 +94,6 @@ module Canon
           :strict
         end
       end
-
-      private
     end
   end
 end

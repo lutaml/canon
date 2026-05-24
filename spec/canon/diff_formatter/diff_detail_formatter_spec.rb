@@ -50,7 +50,7 @@ RSpec.describe "DiffDetailFormatter helpers" do
     describe ".get_node_text" do
       it "extracts text from a simple node without stripping NBSP" do
         node = Nokogiri::HTML.fragment("<span>\u00a0\u2014 </span>").at_css("span")
-        result = described_class.get_node_text(node)
+        described_class.get_node_text(node)
       end
     end
   end

@@ -181,8 +181,8 @@ module Canon
       def namespace_uri(node)
         if XmlBackend.nokogiri?
           node.namespace&.href if node.is_a?(Nokogiri::XML::Element)
-        else
-          node.namespace_uri if node.is_a?(Moxml::Element)
+        elsif node.is_a?(Moxml::Element)
+          node.namespace_uri
         end
       end
 

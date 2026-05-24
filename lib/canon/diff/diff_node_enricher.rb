@@ -1048,7 +1048,7 @@ module Canon
 
         # search_start now points inside the innermost element
         line_idx = SourceLocator.find_line_for_offset(search_start,
-                                      line_map)
+                                                      line_map)
         return nil unless line_idx
 
         col = search_start - line_map[line_idx][:start_offset]
@@ -1220,7 +1220,7 @@ range_start, range_end)
               value_pos = text.index(value, leaf_tag_end + 1)
               if value_pos && value_pos < leaf_close
                 line_idx = SourceLocator.find_line_for_offset(value_pos,
-                                              line_map)
+                                                              line_map)
                 return nil unless line_idx
 
                 col = value_pos - line_map[line_idx][:start_offset]
@@ -1235,7 +1235,7 @@ range_start, range_end)
         value_pos = text.index(value, anchor_tag_end + 1)
         if value_pos && value_pos < anchor_close
           line_idx = SourceLocator.find_line_for_offset(value_pos,
-                                        line_map)
+                                                        line_map)
           return nil unless line_idx
 
           col = value_pos - line_map[line_idx][:start_offset]
@@ -1287,7 +1287,7 @@ range_start, range_end)
             value_pos = text.index(value, anchor_tag_end + 1)
             if value_pos && value_pos < anchor_close
               line_idx = SourceLocator.find_line_for_offset(value_pos,
-                                            line_map)
+                                                            line_map)
               return nil unless line_idx
 
               col = value_pos - line_map[line_idx][:start_offset]
@@ -1341,7 +1341,7 @@ range_start, range_end)
             if is_self_closing
               # Self-closing element - return position of <
               line_idx = SourceLocator.find_line_for_offset(anchor_pos,
-                                            line_map)
+                                                            line_map)
               return nil unless line_idx
 
               col = anchor_pos - line_map[line_idx][:start_offset]
@@ -1350,7 +1350,7 @@ range_start, range_end)
             else
               # Regular element - return position of >
               line_idx = SourceLocator.find_line_for_offset(tag_end_pos,
-                                            line_map)
+                                                            line_map)
               return nil unless line_idx
 
               col = tag_end_pos - line_map[line_idx][:start_offset]

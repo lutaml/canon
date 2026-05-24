@@ -264,7 +264,8 @@ module Canon
 
         # Public parsing API for external callers
         def parse(node, preprocessing = :none, preserve_whitespace: false)
-          parse_node(node, preprocessing, preserve_whitespace: preserve_whitespace)
+          parse_node(node, preprocessing,
+                     preserve_whitespace: preserve_whitespace)
         end
 
         # Main comparison dispatcher

@@ -162,7 +162,7 @@ RSpec.describe Canon::Comparison::NodeInspector do
     end
 
     it "returns nil for nil" do
-      expect(described_class.name(nil)).to be nil
+      expect(described_class.name(nil)).to be_nil
     end
   end
 
@@ -181,7 +181,7 @@ RSpec.describe Canon::Comparison::NodeInspector do
     end
 
     it "returns nil for nil" do
-      expect(described_class.parent(nil)).to be nil
+      expect(described_class.parent(nil)).to be_nil
     end
   end
 
@@ -266,20 +266,21 @@ RSpec.describe Canon::Comparison::NodeInspector do
     end
 
     it "returns nil for nil" do
-      expect(described_class.node_type(nil)).to be nil
+      expect(described_class.node_type(nil)).to be_nil
     end
   end
 
   describe ".attribute_value" do
     it "returns attribute value for Canon ElementNode" do
       node = Canon::Xml::Nodes::ElementNode.new(name: "div")
-      node.add_attribute(Canon::Xml::Nodes::AttributeNode.new(name: "class", value: "foo"))
+      node.add_attribute(Canon::Xml::Nodes::AttributeNode.new(name: "class",
+                                                              value: "foo"))
       expect(described_class.attribute_value(node, "class")).to eq("foo")
     end
 
     it "returns nil for missing attribute" do
       node = Canon::Xml::Nodes::ElementNode.new(name: "div")
-      expect(described_class.attribute_value(node, "class")).to be nil
+      expect(described_class.attribute_value(node, "class")).to be_nil
     end
 
     it "returns attribute value for Nokogiri element" do
@@ -290,20 +291,20 @@ RSpec.describe Canon::Comparison::NodeInspector do
 
     it "returns nil for TextNode" do
       node = Canon::Xml::Nodes::TextNode.new(value: "hello")
-      expect(described_class.attribute_value(node, "class")).to be nil
+      expect(described_class.attribute_value(node, "class")).to be_nil
     end
   end
 
   describe ".namespace_uri" do
     it "returns namespace URI for Canon ElementNode" do
       node = Canon::Xml::Nodes::ElementNode.new(name: "div",
-        namespace_uri: "http://example.com")
+                                                namespace_uri: "http://example.com")
       expect(described_class.namespace_uri(node)).to eq("http://example.com")
     end
 
     it "returns nil for Canon TextNode" do
       node = Canon::Xml::Nodes::TextNode.new(value: "hello")
-      expect(described_class.namespace_uri(node)).to be nil
+      expect(described_class.namespace_uri(node)).to be_nil
     end
 
     it "returns namespace URI for Nokogiri element" do
@@ -326,12 +327,12 @@ RSpec.describe Canon::Comparison::NodeInspector do
 
     it "returns nil for content-bearing text" do
       node = Canon::Xml::Nodes::TextNode.new(value: "hello")
-      expect(described_class.noise_dimension_for(node)).to be nil
+      expect(described_class.noise_dimension_for(node)).to be_nil
     end
 
     it "returns nil for element node" do
       node = Canon::Xml::Nodes::ElementNode.new(name: "div")
-      expect(described_class.noise_dimension_for(node)).to be nil
+      expect(described_class.noise_dimension_for(node)).to be_nil
     end
   end
 

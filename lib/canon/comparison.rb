@@ -316,7 +316,8 @@ module Canon
 
         # Get global config options if not defined in opts
         # This is needed because semantic_diff doesn't go through dom_diff's config handling
-        if !(opts[:match_profile] || opts[:global_options]) && %i[xml html json yaml string].include?(format1)
+        if !(opts[:match_profile] || opts[:global_options]) && %i[xml html json
+                                                                  yaml string].include?(format1)
           format_config = Canon::Config.instance.public_send(format1)
           if format_config.match.profile
             opts[:match_profile] =
@@ -333,7 +334,8 @@ module Canon
 
         # Also read diff options from config (e.g., max_node_count for large documents)
         # This is independent of match options and needs to be passed to TreeDiffIntegrator
-        if !match_opts_hash[:max_node_count] && %i[xml html json yaml string].include?(format1)
+        if !match_opts_hash[:max_node_count] && %i[xml html json yaml
+                                                   string].include?(format1)
           diff_max_node = Canon::Config.instance.public_send(format1).diff.max_node_count
           if diff_max_node > 10_000
             match_opts_hash[:max_node_count] =

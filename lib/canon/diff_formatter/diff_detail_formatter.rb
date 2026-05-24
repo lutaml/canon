@@ -33,11 +33,8 @@ module Canon
           return "" if differences.empty?
 
           # Group differences by normative status
-          normative = differences.select do |diff|
+          normative, informative = differences.partition do |diff|
             normative?(diff)
-          end
-          informative = differences.select do |diff|
-            !normative?(diff)
           end
 
           # Apply show_diffs filter — same semantics as the line-diff filter

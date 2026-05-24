@@ -131,10 +131,10 @@ show_diffs: :all, theme: nil)
 
           differences.select do |diff|
             is_normative = begin
-                             diff.normative?
-                           rescue NoMethodError
-                             diff.is_a?(Hash) && diff.key?(:normative) ? diff[:normative] : true
-                           end
+              diff.normative?
+            rescue NoMethodError
+              diff.is_a?(Hash) && diff.key?(:normative) ? diff[:normative] : true
+            end
 
             case @show_diffs
             when :normative
