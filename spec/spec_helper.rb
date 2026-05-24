@@ -18,4 +18,16 @@ RSpec.configure do |config|
   config.expect_with :rspec do |c|
     c.syntax = :expect
   end
+
+  # Under Opal, exclude specs requiring native-only features
+  if RUBY_ENGINE == "opal"
+    config.filter_run_excluding(
+      :html,
+      :cli,
+      :terminal,
+      :native_fs,
+      :nokogiri_only,
+      :native_adapter,
+    )
+  end
 end

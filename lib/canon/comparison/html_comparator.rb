@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require "nokogiri"
+require "nokogiri" unless RUBY_ENGINE == "opal"
 require_relative "../comparison" # Load base module with constants first
 require_relative "markup_comparator"
 require_relative "xml_comparator"
@@ -165,6 +165,11 @@ module Canon
             # Either equivalent or no differences tracked
             result == Comparison::EQUIVALENT
           end
+        end
+
+        # Public parsing API for external callers
+        def parse(html, preprocessing = :none)
+          parse_node_for_semantic(html, preprocessing)
         end
 
         private
@@ -337,13 +342,10 @@ module Canon
           # Convert to string if needed
           html_string = if html.is_a?(String)
                           html
-                        elsif html.respond_to?(:to_html)
+                        elsif Canon::XmlParsing.xml_node?(html)
                           html.to_html
-                        elsif html.respond_to?(:to_s)
-                          html.to_s
                         else
-                          raise Canon::Error,
-                                "Unable to convert HTML to string: #{html.class}"
+                          html.to_s
                         end
 
           # Strip DOCTYPE for consistent parsing
@@ -492,22 +494,18 @@ module Canon
         end
 
         def find_and_normalize_style_script(node)
-          return unless node.respond_to?(:children)
+          return unless node.is_a?(Canon::Xml::Node)
 
           node.children.each do |child|
             next unless child.is_a?(Canon::Xml::Nodes::ElementNode)
 
             # If this is a style or script element, normalize its text content
             if %w[style script].include?(child.name.downcase)
-              # Get text children and remove HTML comments from them
               child.children.each do |text_child|
                 next unless text_child.is_a?(Canon::Xml::Nodes::TextNode)
 
-                # Remove HTML comments from text content without using regex
-                # to avoid ReDoS/incomplete sanitization vulnerabilities
                 normalized = remove_html_comments(text_child.value)
-                # Update the text value
-                text_child.instance_variable_set(:@value, normalized)
+                text_child.value = normalized
               end
             end
 
@@ -584,13 +582,10 @@ module Canon
         # @param node [Canon::Xml::Node, Nokogiri::HTML::Document] Parsed node
         # @return [String] Serialized HTML string
         def serialize_for_display(node)
-          # Use XmlNodeComparison's serializer for Canon::Xml::Node
           if node.is_a?(Canon::Xml::Node)
             XmlNodeComparison.serialize_node_to_xml(node)
-          elsif node.respond_to?(:to_html)
-            node.to_html
-          elsif node.respond_to?(:to_xml)
-            node.to_xml
+          elsif Canon::XmlParsing.xml_node?(node)
+            Canon::XmlBackend.nokogiri? ? node.to_html : Canon::XmlParsing.serialize(node)
           else
             node.to_s
           end
@@ -605,16 +600,11 @@ module Canon
           if html.is_a?(String)
             html
           elsif html.is_a?(Canon::Xml::Node)
-            # Serialize Canon nodes to string
             Canon::Xml::DataModel.serialize(html)
-          elsif html.respond_to?(:to_html)
-            # Nokogiri nodes - use to_html to preserve formatting
-            html.to_html
-          elsif html.respond_to?(:to_s)
-            html.to_s
+          elsif Canon::XmlParsing.xml_node?(html)
+            Canon::XmlBackend.nokogiri? ? html.to_html : html.to_s
           else
-            raise Canon::Error,
-                  "Unable to extract original string from: #{html.class}"
+            html.to_s
           end
         end
 
@@ -727,11 +717,10 @@ compare_profile = nil)
         # Check if any ancestor of the given node preserves whitespace
         def ancestor_preserves_whitespace?(node, preserve_list)
           current = node
-          while current.respond_to?(:name)
+          while current.is_a?(Canon::Xml::Node) || Canon::XmlParsing.xml_node?(current)
             return true if preserve_list.include?(current.name.downcase)
 
-            # Stop at document root - documents don't have parents
-            break if current.is_a?(Nokogiri::XML::Document)
+            break if Canon::XmlParsing.document?(current)
 
             current = current.parent
           end
@@ -811,7 +800,7 @@ compare_profile = nil)
           end
 
           # Check if it's a fragment that contains XML processing instructions
-          if node.respond_to?(:children) && node.children.any? do |child|
+          if (node.is_a?(Canon::Xml::Node) || Canon::XmlParsing.xml_node?(node)) && node.children.any? do |child|
             child.is_a?(Nokogiri::XML::ProcessingInstruction) &&
                 child.name == "xml"
           end

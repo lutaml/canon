@@ -54,10 +54,10 @@ module Canon
         while current && depth < max_depth
           segments.unshift(segment_for_node(current))
 
-          # Move to parent if available
-          break unless current.respond_to?(:parent)
+          parent = node_parent(current)
+          break unless parent
 
-          current = current.parent
+          current = parent
           depth += 1
         end
 
@@ -71,27 +71,16 @@ module Canon
       # @param tree_node [Object] Node (TreeNode, Canon::Xml::Node, or Nokogiri)
       # @return [String] Path segment with ordinal index
       def self.segment_for_node(tree_node)
-        # Handle both TreeNodes (with label) and raw nodes (with name)
-        label = if tree_node.respond_to?(:label)
-                  tree_node.label
-                elsif tree_node.respond_to?(:name)
-                  tree_node.name
-                else
-                  "unknown"
-                end
+        label = node_label(tree_node)
 
         # Get ordinal index (position among siblings with same label)
         index = ordinal_index(tree_node)
 
         # For text nodes, use parent element name for clarity
         # e.g., instead of "/p/#text[0]" use "/p/text()[0]"
-        if ["text",
-            "#text"].include?(label) && tree_node.respond_to?(:parent) && tree_node.parent
-          parent_name = if tree_node.parent.respond_to?(:label)
-                          tree_node.parent.label
-                        elsif tree_node.parent.respond_to?(:name)
-                          tree_node.parent.name
-                        end
+        parent = node_parent(tree_node)
+        if ["text", "#text"].include?(label) && parent
+          parent_name = node_label(parent)
           if parent_name && parent_name != "#document" && parent_name != "#document-fragment"
             return "#{parent_name}/text()[#{index}]"
           end
@@ -106,35 +95,21 @@ module Canon
       # @param tree_node [Object] Node (TreeNode, Canon::Xml::Node, or Nokogiri)
       # @return [Integer] Zero-based ordinal index
       def self.ordinal_index(tree_node)
-        # Defensive: return 0 if no parent or doesn't respond to parent
-        return 0 unless tree_node.respond_to?(:parent)
-        return 0 unless tree_node.parent
+        parent = node_parent(tree_node)
+        return 0 unless parent
 
-        # Check if parent has children
-        return 0 unless tree_node.parent.respond_to?(:children)
-
-        siblings = tree_node.parent.children
+        siblings = node_children(parent)
         return 0 unless siblings
 
         # Convert to array if it's a NodeSet (Nokogiri) or similar
         siblings = siblings.to_a unless siblings.is_a?(Array)
 
-        # Get the label/name for comparison
-        my_label = if tree_node.respond_to?(:label)
-                     tree_node.label
-                   elsif tree_node.respond_to?(:name)
-                     tree_node.name
-                   end
-
+        my_label = node_label(tree_node)
         return 0 unless my_label
 
         # Count siblings with same label that appear before this node
         same_label_siblings = siblings.select do |s|
-          sibling_label = if s.respond_to?(:label)
-                            s.label
-                          elsif s.respond_to?(:name)
-                            s.name
-                          end
+          sibling_label = node_label(s)
           sibling_label == my_label
         end
 
@@ -151,6 +126,18 @@ module Canon
       def self.human_path(tree_node)
         segments = build_segments(tree_node)
         segments.join(" → ")
+      end
+
+      def self.node_label(node)
+        Canon::Comparison::NodeInspector.name(node) || "unknown"
+      end
+
+      def self.node_parent(node)
+        Canon::Comparison::NodeInspector.parent(node)
+      end
+
+      def self.node_children(node)
+        Canon::Comparison::NodeInspector.children(node)
       end
     end
   end

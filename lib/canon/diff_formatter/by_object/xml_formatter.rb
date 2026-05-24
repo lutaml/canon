@@ -171,7 +171,8 @@ module Canon
           text2 = extract_text(node2)
 
           # Show parent element if available
-          if node1.respond_to?(:parent) && node1.parent.respond_to?(:name)
+          if (Canon::XmlParsing.xml_node?(node1) || node1.is_a?(Canon::Xml::Node)) &&
+              node1.parent
             output << "#{prefix}    #{colorize(
               "Element: <#{node1.parent.name}>",
               theme_color(:informative, :content) || :blue,
@@ -274,9 +275,9 @@ module Canon
           parts = []
           current = node
 
-          while current.respond_to?(:name)
+          while Canon::XmlParsing.xml_node?(current) || current.is_a?(Canon::Xml::Node)
             parts.unshift(current.name) if current.name
-            current = current.parent if current.respond_to?(:parent)
+            current = current.parent
           end
 
           parts.join(".")
@@ -287,13 +288,10 @@ module Canon
         # @param node [Object] Node with content or text
         # @return [String] Text content
         def extract_text(node)
-          if node.respond_to?(:value)
-            # CommentNode and similar nodes use .value
-            node.value.to_s
-          elsif node.respond_to?(:content)
-            node.content.to_s
-          elsif node.respond_to?(:text)
-            node.text.to_s
+          if node.is_a?(Canon::Xml::Node)
+            node.text_content.to_s
+          elsif Canon::XmlParsing.xml_node?(node)
+            Canon::XmlParsing.text_content(node).to_s
           else
             ""
           end

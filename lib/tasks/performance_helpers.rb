@@ -4,7 +4,7 @@ require "json"
 require "open3"
 require "tmpdir"
 require "fileutils"
-require "table_tennis"
+require "table_tennis" unless RUBY_ENGINE == "opal"
 
 module PerformanceHelpers
   # ANSI color codes for terminal output

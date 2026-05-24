@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require "rainbow"
+require "rainbow" unless RUBY_ENGINE == "opal"
 
 module Canon
   class DiffFormatter
@@ -19,7 +19,7 @@ module Canon
         def self.colorize(text, color, use_color, bold: false)
           return text unless use_color
 
-          presenter = Rainbow(text).send(color)
+          presenter = Rainbow(text).public_send(color)
           presenter = presenter.bright if bold
           presenter.to_s
         end

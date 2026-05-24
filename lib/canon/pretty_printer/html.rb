@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require "nokogiri"
+require "nokogiri" unless RUBY_ENGINE == "opal"
 require "stringio"
 require_relative "html_void_elements"
 

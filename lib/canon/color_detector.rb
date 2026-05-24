@@ -67,11 +67,9 @@ module Canon
       # @param io [IO] Output stream
       # @return [Boolean] true if the stream is a TTY
       def tty?(io)
-        return false unless io.respond_to?(:tty?)
-        return false unless io.respond_to?(:isatty)
-
-        # Ruby 2.5+ uses tty?, older uses isatty
-        io.tty? || io.isatty
+        io.tty?
+      rescue NoMethodError
+        false
       rescue ArgumentError, IOError
         # Stream might be closed or invalid
         false

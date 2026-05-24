@@ -77,21 +77,22 @@ module Canon
         # @return [Canon::Xml::Node] Converted node
         def self.convert_from_node(node, preserve_whitespace: false,
 parser: nil)
-          # FAST PATH: Convert Nokogiri/Moxml nodes directly without string round-trip
-          if defined?(Nokogiri::XML::Node) && node.is_a?(Nokogiri::XML::Node)
-            return Canon::Xml::DataModel.build_from_nokogiri(
+          if Canon::XmlBackend.nokogiri?
+            if node.is_a?(Nokogiri::XML::Node)
+              return Canon::Xml::DataModel.build_from_nokogiri(
+                node, preserve_whitespace: preserve_whitespace
+              )
+            end
+          elsif node.is_a?(Moxml::Node)
+            return Canon::Xml::DataModel.build_from_moxml(
               node, preserve_whitespace: preserve_whitespace
             )
           end
 
-          # SLOW PATH: Fallback to string serialization for unknown node types
-          xml_str = if node.respond_to?(:to_xml)
-                      node.to_xml
-                    elsif node.respond_to?(:to_s)
-                      node.to_s
+          xml_str = if node.is_a?(String)
+                      node
                     else
-                      raise Canon::Error,
-                            "Unable to convert node to string: #{node.class}"
+                      node.to_xml
                     end
 
           resolved_parser = parser || resolve_parser_config
@@ -112,7 +113,7 @@ parser: nil)
         def self.resolve_parser_config
           Canon::Config.instance.xml.diff.parser
         rescue StandardError
-          :sax
+          Canon::XmlBackend.nokogiri? ? :sax : :dom
         end
       end
     end

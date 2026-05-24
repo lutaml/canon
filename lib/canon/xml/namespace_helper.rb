@@ -104,6 +104,11 @@ module Canon
         namespace_uri.to_s
       end
 
+      # Check if an attribute name is a namespace declaration (xmlns or xmlns:*)
+      def self.namespace_declaration?(attr_name)
+        attr_name == "xmlns" || attr_name.start_with?("xmlns:")
+      end
+
       private_class_method :normalize_namespace
     end
   end

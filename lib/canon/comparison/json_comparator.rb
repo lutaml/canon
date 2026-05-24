@@ -26,6 +26,14 @@ module Canon
       }.freeze
 
       class << self
+        # Parse JSON from string or return as-is
+        #
+        # @param obj [String, Hash, Array] JSON string or parsed object
+        # @return [Object] Parsed JSON object
+        def parse(obj)
+          parse_json(obj)
+        end
+
         # Compare two JSON objects for equivalence
         #
         # @param json1 [String, Hash, Array] First JSON

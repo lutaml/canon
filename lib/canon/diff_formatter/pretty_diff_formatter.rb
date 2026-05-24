@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
-require "paint"
-require "diff/lcs"
+require "paint" unless RUBY_ENGINE == "opal"
+require "diff/lcs" unless RUBY_ENGINE == "opal"
 
 module Canon
   class DiffFormatter

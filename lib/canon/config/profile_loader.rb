@@ -32,6 +32,19 @@ module Canon
           @cache = nil
         end
 
+        # Deep merge two hashes. Arrays are replaced (not concatenated).
+        def deep_merge(base, overlay)
+          result = base.dup
+          overlay.each do |key, value|
+            result[key] = if result[key].is_a?(Hash) && value.is_a?(Hash)
+                            deep_merge(result[key], value)
+                          else
+                            value
+                          end
+          end
+          result
+        end
+
         private
 
         def cache
@@ -115,19 +128,6 @@ module Canon
         def load_yaml(path)
           content = File.read(path)
           YAML.safe_load(content, permitted_classes: [Symbol]) || {}
-        end
-
-        # Deep merge two hashes. Arrays are replaced (not concatenated).
-        def deep_merge(base, overlay)
-          result = base.dup
-          overlay.each do |key, value|
-            result[key] = if result[key].is_a?(Hash) && value.is_a?(Hash)
-                            deep_merge(result[key], value)
-                          else
-                            value
-                          end
-          end
-          result
         end
       end
     end

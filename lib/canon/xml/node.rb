@@ -9,6 +9,7 @@ module Canon
       def initialize
         @parent = nil
         @children = []
+        @in_node_set = true
       end
 
       def add_child(child)
@@ -17,7 +18,7 @@ module Canon
       end
 
       def in_node_set?
-        instance_variable_defined?(:@in_node_set) ? @in_node_set : true
+        @in_node_set
       end
 
       def in_node_set=(value)

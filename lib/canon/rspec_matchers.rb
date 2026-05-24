@@ -177,7 +177,7 @@ module Canon
           config_format = normalize_format_for_config(@format)
 
           # Only access config if format is supported
-          if Canon::Config.instance.respond_to?(config_format)
+          if %i[xml html json yaml string].include?(config_format)
             format_config = Canon::Config.instance.public_send(config_format)
             if format_config.match.profile
               opts[:global_profile] =
@@ -375,7 +375,7 @@ module Canon
                                diff_algorithm: diff_algorithm)
     end
 
-    if defined?(::RSpec) && ::RSpec.respond_to?(:configure)
+    if defined?(::RSpec.configure)
       RSpec.configure do |config|
         config.include(Canon::RSpecMatchers)
       end

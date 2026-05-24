@@ -27,8 +27,8 @@ module Canon
       def self.compare_nodes(node1, node2, opts, child_opts, diff_children,
 differences)
         # Handle DocumentFragment nodes - compare their children instead
-        if node1.is_a?(Nokogiri::XML::DocumentFragment) &&
-            node2.is_a?(Nokogiri::XML::DocumentFragment)
+        if Canon::XmlParsing.document_fragment?(node1) &&
+            Canon::XmlParsing.document_fragment?(node2)
           return compare_document_fragments(node1, node2, opts, child_opts,
                                             diff_children, differences)
         end
@@ -285,10 +285,14 @@ diff_children, differences)
         return false if node1.class != node2.class
 
         case node1
-        when Canon::Xml::Node, Nokogiri::XML::Node
+        when Canon::Xml::Node
           node1.node_type == node2.node_type
         else
-          true
+          if Canon::XmlBackend.nokogiri?
+            node1.is_a?(Nokogiri::XML::Node) && node1.node_type == node2.node_type
+          else
+            Canon::XmlParsing.xml_node?(node1) && Canon::XmlParsing.node_type(node1) == Canon::XmlParsing.node_type(node2)
+          end
         end
       end
 
@@ -305,7 +309,7 @@ diff_children, differences)
       def self.comment_node?(node, check_children: false)
         return true if NodeInspector.comment_node?(node)
 
-        if check_children && node.is_a?(Nokogiri::XML::Element) && !node.children.empty?
+        if check_children && Canon::XmlParsing.element?(node) && !Canon::XmlParsing.children(node).empty?
           node.children.any? { |child| NodeInspector.comment_node?(child) }
         else
           false
@@ -360,24 +364,20 @@ diff_children, differences)
       # Dispatch by legacy Nokogiri/Moxml node type
       def self.dispatch_legacy_node_type(node1, node2, opts, child_opts,
 diff_children, differences)
-        # Import XmlComparator to use its comparison methods
         require_relative "xml_comparator"
 
-        case node1
-        when Nokogiri::XML::Document
+        if Canon::XmlParsing.document?(node1)
           XmlComparator.compare_document_nodes(node1, node2, opts, child_opts,
                                                diff_children, differences)
-        when Nokogiri::XML::Node
-          if node1.element?
+        elsif Canon::XmlParsing.xml_node?(node1)
+          if Canon::XmlParsing.element?(node1)
             XmlComparator.compare_element_nodes(node1, node2, opts, child_opts,
                                                 diff_children, differences)
-          elsif node1.text?
+          elsif Canon::XmlParsing.text_node?(node1) || Canon::XmlParsing.cdata?(node1)
             XmlComparator.compare_text_nodes(node1, node2, opts, differences)
-          elsif node1.comment?
+          elsif Canon::XmlParsing.comment?(node1)
             XmlComparator.compare_comment_nodes(node1, node2, opts, differences)
-          elsif node1.cdata?
-            XmlComparator.compare_text_nodes(node1, node2, opts, differences)
-          elsif node1.processing_instruction?
+          elsif Canon::XmlParsing.processing_instruction?(node1)
             XmlComparator.compare_processing_instruction_nodes(node1, node2,
                                                                opts, differences)
           else

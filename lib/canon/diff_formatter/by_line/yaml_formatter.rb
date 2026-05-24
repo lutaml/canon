@@ -261,7 +261,7 @@ module Canon
 
           if color && @use_color
             require "rainbow"
-            Rainbow(visual).send(color).bright.to_s
+            Rainbow(visual).public_send(color).bright.to_s
           else
             visual
           end

@@ -1,386 +1,113 @@
 # frozen_string_literal: true
 
-require "nokogiri"
+require "cgi"
 require_relative "../../xml/namespace_helper"
 
 module Canon
   class DiffFormatter
     module DiffDetailFormatterHelpers
-      # Node utility methods
+      # Node utility methods for the diff detail formatter.
       #
-      # Provides helper methods for extracting information from nodes.
+      # All node queries delegate to NodeInspector / XmlParsing.
+      # No respond_to? — types are known at every call site.
       module NodeUtils
-        # Get attribute names from a node
-        #
-        # @param node [Object] Node to extract attributes from
-        # @return [Array<String>] Array of attribute names
+        # --- Attribute extraction ---
+
         def self.get_attribute_names(node)
-          return [] unless node
-
-          attrs = if node.respond_to?(:attribute_nodes)
-                    node.attribute_nodes
-                  elsif node.respond_to?(:attributes)
-                    node.attributes
-                  elsif node.respond_to?(:[]) && node.respond_to?(:each)
-                    # Hash-like node
-                    node.keys
-                  else
-                    []
-                  end
-
-          return [] unless attrs
-
-          # Handle different attribute formats
-          if attrs.is_a?(Array)
-            attrs.map { |attr| attr.respond_to?(:name) ? attr.name : attr.to_s }
-          elsif attrs.respond_to?(:keys)
-            attrs.keys.map(&:to_s)
-          else
-            []
-          end
+          extract_attribute_names(node)
         end
 
-        # Find all differing attributes between two nodes
-        #
-        # @param node1 [Object] First node
-        # @param node2 [Object] Second node
-        # @return [Array<String>] Array of attribute names with different values
+        def self.get_attribute_names_in_order(node)
+          extract_attribute_names(node)
+        end
+
         def self.find_all_differing_attributes(node1, node2)
           return [] unless node1 && node2
 
           attrs1 = get_attributes_hash(node1)
           attrs2 = get_attributes_hash(node2)
 
-          all_keys = (attrs1.keys | attrs2.keys)
-
-          all_keys.reject do |key|
+          (attrs1.keys | attrs2.keys).reject do |key|
             attrs1[key.to_s] == attrs2[key.to_s]
           end
         end
 
-        # Get attribute names in order from a node
-        #
-        # @param node [Object] Node to extract from
-        # @return [Array<String>] Ordered array of attribute names
-        def self.get_attribute_names_in_order(node)
-          return [] unless node
-
-          attrs = if node.respond_to?(:attribute_nodes)
-                    node.attribute_nodes
-                  elsif node.respond_to?(:attributes)
-                    node.attributes
-                  else
-                    []
-                  end
-
-          return [] unless attrs
-
-          if attrs.is_a?(Array)
-            attrs.map { |attr| attr.respond_to?(:name) ? attr.name : attr.to_s }
-          else
-            attrs.keys.map(&:to_s)
-          end
-        end
-
-        # Get attributes as a hash
-        #
-        # @param node [Object] Node to extract from
-        # @return [Hash] Attributes hash
         def self.get_attributes_hash(node)
           return {} unless node
 
-          attrs = if node.respond_to?(:attribute_nodes)
-                    node.attribute_nodes
-                  elsif node.respond_to?(:attributes)
-                    node.attributes
-                  else
-                    {}
-                  end
-
-          return {} unless attrs
-
-          result = {}
-          if attrs.is_a?(Array)
-            attrs.each do |attr|
-              name = attr.respond_to?(:name) ? attr.name : attr.to_s
-              value = attr.respond_to?(:value) ? attr.value : attr.to_s
-              result[name] = value
-            end
-          elsif attrs.respond_to?(:each)
-            attrs.each do |key, val|
-              name = key.to_s
-              value = if val.respond_to?(:value)
-                        val.value
-                      elsif val.respond_to?(:content)
-                        val.content
-                      else
-                        val.to_s
-                      end
-              result[name] = value
-            end
+          case node
+          when Canon::Xml::Nodes::ElementNode
+            node.attribute_nodes.to_h { |a| [a.name.to_s, a.value.to_s] }
+          else
+            backend_attributes_hash(node)
           end
-
-          result
         end
 
-        # Get attribute value from a node
-        #
-        # @param node [Object] Node to extract from
-        # @param attr_name [String] Attribute name
-        # @return [String, nil] Attribute value or nil
         def self.get_attribute_value(node, attr_name)
           return nil unless node && attr_name
 
-          if node.respond_to?(:[])
-            value = node[attr_name]
-            if value.respond_to?(:value)
-              value.value
-            elsif value.respond_to?(:content)
-              value.content
-            elsif value.respond_to?(:to_s)
-              value.to_s
-            else
-              value
-            end
-          elsif node.respond_to?(:get_attribute)
-            attr = node.get_attribute(attr_name)
-            attr.respond_to?(:value) ? attr.value : attr
-          elsif node.respond_to?(:attribute_nodes)
-            attribute_node = node.attribute_nodes.find do |attr|
-              attr.name == attr_name.to_s
-            end
-            attribute_node&.value
+          case node
+          when Canon::Xml::Nodes::ElementNode
+            attr = node.attribute_nodes.find { |a| a.name == attr_name.to_s }
+            attr&.value
+          else
+            XmlParsing.attribute_value(node, attr_name)
           end
         end
 
-        # Get text content from a node
-        #
-        # @param node [Object] Node to extract from
-        # @return [String] Text content
+        # --- Text / name / namespace ---
+
         def self.get_node_text(node)
           return "" unless node
 
-          text = if node.respond_to?(:text)
-                   node.text
-                 elsif node.respond_to?(:content)
-                   node.content
-                 elsif node.respond_to?(:inner_text)
-                   node.inner_text
-                 elsif node.respond_to?(:value)
-                   node.value
-                 elsif node.respond_to?(:node_info)
-                   node.node_info
-                 elsif node.respond_to?(:to_s)
-                   node.to_s
-                 else
-                   ""
-                 end
-
-          strip_ascii_whitespace(text.to_s)
+          strip_ascii_whitespace(Canon::Comparison::NodeInspector.text_content(node).to_s)
         end
 
-        # Strip only ASCII whitespace (space, tab, CR, LF) but preserve Unicode
-        # whitespace like non-breaking space (\u00A0). Ruby's String#strip removes
-        # all Unicode whitespace, which destroys meaningful content like \u00A0.
-        #
-        # @param str [String] String to strip
-        # @return [String] String with leading/trailing ASCII whitespace removed
-        ASCII_WHITESPACE_BYTES = [32, 9, 13, 10].freeze # ' ', '\t', '\r', '\n'
+        ASCII_WHITESPACE_PATTERN = /[ \t\r\n]/
 
         def self.strip_ascii_whitespace(str)
           return "" if str.nil?
           return str if str.empty?
 
-          # Find first non-ASCII-whitespace character position
           first_pos = str.index(/[^ \t\r\n]/)
           return "" unless first_pos
 
-          # Find last non-ASCII-whitespace character position (from end)
-          # Use reverse and index, then convert back to forward position
           reversed_pos = str.reverse.index(/[^ \t\r\n]/)
           last_pos = str.length - 1 - reversed_pos
 
           str[first_pos..last_pos]
         end
 
-        # Get element name for display
-        #
-        # @param node [Object] Node to get name from
-        # @return [String] Element name
         def self.get_element_name_for_display(node)
           return "" unless node
 
-          # Handle TextNode specially since it doesn't respond to :name
-          if node.is_a?(Canon::Xml::Nodes::TextNode)
-            return "text"
-          end
-
-          # Handle CommentNode specially since it doesn't respond to :name
-          if node.is_a?(Canon::Xml::Nodes::CommentNode)
-            return "comment"
-          end
-
-          if node.respond_to?(:name)
-            node.name.to_s
+          case node
+          when Canon::Xml::Nodes::TextNode
+            "text"
+          when Canon::Xml::Nodes::CommentNode
+            "comment"
           else
-            node.class.name
+            Canon::Comparison::NodeInspector.name(node).to_s
           end
         end
 
-        # Get namespace URI for display
-        #
-        # @param node [Object] Node to get namespace from
-        # @return [String] Namespace URI
         def self.get_namespace_uri_for_display(node)
           return "" unless node
 
-          if node.respond_to?(:namespace_uri)
-            node.namespace_uri.to_s
-          elsif node.respond_to?(:namespace)
-            ns = node.namespace
-            ns.respond_to?(:href) ? ns.href.to_s : ""
-          else
-            ""
-          end
+          Canon::Comparison::Canon::Comparison::NodeInspector.namespace_uri(node).to_s
         end
 
-        # Format node briefly for display
-        #
-        # @param node [Object] Node to format
-        # @return [String] Brief node description
+        # --- Display helpers ---
+
         def self.format_node_brief(node)
           return "" unless node
 
           name = get_element_name_for_display(node)
           text = get_node_text(node)
 
-          if text && !text.empty?
-            "#{name}(\"#{text}\")"
-          else
-            name
-          end
+          text && !text.empty? ? "#{name}(\"#{text}\")" : name
         end
 
-        # Serialize a node tree as compact XML for display.
-        #
-        # Produces a human-readable inline XML string without namespace
-        # declarations and without indentation — suitable for use in Semantic
-        # Diff Report entries.  Handles both +Canon::Xml::Nodes+ types and
-        # Nokogiri XML/HTML nodes (the html DOM comparison path uses
-        # Nokogiri nodes, so element-structure diffs originating there must
-        # be rendered structurally too — see issue #120).  For any other
-        # node type, falls back to +get_node_text+.
-        #
-        # @param node [Object] Node to serialize
-        # @return [String] Compact XML string
-        def self.serialize_node_compact(node)
-          require "cgi"
-          return "" unless node
-
-          case node
-          when Canon::Xml::Nodes::TextNode
-            CGI.escapeHTML(node.value.to_s)
-          when Canon::Xml::Nodes::ElementNode
-            tag = node.name.to_s
-            attrs = node.attribute_nodes.map do |attr|
-              attr_name  = attr.respond_to?(:name)  ? attr.name.to_s  : attr.to_s
-              attr_value = attr.respond_to?(:value) ? attr.value.to_s : ""
-              " #{attr_name}=\"#{CGI.escapeHTML(attr_value)}\""
-            end.join
-            children_xml = node.children.map do |c|
-              serialize_node_compact(c)
-            end.join
-            if children_xml.empty?
-              "<#{tag}#{attrs}/>"
-            else
-              "<#{tag}#{attrs}>#{children_xml}</#{tag}>"
-            end
-          when Canon::Xml::Nodes::CommentNode
-            text = node.respond_to?(:value) ? node.value.to_s : ""
-            "<!--#{CGI.escapeHTML(text)}-->"
-          when Nokogiri::XML::Text, Nokogiri::XML::CDATA
-            CGI.escapeHTML(node.content.to_s)
-          when Nokogiri::XML::Comment
-            "<!--#{CGI.escapeHTML(node.content.to_s)}-->"
-          when Nokogiri::XML::Element
-            tag = node.name.to_s
-            attrs = node.attribute_nodes.map do |a|
-              " #{a.name}=\"#{CGI.escapeHTML(a.value.to_s)}\""
-            end.join
-            children_xml = node.children.map do |c|
-              serialize_node_compact(c)
-            end.join
-            if children_xml.empty?
-              "<#{tag}#{attrs}/>"
-            else
-              "<#{tag}#{attrs}>#{children_xml}</#{tag}>"
-            end
-          else
-            # Unknown node types — fall back to text extraction
-            get_node_text(node)
-          end
-        end
-
-        # Serialize a node's open tag only — name + attributes, no children,
-        # no closing tag.  Used by +format_text_content_one_sided+ to render
-        # a brief parent-element context hint (e.g. +<div id="A">+) for a
-        # one-sided text diff, instead of the full ancestor subtree that
-        # +serialize_node_compact+ would produce.  See lutaml/canon#125.
-        #
-        # @param node [Object] Element node to serialize
-        # @return [String] Open-tag string, or "" for non-elements / nil
-        def self.serialize_open_tag(node)
-          require "cgi"
-          return "" unless node
-
-          case node
-          when Canon::Xml::Nodes::ElementNode
-            tag = node.name.to_s
-            attrs = node.attribute_nodes.map do |attr|
-              " #{attr.name}=\"#{CGI.escapeHTML(attr.value.to_s)}\""
-            end.join
-            "<#{tag}#{attrs}>"
-          when Nokogiri::XML::Element
-            tag = node.name.to_s
-            attrs = node.attribute_nodes.map do |a|
-              " #{a.name}=\"#{CGI.escapeHTML(a.value.to_s)}\""
-            end.join
-            "<#{tag}#{attrs}>"
-          else
-            ""
-          end
-        end
-
-        # Return the raw text content of a text node without stripping
-        # whitespace.  +get_node_text+ strips ASCII whitespace, which
-        # destroys whitespace-only payloads that callers (e.g. one-sided
-        # text-content diff rendering) need to display verbatim.
-        #
-        # @param node [Object] Text node
-        # @return [String] Raw text content, or "" if not a text-bearing node
-        def self.raw_text_value(node)
-          return "" unless node
-
-          case node
-          when Canon::Xml::Node
-            node.value.to_s
-          when Nokogiri::XML::Node
-            node.content.to_s
-          else
-            ""
-          end
-        end
-
-        # Return the best display string for a node.
-        #
-        # When +compact: true+ and the node is a Canon ElementNode, returns a
-        # compact XML serialization (e.g. +<strong>Annex</strong>+) instead of
-        # the +node_info+ description string that +get_node_text+ would produce.
-        # In all other cases, delegates to +get_node_text+.
-        #
-        # @param node [Object] Node to display
-        # @param compact [Boolean] Whether to use compact XML for element nodes
-        # @return [String] Display string
         def self.node_to_display(node, compact: false)
           if compact && node.is_a?(Canon::Xml::Nodes::ElementNode)
             serialize_node_compact(node)
@@ -389,56 +116,157 @@ module Canon
           end
         end
 
-        # Return the parent of a node, or nil, regardless of the node API.
-        #
-        # Canon::Xml nodes expose +parent+; some Nokogiri-shaped nodes expose
-        # +parent_node+.  This helper abstracts over both.
-        #
-        # @param node [Object] Node to query
-        # @return [Object, nil] Parent node or nil
-        def self.parent_of(node)
-          return nil unless node
+        # --- Serialization ---
 
-          if node.respond_to?(:parent)
-            node.parent
-          elsif node.respond_to?(:parent_node)
-            node.parent_node
+        def self.serialize_node_compact(node)
+          return "" unless node
+
+          case node
+          when Canon::Xml::Nodes::TextNode
+            CGI.escapeHTML(node.value.to_s)
+          when Canon::Xml::Nodes::CommentNode
+            "<!--#{CGI.escapeHTML(node.value.to_s)}-->"
+          when Canon::Xml::Nodes::ElementNode
+            serialize_element_compact(node)
+          else
+            serialize_backend_node_compact(node)
           end
         end
 
-        # Check if node is inside a preserve-whitespace element
-        #
-        # @param node [Object] Node to check
-        # @return [Boolean] true if inside preserve element
+        def self.serialize_open_tag(node)
+          return "" unless node
+
+          case node
+          when Canon::Xml::Nodes::ElementNode
+            tag = node.name.to_s
+            attrs = node.attribute_nodes.map do |a|
+              " #{a.name}=\"#{CGI.escapeHTML(a.value.to_s)}\""
+            end.join
+            "<#{tag}#{attrs}>"
+          else
+            serialize_backend_open_tag(node)
+          end
+        end
+
+        def self.raw_text_value(node)
+          return "" unless node
+
+          Canon::Comparison::NodeInspector.text_content(node).to_s
+        end
+
+        # --- Traversal ---
+
+        def self.parent_of(node)
+          Canon::Comparison::NodeInspector.parent(node)
+        end
+
         def self.inside_preserve_element?(node)
           return false unless node
 
           preserve_elements = %w[pre code textarea script style]
 
-          # Check the node itself
-          if node.respond_to?(:name) && preserve_elements.include?(node.name.to_s.downcase)
-            return true
-          end
-
-          # Check ancestors
           current = node
           while current
-            if current.respond_to?(:parent)
-              current = current.parent
-            elsif current.respond_to?(:parent_node)
-              current = current.parent_node
-            else
-              break
-            end
+            name = Canon::Comparison::NodeInspector.name(current)
+            return true if name && preserve_elements.include?(name.to_s.downcase)
 
-            next unless current
+            parent = Canon::Comparison::NodeInspector.parent(current)
+            break if parent.nil? || parent == current
 
-            if current.respond_to?(:name) && preserve_elements.include?(current.name.to_s.downcase)
-              return true
-            end
+            current = parent
           end
 
           false
+        end
+
+        class << self
+          private
+
+          def extract_attribute_names(node)
+            return [] unless node
+
+            case node
+            when Canon::Xml::Nodes::ElementNode
+              node.attribute_nodes.map(&:name)
+            else
+              attrs = XmlParsing.attributes(node)
+              return [] unless attrs
+              return attrs.map { |a| a.name.to_s } if attrs.is_a?(Array)
+
+              attrs.keys.map(&:to_s)
+            end
+          end
+
+          def backend_attributes_hash(node)
+            attrs = XmlParsing.attributes(node)
+            return {} unless attrs
+
+            if attrs.is_a?(Array)
+              attrs.each_with_object({}) do |attr, h|
+                name = attr.is_a?(Canon::Xml::Nodes::AttributeNode) ? attr.name : XmlParsing.name(attr).to_s
+                value = attr.is_a?(Canon::Xml::Nodes::AttributeNode) ? attr.value : XmlParsing.text_content(attr).to_s
+                h[name.to_s] = value
+              end
+            else
+              attrs.each_with_object({}) do |(key, val), h|
+                h[key.to_s] =
+                  val.is_a?(String) ? val : XmlParsing.text_content(val).to_s
+              end
+            end
+          end
+
+          def serialize_element_compact(element_node)
+            tag = element_node.name.to_s
+            attrs = element_node.attribute_nodes.map do |a|
+              " #{a.name}=\"#{CGI.escapeHTML(a.value.to_s)}\""
+            end.join
+            children_xml = element_node.children.map do |c|
+              serialize_node_compact(c)
+            end.join
+            children_xml.empty? ? "<#{tag}#{attrs}/>" : "<#{tag}#{attrs}>#{children_xml}</#{tag}>"
+          end
+
+          def serialize_backend_node_compact(node)
+            if XmlBackend.nokogiri? && node.is_a?(Nokogiri::XML::Node)
+              serialize_nokogiri_node_compact(node)
+            elsif node.is_a?(Canon::Xml::Node)
+              serialize_node_compact(node)
+            else
+              get_node_text(node)
+            end
+          end
+
+          def serialize_nokogiri_node_compact(node)
+            case node
+            when Nokogiri::XML::Text, Nokogiri::XML::CDATA
+              CGI.escapeHTML(node.content.to_s)
+            when Nokogiri::XML::Comment
+              "<!--#{CGI.escapeHTML(node.content.to_s)}-->"
+            when Nokogiri::XML::Element
+              tag = node.name.to_s
+              attrs = node.attribute_nodes.map do |a|
+                " #{a.name}=\"#{CGI.escapeHTML(a.value.to_s)}\""
+              end.join
+              children_xml = node.children.map do |c|
+                serialize_node_compact(c)
+              end.join
+              children_xml.empty? ? "<#{tag}#{attrs}/>" : "<#{tag}#{attrs}>#{children_xml}</#{tag}>"
+            else
+              get_node_text(node)
+            end
+          end
+
+          def serialize_backend_open_tag(node)
+            if XmlBackend.nokogiri? && node.is_a?(Nokogiri::XML::Element)
+              tag = node.name.to_s
+              attrs = node.attribute_nodes.map do |a|
+                " #{a.name}=\"#{CGI.escapeHTML(a.value.to_s)}\""
+              end.join
+              "<#{tag}#{attrs}>"
+            else
+              ""
+            end
+          end
         end
       end
     end

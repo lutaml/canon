@@ -48,9 +48,8 @@ module Canon
 
             # If key exists, check if it's :strict
             return match_options[:comments] == :strict
-          elsif match_options.respond_to?(:behavior_for)
+          elsif match_options.is_a?(ResolvedMatchOptions)
             behavior = behavior_for(dimension)
-            # In HTML, only :strict makes comments affect equivalence
             return behavior == :strict
           end
           # Default: comments don't affect equivalence in HTML
@@ -106,14 +105,8 @@ module Canon
       def has_explicit_option?(dimension)
         if match_options.is_a?(Hash)
           match_options.key?(dimension)
-        elsif match_options.respond_to?(:[])
-          # For ResolvedMatchOptions, check if key exists
-          begin
-            match_options[dimension]
-            true
-          rescue StandardError
-            false
-          end
+        elsif match_options.is_a?(ResolvedMatchOptions)
+          !match_options.options[dimension].nil?
         else
           false
         end
