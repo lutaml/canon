@@ -26,7 +26,7 @@ show_diffs: :all, theme: nil)
         # @return [String] Formatted output
         def format(differences, _format)
           # Handle both ComparisonResult (production) and Array (low-level tests)
-          if differences.respond_to?(:equivalent?)
+          if differences.is_a?(Canon::Comparison::ComparisonResult)
             # ComparisonResult object
             return success_message if differences.equivalent?
 
@@ -130,15 +130,11 @@ show_diffs: :all, theme: nil)
           return differences if @show_diffs.nil? || @show_diffs == :all
 
           differences.select do |diff|
-            # Handle both DiffNode objects and legacy Hash format
-            is_normative = if diff.respond_to?(:normative?)
-                             diff.normative?
-                           elsif diff.is_a?(Hash) && diff.key?(:normative)
-                             diff[:normative]
-                           else
-                             # Default to normative if unknown
-                             true
-                           end
+            is_normative = begin
+              diff.normative?
+            rescue NoMethodError
+              diff.is_a?(Hash) && diff.key?(:normative) ? diff[:normative] : true
+            end
 
             case @show_diffs
             when :normative
@@ -207,9 +203,9 @@ show_diffs: :all, theme: nil)
           parts = []
           current = node
 
-          while current.respond_to?(:name)
+          while Canon::XmlParsing.xml_node?(current) || current.is_a?(Canon::Xml::Node)
             parts.unshift(current.name) if current.name
-            current = current.parent if current.respond_to?(:parent)
+            current = current.parent
           end
 
           parts.join(".")
@@ -328,13 +324,13 @@ show_diffs: :all, theme: nil)
             # Handle bright_ colors: :bright_blue -> .blue.bright
             if c.to_s.start_with?("bright_")
               base = c.to_s.sub(/^bright_/, "").to_sym
-              presenter = presenter.send(base).bright
+              presenter = presenter.public_send(base).bright
             elsif c.to_s.start_with?("light_")
               # Rainbow doesn't have light_ versions
               base = c.to_s.sub(/^light_/, "").to_sym
-              presenter = presenter.send(base)
+              presenter = presenter.public_send(base)
             else
-              presenter = presenter.send(c)
+              presenter = presenter.public_send(c)
             end
           end
           presenter.to_s

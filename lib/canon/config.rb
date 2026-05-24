@@ -25,15 +25,19 @@ module Canon
 
       # Delegate to instance
       def method_missing(method, ...)
-        if @instance.respond_to?(method)
-          @instance.send(method, ...)
+        if %i[xml html json yaml string profile profile= diff_mode diff_mode=
+              use_color use_color= xml_match_profile xml_match_profile=
+              html_match_profile html_match_profile= reset!].include?(method)
+          @instance.public_send(method, ...)
         else
           super
         end
       end
 
       def respond_to_missing?(method, include_private = false)
-        @instance.respond_to?(method) || super
+        %i[xml html json yaml string profile profile= diff_mode diff_mode=
+           use_color use_color= xml_match_profile xml_match_profile=
+           html_match_profile html_match_profile= reset!].include?(method) || super
       end
     end
 
@@ -700,6 +704,24 @@ module Canon
         @resolver.set_programmatic(:theme, value)
       end
 
+      # Theme inheritance (custom theme with base + overrides)
+      def theme_inheritance
+        @resolver.resolve(:theme_inheritance)
+      end
+
+      def theme_inheritance=(value)
+        @resolver.set_programmatic(:theme_inheritance, value)
+      end
+
+      # Full custom theme hash
+      def custom_theme
+        @resolver.resolve(:custom_theme)
+      end
+
+      def custom_theme=(value)
+        @resolver.set_programmatic(:custom_theme, value)
+      end
+
       # File size limit in bytes (default 5MB)
       def max_file_size
         @resolver.resolve(:max_file_size)
@@ -806,6 +828,8 @@ module Canon
           max_node_count: 10_000,        # Maximum nodes in tree
           max_diff_lines: 10_000,        # Maximum diff output lines
           theme: :dark, # Default theme
+          theme_inheritance: nil,        # Custom theme with base + overrides
+          custom_theme: nil,             # Full custom theme hash
         }
 
         env = format ? EnvProvider.load_diff_for_format(format) : {}
@@ -846,8 +870,8 @@ module Canon
       formats = data["formats"] || {}
 
       format_configs.each do |fmt_key, fmt_cfg|
-        fmt_data = ProfileLoader.send(:deep_merge, shared,
-                                      formats[fmt_key.to_s] || {})
+        fmt_data = ProfileLoader.deep_merge(shared,
+                                            formats[fmt_key.to_s] || {})
         fmt_cfg.apply_profile_data(fmt_data)
       end
     end

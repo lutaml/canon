@@ -27,6 +27,14 @@ module Canon
       }.freeze
 
       class << self
+        # Parse YAML from string or return as-is
+        #
+        # @param obj [String, Hash, Array] YAML string or parsed object
+        # @return [Object] Parsed YAML object
+        def parse(obj)
+          parse_yaml(obj)
+        end
+
         # Compare two YAML objects for equivalence
         #
         # @param yaml1 [String, Hash, Array] First YAML

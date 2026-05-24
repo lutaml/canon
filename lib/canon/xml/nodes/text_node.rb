@@ -10,7 +10,12 @@ module Canon
       # Stores both the decoded text value and the original text (with entity
       # references preserved) to enable accurate round-trip serialization.
       class TextNode < Node
-        attr_reader :value, :original
+        attr_accessor :value
+        attr_reader :original
+
+        def original=(value)
+          @original = value
+        end
 
         # @param value [String] Decoded text content (entity references resolved)
         # @param original [String, nil] Original text as it appeared in source XML,

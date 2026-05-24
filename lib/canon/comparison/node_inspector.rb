@@ -4,40 +4,74 @@ module Canon
   module Comparison
     # Single source of truth for cross-backend node type operations.
     #
-    # The comparison pipeline handles nodes from two backends:
+    # The comparison pipeline handles nodes from multiple sources:
     # * Canon::Xml::Node (+ RootNode, ElementNode, TextNode, etc.) —
     #   custom DOM built by SAX builder and DataModel.
-    # * Nokogiri::XML::Node (+ subclasses) — native Nokogiri nodes used
-    #   by the HTML comparator and some legacy paths.
+    # * Canon::TreeDiff::Core::TreeNode — semantic tree diff nodes.
+    # * Backend-specific nodes (Nokogiri or Moxml) — live parsed nodes.
     #
-    # Every method here dispatches on type via +case/when+ (+is_a?+).
-    # No +respond_to?+ — the types are known at every call site.
+    # All type dispatch uses backend-branching (`if XmlBackend.nokogiri?`)
+    # rather than `case/when` with constant references. This prevents
+    # NameError when Nokogiri constants are undefined under Opal.
+    #
+    # Every node query in the codebase should go through this module.
+    # Do not create private dispatch methods in consumers.
     module NodeInspector
-      CANON_TEXT_TYPE = :text
       NOKOGIRI_TEXT_TYPE = defined?(Nokogiri::XML::Node::TEXT_NODE) ? Nokogiri::XML::Node::TEXT_NODE : 3
 
-      # True when +node+ is a text node (whitespace, content, etc.).
+      # --- Type predicates ---
+
       def self.text_node?(node)
-        case node
-        when Canon::Xml::Node
-          node.node_type == CANON_TEXT_TYPE
-        when Nokogiri::XML::Node
-          node.node_type == NOKOGIRI_TEXT_TYPE
+        return false unless node
+        return node.node_type == :text if node.is_a?(Canon::Xml::Node)
+
+        if XmlBackend.nokogiri?
+          node.is_a?(Nokogiri::XML::Text) || node.is_a?(Moxml::Text)
         else
-          false
+          node.is_a?(Moxml::Text)
         end
       end
 
-      # Extract the text content of +node+ as a String.
-      def self.text_content(node)
-        case node
-        when Canon::Xml::Node
-          node.value.to_s
-        when Nokogiri::XML::Node
-          node.content.to_s
+      def self.element_node?(node)
+        return false unless node
+        return node.node_type == :element if node.is_a?(Canon::Xml::Node)
+
+        if XmlBackend.nokogiri?
+          node.is_a?(Nokogiri::XML::Element) || node.is_a?(Moxml::Element)
         else
-          node.to_s
+          node.is_a?(Moxml::Element)
         end
+      end
+
+      def self.comment_node?(node)
+        return false unless node
+        return node.node_type == :comment if node.is_a?(Canon::Xml::Node)
+
+        if XmlBackend.nokogiri?
+          return true if node.is_a?(Nokogiri::XML::Node) && node.comment?
+
+          # HTML comments are parsed as TEXT nodes by Nokogiri
+          if node.is_a?(Nokogiri::XML::Node) && node.text?
+            text_stripped = text_content(node).to_s.strip.gsub("\\", "")
+            return true if text_stripped.start_with?("<!--") && text_stripped.end_with?("-->")
+          end
+          false
+        else
+          node.is_a?(Moxml::Comment)
+        end
+      end
+
+      def self.document?(node)
+        return node.node_type == :root if node.is_a?(Canon::Xml::Node)
+
+        XmlParsing.document?(node)
+      end
+
+      def self.document_fragment?(node)
+        return false unless node
+        return false unless node.is_a?(Canon::Xml::Nodes::RootNode)
+
+        node.fragment?
       end
 
       # True when +node+ is a text node whose content is whitespace-only.
@@ -50,48 +84,8 @@ module Canon
         !text.empty? && text.strip.empty?
       end
 
-      # True when +node+ is a comment node.
-      # For HTML, also detects comments that Nokogiri parses as TEXT nodes
-      # (content like "<!-- comment -->" or escaped "<\\!-- comment -->").
-      def self.comment_node?(node)
-        case node
-        when Canon::Xml::Node
-          node.node_type == :comment
-        when Nokogiri::XML::Node
-          return true if node.comment?
+      # --- Noise classification ---
 
-          # HTML comments are parsed as TEXT nodes by Nokogiri
-          if node.text?
-            text_stripped = text_content(node).to_s.strip.gsub("\\", "")
-            return true if text_stripped.start_with?("<!--") && text_stripped.end_with?("-->")
-          end
-          false
-        else
-          false
-        end
-      end
-
-      # True when +node+ is an element node.
-      def self.element_node?(node)
-        case node
-        when Canon::Xml::Node
-          node.node_type == :element
-        when Nokogiri::XML::Node
-          node.element?
-        else
-          false
-        end
-      end
-
-      # Classify +node+ as a noise node and return the diff dimension
-      # it should be reported under, or +nil+ if it is structural content.
-      #
-      # Noise nodes (whitespace-only text, comments) are realigned past
-      # during child comparison so that content nodes line up correctly
-      # across sides.
-      #
-      # @param node [Object] DOM node to classify
-      # @return [Symbol, nil] +:whitespace_adjacency+, +:comments+, or +nil+
       def self.noise_dimension_for(node)
         if whitespace_only_text?(node)
           :whitespace_adjacency
@@ -100,38 +94,110 @@ module Canon
         end
       end
 
-      # True when +node+ is a noise node (whitespace-only text or comment).
-      # Convenience wrapper around +noise_dimension_for+.
-      #
-      # @param node [Object] DOM node to check
-      # @return [Boolean]
       def self.noise_node?(node)
         !noise_dimension_for(node).nil?
       end
 
-      # Extract parse-time errors carried on a node or its owning document.
-      # Returns an Array of Strings.
-      def self.parse_errors(node)
+      # --- Node queries ---
+
+      # Unified node name extraction across all node types.
+      def self.name(node)
+        return nil unless node
+        return node.name if node.is_a?(Canon::Xml::Node)
+        return node.label if node.is_a?(Canon::TreeDiff::Core::TreeNode)
+
+        XmlParsing.name(node)
+      end
+
+      # Unified parent access across all node types.
+      def self.parent(node)
+        return nil unless node
+        return node.parent if node.is_a?(Canon::Xml::Node)
+        return node.parent if node.is_a?(Canon::TreeDiff::Core::TreeNode)
+
+        XmlParsing.parent(node)
+      end
+
+      # Unified children access across all node types.
+      def self.children(node)
+        return [] unless node
+        return node.children if node.is_a?(Canon::Xml::Node)
+        return node.children || [] if node.is_a?(Canon::TreeDiff::Core::TreeNode)
+
+        XmlParsing.children(node)
+      end
+
+      # Extract the text content of +node+ as a String.
+      def self.text_content(node)
         case node
-        when nil
-          []
+        when Canon::Xml::Nodes::TextNode
+          node.value.to_s
         when Canon::Xml::Node
-          errors = node.parse_errors
-          Array(errors).map(&:to_s)
-        when Nokogiri::XML::Document, Nokogiri::HTML5::Document
-          Array(node.errors).map(&:to_s)
+          node.text_content.to_s
+        when Moxml::Text
+          node.content.to_s
+        else
+          XmlParsing.text_content(node).to_s
+        end
+      end
+
+      # Unified node type that always returns a symbol.
+      # Returns nil for unrecognised nodes.
+      def self.node_type(node)
+        return nil unless node
+        return node.node_type if node.is_a?(Canon::Xml::Node)
+
+        if node.is_a?(Canon::TreeDiff::Core::TreeNode)
+          node.type&.to_sym
+        else
+          XmlParsing.node_type(node)
+        end
+      end
+
+      # Unified attribute value access.
+      def self.attribute_value(node, attr_name)
+        return nil unless node
+
+        if node.is_a?(Canon::Xml::Nodes::ElementNode)
+          attr = node.attribute_nodes.find { |a| a.name == attr_name.to_s }
+          attr&.value
+        elsif node.is_a?(Canon::Xml::Node)
+          nil
+        else
+          XmlParsing.attribute_value(node, attr_name)
+        end
+      end
+
+      # Unified namespace URI access.
+      def self.namespace_uri(node)
+        return nil unless node
+
+        if node.is_a?(Canon::Xml::Node)
+          node.is_a?(Canon::Xml::Nodes::ElementNode) ? node.namespace_uri : nil
+        else
+          XmlParsing.namespace_uri(node)
+        end
+      end
+
+      # Extract parse-time errors carried on a node or its owning document.
+      def self.parse_errors(node)
+        return [] if node.nil?
+        return Array(node.parse_errors).map(&:to_s) if node.is_a?(Canon::Xml::Node)
+
+        if XmlBackend.nokogiri?
+          if node.is_a?(Nokogiri::XML::Document) || node.is_a?(Nokogiri::HTML5::Document)
+            Array(node.errors).map(&:to_s)
+          else
+            []
+          end
         else
           []
         end
       end
 
-      # Return the parent node of +node+, or nil when +node+ is not a
-      # recognised DOM backend type or has no parent.
+      # Deprecated: use NodeInspector.parent instead.
       def self.parent_of(node)
-        case node
-        when Canon::Xml::Node, Nokogiri::XML::Node
-          node.parent
-        end
+        parent(node)
       end
     end
   end

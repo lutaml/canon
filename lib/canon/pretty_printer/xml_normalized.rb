@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require "nokogiri"
+require "nokogiri" unless RUBY_ENGINE == "opal"
 require_relative "html_void_elements"
 
 module Canon
@@ -154,7 +154,13 @@ module Canon
       # @return [String] Serialized XML, one node per line, with content
       #   whitespace visualized at line boundaries
       def format(xml_string)
-        doc = @html_mode ? Nokogiri::HTML5(xml_string) : Nokogiri::XML(xml_string)
+        doc = if Canon::XmlBackend.moxml?
+                Canon::XmlParsing.parse(xml_string)
+              elsif @html_mode
+                Nokogiri::HTML5(xml_string)
+              else
+                Nokogiri::XML(xml_string)
+              end
         lines = []
 
         if !@html_mode && doc.version
@@ -183,7 +189,7 @@ module Canon
       # @return [Symbol] :strict, :normalize, or :drop
       def classify_whitespace(element)
         current = element
-        while current && !current.is_a?(Nokogiri::XML::Document)
+        while current && !Canon::XmlParsing.document?(current)
           name = current.name.to_s
           return :drop      if @insens_ws.include?(name)
           return :strict    if @strict_ws.include?(name)

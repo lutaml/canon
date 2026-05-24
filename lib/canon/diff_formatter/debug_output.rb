@@ -283,22 +283,8 @@ module Canon
             content = node.value.to_s
             preview = content.length > 30 ? "#{content[0..27]}..." : content
             "<!--#{preview}-->"
-          elsif node.respond_to?(:name)
+          elsif Canon::XmlParsing.xml_node?(node) || node.is_a?(Canon::Xml::Node)
             "<#{node.name}>"
-          elsif node.respond_to?(:content)
-            content = node.content.to_s
-            if content.length > 30
-              "\"#{content[0..27]}...\""
-            else
-              "\"#{content || ''}\""
-            end
-          elsif node.respond_to?(:text)
-            text = node.text.to_s
-            if text.length > 30
-              "\"#{text[0..27]}...\""
-            else
-              "\"#{text || ''}\""
-            end
           else
             node.class.name
           end
@@ -311,14 +297,16 @@ module Canon
 
           # For attribute differences, show which attributes differ
           if diff.dimension == :attribute_whitespace &&
-              node1.respond_to?(:attributes) && node2.respond_to?(:attributes)
+              (Canon::XmlParsing.xml_node?(node1) || node1.is_a?(Canon::Xml::Node)) &&
+              (Canon::XmlParsing.xml_node?(node2) || node2.is_a?(Canon::Xml::Node))
             attrs1 = format_attributes(node1)
             attrs2 = format_attributes(node2)
             return ["<#{node1.name}> #{attrs1}", "<#{node2.name}> #{attrs2}"]
           end
 
           # For element differences, show element names
-          if node1.respond_to?(:name) && node2.respond_to?(:name)
+          if (Canon::XmlParsing.xml_node?(node1) || node1.is_a?(Canon::Xml::Node)) &&
+              (Canon::XmlParsing.xml_node?(node2) || node2.is_a?(Canon::Xml::Node))
             if node1.name == node2.name
               # Same element name, different content
             end
@@ -340,7 +328,7 @@ module Canon
         end
 
         def format_attributes(node)
-          return "" unless node.respond_to?(:attributes)
+          return "" unless Canon::XmlParsing.xml_node?(node) || node.is_a?(Canon::Xml::Node)
 
           attrs = node.attributes
           return "" if attrs.empty?
@@ -350,9 +338,9 @@ module Canon
             name = if key.is_a?(String)
                      key
                    else
-                     (key.respond_to?(:name) ? key.name : key.to_s)
+                     key.name
                    end
-            value = val.respond_to?(:value) ? val.value : val.to_s
+            value = val.is_a?(String) ? val : val.value
             "#{name}=\"#{value}\""
           end.sort
 
@@ -365,10 +353,10 @@ module Canon
         end
 
         def get_node_content(node)
-          if node.respond_to?(:content)
-            node.content.to_s
-          elsif node.respond_to?(:text)
-            node.text.to_s
+          if Canon::XmlParsing.xml_node?(node)
+            Canon::XmlParsing.text_content(node).to_s
+          elsif node.is_a?(Canon::Xml::Node)
+            node.text_content.to_s
           else
             ""
           end

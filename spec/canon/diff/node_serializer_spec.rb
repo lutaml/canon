@@ -64,38 +64,15 @@ RSpec.describe Canon::Diff::NodeSerializer do
     end
 
     context "with custom node objects" do
-      it "handles nodes with to_html method" do
-        # Use a simple struct that implements to_html
-        node = Struct.new(:content).new("<custom>Serialized</custom>")
-        def node.to_html
-          content
+      it "falls back to to_s for unknown objects" do
+        obj = Object.new
+        def obj.to_s
+          "custom serialization"
         end
 
-        serialized = described_class.serialize(node)
+        serialized = described_class.serialize(obj)
 
-        expect(serialized).to eq("<custom>Serialized</custom>")
-      end
-
-      it "handles nodes with to_xml method (when to_html is not available)" do
-        node = Struct.new(:content).new("<custom>Serialized</custom>")
-        def node.to_xml
-          content
-        end
-
-        serialized = described_class.serialize(node)
-
-        expect(serialized).to eq("<custom>Serialized</custom>")
-      end
-
-      it "falls back to to_s for other nodes" do
-        node = Struct.new(:content).new("plain text")
-        def node.to_s
-          content
-        end
-
-        serialized = described_class.serialize(node)
-
-        expect(serialized).to eq("plain text")
+        expect(serialized).to eq("custom serialization")
       end
     end
   end

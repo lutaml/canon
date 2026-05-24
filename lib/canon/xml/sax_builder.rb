@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require "nokogiri"
+require "nokogiri" unless RUBY_ENGINE == "opal"
 require_relative "nodes/root_node"
 require_relative "nodes/element_node"
 require_relative "nodes/namespace_node"
@@ -190,10 +190,8 @@ strip_doctype: false)
         last_child = parent.children.last
         if last_child&.node_type == :text
           # Combine both raw and decoded forms
-          last_child.instance_variable_set(:@value,
-                                           last_child.value + decoded_string)
-          last_child.instance_variable_set(:@original,
-                                           (last_child.original || "") + raw_string)
+          last_child.value = last_child.value + decoded_string
+          last_child.original = (last_child.original || "") + raw_string
           return
         end
 
@@ -257,7 +255,7 @@ strip_doctype: false)
         return unless doc_element
 
         other_children = root.children.reject { |c| c.node_type == :element }
-        root.instance_variable_set(:@children, [doc_element] + other_children)
+        root.children = [doc_element] + other_children
       end
 
       private

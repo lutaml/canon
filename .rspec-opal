@@ -1,0 +1,7 @@
+--default-path=spec
+--pattern='spec/canon/opal_xml_smoke_spec.rb'
+-I lib
+--opal-opt=-g,canon
+-I spec
+--require=spec_helper
+--require=support/opal

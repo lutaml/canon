@@ -23,14 +23,10 @@ module Canon
         def extract_data(node)
           return 0 unless node
 
-          # Handle Moxml nodes
-          if node.is_a?(Moxml::Node)
-            extract_from_moxml(node)
-          # Handle Nokogiri nodes
-          elsif node.is_a?(Nokogiri::XML::Node)
+          if Canon::XmlBackend.nokogiri?
             extract_from_nokogiri(node)
           else
-            0
+            extract_from_moxml(node)
           end
         end
 

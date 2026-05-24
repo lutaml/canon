@@ -437,15 +437,13 @@ module Canon
 
         alias to_s inspect
 
-        private
-
         # Invalidate cached computations
         def invalidate_cache
           @signature = nil
           @weight = nil
 
           # Propagate upward
-          parent&.send(:invalidate_cache)
+          parent&.invalidate_cache
         end
       end
     end

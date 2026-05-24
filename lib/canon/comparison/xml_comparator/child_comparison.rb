@@ -83,10 +83,10 @@ module Canon
 
             # Create temporary RootNode wrappers
             temp_root1 = Canon::Xml::Nodes::RootNode.new
-            temp_root1.instance_variable_set(:@children, children1.dup)
+            temp_root1.children = children1.dup
 
             temp_root2 = Canon::Xml::Nodes::RootNode.new
-            temp_root2.instance_variable_set(:@children, children2.dup)
+            temp_root2.children = children2.dup
 
             matcher = Canon::Xml::ElementMatcher.new
             matches = matcher.match_trees(temp_root1, temp_root2)
@@ -282,7 +282,7 @@ module Canon
             end
 
             smaller_set_names = smaller_set.filter_map do |c|
-              next nil unless c.is_a?(Canon::Xml::Node) || c.is_a?(Nokogiri::XML::Node)
+              next nil unless c.is_a?(Canon::Xml::Node) || Canon::XmlParsing.xml_node?(c)
               # Exclude generic node-type names (e.g. "#text") that are
               # shared by all text nodes and cannot be used for matching.
               next nil if c.name.start_with?("#")
@@ -298,7 +298,7 @@ module Canon
                 # consider it a mismatch
                 mismatch_children << larger_set[i]
               elsif (larger_set[i].is_a?(Canon::Xml::Node) ||
-                     larger_set[i].is_a?(Nokogiri::XML::Node)) &&
+                     Canon::XmlParsing.xml_node?(larger_set[i])) &&
                   !larger_set[i].name.start_with?("#") &&
                   !smaller_set_names.include?(larger_set[i].name)
                 # If the name of the node is not found in the smaller set,

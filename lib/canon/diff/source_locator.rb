@@ -86,15 +86,12 @@ module Canon
       end
 
       class << self
-        private
-
         # Binary search for the line containing a character offset.
         #
         # @param char_offset [Integer] the character offset
         # @param line_map [Array<Hash>] the line offset map
         # @return [Integer, nil] the 0-based line index, or nil
         def find_line_for_offset(char_offset, line_map)
-          # Use bsearch for efficiency on large files
           line_map.bsearch_index do |entry|
             entry[:end_offset] > char_offset
           end

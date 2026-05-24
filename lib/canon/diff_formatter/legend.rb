@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require "unicode/name"
+require "unicode/name" unless RUBY_ENGINE == "opal"
 
 module Canon
   class DiffFormatter
@@ -175,7 +175,7 @@ module Canon
 
         require "rainbow"
         presenter = Rainbow(text)
-        colors.each { |c| presenter = presenter.send(c) }
+        colors.each { |c| presenter = presenter.public_send(c) }
         presenter.to_s
       end
 

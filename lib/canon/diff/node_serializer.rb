@@ -51,16 +51,16 @@ module Canon
           return node.children.map { |child| serialize(child) }.join
         end
 
-        # Handle Nokogiri nodes
-        if node.respond_to?(:to_html)
-          return node.to_html
+        # Handle Nokogiri/moxml nodes
+        if Canon::XmlParsing.xml_node?(node)
+          return Canon::XmlParsing.serialize(node)
         end
 
-        if node.respond_to?(:to_xml)
-          return node.to_xml
+        # Handle tree diff nodes and other objects with serialization
+        if node.is_a?(Canon::TreeDiff::Core::TreeNode)
+          return serialize_treenode(node)
         end
 
-        # Fallback to string
         node.to_s
       end
 
@@ -105,21 +105,18 @@ module Canon
           return attrs
         end
 
-        # Handle Nokogiri elements
-        if node.respond_to?(:attributes) && node.attributes.is_a?(Hash)
+        # Handle Nokogiri/moxml elements via XmlParsing
+        if Canon::XmlParsing.element?(node)
           attrs = {}
-          node.attributes.each do |name, attr|
-            # Nokogiri attributes have different structure
-            value = if attr.respond_to?(:value)
-                      attr.value
-                    elsif attr.is_a?(String)
-                      attr
-                    else
-                      attr.to_s
-                    end
-            attrs[name] = value
+          Canon::XmlParsing.attributes(node).each do |attr|
+            attrs[attr.name] = attr.value
           end
           return attrs
+        end
+
+        # Handle other elements with attributes method
+        if node.is_a?(Canon::Xml::Node)
+          return {}
         end
 
         # Handle TreeNode attributes (already a hash)
@@ -143,10 +140,9 @@ module Canon
           return node.name
         end
 
-        # Handle Nokogiri elements
-        if node.respond_to?(:name)
-          return node.name.to_s
-        end
+        # Handle Nokogiri/moxml elements
+        name = Canon::XmlParsing.name(node)
+        return name.to_s if name
 
         ""
       end
@@ -164,16 +160,13 @@ module Canon
           return node.value.to_s
         end
 
-        # Handle Nokogiri text nodes
-        if node.respond_to?(:text)
-          return node.text.to_s
+        # Handle Canon::Xml::Node
+        if node.is_a?(Canon::Xml::Node)
+          return node.text_content.to_s
         end
 
-        if node.respond_to?(:content)
-          return node.content.to_s
-        end
-
-        ""
+        # Handle Nokogiri/moxml nodes
+        Canon::XmlParsing.text_content(node).to_s
       end
 
       # Serialize attributes to string format

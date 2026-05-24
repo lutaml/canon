@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require "nokogiri"
+require "nokogiri" unless RUBY_ENGINE == "opal"
 require_relative "../data_model"
 require_relative "../xml/nodes/root_node"
 require_relative "../xml/nodes/element_node"

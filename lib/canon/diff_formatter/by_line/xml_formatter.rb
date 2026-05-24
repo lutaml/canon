@@ -1205,11 +1205,11 @@ informative: false, formatting: false)
             # Apply effect if specified (map :strikethrough to :cross_out for Rainbow)
             if effect
               rainbow_effect = effect == :strikethrough ? :cross_out : effect
-              presenter = presenter.send(rainbow_effect)
+              presenter = presenter.public_send(rainbow_effect)
             end
 
             # Apply color if specified
-            presenter = presenter.send(color) if color
+            presenter = presenter.public_send(color) if color
 
             presenter.to_s
           else

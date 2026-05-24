@@ -41,20 +41,20 @@ module Canon
         def self.extract_declarations(node)
           declarations = {}
 
-          # Handle Canon::Xml::Node (uses namespace_nodes)
-          if node.respond_to?(:namespace_nodes)
-            return extract_from_namespace_nodes(node.namespace_nodes,
-                                                declarations)
+          if node.is_a?(Canon::Xml::Node)
+            if node.namespace_nodes
+              return extract_from_namespace_nodes(node.namespace_nodes,
+                                                  declarations)
+            end
+
+            raw_attrs = node.attribute_nodes
+          else
+            raw_attrs = node.attributes
           end
 
-          # Handle Nokogiri/Moxml nodes (use attributes)
-          raw_attrs = node.respond_to?(:attribute_nodes) ? node.attribute_nodes : node.attributes
-
-          # Handle Canon::Xml::Node attribute format (array of AttributeNode)
           if raw_attrs.is_a?(Array)
             extract_from_array_attributes(raw_attrs, declarations)
           else
-            # Handle Nokogiri and Moxml attribute formats (Hash-like)
             extract_from_hash_attributes(raw_attrs, declarations)
           end
 
@@ -105,23 +105,11 @@ module Canon
         # @return [Hash] Declarations hash
         def self.extract_from_hash_attributes(raw_attrs, declarations)
           raw_attrs.each do |key, val|
-            # Normalize key and value
-            name = if key.is_a?(String)
-                     # Nokogiri format: key=name (String), val=attr object
-                     key
-                   else
-                     # Moxml format: key=attr object, val=nil
-                     key.respond_to?(:name) ? key.name : key.to_s
-                   end
+            name = key.is_a?(String) ? key : key.name
 
             if namespace_declaration?(name)
-              value = if val.respond_to?(:value)
-                        val.value
-                      else
-                        val.to_s
-                      end
+              value = val.is_a?(String) ? val : val.value
 
-              # Extract prefix: "xmlns" -> "", "xmlns:xmi" -> "xmi"
               prefix = name == "xmlns" ? "" : name.split(":", 2)[1]
               declarations[prefix] = value
             end
@@ -130,12 +118,8 @@ module Canon
           declarations
         end
 
-        # Check if an attribute name is a namespace declaration
-        #
-        # @param attr_name [String] Attribute name
-        # @return [Boolean] true if it's a namespace declaration
         def self.namespace_declaration?(attr_name)
-          attr_name == "xmlns" || attr_name.start_with?("xmlns:")
+          Canon::Xml::NamespaceHelper.namespace_declaration?(attr_name)
         end
 
         # Add a namespace declaration difference

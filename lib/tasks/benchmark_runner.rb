@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 require "benchmark/ips"
-require "table_tennis"
+require "table_tennis" unless RUBY_ENGINE == "opal"
 
 # Ensure lib/ is on the load path regardless of tmp location
 lib_path = File.expand_path(File.join(__dir__, "..", "..", "lib"))

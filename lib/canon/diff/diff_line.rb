@@ -130,7 +130,7 @@ module Canon
           content == other.content &&
           type == other.type &&
           diff_node == other.diff_node &&
-          @formatting == other.instance_variable_get(:@formatting)
+          formatting? == other.formatting?
       end
     end
   end

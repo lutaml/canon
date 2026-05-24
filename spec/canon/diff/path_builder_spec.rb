@@ -1,23 +1,26 @@
 # frozen_string_literal: true
 
 require "spec_helper"
+require "canon/tree_diff/core/tree_node"
 
 RSpec.describe Canon::Diff::PathBuilder do
+  def make_node(label, parent: nil)
+    node = Canon::TreeDiff::Core::TreeNode.new(label: label)
+    node.parent = parent
+    node.children = []
+    node
+  end
+
   describe ".build" do
     context "with TreeNode (from semantic diff)" do
       it "generates path with ordinal indices" do
-        # Create a tree structure with multiple children
-        root = double("TreeNode", label: "#document", parent: nil)
-        div1 = double("TreeNode", label: "div", parent: root)
-        div2 = double("TreeNode", label: "div", parent: root)
-        p1 = double("TreeNode", label: "p", parent: div1)
-        p2 = double("TreeNode", label: "p", parent: div1)
-
-        allow(root).to receive(:children).and_return([div1, div2])
-        allow(div1).to receive(:children).and_return([p1, p2])
-        allow(div2).to receive(:children).and_return([])
-        allow(p1).to receive(:children).and_return([])
-        allow(p2).to receive(:children).and_return([])
+        root = make_node("#document")
+        div1 = make_node("div", parent: root)
+        div2 = make_node("div", parent: root)
+        p1 = make_node("p", parent: div1)
+        p2 = make_node("p", parent: div1)
+        root.children = [div1, div2]
+        div1.children = [p1, p2]
 
         path = described_class.build(p1)
 
@@ -25,15 +28,11 @@ RSpec.describe Canon::Diff::PathBuilder do
       end
 
       it "calculates correct ordinal index among siblings" do
-        root = double("TreeNode", label: "#document", parent: nil)
-        span1 = double("TreeNode", label: "span", parent: root)
-        span2 = double("TreeNode", label: "span", parent: root)
-        span3 = double("TreeNode", label: "span", parent: root)
-
-        allow(root).to receive(:children).and_return([span1, span2, span3])
-        allow(span1).to receive(:children).and_return([])
-        allow(span2).to receive(:children).and_return([])
-        allow(span3).to receive(:children).and_return([])
+        root = make_node("#document")
+        span1 = make_node("span", parent: root)
+        span2 = make_node("span", parent: root)
+        span3 = make_node("span", parent: root)
+        root.children = [span1, span2, span3]
 
         path1 = described_class.build(span1)
         path2 = described_class.build(span2)
@@ -77,7 +76,6 @@ RSpec.describe Canon::Diff::PathBuilder do
 
         path = described_class.build(doc)
 
-        # Nokogiri document node's name is "document" not "#document"
         expect(path).to eq("/document[0]")
       end
     end
@@ -102,7 +100,6 @@ RSpec.describe Canon::Diff::PathBuilder do
 
         path = described_class.build(p_tag, format: :document)
 
-        # Document format includes document root
         expect(path).to match(%r{^/#document})
       end
     end
@@ -110,12 +107,11 @@ RSpec.describe Canon::Diff::PathBuilder do
 
   describe ".segment_for_node" do
     it "returns segment with label and ordinal index" do
-      parent = double("TreeNode", label: "div", parent: nil)
-      child1 = double("TreeNode", label: "span", parent: parent)
-      child2 = double("TreeNode", label: "span", parent: parent)
-      child3 = double("TreeNode", label: "span", parent: parent)
-
-      allow(parent).to receive(:children).and_return([child1, child2, child3])
+      parent = make_node("div")
+      child1 = make_node("span", parent: parent)
+      child2 = make_node("span", parent: parent)
+      child3 = make_node("span", parent: parent)
+      parent.children = [child1, child2, child3]
 
       segment = described_class.segment_for_node(child2)
 
@@ -123,7 +119,7 @@ RSpec.describe Canon::Diff::PathBuilder do
     end
 
     it "handles node without parent" do
-      node = double("TreeNode", label: "root", parent: nil)
+      node = make_node("root")
 
       segment = described_class.segment_for_node(node)
 
@@ -133,15 +129,13 @@ RSpec.describe Canon::Diff::PathBuilder do
 
   describe ".ordinal_index" do
     it "calculates zero-based index among same-label siblings" do
-      parent = double("TreeNode", parent: nil)
-      child1 = double("TreeNode", label: "div", parent: parent)
-      child2 = double("TreeNode", label: "span", parent: parent)
-      child3 = double("TreeNode", label: "span", parent: parent)
-      child4 = double("TreeNode", label: "span", parent: parent)
-      child5 = double("TreeNode", label: "div", parent: parent)
-
-      allow(parent).to receive(:children).and_return([child1, child2, child3,
-                                                      child4, child5])
+      parent = make_node("parent")
+      child1 = make_node("div", parent: parent)
+      child2 = make_node("span", parent: parent)
+      child3 = make_node("span", parent: parent)
+      child4 = make_node("span", parent: parent)
+      child5 = make_node("div", parent: parent)
+      parent.children = [child1, child2, child3, child4, child5]
 
       expect(described_class.ordinal_index(child1)).to eq(0)
       expect(described_class.ordinal_index(child2)).to eq(0)
@@ -151,7 +145,7 @@ RSpec.describe Canon::Diff::PathBuilder do
     end
 
     it "returns 0 for node without parent" do
-      node = double("TreeNode", parent: nil)
+      node = make_node("root")
 
       index = described_class.ordinal_index(node)
 
@@ -159,10 +153,9 @@ RSpec.describe Canon::Diff::PathBuilder do
     end
 
     it "returns 0 for node without parent.children" do
-      parent = double("TreeNode", parent: nil)
-      node = double("TreeNode", parent: parent)
-
-      allow(parent).to receive(:children).and_return(nil)
+      parent = make_node("parent")
+      node = make_node("child", parent: parent)
+      parent.children = nil
 
       index = described_class.ordinal_index(node)
 
@@ -172,13 +165,11 @@ RSpec.describe Canon::Diff::PathBuilder do
 
   describe ".human_path" do
     it "generates human-readable path with arrows" do
-      root = double("TreeNode", label: "#document", parent: nil)
-      div = double("TreeNode", label: "div", parent: root)
-      p = double("TreeNode", label: "p", parent: div)
-
-      allow(root).to receive(:children).and_return([div])
-      allow(div).to receive(:children).and_return([p])
-      allow(p).to receive(:children).and_return([])
+      root = make_node("#document")
+      div = make_node("div", parent: root)
+      p = make_node("p", parent: div)
+      root.children = [div]
+      div.children = [p]
 
       human = described_class.human_path(p)
 
