@@ -30,7 +30,6 @@ module Canon
           else
             extract_from_moxml(node)
           end
-          end
         end
 
         # Strict structural whitespace comparison
