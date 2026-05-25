@@ -31,7 +31,7 @@ comparison, testing, digital signatures, and human-readable output."
 
   spec.add_dependency "diff-lcs"
   spec.add_dependency "json"
-  spec.add_dependency "moxml"
+  spec.add_dependency "moxml", "~> 0.1.22"
   spec.add_dependency "nokogiri"
   spec.add_dependency "paint"
   spec.add_dependency "rainbow"
