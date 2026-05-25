@@ -284,7 +284,7 @@ module Canon
         (custom + presets).sort.uniq
       end
 
-      private
+      # --- Internal methods (public for testability) ---
 
       # Perform semantic tree diff comparison
       def semantic_diff(obj1, obj2, opts = {})

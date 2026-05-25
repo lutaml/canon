@@ -600,6 +600,10 @@ module Canon
           depth
         end
 
+        public :normalize_text, :calculate_depth, :text_similarity,
+               :extract_text_content, :collect_all_nodes, :nodes_identical?,
+               :detect_changes
+
         # Check if a node is in a whitespace-sensitive context
         #
         # HTML elements where whitespace is significant: <pre>, <code>, <textarea>, <script>, <style>

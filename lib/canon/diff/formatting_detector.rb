@@ -297,8 +297,9 @@ module Canon
         [close_idx + 1, "<#{sorted}#{suffix}"]
       end
 
-      private_class_method :normalize_for_comparison, :blank?,
-                           :decode_xml_entities, :normalize_attribute_order,
+      public_class_method :normalize_for_comparison, :blank?
+
+      private_class_method :decode_xml_entities, :normalize_attribute_order,
                            :sort_tag_attributes, :tokenize_tag_content,
                            :process_tag, :process_processing_instruction,
                            :process_comment, :process_regular_tag

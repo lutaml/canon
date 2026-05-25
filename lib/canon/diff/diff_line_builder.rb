@@ -843,6 +843,8 @@ new_line_ranges)
         index
       end
 
+      public :build_line_index
+
       # Sort char ranges by start_col for consistent rendering.
       def sort_ranges(ranges)
         (ranges || []).sort_by(&:start_col)

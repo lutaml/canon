@@ -757,6 +757,9 @@ module Canon
       output.join("\n")
     end
 
+    public :format_line_numbered_inputs, :format_raw_inputs,
+           :format_preprocessed_inputs
+
     # Build the final visualization map from various customization options
     #
     # @param visualization_map [Hash, nil] Complete custom visualization map

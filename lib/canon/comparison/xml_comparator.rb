@@ -875,7 +875,7 @@ differences)
         end
 
         def whitespace_adjacency_parent_label(ws_node)
-          parent = NodeInspector.parent_of(ws_node)
+          parent = NodeInspector.parent(ws_node)
           return "(unknown parent)" unless parent
 
           name = parent.name
@@ -890,7 +890,7 @@ differences)
         # "adjacent to" as a degenerate fallback when neither neighbour
         # exists.
         def whitespace_partner_direction(ws_node)
-          parent = NodeInspector.parent_of(ws_node)
+          parent = NodeInspector.parent(ws_node)
           return "adjacent to" unless parent
 
           siblings = parent.children

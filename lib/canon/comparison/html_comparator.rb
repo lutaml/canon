@@ -558,6 +558,8 @@ module Canon
           end
         end
 
+        public :detect_html_version
+
         # Detect HTML version from node
         #
         # @param node [Canon::Xml::Node, Nokogiri::XML::Node] HTML node
