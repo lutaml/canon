@@ -203,7 +203,7 @@ RSpec.describe Canon::Diff::DiffNodeMapper do
 
     it "identifies single-line comments" do
       text = "<root>\n<!-- comment -->\n</root>"
-      lines = mapper.send(:build_comment_lines, text)
+      lines = mapper.build_comment_lines(text)
       expect(lines).to include(1)
       expect(lines).not_to include(0)
       expect(lines).not_to include(2)
@@ -211,45 +211,45 @@ RSpec.describe Canon::Diff::DiffNodeMapper do
 
     it "identifies multi-line comment ranges" do
       text = "<root>\n<!-- line1\nline2\nline3 -->\n</root>"
-      lines = mapper.send(:build_comment_lines, text)
+      lines = mapper.build_comment_lines(text)
       expect(lines).to include(1, 2, 3)
       expect(lines).not_to include(0, 4)
     end
 
     it "handles inline comment (comment on same line as other content)" do
       text = "<item>text<!-- inline --></item>"
-      lines = mapper.send(:build_comment_lines, text)
+      lines = mapper.build_comment_lines(text)
       expect(lines).to include(0)
     end
 
     it "handles comment starting mid-line and ending on another line" do
       text = "<item>text<!-- start\ncontinues\nend --></item>"
-      lines = mapper.send(:build_comment_lines, text)
+      lines = mapper.build_comment_lines(text)
       expect(lines).to include(0, 1, 2)
     end
 
     it "handles multiple separate comments" do
       text = "<!-- first -->\n<item/>\n<!-- second -->"
-      lines = mapper.send(:build_comment_lines, text)
+      lines = mapper.build_comment_lines(text)
       expect(lines).to include(0, 2)
       expect(lines).not_to include(1)
     end
 
     it "does not mark lines after comment closes" do
       text = "<!-- comment -->\n<item>text</item>"
-      lines = mapper.send(:build_comment_lines, text)
+      lines = mapper.build_comment_lines(text)
       expect(lines).to include(0)
       expect(lines).not_to include(1)
     end
 
     it "handles empty text" do
-      lines = mapper.send(:build_comment_lines, "")
+      lines = mapper.build_comment_lines("")
       expect(lines).to be_empty
     end
 
     it "handles text with no comments" do
       text = "<root>\n<item>text</item>\n</root>"
-      lines = mapper.send(:build_comment_lines, text)
+      lines = mapper.build_comment_lines(text)
       expect(lines).to be_empty
     end
   end

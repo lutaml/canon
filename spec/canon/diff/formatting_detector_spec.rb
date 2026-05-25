@@ -143,52 +143,56 @@ RSpec.describe Canon::Diff::FormattingDetector do
 
   describe ".normalize_for_comparison" do
     it "collapses multiple spaces to single space" do
-      normalized = described_class.send(:normalize_for_comparison,
-                                        "Hello    world")
+      normalized = described_class.normalize_for_comparison(
+        "Hello    world",
+      )
       expect(normalized).to eq("Hello world")
     end
 
     it "strips leading and trailing whitespace" do
-      normalized = described_class.send(:normalize_for_comparison,
-                                        "  Hello world  ")
+      normalized = described_class.normalize_for_comparison(
+        "  Hello world  ",
+      )
       expect(normalized).to eq("Hello world")
     end
 
     it "handles tabs" do
-      normalized = described_class.send(:normalize_for_comparison,
-                                        "Hello\t\tworld")
+      normalized = described_class.normalize_for_comparison(
+        "Hello\t\tworld",
+      )
       expect(normalized).to eq("Hello world")
     end
 
     it "handles newlines" do
-      normalized = described_class.send(:normalize_for_comparison,
-                                        "Hello\n\nworld")
+      normalized = described_class.normalize_for_comparison(
+        "Hello\n\nworld",
+      )
       expect(normalized).to eq("Hello world")
     end
 
     it "handles nil" do
-      normalized = described_class.send(:normalize_for_comparison, nil)
+      normalized = described_class.normalize_for_comparison(nil)
       expect(normalized).to eq("")
     end
   end
 
   describe ".blank?" do
     it "returns true for nil" do
-      expect(described_class.send(:blank?, nil)).to be true
+      expect(described_class.blank?(nil)).to be true
     end
 
     it "returns true for empty string" do
-      expect(described_class.send(:blank?, "")).to be true
+      expect(described_class.blank?("")).to be true
     end
 
     it "returns true for whitespace-only string" do
-      expect(described_class.send(:blank?, "   ")).to be true
-      expect(described_class.send(:blank?, "\t\n")).to be true
+      expect(described_class.blank?("   ")).to be true
+      expect(described_class.blank?("\t\n")).to be true
     end
 
     it "returns false for non-blank string" do
-      expect(described_class.send(:blank?, "text")).to be false
-      expect(described_class.send(:blank?, " text ")).to be false
+      expect(described_class.blank?("text")).to be false
+      expect(described_class.blank?(" text ")).to be false
     end
   end
 end

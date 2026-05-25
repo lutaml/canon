@@ -129,16 +129,16 @@ RSpec.describe ":whitespace_adjacency diff dimension (#137)" do
     end
 
     it "falls back to (unknown parent) when the whitespace node lacks a real parent" do
-      # A bare Nokogiri text node with no parent → NodeInspector.parent_of
+      # A bare Nokogiri text node with no parent → NodeInspector.parent
       # returns nil → whitespace_adjacency_parent_label returns "(unknown parent)".
       ni = Canon::Comparison::NodeInspector
-      expect(ni.parent_of(nil)).to be_nil
-      expect(ni.parent_of("not a node")).to be_nil
+      expect(ni.parent(nil)).to be_nil
+      expect(ni.parent("not a node")).to be_nil
 
       # A detached Nokogiri text node (no parent element).
       doc = Nokogiri::HTML5("<html><body></body></html>")
       detached = Nokogiri::XML::Text.new("  ", doc)
-      expect(ni.parent_of(detached)).to be_nil
+      expect(ni.parent(detached)).to be_nil
     end
 
     it "says 'after' when the whitespace trails the partner at parent edge" do

@@ -206,7 +206,7 @@ RSpec.describe Canon::Comparison::NodeInspector do
     it "returns children for TreeNode" do
       child = Canon::TreeDiff::Core::TreeNode.new(label: "child")
       tn = Canon::TreeDiff::Core::TreeNode.new(label: "root", children: [child])
-      child.instance_variable_set(:@parent, tn)
+      child.parent = tn
       expect(described_class.children(tn)).to eq([child])
     end
   end

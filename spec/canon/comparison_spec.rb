@@ -493,7 +493,7 @@ RSpec.describe Canon::Comparison do
       context "with format parameter" do
         it "parses HTML5 with HTML5.fragment when format is :html5" do
           html = '<span lang="en" xml:lang="en">text</span>'
-          result = described_class.send(:parse_html, html, :html5)
+          result = described_class.parse_html(html, :html5)
 
           expect(result).to be_a(Nokogiri::HTML5::DocumentFragment)
           expect(result.at_css("span").attributes.keys).to eq(%w[lang xml:lang])
@@ -501,28 +501,28 @@ RSpec.describe Canon::Comparison do
 
         it "parses HTML4 with HTML4.fragment when format is :html4" do
           html = '<span lang="en" xml:lang="en">text</span>'
-          result = described_class.send(:parse_html, html, :html4)
+          result = described_class.parse_html(html, :html4)
 
           expect(result).to be_a(Nokogiri::HTML4::DocumentFragment)
         end
 
         it "returns already-parsed documents as-is" do
           frag = Nokogiri::HTML5.fragment("<span>text</span>")
-          result = described_class.send(:parse_html, frag, :html5)
+          result = described_class.parse_html(frag, :html5)
 
           expect(result).to eq(frag)
         end
 
         it "auto-detects HTML5 from DOCTYPE when format is :html" do
           html = "<!DOCTYPE html><span>text</span>"
-          result = described_class.send(:parse_html, html, :html)
+          result = described_class.parse_html(html, :html)
 
           expect(result).to be_a(Nokogiri::HTML5::DocumentFragment)
         end
 
         it "defaults to HTML4 when format is :html and no DOCTYPE" do
           html = "<span>text</span>"
-          result = described_class.send(:parse_html, html, :html)
+          result = described_class.parse_html(html, :html)
 
           expect(result).to be_a(Nokogiri::HTML4::DocumentFragment)
         end

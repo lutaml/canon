@@ -154,23 +154,23 @@ RSpec.describe Canon::Diff::XmlSerializationFormatter do
 
   describe ".blank?" do
     it "returns true for nil" do
-      expect(described_class.send(:blank?, nil)).to be true
+      expect(described_class.blank?(nil)).to be true
     end
 
     it "returns true for empty string" do
-      expect(described_class.send(:blank?, "")).to be true
+      expect(described_class.blank?("")).to be true
     end
 
     it "returns true for whitespace-only string" do
-      expect(described_class.send(:blank?, "   ")).to be true
-      expect(described_class.send(:blank?, "\t\n")).to be true
-      expect(described_class.send(:blank?, "  \n\t  ")).to be true
+      expect(described_class.blank?("   ")).to be true
+      expect(described_class.blank?("\t\n")).to be true
+      expect(described_class.blank?("  \n\t  ")).to be true
     end
 
     it "returns false for non-blank string" do
-      expect(described_class.send(:blank?, "text")).to be false
-      expect(described_class.send(:blank?, " text ")).to be false
-      expect(described_class.send(:blank?, "  text  ")).to be false
+      expect(described_class.blank?("text")).to be false
+      expect(described_class.blank?(" text ")).to be false
+      expect(described_class.blank?("  text  ")).to be false
     end
   end
 
@@ -178,7 +178,7 @@ RSpec.describe Canon::Diff::XmlSerializationFormatter do
     context "with Canon::Xml::Nodes::TextNode" do
       it "returns true for Canon text nodes" do
         node = Canon::Xml::Nodes::TextNode.new(value: "text")
-        expect(described_class.send(:text_node?, node)).to be true
+        expect(described_class.text_node?(node)).to be true
       end
     end
 
@@ -189,7 +189,7 @@ RSpec.describe Canon::Diff::XmlSerializationFormatter do
         # Get text node via XPath
         text_node = doc.xpath("//text()").first
 
-        expect(described_class.send(:text_node?, text_node)).to be true
+        expect(described_class.text_node?(text_node)).to be true
       end
 
       it "returns false for Nokogiri element nodes" do
@@ -197,7 +197,7 @@ RSpec.describe Canon::Diff::XmlSerializationFormatter do
         doc = Nokogiri::XML(xml)
         elem_node = doc.xpath("//elem").first
 
-        expect(described_class.send(:text_node?, elem_node)).to be false
+        expect(described_class.text_node?(elem_node)).to be false
       end
     end
 
@@ -207,7 +207,7 @@ RSpec.describe Canon::Diff::XmlSerializationFormatter do
         doc = Moxml.new.parse(xml)
         text_node = doc.xpath("/root/text()").first
 
-        expect(described_class.send(:text_node?, text_node)).to be true
+        expect(described_class.text_node?(text_node)).to be true
       end
 
       it "returns false for Moxml element nodes" do
@@ -215,26 +215,26 @@ RSpec.describe Canon::Diff::XmlSerializationFormatter do
         doc = Moxml.new.parse(xml)
         elem_node = doc.xpath("/root/elem").first
 
-        expect(described_class.send(:text_node?, elem_node)).to be false
+        expect(described_class.text_node?(elem_node)).to be false
       end
     end
 
     context "with strings" do
       it "returns true for strings" do
-        expect(described_class.send(:text_node?, "text")).to be true
+        expect(described_class.text_node?("text")).to be true
       end
     end
 
     context "with unknown objects" do
       it "returns false for unknown objects without a recognized type" do
         obj = Object.new
-        expect(described_class.send(:text_node?, obj)).to be false
+        expect(described_class.text_node?(obj)).to be false
       end
     end
 
     context "with nil" do
       it "returns false for nil" do
-        expect(described_class.send(:text_node?, nil)).to be false
+        expect(described_class.text_node?(nil)).to be false
       end
     end
   end
@@ -243,8 +243,9 @@ RSpec.describe Canon::Diff::XmlSerializationFormatter do
     context "with Canon::Xml::Nodes::TextNode" do
       it "extracts value from Canon text nodes" do
         node = Canon::Xml::Nodes::TextNode.new(value: "sample text")
-        expect(described_class.send(:extract_text_content,
-                                    node)).to eq("sample text")
+        expect(described_class.extract_text_content(
+                 node,
+               )).to eq("sample text")
       end
     end
 
@@ -254,8 +255,9 @@ RSpec.describe Canon::Diff::XmlSerializationFormatter do
         doc = Nokogiri::XML(xml)
         text_node = doc.xpath("//text()").first
 
-        expect(described_class.send(:extract_text_content,
-                                    text_node)).to eq("sample text")
+        expect(described_class.extract_text_content(
+                 text_node,
+               )).to eq("sample text")
       end
 
       it "extracts content from Nokogiri nodes" do
@@ -263,8 +265,9 @@ RSpec.describe Canon::Diff::XmlSerializationFormatter do
         doc = Nokogiri::XML(xml)
         elem_node = doc.xpath("/root").first
 
-        expect(described_class.send(:extract_text_content,
-                                    elem_node)).to eq("sample text")
+        expect(described_class.extract_text_content(
+                 elem_node,
+               )).to eq("sample text")
       end
     end
 
@@ -274,21 +277,23 @@ RSpec.describe Canon::Diff::XmlSerializationFormatter do
         doc = Moxml.new.parse(xml)
         text_node = doc.xpath("/root/text()").first
 
-        expect(described_class.send(:extract_text_content,
-                                    text_node)).to eq("sample text")
+        expect(described_class.extract_text_content(
+                 text_node,
+               )).to eq("sample text")
       end
     end
 
     context "with strings" do
       it "returns the string itself" do
-        expect(described_class.send(:extract_text_content,
-                                    "text")).to eq("text")
+        expect(described_class.extract_text_content(
+                 "text",
+               )).to eq("text")
       end
     end
 
     context "with nil" do
       it "returns nil" do
-        expect(described_class.send(:extract_text_content, nil)).to be_nil
+        expect(described_class.extract_text_content(nil)).to be_nil
       end
     end
 
@@ -296,16 +301,18 @@ RSpec.describe Canon::Diff::XmlSerializationFormatter do
       it "extracts text_content from element nodes" do
         node = Canon::Xml::Nodes::ElementNode.new(name: "p")
         node.add_child(Canon::Xml::Nodes::TextNode.new(value: "via text_content"))
-        expect(described_class.send(:extract_text_content,
-                                    node)).to eq("via text_content")
+        expect(described_class.extract_text_content(
+                 node,
+               )).to eq("via text_content")
       end
     end
 
     context "with unknown objects" do
       it "falls back to to_s" do
         obj = double("Node", to_s: "via to_s")
-        expect(described_class.send(:extract_text_content,
-                                    obj)).to eq("via to_s")
+        expect(described_class.extract_text_content(
+                 obj,
+               )).to eq("via to_s")
       end
     end
 
@@ -313,7 +320,7 @@ RSpec.describe Canon::Diff::XmlSerializationFormatter do
       it "returns nil when extraction raises an error" do
         node = Canon::Xml::Nodes::ElementNode.new(name: "p")
         allow(node).to receive(:text_content).and_raise(StandardError, "error")
-        expect(described_class.send(:extract_text_content, node)).to be_nil
+        expect(described_class.extract_text_content(node)).to be_nil
       end
     end
   end
@@ -330,8 +337,9 @@ RSpec.describe Canon::Diff::XmlSerializationFormatter do
         reason: "UNEQUAL_ATTRIBUTE_ORDER",
       )
 
-      expect(described_class.send(:empty_text_content_serialization_diff?,
-                                  diff_node)).to be false
+      expect(described_class.empty_text_content_serialization_diff?(
+               diff_node,
+             )).to be false
     end
 
     it "returns false when nodes are not text nodes" do
@@ -345,8 +353,9 @@ RSpec.describe Canon::Diff::XmlSerializationFormatter do
         reason: "UNEQUAL_TEXT_CONTENTS",
       )
 
-      expect(described_class.send(:empty_text_content_serialization_diff?,
-                                  diff_node)).to be false
+      expect(described_class.empty_text_content_serialization_diff?(
+               diff_node,
+             )).to be false
     end
 
     it "returns true when both texts are blank" do
@@ -360,8 +369,9 @@ RSpec.describe Canon::Diff::XmlSerializationFormatter do
         reason: "UNEQUAL_TEXT_CONTENTS",
       )
 
-      expect(described_class.send(:empty_text_content_serialization_diff?,
-                                  diff_node)).to be true
+      expect(described_class.empty_text_content_serialization_diff?(
+               diff_node,
+             )).to be true
     end
 
     it "returns false when only one text is blank" do
@@ -375,8 +385,9 @@ RSpec.describe Canon::Diff::XmlSerializationFormatter do
         reason: "UNEQUAL_TEXT_CONTENTS",
       )
 
-      expect(described_class.send(:empty_text_content_serialization_diff?,
-                                  diff_node)).to be false
+      expect(described_class.empty_text_content_serialization_diff?(
+               diff_node,
+             )).to be false
     end
   end
 end

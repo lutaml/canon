@@ -75,8 +75,8 @@ RSpec.describe Canon::Diff::DiffLineBuilder do
         builder = described_class.new([], old_text, new_text)
 
         # Access the reverse indices via the build_line_index method
-        index1 = builder.send(:build_line_index, old_text.split("\n"))
-        index2 = builder.send(:build_line_index, new_text.split("\n"))
+        index1 = builder.build_line_index(old_text.split("\n"))
+        index2 = builder.build_line_index(new_text.split("\n"))
 
         expect(index1).to be_a(Hash)
         expect(index2).to be_a(Hash)

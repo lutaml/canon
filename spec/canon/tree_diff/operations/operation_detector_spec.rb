@@ -172,7 +172,7 @@ RSpec.describe Canon::TreeDiff::Operations::OperationDetector do
       it "collects all nodes in depth-first order" do
         root = build_tree("root", [["child1", "A"], ["child2", "B"]])
 
-        nodes = detector.send(:collect_all_nodes, root)
+        nodes = detector.collect_all_nodes(root)
 
         expect(nodes.size).to eq(3) # root + 2 children
         expect(nodes.first.label).to eq("root")
@@ -186,7 +186,7 @@ RSpec.describe Canon::TreeDiff::Operations::OperationDetector do
         node2 = Canon::TreeDiff::Core::TreeNode.new(label: "test",
                                                     value: "data")
 
-        expect(detector.send(:nodes_identical?, node1, node2)).to be true
+        expect(detector.nodes_identical?(node1, node2)).to be true
       end
 
       it "returns false for different values" do
@@ -195,7 +195,7 @@ RSpec.describe Canon::TreeDiff::Operations::OperationDetector do
         node2 = Canon::TreeDiff::Core::TreeNode.new(label: "test",
                                                     value: "data2")
 
-        expect(detector.send(:nodes_identical?, node1, node2)).to be false
+        expect(detector.nodes_identical?(node1, node2)).to be false
       end
 
       it "returns false for different labels" do
@@ -204,7 +204,7 @@ RSpec.describe Canon::TreeDiff::Operations::OperationDetector do
         node2 = Canon::TreeDiff::Core::TreeNode.new(label: "test2",
                                                     value: "data")
 
-        expect(detector.send(:nodes_identical?, node1, node2)).to be false
+        expect(detector.nodes_identical?(node1, node2)).to be false
       end
     end
 
@@ -213,7 +213,7 @@ RSpec.describe Canon::TreeDiff::Operations::OperationDetector do
         node1 = Canon::TreeDiff::Core::TreeNode.new(label: "test", value: "old")
         node2 = Canon::TreeDiff::Core::TreeNode.new(label: "test", value: "new")
 
-        changes = detector.send(:detect_changes, node1, node2)
+        changes = detector.detect_changes(node1, node2)
 
         expect(changes[:value]).to eq({ old: "old", new: "new" })
       end
@@ -224,7 +224,7 @@ RSpec.describe Canon::TreeDiff::Operations::OperationDetector do
         node2 = Canon::TreeDiff::Core::TreeNode.new(label: "new_label",
                                                     value: "data")
 
-        changes = detector.send(:detect_changes, node1, node2)
+        changes = detector.detect_changes(node1, node2)
 
         expect(changes[:label]).to eq({ old: "old_label", new: "new_label" })
       end
@@ -235,7 +235,7 @@ RSpec.describe Canon::TreeDiff::Operations::OperationDetector do
         node2 = Canon::TreeDiff::Core::TreeNode.new(label: "test",
                                                     value: "data")
 
-        changes = detector.send(:detect_changes, node1, node2)
+        changes = detector.detect_changes(node1, node2)
 
         expect(changes).to be_empty
       end
@@ -246,7 +246,7 @@ RSpec.describe Canon::TreeDiff::Operations::OperationDetector do
         node = Canon::TreeDiff::Core::TreeNode.new(label: "para",
                                                    value: "hello world")
 
-        text = detector.send(:extract_text_content, node)
+        text = detector.extract_text_content(node)
 
         expect(text).to eq("hello world")
       end
@@ -260,7 +260,7 @@ RSpec.describe Canon::TreeDiff::Operations::OperationDetector do
         root.add_child(child1)
         root.add_child(child2)
 
-        text = detector.send(:extract_text_content, root)
+        text = detector.extract_text_content(root)
 
         expect(text).to include("first")
         expect(text).to include("second")
@@ -269,21 +269,21 @@ RSpec.describe Canon::TreeDiff::Operations::OperationDetector do
 
     describe "#text_similarity" do
       it "returns 1.0 for identical text" do
-        similarity = detector.send(:text_similarity, "hello world",
-                                   "hello world")
+        similarity = detector.text_similarity("hello world",
+                                              "hello world")
 
         expect(similarity).to eq(1.0)
       end
 
       it "returns value between 0 and 1 for similar text" do
-        similarity = detector.send(:text_similarity, "hello world",
-                                   "hello there")
+        similarity = detector.text_similarity("hello world",
+                                              "hello there")
 
         expect(similarity).to be_between(0, 1)
       end
 
       it "returns 0 for completely different text" do
-        similarity = detector.send(:text_similarity, "abc", "xyz")
+        similarity = detector.text_similarity("abc", "xyz")
 
         expect(similarity).to eq(0.0)
       end
@@ -293,7 +293,7 @@ RSpec.describe Canon::TreeDiff::Operations::OperationDetector do
       it "returns 0 for root node" do
         root = Canon::TreeDiff::Core::TreeNode.new(label: "root")
 
-        depth = detector.send(:calculate_depth, root)
+        depth = detector.calculate_depth(root)
 
         expect(depth).to eq(0)
       end
@@ -305,8 +305,8 @@ RSpec.describe Canon::TreeDiff::Operations::OperationDetector do
         child.add_child(grandchild)
         root.add_child(child)
 
-        expect(detector.send(:calculate_depth, child)).to eq(1)
-        expect(detector.send(:calculate_depth, grandchild)).to eq(2)
+        expect(detector.calculate_depth(child)).to eq(1)
+        expect(detector.calculate_depth(grandchild)).to eq(2)
       end
     end
 
@@ -314,7 +314,7 @@ RSpec.describe Canon::TreeDiff::Operations::OperationDetector do
       it "collapses whitespace and decodes XML entities" do
         # Entity &#x201C; is U+201C LEFT DOUBLE QUOTATION MARK
         text_with_entity = "&#x201C;hello&#x201D;"
-        result = detector.send(:normalize_text, text_with_entity)
+        result = detector.normalize_text(text_with_entity)
         # After decoding, should be U+201C characters
         expect(result.bytes).to eq([226, 128, 156, 104, 101, 108, 108, 111,
                                     226, 128, 157])
@@ -322,40 +322,40 @@ RSpec.describe Canon::TreeDiff::Operations::OperationDetector do
 
       it "decodes named XML entities" do
         text_with_named = "&amp; &lt; &gt; &quot; &apos;"
-        result = detector.send(:normalize_text, text_with_named)
+        result = detector.normalize_text(text_with_named)
         expect(result).to eq("& < > \" '")
       end
 
       it "decodes decimal numeric entities" do
         # &#169; is copyright symbol (U+00A9)
         text_with_decimal = "&#169;2024"
-        result = detector.send(:normalize_text, text_with_decimal)
+        result = detector.normalize_text(text_with_decimal)
         expect(result).to eq("©2024")
       end
 
       it "decodes hexadecimal numeric entities" do
         # &#x00A9; is copyright symbol (U+00A9)
         text_with_hex = "&#x00A9;2024"
-        result = detector.send(:normalize_text, text_with_hex)
+        result = detector.normalize_text(text_with_hex)
         expect(result).to eq("©2024")
       end
 
       it "normalizes whitespace after entity decoding" do
         text = "&#x201C;hello&#x201D;   world"
-        result = detector.send(:normalize_text, text)
+        result = detector.normalize_text(text)
         # After entity decoding and whitespace normalization
         expected = "#{0x201C.chr(Encoding::UTF_8)}hello#{0x201D.chr(Encoding::UTF_8)} world"
         expect(result).to eq(expected)
       end
 
       it "handles empty and nil text" do
-        expect(detector.send(:normalize_text, "")).to eq("")
-        expect(detector.send(:normalize_text, nil)).to eq("")
+        expect(detector.normalize_text("")).to eq("")
+        expect(detector.normalize_text(nil)).to eq("")
       end
 
       it "preserves text without entities" do
         text = "hello world"
-        result = detector.send(:normalize_text, text)
+        result = detector.normalize_text(text)
         expect(result).to eq("hello world")
       end
     end
