@@ -139,7 +139,7 @@ module Canon
       def self.build_from_nokogiri(nokogiri_doc, preserve_whitespace: false)
         root = Nodes::RootNode.new
 
-        if nokogiri_doc.respond_to?(:root) && nokogiri_doc.root
+        if nokogiri_doc.is_a?(Nokogiri::XML::Document) && nokogiri_doc.root
           root.add_child(build_element_node(nokogiri_doc.root,
                                             preserve_whitespace: preserve_whitespace))
           nokogiri_doc.children.each do |child|
@@ -275,7 +275,7 @@ preserve_whitespace: false)
       def self.build_from_moxml(moxml_doc, preserve_whitespace: false)
         root = Nodes::RootNode.new
 
-        if moxml_doc.respond_to?(:root) && moxml_doc.root
+        if moxml_doc.is_a?(Moxml::Document) && moxml_doc.root
           root.add_child(build_moxml_element_node(moxml_doc.root,
                                                   preserve_whitespace: preserve_whitespace))
         end
