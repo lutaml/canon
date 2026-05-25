@@ -47,10 +47,15 @@ module Canon
       end
 
       # --- Type checks (backend-safe) ---
+      #
+      # Both Nokogiri and Moxml are loaded as dependencies. XmlBackend
+      # determines which is used for *parsing*, but nodes from either
+      # library may flow through comparison code (e.g. tests, format
+      # detection). Under Nokogiri backend, both types are checked.
 
       def document?(obj)
         if XmlBackend.nokogiri?
-          obj.is_a?(Nokogiri::XML::Document)
+          obj.is_a?(Nokogiri::XML::Document) || obj.is_a?(Moxml::Document)
         else
           obj.is_a?(Moxml::Document)
         end
@@ -58,7 +63,7 @@ module Canon
 
       def xml_node?(obj)
         if XmlBackend.nokogiri?
-          obj.is_a?(Nokogiri::XML::Node)
+          obj.is_a?(Nokogiri::XML::Node) || obj.is_a?(Moxml::Node)
         else
           obj.is_a?(Moxml::Node)
         end
@@ -66,7 +71,7 @@ module Canon
 
       def element?(node)
         if XmlBackend.nokogiri?
-          node.is_a?(Nokogiri::XML::Element)
+          node.is_a?(Nokogiri::XML::Element) || node.is_a?(Moxml::Element)
         else
           node.is_a?(Moxml::Element)
         end
@@ -74,7 +79,7 @@ module Canon
 
       def text_node?(node)
         if XmlBackend.nokogiri?
-          node.is_a?(Nokogiri::XML::Text)
+          node.is_a?(Nokogiri::XML::Text) || node.is_a?(Moxml::Text)
         else
           node.is_a?(Moxml::Text)
         end
@@ -82,7 +87,7 @@ module Canon
 
       def comment?(node)
         if XmlBackend.nokogiri?
-          node.is_a?(Nokogiri::XML::Comment)
+          node.is_a?(Nokogiri::XML::Comment) || node.is_a?(Moxml::Comment)
         else
           node.is_a?(Moxml::Comment)
         end
@@ -90,7 +95,7 @@ module Canon
 
       def cdata?(node)
         if XmlBackend.nokogiri?
-          node.is_a?(Nokogiri::XML::CDATA)
+          node.is_a?(Nokogiri::XML::CDATA) || node.is_a?(Moxml::Cdata)
         else
           node.is_a?(Moxml::Cdata)
         end
@@ -98,7 +103,7 @@ module Canon
 
       def processing_instruction?(node)
         if XmlBackend.nokogiri?
-          node.is_a?(Nokogiri::XML::ProcessingInstruction)
+          node.is_a?(Nokogiri::XML::ProcessingInstruction) || node.is_a?(Moxml::ProcessingInstruction)
         else
           node.is_a?(Moxml::ProcessingInstruction)
         end
@@ -108,7 +113,7 @@ module Canon
         if XmlBackend.nokogiri?
           obj.is_a?(Nokogiri::XML::DocumentFragment)
         else
-          obj.is_a?(Moxml::DocumentFragment)
+          false
         end
       end
 
@@ -142,7 +147,14 @@ module Canon
         if XmlBackend.nokogiri?
           node.is_a?(Nokogiri::XML::Node) ? node.content : node.to_s
         else
-          node.is_a?(Moxml::Node) ? node.text : node.to_s
+          case node
+          when Moxml::Text, Moxml::Cdata, Moxml::Comment
+            node.content.to_s
+          when Moxml::Node
+            node.text.to_s
+          else
+            node.to_s
+          end
         end
       end
 
@@ -257,12 +269,12 @@ module Canon
       end
 
       def moxml_node_type(node)
-        return :element if node.is_a?(Moxml::Element)
-        return :text if node.is_a?(Moxml::Text)
-        return :comment if node.is_a?(Moxml::Comment)
-        return :cdata if node.is_a?(Moxml::Cdata)
-        return :document if node.is_a?(Moxml::Document)
-        return :processing_instruction if node.is_a?(Moxml::ProcessingInstruction)
+        return :element if node.element?
+        return :text if node.text?
+        return :comment if node.comment?
+        return :cdata if node.cdata?
+        return :document if node.document?
+        return :processing_instruction if node.processing_instruction?
 
         nil
       end

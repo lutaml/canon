@@ -10,37 +10,25 @@ module Canon
     # * Canon::TreeDiff::Core::TreeNode — semantic tree diff nodes.
     # * Backend-specific nodes (Nokogiri or Moxml) — live parsed nodes.
     #
-    # All type dispatch uses backend-branching (`if XmlBackend.nokogiri?`)
-    # rather than `case/when` with constant references. This prevents
-    # NameError when Nokogiri constants are undefined under Opal.
-    #
-    # Every node query in the codebase should go through this module.
-    # Do not create private dispatch methods in consumers.
+    # Architecture: NodeInspector handles Canon-native types (Canon::Xml::Node,
+    # TreeNode) directly, then delegates ALL backend-specific queries to
+    # XmlParsing. No Moxml/Nokogiri constants are referenced here — that
+    # knowledge lives exclusively in XmlParsing.
     module NodeInspector
-      NOKOGIRI_TEXT_TYPE = defined?(Nokogiri::XML::Node::TEXT_NODE) ? Nokogiri::XML::Node::TEXT_NODE : 3
-
       # --- Type predicates ---
 
       def self.text_node?(node)
         return false unless node
         return node.node_type == :text if node.is_a?(Canon::Xml::Node)
 
-        if XmlBackend.nokogiri?
-          node.is_a?(Nokogiri::XML::Text) || node.is_a?(Moxml::Text)
-        else
-          node.is_a?(Moxml::Text)
-        end
+        XmlParsing.text_node?(node)
       end
 
       def self.element_node?(node)
         return false unless node
         return node.node_type == :element if node.is_a?(Canon::Xml::Node)
 
-        if XmlBackend.nokogiri?
-          node.is_a?(Nokogiri::XML::Element) || node.is_a?(Moxml::Element)
-        else
-          node.is_a?(Moxml::Element)
-        end
+        XmlParsing.element?(node)
       end
 
       def self.comment_node?(node)
@@ -57,7 +45,7 @@ module Canon
           end
           false
         else
-          node.is_a?(Moxml::Comment)
+          XmlParsing.comment?(node)
         end
       end
 
@@ -100,7 +88,6 @@ module Canon
 
       # --- Node queries ---
 
-      # Unified node name extraction across all node types.
       def self.name(node)
         return nil unless node
         return node.name if node.is_a?(Canon::Xml::Node)
@@ -109,7 +96,6 @@ module Canon
         XmlParsing.name(node)
       end
 
-      # Unified parent access across all node types.
       def self.parent(node)
         return nil unless node
         return node.parent if node.is_a?(Canon::Xml::Node)
@@ -118,7 +104,6 @@ module Canon
         XmlParsing.parent(node)
       end
 
-      # Unified children access across all node types.
       def self.children(node)
         return [] unless node
         return node.children if node.is_a?(Canon::Xml::Node)
@@ -127,34 +112,21 @@ module Canon
         XmlParsing.children(node)
       end
 
-      # Extract the text content of +node+ as a String.
       def self.text_content(node)
-        case node
-        when Canon::Xml::Nodes::TextNode
-          node.value.to_s
-        when Canon::Xml::Node
-          node.text_content.to_s
-        when Moxml::Text
-          node.content.to_s
-        else
-          XmlParsing.text_content(node).to_s
-        end
+        return node.value.to_s if node.is_a?(Canon::Xml::Nodes::TextNode)
+        return node.text_content.to_s if node.is_a?(Canon::Xml::Node)
+
+        XmlParsing.text_content(node).to_s
       end
 
-      # Unified node type that always returns a symbol.
-      # Returns nil for unrecognised nodes.
       def self.node_type(node)
         return nil unless node
         return node.node_type if node.is_a?(Canon::Xml::Node)
+        return node.type&.to_sym if node.is_a?(Canon::TreeDiff::Core::TreeNode)
 
-        if node.is_a?(Canon::TreeDiff::Core::TreeNode)
-          node.type&.to_sym
-        else
-          XmlParsing.node_type(node)
-        end
+        XmlParsing.node_type(node)
       end
 
-      # Unified attribute value access.
       def self.attribute_value(node, attr_name)
         return nil unless node
 
@@ -168,7 +140,6 @@ module Canon
         end
       end
 
-      # Unified namespace URI access.
       def self.namespace_uri(node)
         return nil unless node
 
@@ -179,7 +150,6 @@ module Canon
         end
       end
 
-      # Extract parse-time errors carried on a node or its owning document.
       def self.parse_errors(node)
         return [] if node.nil?
         return Array(node.parse_errors).map(&:to_s) if node.is_a?(Canon::Xml::Node)
@@ -193,11 +163,6 @@ module Canon
         else
           []
         end
-      end
-
-      # Deprecated: use NodeInspector.parent instead.
-      def self.parent_of(node)
-        parent(node)
       end
     end
   end

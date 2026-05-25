@@ -43,9 +43,9 @@ module Canon
       # @param node [Moxml::Node] Node to check
       # @return [Boolean] true if node is whitespace-only and should be ignored
       def inter_element_whitespace?(node)
-        return false unless node.respond_to?(:text?) && node.text?
+        return false unless node.is_a?(Nokogiri::XML::Text) || node.is_a?(Moxml::Text)
 
-        text = node.respond_to?(:content) ? node.content.to_s : node.text.to_s
+        text = node.is_a?(Moxml::Text) ? node.content.to_s : node.content.to_s
         text.strip.empty?
       end
 

@@ -89,7 +89,7 @@ module Canon
       def self.build_from_nokogiri(nokogiri_doc)
         root = Canon::Xml::Nodes::RootNode.new
 
-        if nokogiri_doc.respond_to?(:root) && nokogiri_doc.root
+        if nokogiri_doc.is_a?(Nokogiri::XML::Document) && nokogiri_doc.root
           # For Documents (HTML4, HTML5): process the root element
           root.add_child(build_element_node(nokogiri_doc.root))
 
