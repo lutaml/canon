@@ -29,17 +29,14 @@ module Canon
         line = nil
         column = nil
 
-        # Try to extract line/column from error message
-        if error.respond_to?(:line)
+        if error.is_a?(Nokogiri::XML::SyntaxError)
           line = error.line
+          column = error.column
         elsif error.message =~ /line[:\s]+(\d+)/i
           line = ::Regexp.last_match(1).to_i
-        end
-
-        if error.respond_to?(:column)
-          column = error.column
-        elsif error.message =~ /column[:\s]+(\d+)/i
-          column = ::Regexp.last_match(1).to_i
+          if error.message =~ /column[:\s]+(\d+)/i
+            column = ::Regexp.last_match(1).to_i
+          end
         end
 
         { line: line, column: column }

@@ -323,7 +323,7 @@ module Canon
       # @param line2 [String] New line content (for +/!)
       # @return [Boolean] true if formatting-only
       def formatting?(node, line1, line2)
-        return true if node.respond_to?(:formatting?) && node.formatting?
+        return true if node.is_a?(Canon::Diff::DiffNode) && node.formatting?
         return false if node
         return true if comment_only_line?(line1) || comment_only_line?(line2)
 
@@ -394,14 +394,14 @@ module Canon
                            end
 
           nodes_to_check.any? do |node|
-            # Check if the node itself has the matching name
-            if node.respond_to?(:name) && node.name == line_element_name
-              true
-            # Check if the node's parent has the matching name (for TextNode diffs)
-            elsif node.respond_to?(:parent) && node.parent.respond_to?(:name) && node.parent.name == line_element_name # rubocop:disable Style/IfWithBooleanLiteralBranches
+            next false unless node
+
+            node_name = Canon::Comparison::NodeInspector.name(node)
+            if node_name == line_element_name
               true
             else
-              false
+              parent = Canon::Comparison::NodeInspector.parent(node)
+              parent && Canon::Comparison::NodeInspector.name(parent) == line_element_name
             end
           end
         end
@@ -453,6 +453,8 @@ module Canon
         comment_lines
       end
 
+      public :build_comment_lines
+
       # Find a comment DiffNode for a line that falls within a comment range.
       # Matches by checking if the DiffNode's source node has name "comment".
       #
@@ -463,7 +465,7 @@ module Canon
         @comment_diff_nodes&.find do |diff_node|
           nodes_to_check = [diff_node.node1, diff_node.node2].compact
           nodes_to_check.any? do |node|
-            node.respond_to?(:name) && node.name == "comment"
+            Canon::Comparison::NodeInspector.name(node) == "comment"
           end
         end
       end

@@ -94,13 +94,8 @@ module Canon
       #
       # @param error [Nokogiri::XML::SyntaxError] The syntax error
       # @return [String, nil] Additional details about the error
-      def self.extract_details(error)
-        return nil unless error.respond_to?(:errors)
-
-        details = error.errors.map(&:message).reject do |msg|
-          msg == error.message
-        end
-        details.join("; ") unless details.empty?
+      def self.extract_details(_error)
+        nil
       end
 
       # Build error details from multiple errors

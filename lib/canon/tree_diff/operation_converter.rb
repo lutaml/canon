@@ -124,6 +124,8 @@ module Canon
         end
       end
 
+      public :convert_operation
+
       # Convert INSERT operation to DiffNode
       #
       # @param operation [Operation] Insert operation
@@ -153,7 +155,7 @@ module Canon
 
       # Determine dimension for INSERT/DELETE operations based on node type
       def dimension_for_insert_delete(tree_node)
-        label = tree_node.respond_to?(:label) ? tree_node.label : nil
+        label = tree_node.is_a?(Canon::TreeDiff::Core::TreeNode) ? tree_node.label : nil
         return :comments if label == "comment"
 
         :element_structure
@@ -359,7 +361,7 @@ module Canon
       def extract_source_node(tree_node)
         return nil if tree_node.nil?
 
-        tree_node.respond_to?(:source_node) ? tree_node.source_node : tree_node
+        tree_node.is_a?(Canon::TreeDiff::Core::TreeNode) ? tree_node.source_node : tree_node
       end
 
       # Determine if a diff is normative based on match options
@@ -383,12 +385,10 @@ module Canon
         return false if node.nil?
 
         # Get element name from node
-        element_name = if node.respond_to?(:label)
-                         node.label # TreeNode
-                       elsif node.respond_to?(:name)
-                         node.name # Nokogiri node
+        element_name = if node.is_a?(Canon::TreeDiff::Core::TreeNode)
+                         node.label
                        else
-                         return false
+                         Canon::Comparison::NodeInspector.name(node)
                        end
 
         # Check if it's in our metadata elements list
