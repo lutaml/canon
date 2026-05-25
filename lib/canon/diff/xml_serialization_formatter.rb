@@ -57,9 +57,6 @@ module Canon
       rescue StandardError
         nil
       end
-
-      private_class_method :blank?, :text_node?, :extract_text_content,
-                           :empty_text_content_serialization_diff?
     end
   end
 end
