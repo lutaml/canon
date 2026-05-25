@@ -252,26 +252,26 @@ RSpec.describe Canon::Comparison::HtmlComparator do
       describe "HTML version detection" do
         it "detects HTML5 doctype" do
           html = "<!DOCTYPE html><html><body></body></html>"
-          version = described_class.send(:detect_html_version, html)
+          version = described_class.detect_html_version(html)
           expect(version).to eq(:html5)
         end
 
         it "detects HTML4 doctype" do
           html = '<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN">' \
                  "<html><body></body></html>"
-          version = described_class.send(:detect_html_version, html)
+          version = described_class.detect_html_version(html)
           expect(version).to eq(:html4)
         end
 
         it "defaults to HTML5 when no doctype present" do
           html = "<html><body></body></html>"
-          version = described_class.send(:detect_html_version, html)
+          version = described_class.detect_html_version(html)
           expect(version).to eq(:html5)
         end
 
         it "handles case-insensitive HTML5 doctype" do
           html = "<!doctype HTML><html><body></body></html>"
-          version = described_class.send(:detect_html_version, html)
+          version = described_class.detect_html_version(html)
           expect(version).to eq(:html5)
         end
       end

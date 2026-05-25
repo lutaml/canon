@@ -12,37 +12,37 @@ RSpec.describe Canon::Comparison do
     describe ".detect_format" do
       it "detects XML from Moxml node" do
         xml = Moxml.new.parse("<root/>")
-        expect(described_class.send(:detect_format, xml)).to eq(:xml)
+        expect(described_class.detect_format(xml)).to eq(:xml)
       end
 
       it "detects XML from Nokogiri XML document" do
         xml = Nokogiri::XML("<root/>")
-        expect(described_class.send(:detect_format, xml)).to eq(:xml)
+        expect(described_class.detect_format(xml)).to eq(:xml)
       end
 
       it "detects HTML from Nokogiri HTML document" do
         html = Nokogiri::HTML("<html><body>test</body></html>")
-        expect(described_class.send(:detect_format, html)).to eq(:html)
+        expect(described_class.detect_format(html)).to eq(:html)
       end
 
       it "detects HTML5 from Nokogiri HTML5 document" do
         html = Nokogiri::HTML5("<!DOCTYPE html><html><body>test</body></html>")
-        expect(described_class.send(:detect_format, html)).to eq(:html)
+        expect(described_class.detect_format(html)).to eq(:html)
       end
 
       it "detects ruby_object from Hash" do
         obj = { "key" => "value" }
-        expect(described_class.send(:detect_format, obj)).to eq(:ruby_object)
+        expect(described_class.detect_format(obj)).to eq(:ruby_object)
       end
 
       it "detects ruby_object from Array" do
         obj = [1, 2, 3]
-        expect(described_class.send(:detect_format, obj)).to eq(:ruby_object)
+        expect(described_class.detect_format(obj)).to eq(:ruby_object)
       end
 
       it "raises error for unknown object type" do
         expect do
-          described_class.send(:detect_format, Object.new)
+          described_class.detect_format(Object.new)
         end.to raise_error(Canon::Error, /Unknown format for object/)
       end
     end
@@ -50,42 +50,42 @@ RSpec.describe Canon::Comparison do
     describe ".detect_string_format" do
       it "detects YAML from --- prefix" do
         yaml = "---\nkey: value"
-        expect(described_class.send(:detect_string_format, yaml)).to eq(:yaml)
+        expect(described_class.detect_string_format(yaml)).to eq(:yaml)
       end
 
       it "detects YAML from key: value pattern" do
         yaml = "key: value"
-        expect(described_class.send(:detect_string_format, yaml)).to eq(:yaml)
+        expect(described_class.detect_string_format(yaml)).to eq(:yaml)
       end
 
       it "detects JSON from { prefix" do
         json = '{"key":"value"}'
-        expect(described_class.send(:detect_string_format, json)).to eq(:json)
+        expect(described_class.detect_string_format(json)).to eq(:json)
       end
 
       it "detects JSON from [ prefix" do
         json = "[1, 2, 3]"
-        expect(described_class.send(:detect_string_format, json)).to eq(:json)
+        expect(described_class.detect_string_format(json)).to eq(:json)
       end
 
       it "detects HTML from <!DOCTYPE html prefix" do
         html = "<!DOCTYPE html><html></html>"
-        expect(described_class.send(:detect_string_format, html)).to eq(:html)
+        expect(described_class.detect_string_format(html)).to eq(:html)
       end
 
       it "detects HTML from <html prefix" do
         html = "<html><body>test</body></html>"
-        expect(described_class.send(:detect_string_format, html)).to eq(:html)
+        expect(described_class.detect_string_format(html)).to eq(:html)
       end
 
       it "detects HTML from <HTML prefix (case insensitive)" do
         html = "<HTML><BODY>test</BODY></HTML>"
-        expect(described_class.send(:detect_string_format, html)).to eq(:html)
+        expect(described_class.detect_string_format(html)).to eq(:html)
       end
 
       it "defaults to XML for unknown strings" do
         xml = "<root><child/></root>"
-        expect(described_class.send(:detect_string_format, xml)).to eq(:xml)
+        expect(described_class.detect_string_format(xml)).to eq(:xml)
       end
     end
   end

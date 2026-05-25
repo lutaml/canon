@@ -185,7 +185,7 @@ RSpec.describe Canon::DiffFormatter do
         raw1 = "<root>hello</root>"
         raw2 = "<root>goodbye</root>"
 
-        result = formatter.send(:format_raw_inputs, raw1, raw2)
+        result = formatter.format_raw_inputs(raw1, raw2)
 
         expect(result).to include("=== ORIGINAL INPUTS (Raw) ===")
         expect(result).to include("EXPECTED:")
@@ -195,7 +195,7 @@ RSpec.describe Canon::DiffFormatter do
       end
 
       it "returns empty string for nil inputs" do
-        result = formatter.send(:format_raw_inputs, nil, nil)
+        result = formatter.format_raw_inputs(nil, nil)
         expect(result).to eq("")
       end
     end
@@ -205,8 +205,8 @@ RSpec.describe Canon::DiffFormatter do
         preprocessed1 = "<root> hello </root>"
         preprocessed2 = "<root>hello</root>"
 
-        result = formatter.send(:format_preprocessed_inputs, preprocessed1,
-                                preprocessed2, :normalize)
+        result = formatter.format_preprocessed_inputs(preprocessed1,
+                                                      preprocessed2, :normalize)
 
         expect(result).to include("=== PREPROCESSED INPUTS (Compared) ===")
         expect(result).to include("Preprocessing: normalize")
@@ -220,8 +220,8 @@ RSpec.describe Canon::DiffFormatter do
         preprocessed1 = "<root>hello</root>"
         preprocessed2 = "<root>hello</root>"
 
-        result = formatter.send(:format_preprocessed_inputs, preprocessed1,
-                                preprocessed2, nil)
+        result = formatter.format_preprocessed_inputs(preprocessed1,
+                                                      preprocessed2, nil)
 
         expect(result).to include("=== PREPROCESSED INPUTS (Compared) ===")
         expect(result).not_to include("Preprocessing:")
@@ -230,7 +230,7 @@ RSpec.describe Canon::DiffFormatter do
       end
 
       it "returns empty string for nil inputs" do
-        result = formatter.send(:format_preprocessed_inputs, nil, nil, nil)
+        result = formatter.format_preprocessed_inputs(nil, nil, nil)
         expect(result).to eq("")
       end
     end
@@ -240,7 +240,7 @@ RSpec.describe Canon::DiffFormatter do
         raw1 = "<root>\n  hello\n</root>"
         raw2 = "<root>goodbye</root>"
 
-        result = formatter.send(:format_line_numbered_inputs, raw1, raw2)
+        result = formatter.format_line_numbered_inputs(raw1, raw2)
 
         # The header uses ==== (equals signs for borders)
         expect(result).to include("ORIGINAL INPUTS (with line numbers)")
@@ -251,7 +251,7 @@ RSpec.describe Canon::DiffFormatter do
       end
 
       it "returns empty string for nil inputs" do
-        result = formatter.send(:format_line_numbered_inputs, nil, nil)
+        result = formatter.format_line_numbered_inputs(nil, nil)
         expect(result).to eq("")
       end
     end
