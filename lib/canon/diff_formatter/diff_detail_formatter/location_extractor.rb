@@ -17,12 +17,12 @@ module Canon
           return "" unless diff
 
           # Prefer pre-computed path if available (populated by MetadataEnricher)
-          if diff.respond_to?(:path) && !diff.path.nil? && !diff.path.empty?
-            return "Location: #{diff.path}"
+          if diff.is_a?(Canon::Diff::DiffNode) && diff.path && !diff.path.empty?
+            return diff.path
           end
 
           # Fall back to extracting from nodes
-          node = if diff.respond_to?(:node1)
+          node = if diff.is_a?(Canon::Diff::DiffNode)
                    diff.node1 || diff.node2
                  elsif diff.is_a?(Hash)
                    diff[:node1] || diff[:node2]
@@ -30,8 +30,7 @@ module Canon
 
           return "" unless node
 
-          xpath = extract_xpath(node)
-          xpath.empty? ? "" : "Location: #{xpath}"
+          extract_xpath(node)
         end
 
         # Extract XPath from a node
@@ -66,24 +65,26 @@ module Canon
           current = node
 
           while current
-            break unless current.respond_to?(:name)
-
-            name = current.name
+            name = case current
+                   when Canon::Xml::Node, Nokogiri::XML::Node
+                     current.name
+                   else
+                     break
+                   end
             break if name.nil? || name.empty?
 
-            # Calculate position among siblings
             index = calculate_sibling_index(current, name)
             parts.unshift("#{name}[#{index}]")
 
-            # Move to parent
-            current = if current.respond_to?(:parent)
+            current = case current
+                      when Canon::Xml::Node, Nokogiri::XML::Node
                         current.parent
-                      elsif current.respond_to?(:parent_node)
-                        current.parent_node
+                      else
+                        break
                       end
 
-            # Stop at document root
-            break if current.respond_to?(:document) && current == current.document
+            break if current.is_a?(Nokogiri::XML::Document) ||
+              current.is_a?(Canon::Xml::Nodes::RootNode)
           end
 
           parts.empty? ? "" : "/#{parts.join('/')}"
@@ -95,24 +96,22 @@ module Canon
         # @param name [String] Node name
         # @return [Integer] 1-based index
         def self.calculate_sibling_index(node, name)
-          return 1 unless node.respond_to?(:parent) || node.respond_to?(:parent_node)
-
-          parent = if node.respond_to?(:parent)
+          parent = case node
+                   when Canon::Xml::Node, Nokogiri::XML::Node
                      node.parent
-                   elsif node.respond_to?(:parent_node)
-                     node.parent_node
                    end
 
           return 1 unless parent
 
-          # Get siblings with same name
-          siblings = if parent.respond_to?(:children)
+          siblings = case parent
+                     when Canon::Xml::Node, Nokogiri::XML::Node
                        parent.children.select do |n|
-                         n.respond_to?(:name) && n.name == name
-                       end
-                     elsif parent.respond_to?(:child_nodes)
-                       parent.child_nodes.select do |n|
-                         n.respond_to?(:name) && n.name == name
+                         case n
+                         when Canon::Xml::Node, Nokogiri::XML::Node
+                           n.name == name
+                         else
+                           false
+                         end
                        end
                      else
                        [node]

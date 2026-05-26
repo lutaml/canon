@@ -270,9 +270,12 @@ show_diffs: :all, theme: nil)
 
             if diffs && !diffs.empty?
               # Render all differences at this path
+              has_children = value.is_a?(Hash) &&
+                (value.keys - [:__diffs__]).any?
+
               diffs.each_with_index do |diff, diff_idx|
-                # Use proper connector for each diff
-                current_connector = if diff_idx == diffs.length - 1
+                is_last_diff = diff_idx == diffs.length - 1
+                current_connector = if is_last_diff && !has_children
                                       connector
                                     else
                                       is_last_item ? "├── " : "├── "
@@ -281,6 +284,13 @@ show_diffs: :all, theme: nil)
                 line = render_diff_node(key, diff, prefix, current_connector)
                 output << line
                 @line_count += line.count("\n") + 1
+              end
+
+              # Recurse into child diffs at this path
+              if has_children
+                subtree = render_tree(value, prefix: prefix + continuation,
+                                             is_last: is_last_item)
+                output << subtree
               end
             else
               # Render intermediate path

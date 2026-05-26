@@ -136,7 +136,16 @@ module Canon
                 theme_color(:changed, :marker) || :yellow,
               )}"
             end
-          when :structural_whitespace, :attribute_whitespace, :attribute_values
+          when :attribute_values
+            render_attribute_values_diffnode(diff_node, node1, node2, prefix,
+                                             output)
+          when :attribute_presence
+            render_attribute_presence_diffnode(diff_node, node1, node2, prefix,
+                                               output)
+          when :attribute_order
+            render_attribute_order_diffnode(diff_node, node1, node2, prefix,
+                                            output)
+          when :structural_whitespace, :attribute_whitespace
             output << "#{prefix}└── #{colorize(
               "[#{diff_node.dimension}: #{diff_node.reason}]",
               theme_color(:changed, :marker) || :yellow,
@@ -148,6 +157,115 @@ module Canon
               theme_color(:informative, :content) || :cyan,
             )}"
           end
+        end
+
+        # Render attribute value DiffNode with per-attribute before/after
+        def render_attribute_values_diffnode(diff_node, node1, node2, prefix,
+                                             output)
+          attrs1 = diff_node.attributes_before ||
+            extract_attributes_hash(node1)
+          attrs2 = diff_node.attributes_after ||
+            extract_attributes_hash(node2)
+          element_name = if node1
+                           node1.name
+                         else
+                           (node2 ? node2.name : "?")
+                         end
+
+          output << "#{prefix}└── #{colorize(
+            "Element: <#{element_name}>",
+            theme_color(:changed, :marker) || :yellow,
+          )}"
+
+          differing = find_differing_attributes(attrs1, attrs2)
+          differing.each_with_index do |name, i|
+            connector = i < differing.size - 1 ? "├──" : "└──"
+            val1 = attrs1[name].to_s
+            val2 = attrs2[name].to_s
+            output << "#{prefix}    #{connector} " \
+                      "#{colorize("#{name}:", :cyan)} " \
+                      "#{colorize(val1,
+                                  theme_color(:removed, :content) || :red)} " \
+                      "→ " \
+                      "#{colorize(val2,
+                                  theme_color(:added, :content) || :green)}"
+          end
+        end
+
+        # Render attribute presence DiffNode with added/removed attributes
+        def render_attribute_presence_diffnode(diff_node, node1, node2, prefix,
+                                               output)
+          attrs1 = diff_node.attributes_before ||
+            extract_attributes_hash(node1)
+          attrs2 = diff_node.attributes_after ||
+            extract_attributes_hash(node2)
+          element_name = if node1
+                           node1.name
+                         else
+                           (node2 ? node2.name : "?")
+                         end
+
+          output << "#{prefix}└── #{colorize(
+            "Element: <#{element_name}>",
+            theme_color(:changed, :marker) || :yellow,
+          )}"
+
+          keys1 = attrs1.keys.to_set
+          keys2 = attrs2.keys.to_set
+          removed = (keys1 - keys2).sort
+          added = (keys2 - keys1).sort
+          items = removed.map { |k| [:removed, k, attrs1[k]] }
+          added.each { |k| items << [:added, k, attrs2[k]] }
+
+          items.each_with_index do |(type, name, val), i|
+            connector = i < items.size - 1 ? "├──" : "└──"
+            color = if type == :removed
+                      theme_color(:removed,
+                                  :content) || :red
+                    else
+                      theme_color(
+                        :added, :content
+                      ) || :green
+                    end
+            sign = type == :removed ? "-" : "+"
+            output << "#{prefix}    #{connector} " \
+                      "#{colorize("#{sign} #{name}=\"#{val}\"", color)}"
+          end
+        end
+
+        # Render attribute order DiffNode with before/after order
+        def render_attribute_order_diffnode(diff_node, node1, node2, prefix,
+                                            output)
+          attrs1 = diff_node.attributes_before ||
+            extract_attributes_hash(node1)
+          attrs2 = diff_node.attributes_after ||
+            extract_attributes_hash(node2)
+
+          order1 = attrs1.keys.join(", ")
+          order2 = attrs2.keys.join(", ")
+
+          output << "#{prefix}├── #{colorize(
+            "- [#{order1}]",
+            theme_color(:removed, :content) || :red,
+          )}"
+          output << "#{prefix}└── #{colorize(
+            "+ [#{order2}]",
+            theme_color(:added, :content) || :green,
+          )}"
+        end
+
+        # Extract attributes hash from a node
+        def extract_attributes_hash(node)
+          return {} unless node
+
+          Canon::Diff::NodeSerializer.extract_attributes(node) || {}
+        end
+
+        # Find attributes that differ between two attribute hashes
+        def find_differing_attributes(attrs1, attrs2)
+          (attrs1.keys | attrs2.keys).reject do |k|
+            attrs1[k.to_s] == attrs2[k.to_s]
+          end.sort
         end
 
         # Render unequal elements
