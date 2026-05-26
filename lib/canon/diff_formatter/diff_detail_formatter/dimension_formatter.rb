@@ -707,7 +707,7 @@ expand_difference: false)
         # @param diff [DiffNode, Hash] Difference node
         # @return [Symbol] Dimension
         def self.extract_dimension(diff)
-          if diff.respond_to?(:dimension)
+          if diff.is_a?(Canon::Diff::DiffNode)
             diff.dimension
           elsif diff.is_a?(Hash)
             diff[:dimension] || diff[:diff_code] || :unknown
@@ -721,7 +721,7 @@ expand_difference: false)
         # @param diff [DiffNode, Hash] Difference node
         # @return [Object] Node1
         def self.extract_node1(diff)
-          if diff.respond_to?(:node1)
+          if diff.is_a?(Canon::Diff::DiffNode)
             diff.node1
           elsif diff.is_a?(Hash)
             diff[:node1]
@@ -733,7 +733,7 @@ expand_difference: false)
         # @param diff [DiffNode, Hash] Difference node
         # @return [Object] Node2
         def self.extract_node2(diff)
-          if diff.respond_to?(:node2)
+          if diff.is_a?(Canon::Diff::DiffNode)
             diff.node2
           elsif diff.is_a?(Hash)
             diff[:node2]

@@ -72,6 +72,11 @@ module Canon
           return build_attribute_difference_reason(attrs1, attrs2)
         end
 
+        # For attribute value differences, show which attributes changed
+        if dimension == :attribute_values
+          return build_attribute_values_reason(node1, node2)
+        end
+
         # For text content differences, show the actual text (truncated if needed)
         if dimension == :text_content
           text1 = extract_text_content(node1)
@@ -183,6 +188,31 @@ module Canon
           "#{keys1.size} vs #{keys2.size} attributes (same names)"
         else
           parts.join("; ")
+        end
+      end
+
+      # Build a reason message for attribute value differences
+      # Shows each changed attribute with its before/after values
+      #
+      # @param node1 [Object, nil] First node
+      # @param node2 [Object, nil] Second node
+      # @return [String] Clear explanation of the attribute value differences
+      def self.build_attribute_values_reason(node1, node2)
+        attrs1 = extract_attributes(node1) || {}
+        attrs2 = extract_attributes(node2) || {}
+
+        differing = (attrs1.keys | attrs2.keys).sort.reject do |k|
+          attrs1[k.to_s] == attrs2[k.to_s]
+        end
+
+        changed_parts = differing.map do |k|
+          "Changed: #{k}=\"#{attrs1[k.to_s]}\" → \"#{attrs2[k.to_s]}\""
+        end
+
+        if changed_parts.empty?
+          "attributes differ"
+        else
+          "Attributes differ (#{changed_parts.join('; ')})"
         end
       end
 

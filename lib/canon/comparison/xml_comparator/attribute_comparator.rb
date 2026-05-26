@@ -15,8 +15,8 @@ module Canon
         # @return [Symbol] Comparison result
         def self.compare(node1, node2, opts, differences)
           # Get attributes using the appropriate method for each node type
-          raw_attrs1 = node1.respond_to?(:attribute_nodes) ? node1.attribute_nodes : node1.attributes
-          raw_attrs2 = node2.respond_to?(:attribute_nodes) ? node2.attribute_nodes : node2.attributes
+          raw_attrs1 = get_raw_attributes(node1)
+          raw_attrs2 = get_raw_attributes(node2)
 
           attrs1 = XmlComparatorHelpers::AttributeFilter.filter(raw_attrs1,
                                                                 opts)
@@ -170,6 +170,23 @@ dimension:, differences:, **opts)
             **opts,
           )
           differences << diff_node if diff_node
+        end
+
+        # Get raw attributes from a node, dispatching by type.
+        # Nokogiri::XML::Element has attribute_nodes (NodeSet),
+        # Canon::Xml::Nodes::ElementNode has attribute_nodes (Array),
+        # Moxml::Element has attributes (Hash-like).
+        def self.get_raw_attributes(node)
+          case node
+          when Canon::Xml::Nodes::ElementNode
+            node.attribute_nodes
+          else
+            if Canon::XmlBackend.nokogiri? && node.is_a?(Nokogiri::XML::Element)
+              node.attribute_nodes
+            else
+              node.attributes
+            end
+          end
         end
       end
     end
