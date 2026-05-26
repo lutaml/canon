@@ -174,7 +174,7 @@ RSpec.describe "DiffDetailFormatter helpers" do
           path: "/root[0]/span[2]/text()[0]",
         )
         result = described_class.extract_location(diff)
-        expect(result).to eq("Location: /root[0]/span[2]/text()[0]")
+        expect(result).to eq("/root[0]/span[2]/text()[0]")
       end
 
       it "returns empty string when diff is nil" do
@@ -195,7 +195,6 @@ RSpec.describe "DiffDetailFormatter helpers" do
 
       it "prefers diff.path over node extraction" do
         node = double("node")
-        allow(node).to receive(:respond_to?).with(:name).and_return(false)
 
         diff = Canon::Diff::DiffNode.new(
           node1: node,
@@ -205,7 +204,7 @@ RSpec.describe "DiffDetailFormatter helpers" do
           path: "/preferred/path[0]",
         )
         result = described_class.extract_location(diff)
-        expect(result).to eq("Location: /preferred/path[0]")
+        expect(result).to eq("/preferred/path[0]")
       end
     end
   end

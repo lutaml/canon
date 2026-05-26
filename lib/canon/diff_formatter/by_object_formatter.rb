@@ -21,9 +21,6 @@ module Canon
       # @param format [Symbol] Document format (:xml, :json, :yaml)
       # @return [String] Formatted diff output
       def format(differences, format)
-        output = []
-        output << colorize("Visual Diff:", :cyan, :bold)
-
         diffs_array = if differences.is_a?(Canon::Comparison::ComparisonResult)
                         differences.differences
                       else
@@ -37,8 +34,7 @@ module Canon
           show_diffs: @show_diffs,
         )
 
-        output << formatter.format(diffs_array, format)
-        output.join("\n")
+        formatter.format(diffs_array, format)
       end
 
       private
