@@ -18,4 +18,5 @@ group :opal do
   gem "opal", "~> 1.8"
   gem "opal-rspec", "~> 1.0"
   gem "opal-sprockets"
+  gem "rexml"
 end

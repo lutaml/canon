@@ -37,7 +37,7 @@ module Canon
           # Select parser backend
           resolved_parser = parser || resolve_parser_config
 
-          if resolved_parser == :sax
+          if resolved_parser == :sax && RUBY_ENGINE != "opal"
             require_relative "../../xml/sax_builder"
             Canon::Xml::SaxBuilder.parse(xml_string,
                                          preserve_whitespace: preserve_whitespace)
@@ -97,7 +97,7 @@ parser: nil)
 
           resolved_parser = parser || resolve_parser_config
 
-          if resolved_parser == :sax
+          if resolved_parser == :sax && RUBY_ENGINE != "opal"
             require_relative "../../xml/sax_builder"
             Canon::Xml::SaxBuilder.parse(xml_str,
                                          preserve_whitespace: preserve_whitespace)

@@ -11,7 +11,7 @@ Gemspec/RequiredRubyVersion:
   Exclude:
     - 'canon.gemspec'
 
-# Offense count: 1354
+# Offense count: 1357
 # This cop supports safe autocorrection (--autocorrect).
 # Configuration parameters: Max, AllowHeredoc, AllowURI, AllowQualifiedName, URISchemes, AllowRBSInlineAnnotation, AllowCopDirectives, AllowedPatterns, SplitStrings.
 # URISchemes: http, https
@@ -62,7 +62,7 @@ Lint/UselessConstantScoping:
   Exclude:
     - 'lib/canon/diff_formatter/theme.rb'
 
-# Offense count: 315
+# Offense count: 316
 # Configuration parameters: AllowedMethods, AllowedPatterns, CountRepeatedAttributes, Max.
 Metrics/AbcSize:
   Enabled: false

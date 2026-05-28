@@ -14,7 +14,7 @@ module Canon
   module XmlParsing
     class << self
       def moxml_context
-        @moxml_context ||= Moxml.new(:oga)
+        @moxml_context ||= Moxml.new(RUBY_ENGINE == "opal" ? :rexml : :oga)
       end
 
       # --- Parsing ---
