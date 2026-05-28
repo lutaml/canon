@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require "digest"
+require "digest" unless RUBY_ENGINE == "opal"
 
 module Canon
   # Cache for expensive operations during document comparison
@@ -73,49 +73,38 @@ module Canon
       end
 
       # Generate cache key for document parsing
-      #
-      # @param content [String] Document content
-      # @param format [Symbol] Document format
-      # @param preprocessing [Symbol] Preprocessing option
-      # @return [String] Cache key
       def key_for_document(content, format, preprocessing)
-        digest = Digest::SHA256.hexdigest(content)
-        "doc:#{format}:#{preprocessing}:#{digest[0..16]}"
+        "doc:#{format}:#{preprocessing}:#{content_hash(content)}"
       end
 
       # Generate cache key for format detection
-      #
-      # @param content [String] Document content
-      # @return [String] Cache key
       def key_for_format_detection(content)
-        # Use first 100 chars for quick key, plus length
-        # Force to binary to avoid encoding compatibility issues
         preview = content[0..100].b
-        digest = Digest::SHA256.hexdigest(preview + content.length.to_s)
-        "fmt:#{digest[0..16]}"
+        "fmt:#{content_hash(preview + content.length.to_s)}"
       end
 
       # Generate cache key for XML canonicalization
-      #
-      # @param content [String] XML content
-      # @param with_comments [Boolean] Whether to include comments
-      # @return [String] Cache key
       def key_for_c14n(content, with_comments)
-        digest = Digest::SHA256.hexdigest(content)
-        "c14n:#{with_comments}:#{digest[0..16]}"
+        "c14n:#{with_comments}:#{content_hash(content)}"
       end
 
       # Generate cache key for preprocessing
-      #
-      # @param content [String] Original content
-      # @param preprocessing [Symbol] Preprocessing type
-      # @return [String] Cache key
       def key_for_preprocessing(content, preprocessing)
-        digest = Digest::SHA256.hexdigest(content)
-        "pre:#{preprocessing}:#{digest[0..16]}"
+        "pre:#{preprocessing}:#{content_hash(content)}"
       end
 
       private
+
+      # Generate a hash string for cache keys
+      def content_hash(content)
+        if defined?(Digest::SHA256)
+          Digest::SHA256.hexdigest(content)[0..16]
+        else
+          # Opal fallback: simple string hash
+          h = content.each_char.reduce(0) { |acc, c| ((acc * 31) + c.ord) & 0xFFFFFFFF }
+          h.to_s(16).rjust(8, "0")
+        end
+      end
 
       # Get or create cache for a category
       #

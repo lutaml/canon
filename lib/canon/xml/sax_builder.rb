@@ -28,7 +28,7 @@ module Canon
     # For C14N, use strip_doctype: true to avoid DTD default attribute expansion:
     #   root = SaxBuilder.parse(xml_string, strip_doctype: true)
     #
-    class SaxBuilder < Nokogiri::XML::SAX::Document
+    class SaxBuilder < (RUBY_ENGINE == "opal" ? Object : Nokogiri::XML::SAX::Document)
       # Parse XML string and return Canon::Xml::Node tree
       #
       # @param xml_string [String] XML content to parse

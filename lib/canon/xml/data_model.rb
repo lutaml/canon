@@ -327,7 +327,7 @@ preserve_whitespace: false)
           element.add_namespace(ns_node)
         end
 
-        unless element.namespaces.any? do |n|
+        unless element.namespace_nodes.any? do |n|
           n.prefix == "xml"
         end
           element.add_namespace(Nodes::NamespaceNode.new(
@@ -348,7 +348,7 @@ preserve_whitespace: false)
       end
 
       def self.build_moxml_text_node(moxml_text, preserve_whitespace: false)
-        content = moxml_text.text
+        content = moxml_text.content
 
         if !preserve_whitespace && content.strip.empty? && moxml_text.parent.is_a?(Moxml::Element)
           return nil
@@ -358,7 +358,7 @@ preserve_whitespace: false)
       end
 
       def self.build_moxml_comment_node(moxml_comment)
-        Nodes::CommentNode.new(value: moxml_comment.text)
+        Nodes::CommentNode.new(value: moxml_comment.content)
       end
 
       def self.build_moxml_pi_node(moxml_pi)

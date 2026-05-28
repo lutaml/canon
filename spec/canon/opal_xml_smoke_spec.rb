@@ -40,9 +40,9 @@ RSpec.describe "Canon XML Opal smoke test", if: RUBY_ENGINE == "opal" do
     expect(Canon::Comparison.equivalent?(xml1, xml2, format: :xml)).to be false
   end
 
-  it "uses spec_friendly profile for whitespace-insensitive comparison" do
-    xml1 = "<root>  text  </root>"
-    xml2 = "<root>text</root>"
+  it "uses spec_friendly profile for whitespace-only nodes between elements" do
+    xml1 = "<root>\n  <child/>\n</root>"
+    xml2 = "<root><child/></root>"
     expect(Canon::Comparison.equivalent?(xml1, xml2,
                                          format: :xml,
                                          profile: :spec_friendly)).to be true

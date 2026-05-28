@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 require "paint" unless RUBY_ENGINE == "opal"
-require "yaml"
+require "yaml" unless RUBY_ENGINE == "opal"
 require_relative "comparison"
 require_relative "diff/diff_block"
 require_relative "diff/diff_context"
@@ -135,16 +135,17 @@ module Canon
     end
 
     # Default character visualization map (loaded from YAML)
-    DEFAULT_VISUALIZATION_MAP = character_map_data[:visualization_map].freeze
-
-    # Character category map (loaded from YAML)
-    CHARACTER_CATEGORY_MAP = character_map_data[:category_map].freeze
-
-    # Category display names (loaded from YAML)
-    CHARACTER_CATEGORY_NAMES = character_map_data[:category_names].freeze
-
-    # Character metadata including names (loaded from YAML)
-    CHARACTER_METADATA = character_map_data[:character_metadata].freeze
+    if RUBY_ENGINE == "opal"
+      DEFAULT_VISUALIZATION_MAP = {}.freeze
+      CHARACTER_CATEGORY_MAP = {}.freeze
+      CHARACTER_CATEGORY_NAMES = {}.freeze
+      CHARACTER_METADATA = {}.freeze
+    else
+      DEFAULT_VISUALIZATION_MAP = character_map_data[:visualization_map].freeze
+      CHARACTER_CATEGORY_MAP = character_map_data[:category_map].freeze
+      CHARACTER_CATEGORY_NAMES = character_map_data[:category_names].freeze
+      CHARACTER_METADATA = character_map_data[:character_metadata].freeze
+    end
 
     # Map difference codes to human-readable descriptions
     DIFF_DESCRIPTIONS = {
