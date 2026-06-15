@@ -27,7 +27,7 @@ RSpec.describe "parse error surface (issue #130)" do
     it "surfaces the libxml FATAL on the received side" do
       expect(result.parse_errors_received).not_to be_empty
       expect(result.parse_errors_received.join("\n"))
-        .to match(/Attribute xml:lang redefined/)
+        .to include("Attribute xml:lang redefined")
     end
 
     it "leaves the expected side's parse_errors empty" do

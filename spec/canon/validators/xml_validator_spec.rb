@@ -53,7 +53,7 @@ RSpec.describe Canon::Validators::XmlValidator do
           Canon::ValidationError,
         ) do |error|
           expect(error.format).to eq(:xml)
-          expect(error.message).to match(/XML Validation Error/)
+          expect(error.message).to include("XML Validation Error")
         end
       end
 

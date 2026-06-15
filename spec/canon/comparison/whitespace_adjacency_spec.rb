@@ -125,7 +125,7 @@ RSpec.describe ":whitespace_adjacency diff dimension (#137)" do
 
       expect(reason).not_to include('"":')
       expect(reason).not_to include('before ""')
-      expect(reason).to match(/Whitespace inside <h1>/)
+      expect(reason).to include("Whitespace inside <h1>")
     end
 
     it "falls back to (unknown parent) when the whitespace node lacks a real parent" do

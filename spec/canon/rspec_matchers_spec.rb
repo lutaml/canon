@@ -437,7 +437,7 @@ RSpec.describe Canon::RSpecMatchers do
         expect(xml1).to be_xml_equivalent_to(xml2)
       rescue RSpec::Expectations::ExpectationNotMetError => e
         # Verify that diff is included in the failure message
-        expect(e.message).to match(/Line-by-line diff/)
+        expect(e.message).to include("Line-by-line diff")
         expect(e.message).to include("attr1")
       end
 
@@ -457,7 +457,7 @@ RSpec.describe Canon::RSpecMatchers do
       it "highlights missing attributes in diff" do
         expect(xml1).to be_xml_equivalent_to(xml2)
       rescue RSpec::Expectations::ExpectationNotMetError => e
-        expect(e.message).to match(/Line-by-line diff/)
+        expect(e.message).to include("Line-by-line diff")
         # Should show the attribute difference
         expect(e.message).to include("extra")
       end
@@ -470,7 +470,7 @@ RSpec.describe Canon::RSpecMatchers do
       it "generates visual diff for JSON" do
         expect(json1).to be_json_equivalent_to(json2)
       rescue RSpec::Expectations::ExpectationNotMetError => e
-        expect(e.message).to match(/Line-by-line diff/)
+        expect(e.message).to include("Line-by-line diff")
         expect(e.message).to include("Alice")
         expect(e.message).to include("Bob")
       end
@@ -483,7 +483,7 @@ RSpec.describe Canon::RSpecMatchers do
       it "generates visual diff for YAML" do
         expect(yaml1).to be_yaml_equivalent_to(yaml2)
       rescue RSpec::Expectations::ExpectationNotMetError => e
-        expect(e.message).to match(/Line-by-line diff/)
+        expect(e.message).to include("Line-by-line diff")
         expect(e.message).to include("Alice")
         expect(e.message).to include("Bob")
       end
@@ -496,7 +496,7 @@ RSpec.describe Canon::RSpecMatchers do
       it "generates visual diff for HTML" do
         expect(html1).to be_html_equivalent_to(html2)
       rescue RSpec::Expectations::ExpectationNotMetError => e
-        expect(e.message).to match(/Line-by-line diff/)
+        expect(e.message).to include("Line-by-line diff")
       end
     end
 
@@ -915,7 +915,7 @@ RSpec.describe Canon::RSpecMatchers do
         # Should show the changed element in the diff output
         # New format uses line-by-line diff instead of "Element:" headers
         expect(e.message).to include("formattedAddress")
-        expect(e.message).to match(/Line-by-line diff/)
+        expect(e.message).to include("Line-by-line diff")
       end
     end
 
@@ -953,7 +953,7 @@ RSpec.describe Canon::RSpecMatchers do
         expect(e.message).to include("content")
 
         # Should show the line-by-line diff format
-        expect(e.message).to match(/Line-by-line diff/)
+        expect(e.message).to include("Line-by-line diff")
 
         # Should show both the attribute and content changes
         expect(e.message).to include("attr")
@@ -1046,7 +1046,7 @@ RSpec.describe Canon::RSpecMatchers do
         diff_message = e.message
 
         # Should show formattedAddress in the element path
-        expect(diff_message).to match(/formattedAddress/)
+        expect(diff_message).to include("formattedAddress")
 
         # Should NOT have multiple Element: sections for every ancestor
         # (iso-standard, bibdata, contributor, person, affiliation, organization, address)
@@ -1131,7 +1131,7 @@ RSpec.describe Canon::RSpecMatchers do
         expect(xml1).to be_xml_equivalent_to(xml2)
       rescue RSpec::Expectations::ExpectationNotMetError => e
         # Should show the actual difference in canonicalized form
-        expect(e.message).to match(/Line-by-line diff/)
+        expect(e.message).to include("Line-by-line diff")
         expect(e.message).to include("attr")
       end
     end

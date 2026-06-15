@@ -29,7 +29,7 @@ RSpec.describe Canon::Validators::JsonValidator do
           Canon::ValidationError,
         ) do |error|
           expect(error.format).to eq(:json)
-          expect(error.message).to match(/JSON Validation Error/)
+          expect(error.message).to include("JSON Validation Error")
         end
       end
 

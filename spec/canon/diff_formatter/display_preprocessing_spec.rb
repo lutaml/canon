@@ -469,7 +469,7 @@ RSpec.describe "DiffFormatter display preprocessing" do
         output = formatter.format([], :html, doc1: html_diff_a,
                                              doc2: html_diff_b)
         # Plain spaces appear without ░ substitution
-        expect(output).to match(/ /)
+        expect(output).to include(" ")
       end
     end
   end
