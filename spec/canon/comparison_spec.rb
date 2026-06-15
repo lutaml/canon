@@ -853,4 +853,48 @@ RSpec.describe Canon::Comparison do
       expect(label).not_to match(/\A\d+\z/)
     end
   end
+
+  describe "opts hash immutability" do
+    after do
+      Canon::Config.reset!
+    end
+
+    it "does not pollute the caller's opts hash across calls" do
+      xml1 = "<root>hello world</root>"
+      xml2 = "<root>hello   world</root>"
+
+      Canon::Config.configure do |c|
+        c.xml.match.profile = :spec_friendly
+      end
+
+      shared_opts = { format: :xml, verbose: true }
+      described_class.equivalent?(xml1, xml2, shared_opts)
+
+      # Config-sourced keys must not leak into the caller's hash
+      expect(shared_opts).not_to have_key(:global_profile)
+      expect(shared_opts).not_to have_key(:global_options)
+      expect(shared_opts).not_to have_key(:match_profile)
+      expect(shared_opts).not_to have_key(:match_opts)
+    end
+
+    it "produces correct results after config reset with a reused opts hash" do
+      xml1 = "<root>hello world</root>"
+      xml2 = "<root>hello   world</root>"
+
+      # Run 1: with spec_friendly profile (normalizes whitespace)
+      Canon::Config.configure do |c|
+        c.xml.match.profile = :spec_friendly
+      end
+      shared_opts = { format: :xml }
+      result1 = described_class.equivalent?(xml1, xml2, shared_opts)
+      expect(result1).to be true
+
+      # Reset config (back to strict defaults)
+      Canon::Config.reset!
+
+      # Run 2: same opts hash, should use strict defaults
+      result2 = described_class.equivalent?(xml1, xml2, shared_opts)
+      expect(result2).to be false
+    end
+  end
 end

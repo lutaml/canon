@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 require "set"
-require_relative "../theme"
 
 module Canon
   class DiffFormatter
@@ -76,19 +75,16 @@ show_diffs: :all, theme: nil)
 show_diffs: :all, theme: nil)
           case format
           when :xml, :html
-            require_relative "xml_formatter"
             XmlFormatter.new(use_color: use_color,
                              visualization_map: visualization_map,
                              show_diffs: show_diffs,
                              theme: theme)
           when :json
-            require_relative "json_formatter"
             JsonFormatter.new(use_color: use_color,
                               visualization_map: visualization_map,
                               show_diffs: show_diffs,
                               theme: theme)
           when :yaml
-            require_relative "yaml_formatter"
             YamlFormatter.new(use_color: use_color,
                               visualization_map: visualization_map,
                               show_diffs: show_diffs,
@@ -221,23 +217,20 @@ show_diffs: :all, theme: nil)
           current = node
           visited = Set.new
 
-          while current.respond_to?(:name)
-            # Prevent infinite loops by tracking visited nodes
+          while current
             break if visited.include?(current.object_id)
 
             visited << current.object_id
 
-            parts.unshift(current.name) if current.name
+            break if Canon::Comparison::NodeInspector.document?(current) ||
+              Canon::Comparison::NodeInspector.document_fragment?(current)
 
-            # Stop at document or fragment roots
-            break if current.is_a?(Nokogiri::XML::Document) ||
-              current.is_a?(Nokogiri::HTML4::Document) ||
-              current.is_a?(Nokogiri::HTML5::Document) ||
-              current.is_a?(Nokogiri::XML::DocumentFragment) ||
-              current.is_a?(Nokogiri::HTML4::DocumentFragment) ||
-              current.is_a?(Nokogiri::HTML5::DocumentFragment)
+            name = Canon::Comparison::NodeInspector.name(current)
+            break if name.nil?
 
-            current = current.parent if current.respond_to?(:parent)
+            parts.unshift(name) unless name.empty?
+
+            current = Canon::Comparison::NodeInspector.parent(current)
           end
 
           parts.empty? ? diff_node.dimension.to_s : parts.join(".")

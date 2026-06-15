@@ -99,7 +99,6 @@ module Canon
       def self.decode_xml_entities(text)
         return text unless text.include?("&")
 
-        require_relative "../tree_diff/core/xml_entity_decoder"
         Canon::TreeDiff::Core::XmlEntityDecoder.decode_xml_entities(text)
       end
 

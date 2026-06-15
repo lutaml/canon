@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require_relative "base_formatter"
-require_relative "../legend"
 require "set"
 
 module Canon
@@ -53,11 +51,6 @@ module Canon
             return ""
           end
 
-          require_relative "../../html/data_model"
-          require_relative "../../xml/element_matcher"
-          require_relative "../../xml/line_range_mapper"
-          require_relative "../../pretty_printer/html"
-
           output = []
 
           begin
@@ -107,7 +100,6 @@ module Canon
             end
 
             output << ""
-            require_relative "simple_formatter"
             simple = SimpleFormatter.new(
               use_color: @use_color,
               context_lines: @context_lines,
@@ -122,9 +114,6 @@ module Canon
 
         # Format using new DiffReportBuilder pipeline
         def format_with_pipeline(doc1, doc2)
-          require_relative "../../diff/diff_node_mapper"
-          require_relative "../../diff/diff_report_builder"
-
           # Layer 2: Map DiffNodes to DiffLines
           diff_lines = Canon::Diff::DiffNodeMapper.map(@differences, doc1, doc2)
 
@@ -350,15 +339,14 @@ module Canon
 
           # Second pass: skip children of elements with diffs
           elements_with_diffs.each do |elem|
-            if elem.respond_to?(:parent)
-              current = elem.parent
-              while current
-                if current.respond_to?(:name) && elements_with_diffs.include?(current)
-                  elements_to_skip.add(elem)
-                  break
-                end
-                current = current.respond_to?(:parent) ? current.parent : nil
+            current = Canon::Comparison::NodeInspector.parent(elem)
+            while current
+              if Canon::Comparison::NodeInspector.element_node?(current) &&
+                  elements_with_diffs.include?(current)
+                elements_to_skip.add(elem)
+                break
               end
+              current = Canon::Comparison::NodeInspector.parent(current)
             end
           end
 

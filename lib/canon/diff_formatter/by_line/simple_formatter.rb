@@ -1,8 +1,5 @@
 # frozen_string_literal: true
 
-require_relative "base_formatter"
-require_relative "../legend"
-
 module Canon
   class DiffFormatter
     module ByLine

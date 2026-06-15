@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require_relative "../../xml/namespace_helper"
-
 module Canon
   class DiffFormatter
     module DiffDetailFormatterHelpers

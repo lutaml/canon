@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 require "nokogiri" unless RUBY_ENGINE == "opal"
-require_relative "html_void_elements"
 
 module Canon
   module PrettyPrinter
@@ -398,7 +397,6 @@ module Canon
 
       # Load the default visualization map from DiffFormatter constants.
       def default_vis_map
-        require_relative "../diff_formatter"
         Canon::DiffFormatter::DEFAULT_VISUALIZATION_MAP
       rescue LoadError, NameError
         { " " => "░", "\t" => "⇥", "\n" => "↵", "\r" => "⏎", "\u00A0" => "␣" }

@@ -3,7 +3,7 @@
 module Canon
   module Comparison
     # CompareProfile encapsulates the policy decisions about how differences
-    # in various dimensions should be handled during comparison
+    # in various dimensions should be handled during comparison.
     #
     # This class provides separation of concerns:
     # - CompareProfile: Policy decisions (what to track, what affects equivalence)
@@ -17,69 +17,46 @@ module Canon
         @match_options = match_options
       end
 
-      # Should DiffNodes be created for differences in this dimension?
-      #
-      # In verbose mode, we want to track ALL differences for reporting.
-      # In non-verbose mode, we only need to track normative differences.
-      #
-      # @param dimension [Symbol] The match dimension to check
-      # @return [Boolean] true if differences should be tracked
       def track_dimension?(_dimension)
-        # Always track dimensions that affect equivalence
-        # In verbose mode, also track informative dimensions
         true
       end
 
       # Should differences in this dimension affect equivalence?
       #
-      # This determines the return value of the comparison:
-      # - true: differences make documents non-equivalent
-      # - false: differences are informative only
-      #
       # @param dimension [Symbol] The match dimension to check
       # @return [Boolean] true if differences affect equivalence
       def affects_equivalence?(dimension)
         behavior = behavior_for(dimension)
-
-        # :strict → affects equivalence
-        # :normalize → might affect (if normalization fails)
-        # :ignore → does NOT affect equivalence
         behavior != :ignore
       end
 
       # Is a difference in this dimension normative (affects equivalence)?
       #
-      # This is used by DiffClassifier to determine the normative flag.
-      #
-      # Normative rules by dimension:
-      # - structural_whitespace: only :strict is normative (:normalize and :ignore are informative)
-      # - all other dimensions: normative unless behavior is :ignore
+      # Delegates to the Dimension object's normative? rule.  Falls back to
+      # the default rule (normative unless :ignore) for dimensions not in the
+      # format's dimension set (e.g., derived dimensions like :element_structure).
       #
       # @param dimension [Symbol] The match dimension to check
       # @return [Boolean] true if normative, false if informative
       def normative_dimension?(dimension)
-        # Structural whitespace with :normalize or :ignore behavior is INFORMATIVE
-        # Only :strict mode makes whitespace normative
-        if dimension == :structural_whitespace
-          behavior = behavior_for(dimension)
-          return behavior == :strict
+        dim = dimension_for(dimension)
+        if dim
+          dim.normative?(behavior_for(dimension))
+        else
+          behavior_for(dimension) != :ignore
         end
-
-        # For all other dimensions, normative if behavior affects equivalence
-        affects_equivalence?(dimension)
       end
 
       # Can a difference in this dimension be formatting-only?
       #
-      # This determines whether FormattingDetector should be applied.
-      # Only text/content dimensions can have formatting-only differences.
+      # Delegates to the Dimension object's supports_formatting_detection?
+      # flag.  Falls back to false for unknown dimensions.
       #
       # @param dimension [Symbol] The match dimension to check
       # @return [Boolean] true if formatting detection should apply
       def supports_formatting_detection?(dimension)
-        # Only text_content and structural_whitespace can have formatting-only diffs
-        # Comments are policy-based (strict/ignore), not formatting-based
-        %i[text_content structural_whitespace].include?(dimension)
+        dim = dimension_for(dimension)
+        dim ? dim.supports_formatting_detection? : false
       end
 
       # Get the behavior setting for a dimension
@@ -92,6 +69,23 @@ module Canon
           match_options[dimension] || :strict
         else
           :strict
+        end
+      end
+
+      private
+
+      def dimension_for(name)
+        set = Dimensions::Registry.for(extract_format)
+        set[name]
+      end
+
+      def extract_format
+        if match_options.is_a?(ResolvedMatchOptions)
+          match_options.format
+        elsif match_options.is_a?(Hash)
+          match_options[:format]
+        else
+          :xml
         end
       end
     end

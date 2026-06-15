@@ -1,75 +1,116 @@
 # frozen_string_literal: true
 
-require_relative "base_dimension"
-require_relative "text_content_dimension"
-require_relative "comments_dimension"
-require_relative "attribute_values_dimension"
-require_relative "attribute_presence_dimension"
-require_relative "attribute_order_dimension"
-require_relative "element_position_dimension"
-require_relative "structural_whitespace_dimension"
-
 module Canon
   module Comparison
     module Dimensions
-      # Registry for comparison dimensions
+      # Pre-built dimension sets with format lookup.
       #
-      # Provides a central access point for all dimension classes
-      # and maps dimension symbols to their implementations.
+      # XML/HTML share 7 dimensions.  JSON has 3.  YAML has 4.
+      # Format aliases (html, html4, html5) resolve to the XML set.
       module Registry
-        # Dimension class mappings
-        DIMENSION_CLASSES = {
-          text_content: TextContentDimension,
-          comments: CommentsDimension,
-          attribute_values: AttributeValuesDimension,
-          attribute_presence: AttributePresenceDimension,
-          attribute_order: AttributeOrderDimension,
-          element_position: ElementPositionDimension,
-          structural_whitespace: StructuralWhitespaceDimension,
+        SETS = {
+          xml: DimensionSet.new(:xml, [
+                                  Dimension.new(
+                                    name: :text_content,
+                                    valid_behaviors: %i[strict normalize
+                                                        ignore],
+                                    formatting_detection: true,
+                                  ),
+                                  Dimension.new(
+                                    name: :structural_whitespace,
+                                    valid_behaviors: %i[strict normalize
+                                                        ignore],
+                                    normative_rule: :strict_only,
+                                    formatting_detection: true,
+                                  ),
+                                  Dimension.new(
+                                    name: :attribute_presence,
+                                    valid_behaviors: %i[strict ignore],
+                                  ),
+                                  Dimension.new(
+                                    name: :attribute_order,
+                                    valid_behaviors: %i[strict ignore],
+                                  ),
+                                  Dimension.new(
+                                    name: :attribute_values,
+                                    valid_behaviors: %i[strict strip compact
+                                                        normalize ignore],
+                                  ),
+                                  Dimension.new(
+                                    name: :element_position,
+                                    valid_behaviors: %i[strict ignore],
+                                  ),
+                                  Dimension.new(
+                                    name: :comments,
+                                    valid_behaviors: %i[strict ignore],
+                                  ),
+                                ]),
+
+          json: DimensionSet.new(:json, [
+                                   Dimension.new(
+                                     name: :text_content,
+                                     valid_behaviors: %i[strict normalize
+                                                         ignore],
+                                   ),
+                                   Dimension.new(
+                                     name: :structural_whitespace,
+                                     valid_behaviors: %i[strict normalize
+                                                         ignore],
+                                     normative_rule: :strict_only,
+                                   ),
+                                   Dimension.new(
+                                     name: :key_order,
+                                     valid_behaviors: %i[strict ignore],
+                                   ),
+                                 ]),
+
+          yaml: DimensionSet.new(:yaml, [
+                                   Dimension.new(
+                                     name: :text_content,
+                                     valid_behaviors: %i[strict normalize
+                                                         ignore],
+                                   ),
+                                   Dimension.new(
+                                     name: :structural_whitespace,
+                                     valid_behaviors: %i[strict normalize
+                                                         ignore],
+                                     normative_rule: :strict_only,
+                                   ),
+                                   Dimension.new(
+                                     name: :key_order,
+                                     valid_behaviors: %i[strict ignore],
+                                   ),
+                                   Dimension.new(
+                                     name: :comments,
+                                     valid_behaviors: %i[strict ignore],
+                                   ),
+                                 ]),
         }.freeze
 
-        # Get a dimension instance by name
-        #
-        # @param dimension_name [Symbol] Dimension name
-        # @return [BaseDimension] Dimension instance
-        # @raise [Canon::Error] if dimension is unknown
-        def self.get(dimension_name)
-          dimension_class = DIMENSION_CLASSES[dimension_name]
+        FORMAT_ALIASES = {
+          html: :xml,
+          html4: :xml,
+          html5: :xml,
+        }.freeze
 
-          unless dimension_class
-            raise Canon::Error,
-                  "Unknown dimension: #{dimension_name}. " \
-                  "Valid dimensions: #{DIMENSION_CLASSES.keys.join(', ')}"
+        class << self
+          # Look up the DimensionSet for a format.
+          # Format aliases (html, html4, html5) resolve to the :xml set.
+          # Unknown formats fall back to :xml.
+          #
+          # @param format [Symbol]
+          # @return [DimensionSet]
+          def for(format)
+            key = FORMAT_ALIASES[format] || format
+            SETS[key] || SETS[:xml]
           end
 
-          dimension_class.new
-        end
-
-        # Get all available dimension names
-        #
-        # @return [Array<Symbol>] Available dimension names
-        def self.available_dimensions
-          DIMENSION_CLASSES.keys
-        end
-
-        # Check if a dimension is available
-        #
-        # @param dimension_name [Symbol] Dimension name
-        # @return [Boolean] true if dimension is available
-        def self.dimension_exists?(dimension_name)
-          DIMENSION_CLASSES.key?(dimension_name)
-        end
-
-        # Compare two nodes for a specific dimension
-        #
-        # @param dimension_name [Symbol] Dimension name
-        # @param node1 [Object] First node
-        # @param node2 [Object] Second node
-        # @param behavior [Symbol] Comparison behavior
-        # @return [Boolean] true if nodes match for this dimension
-        def self.compare(dimension_name, node1, node2, behavior) # rubocop:disable Naming/PredicateMethod
-          dimension = get(dimension_name)
-          dimension.equivalent?(node1, node2, behavior)
+          # All format names with explicit sets (excluding aliases).
+          #
+          # @return [Array<Symbol>]
+          def format_names
+            SETS.keys
+          end
         end
       end
     end

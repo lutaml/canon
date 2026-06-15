@@ -1,12 +1,5 @@
 # frozen_string_literal: true
 
-require_relative "../core/tree_node"
-require_relative "../core/node_signature"
-require_relative "../core/node_weight"
-require_relative "../core/matching"
-require_relative "../core/attribute_comparator"
-require_relative "../core/xml_entity_decoder"
-
 module Canon
   module TreeDiff
     module Matchers

@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 require "json"
-require_relative "../validators/json_validator"
 
 module Canon
   module Formatters

@@ -2,21 +2,6 @@
 
 require "moxml"
 require "nokogiri" if Canon::XmlBackend.nokogiri?
-require_relative "xml/whitespace_normalizer"
-require_relative "comparison/xml_comparator"
-require_relative "comparison/html_comparator"
-require_relative "comparison/json_comparator"
-require_relative "comparison/yaml_comparator"
-require_relative "errors"
-require_relative "comparison/profile_definition"
-require_relative "comparison/format_detector"
-require_relative "comparison/html_parser"
-require_relative "diff/diff_node_mapper"
-require_relative "diff/diff_line"
-require_relative "diff/diff_block_builder"
-require_relative "diff/diff_context_builder"
-require_relative "diff/diff_report_builder"
-require_relative "cache"
 
 module Canon
   # Comparison module for XML, HTML, JSON, and YAML documents
@@ -104,7 +89,31 @@ module Canon
   # - diff_code: Type of difference
   #
   module Comparison
+    autoload :BaseComparator, "canon/comparison/base_comparator"
     autoload :ChildRealignment, "canon/comparison/child_realignment"
+    autoload :CompareProfile, "canon/comparison/compare_profile"
+    autoload :ComparisonResult, "canon/comparison/comparison_result"
+    autoload :DiffNodeBuilder, "canon/comparison/diff_node_builder"
+    autoload :Dimensions, "canon/comparison/dimensions"
+    autoload :FormatDetector, "canon/comparison/format_detector"
+    autoload :HtmlComparator, "canon/comparison/html_comparator"
+    autoload :HtmlCompareProfile, "canon/comparison/html_compare_profile"
+    autoload :HtmlParser, "canon/comparison/html_parser"
+    autoload :JsonComparator, "canon/comparison/json_comparator"
+    autoload :JsonParser, "canon/comparison/json_parser"
+    autoload :MarkupComparator, "canon/comparison/markup_comparator"
+    autoload :MatchOptions, "canon/comparison/match_options"
+    autoload :NodeInspector, "canon/comparison/node_inspector"
+    autoload :Pipeline, "canon/comparison/pipeline"
+    autoload :ProfileDefinition, "canon/comparison/profile_definition"
+    autoload :RubyObjectComparator, "canon/comparison/ruby_object_comparator"
+    autoload :Strategies, "canon/comparison/strategies"
+    autoload :WhitespaceSensitivity, "canon/comparison/whitespace_sensitivity"
+    autoload :XmlComparator, "canon/comparison/xml_comparator"
+    autoload :XmlComparatorHelpers, "canon/comparison/xml_comparator_helpers"
+    autoload :XmlNodeComparison, "canon/comparison/xml_node_comparison"
+    autoload :XmlParser, "canon/comparison/xml_parser"
+    autoload :YamlComparator, "canon/comparison/yaml_comparator"
 
     # Comparison result constants
     EQUIVALENT = 1
@@ -123,6 +132,32 @@ module Canon
     UNEQUAL_ARRAY_ELEMENTS = 14
     UNEQUAL_TYPES = 15
     UNEQUAL_PRIMITIVES = 16
+
+    # Keys that OperationConverter and SemanticTreeMatchStrategy accept.
+    # Used to strip diff-only keys (e.g. +max_node_count+) from the
+    # fully-resolved match options hash before passing it to components
+    # that expect match options only.
+    MATCH_OPTION_KEYS = %i[
+      match_profile
+      match
+      preprocessing
+      text_content
+      structural_whitespace
+      attribute_presence
+      attribute_order
+      attribute_values
+      element_position
+      comments
+      format
+      similarity_threshold
+      hash_matching
+      similarity_matching
+      propagation
+      preserve_whitespace_elements
+      collapse_whitespace_elements
+      strip_whitespace_elements
+      respect_xml_space
+    ].freeze
 
     # Human-readable labels for the integer comparison-result constants
     # above.  Used by the diff reason builders so user-facing reason text
@@ -195,13 +230,17 @@ module Canon
       #   - :verbose - Return detailed diff array (default: false)
       # @return [Boolean, Array] true if equivalent, or array of diffs if verbose
       def equivalent?(obj1, obj2, opts = {})
-        # Check if semantic tree diff is requested
-        # Support both :semantic and :semantic_tree for backward compatibility
+        # Normalize: match: { semantic_diff: true } → diff_algorithm: :semantic
+        if opts.dig(:match, :semantic_diff) || opts.dig(:match, :semantic_tree)
+          opts = opts.merge(diff_algorithm: :semantic)
+          opts = opts.merge(match: opts[:match].except(:semantic_diff,
+                                                       :semantic_tree))
+        end
+
         if %i[semantic semantic_tree].include?(opts[:diff_algorithm])
           return semantic_diff(obj1, obj2, opts)
         end
 
-        # Otherwise use DOM-based comparison (default)
         dom_diff(obj1, obj2, opts)
       end
 
@@ -288,113 +327,90 @@ module Canon
 
       # Perform semantic tree diff comparison
       def semantic_diff(obj1, obj2, opts = {})
-        require_relative "tree_diff"
+        resolved = opts.dup
+        format_hint = resolved[:format]
 
-        # Capture original strings BEFORE any parsing/transformation
-        # These are used for display to preserve original formatting
-        format_hint = opts[:format]
-        original_str1 = extract_original_string(obj1, format_hint)
-        original_str2 = extract_original_string(obj2, format_hint)
+        # Capture original strings BEFORE any parsing/transformation.
+        # These are used for display to preserve original formatting.
+        original_str1, original_str2 = Pipeline.capture_originals(obj1, obj2)
 
-        # Detect format for both objects
-        format1 = opts[:format] || FormatDetector.detect(obj1)
-        format2 = opts[:format] || FormatDetector.detect(obj2)
+        # Detect format for both objects.
+        format1, format2 = Pipeline.detect_formats(obj1, obj2, format_hint)
 
-        # Handle string format (plain text comparison) - semantic tree doesn't support it
+        # Semantic tree doesn't support plain-string comparison.
         if format1 == :string
-          if opts[:verbose]
+          if resolved[:verbose]
             return obj1.to_s == obj2.to_s ? [] : [:different]
           else
             return obj1.to_s == obj2.to_s
           end
         end
 
-        # Ensure formats match
-        unless format1 == format2
-          raise Canon::CompareFormatMismatchError.new(format1, format2)
-        end
+        # Semantic requires exact format match (no ruby_object cross-compat).
+        Pipeline.validate_compatible!(format1, format2, strict: true)
 
-        # Get global config options if not defined in opts
-        # This is needed because semantic_diff doesn't go through dom_diff's config handling
-        if !(opts[:match_profile] || opts[:global_options]) && %i[xml html json
-                                                                  yaml string].include?(format1)
-          format_config = Canon::Config.instance.public_send(format1)
-          if format_config.match.profile
-            opts[:match_profile] =
-              format_config.match.profile
-          end
-          if format_config.match.options && !format_config.match.options.empty?
-            opts[:global_options] =
-              format_config.match.options
-          end
-        end
+        # Merge global config-sourced profile and options into opts.
+        resolved = Pipeline.resolve_config(format1, resolved)
 
-        # Resolve match options for the format
-        match_opts_hash = resolve_match_options(format1, opts)
+        # Resolve match options for the format.
+        match_opts_hash = resolve_match_options(format1, resolved)
 
-        # Also read diff options from config (e.g., max_node_count for large documents)
-        # This is independent of match options and needs to be passed to TreeDiffIntegrator
-        if !match_opts_hash[:max_node_count] && %i[xml html json yaml
-                                                   string].include?(format1)
+        # Also read diff options from config (e.g., max_node_count for
+        # large documents). Independent of match options; passed to
+        # TreeDiffIntegrator.
+        if !match_opts_hash[:max_node_count] &&
+            Pipeline::CONFIG_BACKED_FORMATS.include?(format1)
           diff_max_node = Canon::Config.instance.public_send(format1).diff.max_node_count
           if diff_max_node > 10_000
-            match_opts_hash[:max_node_count] =
-              diff_max_node
+            match_opts_hash[:max_node_count] = diff_max_node
           end
         end
 
-        # Delegate parsing to comparators (reuses existing preprocessing logic)
-        doc1, doc2 = parse_with_comparator(obj1, obj2, format1, match_opts_hash)
+        # Delegate parsing to comparators (reuses existing preprocessing).
+        doc1, doc2 = Pipeline.parse_pair(obj1, obj2, format1, match_opts_hash)
 
-        # Normalize format for TreeDiff (html4/html5 -> html)
+        # Normalize format for TreeDiff (html4/html5 -> html).
         tree_diff_format = normalize_format_for_tree_diff(format1)
 
-        # Create TreeDiff integrator for the format
-        # CRITICAL: Use match_opts_hash (resolved options with profile) not opts[:match]
+        # Create TreeDiff integrator for the format.
+        # CRITICAL: Use match_opts_hash (resolved options with profile)
+        # not opts[:match].
         integrator = Canon::TreeDiff::TreeDiffIntegrator.new(
           format: tree_diff_format,
           options: match_opts_hash,
         )
 
-        # Perform diff
+        # Perform diff.
         tree_diff_result = integrator.diff(doc1, doc2)
 
-        # Extract only match-related keys for OperationConverter and SemanticTreeMatchStrategy
-        # These components expect match options, not diff options like max_node_count
-        match_only_keys = %i[match_profile match preprocessing
-                             text_content structural_whitespace attribute_presence
-                             attribute_order attribute_values element_position
-                             comments format similarity_threshold hash_matching
-                             similarity_matching propagation
-                             preserve_whitespace_elements
-                             collapse_whitespace_elements
-                             strip_whitespace_elements respect_xml_space]
-        match_options_only = match_opts_hash.slice(*match_only_keys)
+        # Extract only match-related keys for OperationConverter and
+        # SemanticTreeMatchStrategy. These components expect match
+        # options, not diff options like max_node_count.
+        match_options_only = match_opts_hash.slice(*MATCH_OPTION_KEYS)
 
-        # Convert operations to DiffNodes for unified pipeline
-        # CRITICAL: Use match_opts_hash (resolved options with profile) not opts[:match]
+        # Convert operations to DiffNodes for unified pipeline.
         converter = Canon::TreeDiff::OperationConverter.new(
           format: format1,
           match_options: match_options_only,
         )
         diff_nodes = converter.convert(tree_diff_result[:operations])
 
-        # CRITICAL: Use strategy's preprocess_for_display to ensure proper line-breaking
-        # This matches DOM diff preprocessing pattern (xml_comparator.rb:106-109)
-        require_relative "comparison/strategies/semantic_tree_match_strategy"
+        # CRITICAL: Use strategy's preprocess_for_display to ensure proper
+        # line-breaking. This matches DOM diff preprocessing pattern
+        # (xml_comparator.rb:106-109).
         strategy = Comparison::Strategies::SemanticTreeMatchStrategy.new(
           format: format1, match_options: match_options_only,
         )
         str1, str2 = strategy.preprocess_for_display(doc1, doc2)
 
-        # Store tree diff data in match_options for access via result
+        # Store tree diff data in match_options for access via result.
         enhanced_match_options = match_opts_hash.merge(
           tree_diff_operations: tree_diff_result[:operations],
           tree_diff_statistics: tree_diff_result[:statistics],
           tree_diff_matching: tree_diff_result[:matching],
         )
 
-        # Create ComparisonResult for unified handling
+        # Create ComparisonResult for unified handling.
         result = Canon::Comparison::ComparisonResult.new(
           differences: diff_nodes,
           preprocessed_strings: [str1, str2],
@@ -405,8 +421,8 @@ module Canon
           algorithm: :semantic,
         )
 
-        # Return boolean or ComparisonResult based on verbose flag
-        if opts[:verbose]
+        # Return boolean or ComparisonResult based on verbose flag.
+        if resolved[:verbose]
           result
         else
           result.equivalent?
@@ -534,16 +550,7 @@ module Canon
       # @param format [Symbol] Format type
       # @return [Array<Symbol>] Valid dimensions for the format
       def valid_dimensions_for_format(format)
-        case format
-        when :xml, :html, :html4, :html5
-          MatchOptions::Xml::MATCH_DIMENSIONS
-        when :json
-          MatchOptions::Json::MATCH_DIMENSIONS
-        when :yaml
-          MatchOptions::Yaml::MATCH_DIMENSIONS
-        else
-          []
-        end
+        Dimensions::Registry.for(format).names
       end
 
       # Helper to extract format from opts for validation
@@ -552,76 +559,6 @@ module Canon
       # @return [Symbol] Format type or :xml as default
       def format_from_opts(opts)
         opts[:format] || :xml
-      end
-
-      # Parse documents using comparator's parse logic (reuses preprocessing)
-      #
-      # @param obj1 [Object] First object
-      # @param obj2 [Object] Second object
-      # @param format [Symbol] Format type
-      # @param match_opts_hash [Hash] Resolved match options
-      # @return [Array<Object, Object>] Parsed documents
-      def parse_with_comparator(obj1, obj2, format, match_opts_hash)
-        preprocessing = match_opts_hash[:preprocessing] || :none
-
-        case format
-        when :xml
-          # Delegate to XmlComparator's parse - returns Canon::Xml::Node
-          doc1 = parse_with_cache(obj1, format, preprocessing) do |doc|
-            XmlComparator.parse(doc, preprocessing)
-          end
-          doc2 = parse_with_cache(obj2, format, preprocessing) do |doc|
-            XmlComparator.parse(doc, preprocessing)
-          end
-          [doc1, doc2]
-        when :html, :html4, :html5
-          [
-            parse_with_cache(obj1, format, preprocessing) do |doc|
-              HtmlComparator.parse(doc, preprocessing)
-            end,
-            parse_with_cache(obj2, format, preprocessing) do |doc|
-              HtmlComparator.parse(doc, preprocessing)
-            end,
-          ]
-        when :json
-          [
-            parse_with_cache(obj1, format, :none) do |doc|
-              JsonComparator.parse(doc)
-            end,
-            parse_with_cache(obj2, format, :none) do |doc|
-              JsonComparator.parse(doc)
-            end,
-          ]
-        when :yaml
-          [
-            parse_with_cache(obj1, format, :none) do |doc|
-              YamlComparator.parse(doc)
-            end,
-            parse_with_cache(obj2, format, :none) do |doc|
-              YamlComparator.parse(doc)
-            end,
-          ]
-        else
-          [obj1, obj2]
-        end
-      end
-
-      # Parse a document with caching
-      #
-      # @param doc [Object] Document to parse (string or already parsed)
-      # @param format [Symbol] Document format
-      # @param preprocessing [Symbol] Preprocessing option
-      # @yield Block to parse the document if not cached
-      # @return [Object] Parsed document
-      def parse_with_cache(doc, format, preprocessing)
-        # If already a parsed node, return as-is
-        return doc unless doc.is_a?(String)
-
-        # Use cache for string documents
-        Cache.fetch(:document_parse,
-                    Cache.key_for_document(doc, format, preprocessing)) do # rubocop:disable Lint/UselessDefaultValueArgument
-          yield doc
-        end
       end
 
       # Normalize format for TreeDiff (html4/html5 -> html)
@@ -634,28 +571,6 @@ module Canon
           :html
         else
           format
-        end
-      end
-
-      # Extract original string from various input types
-      # This preserves the original formatting without minification
-      #
-      # @param obj [String, Nokogiri::Node, Canon::Xml::Node, Object] Input object
-      # @param format [Symbol] Format type for context
-      # @return [String] Original string representation
-      def extract_original_string(obj, _format = nil)
-        case obj
-        when String
-          obj
-        when Nokogiri::XML::Document, Nokogiri::HTML::Document,
-             Nokogiri::XML::DocumentFragment, Nokogiri::HTML::DocumentFragment
-          obj.to_html
-        else
-          if Canon::XmlParsing.xml_node?(obj) || obj.is_a?(Canon::Xml::Node)
-            Canon::XmlParsing.serialize(obj)
-          else
-            obj.to_s
-          end
         end
       end
 
@@ -683,106 +598,68 @@ module Canon
 
       # Perform DOM-based comparison (original behavior)
       def dom_diff(obj1, obj2, opts = {})
-        # Use format hint if provided
-        if opts[:format]
-          format1 = format2 = opts[:format]
-          # Parse HTML strings if format is html/html4/html5
-          if %i[html html4 html5].include?(opts[:format])
-            # Preserve original strings for display (HTML fragment
-            # parsers can mutate the DOM).
-            opts[:_original_str1] = obj1.dup if obj1.is_a?(String)
-            opts[:_original_str2] = obj2.dup if obj2.is_a?(String)
-            # Parse all HTML formats (:html, :html4, :html5) with
-            # Nokogiri::HTML5 so that html4 and html5 share HTML's
-            # whitespace-sensitivity semantics (issue #118).
-            #
-            # The previous html/html4 branch used Nokogiri::XML.fragment
-            # to dodge Nokogiri::HTML4.fragment's destructive DOM
-            # mutations. That avoided one problem but introduced a
-            # bigger one: XML whitespace rules were being applied to
-            # HTML content. HTML's content model — identical between
-            # HTML4 and HTML5 — treats whitespace-only text between
-            # block-level children as insignificant; XML treats every
-            # whitespace text node as significant. Routing html4 input
-            # through an XML parser therefore made
-            # be_html4_equivalent_to reject inputs that
-            # be_html5_equivalent_to (correctly) accepts.
-            # Nokogiri::HTML5.fragment is non-destructive (the original
-            # HTML4.fragment concern does not apply to it) and applies
-            # HTML's content model uniformly.
-            obj1 = HtmlParser.parse(obj1, :html5) if obj1.is_a?(String)
-            obj2 = HtmlParser.parse(obj2, :html5) if obj2.is_a?(String)
-          end
-        else
-          format1 = FormatDetector.detect(obj1)
-          format2 = FormatDetector.detect(obj2)
+        resolved = opts.dup
+        format_hint = resolved[:format]
+
+        # Detect formats (with explicit hint) and pre-parse HTML strings
+        # through Nokogiri::HTML5 so html4 and html5 share HTML's
+        # whitespace-sensitivity semantics (issue #118).  Pre-parsing
+        # also lets us snapshot the original strings before the HTML
+        # fragment parser mutates the DOM.
+        format1, format2 = Pipeline.detect_formats(obj1, obj2, format_hint)
+        if %i[html html4 html5].include?(format_hint) && obj1.is_a?(String) &&
+            obj2.is_a?(String)
+          resolved[:_original_str1] = obj1
+          resolved[:_original_str2] = obj2
+          obj1, obj2 = Pipeline.preparse_html_pair(obj1, obj2)
         end
 
-        # Handle string format (plain text comparison)
+        # Handle string format (plain text comparison).
         if format1 == :string
-          if opts[:verbose]
+          if resolved[:verbose]
             return obj1.to_s == obj2.to_s ? [] : [:different]
           else
             return obj1.to_s == obj2.to_s
           end
         end
 
-        # Allow comparing json/yaml strings with ruby objects
-        # since they parse to the same structure
-        formats_compatible = format1 == format2 ||
-          (%i[json ruby_object].include?(format1) &&
-           %i[json ruby_object].include?(format2)) ||
-          (%i[yaml ruby_object].include?(format1) &&
-           %i[yaml ruby_object].include?(format2))
+        # DOM allows ruby_object <-> json/yaml cross-compatibility.
+        Pipeline.validate_compatible!(format1, format2, strict: false)
 
-        unless formats_compatible
-          raise Canon::CompareFormatMismatchError.new(format1, format2)
-        end
+        # Normalize comparison format (ruby_object -> json by default).
+        comparison_format = normalize_comparison_format(format1, format2)
 
-        # Normalize format for comparison
-        comparison_format = case format1
-                            when :ruby_object
-                              # If comparing ruby_object with json/yaml, use that format
-                              %i[json yaml].include?(format2) ? format2 : :json
-                            else
-                              format1
-                            end
-
-        # get match_profile if it is not defined in options
-        # but defined in config
-        if %i[xml html json yaml string].include?(comparison_format)
-          format_config = Canon::Config.instance.public_send(comparison_format)
-          if opts[:global_profile].nil? && format_config.match.profile
-            # Config-sourced profile has *global* priority (applied before
-            # global_options), so that YAML profile_options like
-            # whitespace_type: :normalize can override the built-in profile
-            # (e.g. :spec_friendly)'s whitespace_type: :strict.  Writing to
-            # :match_profile here gave the config profile per-call priority,
-            # which incorrectly overrode the YAML's own overrides.
-            opts[:global_profile] = format_config.match.profile
-          end
-          # Pass YAML profile's extra match options (e.g., preserve_whitespace_elements)
-          # that are stored in MatchConfig's resolver but not exposed via the
-          # built-in MATCH_PROFILES system. These supplement the built-in profile.
-          profile_opts = format_config.match.profile_options
-          if profile_opts.any? && opts[:global_options].nil?
-            opts[:global_options] = profile_opts
-          elsif profile_opts.any?
-            # Merge: global_options already set (e.g., per-call) takes precedence
-            opts[:global_options] = opts[:global_options].merge(profile_opts)
-          end
-        end
+        # Merge global config-sourced profile and options into opts.
+        resolved = Pipeline.resolve_config(comparison_format, resolved)
 
         case comparison_format
         when :xml
-          XmlComparator.equivalent?(obj1, obj2, opts)
+          XmlComparator.equivalent?(obj1, obj2, resolved)
         when :html, :html4, :html5
-          HtmlComparator.equivalent?(obj1, obj2, opts)
+          HtmlComparator.equivalent?(obj1, obj2, resolved)
         when :json
-          JsonComparator.equivalent?(obj1, obj2, opts)
+          JsonComparator.equivalent?(obj1, obj2, resolved)
         when :yaml
-          YamlComparator.equivalent?(obj1, obj2, opts)
+          YamlComparator.equivalent?(obj1, obj2, resolved)
         end
+      end
+
+      # Pick the format used for actual comparison.
+      #
+      # When comparing ruby_object with json/yaml, use the json/yaml side
+      # so both inputs parse to the same Ruby structure.  When both sides
+      # are ruby_object (or the other side is not json/yaml), default to
+      # JSON since ruby_object has no comparator of its own.
+      #
+      # @param format1 [Symbol]
+      # @param format2 [Symbol]
+      # @return [Symbol]
+      def normalize_comparison_format(format1, format2)
+        return format2 if format1 == :ruby_object &&
+          %i[json yaml].include?(format2)
+        return :json if format1 == :ruby_object
+
+        format1
       end
 
       # Strip XML declarations and DOCTYPE preambles from an HTML string

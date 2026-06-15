@@ -1,9 +1,5 @@
 # frozen_string_literal: true
 
-require_relative "../core/tree_node"
-require_relative "../core/node_weight"
-require_relative "../core/matching"
-
 module Canon
   module TreeDiff
     module Matchers
@@ -218,7 +214,7 @@ module Canon
           whitespace_sensitive_tags = %w[pre code textarea script style]
 
           # Check if this node is whitespace-sensitive
-          if node.respond_to?(:label)
+          if node.is_a?(Core::TreeNode)
             label = node.label.to_s.downcase
             return true if whitespace_sensitive_tags.include?(label)
           end

@@ -1,14 +1,6 @@
 # frozen_string_literal: true
 
 require "nokogiri" unless RUBY_ENGINE == "opal"
-require_relative "../data_model"
-require_relative "../xml/nodes/root_node"
-require_relative "../xml/nodes/element_node"
-require_relative "../xml/nodes/namespace_node"
-require_relative "../xml/nodes/attribute_node"
-require_relative "../xml/nodes/text_node"
-require_relative "../xml/nodes/comment_node"
-require_relative "../xml/nodes/processing_instruction_node"
 
 module Canon
   module Html
@@ -81,7 +73,6 @@ module Canon
       def self.serialize(node)
         # HTML nodes use the same serialization as XML
         # Delegate to XML serialization implementation
-        require_relative "../xml/data_model"
         Canon::Xml::DataModel.serialize(node)
       end
 
@@ -222,7 +213,6 @@ module Canon
           whitespace_sensitive_tags = %w[pre code textarea script style]
 
           # Check if whitespace is between inline siblings
-          require_relative "../comparison/whitespace_sensitivity"
           unless whitespace_sensitive_tags.include?(parent_name) ||
               Canon::Comparison::WhitespaceSensitivity.inline_whitespace_significant?(nokogiri_text)
             return nil

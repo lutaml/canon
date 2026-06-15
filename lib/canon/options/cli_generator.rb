@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require_relative "registry"
-
 module Canon
   module Options
     # Generates Thor CLI options from the Options Registry

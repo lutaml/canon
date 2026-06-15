@@ -1,9 +1,10 @@
 # frozen_string_literal: true
 
-require_relative "html/data_model"
-
 module Canon
-  # HTML-specific functionality for Canon
+  # HTML-specific functionality for Canon.
+  #
+  # Children are autoloaded — never `require_relative` them.
   module Html
+    autoload :DataModel, "canon/html/data_model"
   end
 end

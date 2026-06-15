@@ -1,9 +1,5 @@
 # frozen_string_literal: true
 
-require_relative "diff_report"
-require_relative "diff_block_builder"
-require_relative "diff_context_builder"
-
 module Canon
   module Diff
     # Builds a complete DiffReport from DiffLines

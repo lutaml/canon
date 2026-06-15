@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require_relative "html_formatter_base"
-
 module Canon
   module Formatters
     # HTML5 formatter using Nokogiri::HTML5 parser

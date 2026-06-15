@@ -24,7 +24,9 @@ begin
     end
 
     # REXML: bundled gem since Ruby 3.4
-    rexml_lib = $LOAD_PATH.find { |p| File.exist?(File.join(p, "rexml", "document.rb")) }
+    rexml_lib = $LOAD_PATH.find do |p|
+      File.exist?(File.join(p, "rexml", "document.rb"))
+    end
     Opal.append_path rexml_lib if rexml_lib
   end
 rescue LoadError
@@ -42,7 +44,8 @@ namespace :spec do
     desc "Run Opal (JavaScript) tests"
     Opal::RSpec::RakeTask.new(:opal) do |_server, runner|
       runner.default_path = "spec"
-      runner.requires = %w[rexml_compat rexml/document rexml/xpath moxml/adapter/rexml spec_helper]
+      runner.requires = %w[rexml_compat rexml/document rexml/xpath
+                           moxml/adapter/rexml spec_helper]
       runner.pattern = "spec/canon/opal_xml_smoke_spec.rb"
     end
   end

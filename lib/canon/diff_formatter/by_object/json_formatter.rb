@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require_relative "base_formatter"
-
 module Canon
   class DiffFormatter
     module ByObject

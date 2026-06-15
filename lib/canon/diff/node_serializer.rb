@@ -1,12 +1,5 @@
 # frozen_string_literal: true
 
-require_relative "../xml/data_model"
-require_relative "../xml/nodes/text_node"
-require_relative "../xml/nodes/comment_node"
-require_relative "../xml/nodes/element_node"
-require_relative "../xml/nodes/processing_instruction_node"
-require_relative "../xml/nodes/root_node"
-
 module Canon
   module Diff
     # Serializes nodes from different parsing libraries into canonical strings

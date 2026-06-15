@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require_relative "../errors"
-
 module Canon
   module Validators
     # Base class for all input validators

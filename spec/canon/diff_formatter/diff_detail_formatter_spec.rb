@@ -53,6 +53,24 @@ RSpec.describe "DiffDetailFormatter helpers" do
         described_class.get_node_text(node)
       end
     end
+
+    describe ".get_namespace_uri_for_display" do
+      it "returns the namespace URI of a Canon element node" do
+        node = Canon::Xml::Nodes::ElementNode.new(name: "div",
+                                                  namespace_uri: "http://example.com/ns")
+        expect(described_class.get_namespace_uri_for_display(node))
+          .to eq("http://example.com/ns")
+      end
+
+      it "returns an empty string when the node has no namespace" do
+        node = Canon::Xml::Nodes::ElementNode.new(name: "div")
+        expect(described_class.get_namespace_uri_for_display(node)).to eq("")
+      end
+
+      it "returns an empty string for nil" do
+        expect(described_class.get_namespace_uri_for_display(nil)).to eq("")
+      end
+    end
   end
 
   describe Canon::DiffFormatter::DiffDetailFormatterHelpers::TextUtils do

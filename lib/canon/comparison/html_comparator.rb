@@ -1,21 +1,6 @@
 # frozen_string_literal: true
 
 require "nokogiri" unless RUBY_ENGINE == "opal"
-require_relative "../comparison" # Load base module with constants first
-require_relative "markup_comparator"
-require_relative "xml_comparator"
-require_relative "match_options"
-require_relative "comparison_result"
-require_relative "compare_profile"
-require_relative "html_compare_profile"
-require_relative "../diff/diff_node"
-require_relative "../diff/diff_classifier"
-require_relative "strategies/match_strategy_factory"
-require_relative "../html/data_model"
-require_relative "xml_node_comparison"
-require_relative "xml_comparator/diff_node_builder"
-# Whitespace sensitivity module (single source of truth for sensitive elements)
-require_relative "whitespace_sensitivity"
 
 module Canon
   module Comparison
@@ -106,12 +91,6 @@ module Canon
           # Store resolved match options hash for use in comparison logic
           opts[:match_opts] = match_opts_hash
 
-          # Use tree diff if semantic_diff option is enabled
-          if match_opts.semantic_diff?
-            return perform_semantic_tree_diff(html1, html2, opts,
-                                              match_opts_hash)
-          end
-
           # Create child_opts with resolved options
           child_opts = opts.merge(child_opts)
 
@@ -188,9 +167,7 @@ module Canon
         # accepted: dom_diff routes html/html4/html5 input through
         # Nokogiri::HTML5.fragment per #118.
         def fragment_node?(node)
-          node.is_a?(Nokogiri::XML::DocumentFragment) ||
-            node.is_a?(Nokogiri::HTML4::DocumentFragment) ||
-            node.is_a?(Nokogiri::HTML5::DocumentFragment)
+          XmlBackend.document_fragment?(node)
         end
 
         # Compare children of document fragments using the shared
@@ -232,62 +209,6 @@ module Canon
           end
         end
 
-        # Perform semantic tree diff using SemanticTreeMatchStrategy
-        #
-        # @param html1 [String, Nokogiri::HTML::Document] First HTML
-        # @param html2 [String, Nokogiri::HTML::Document] Second HTML
-        # @param opts [Hash] Comparison options
-        # @param match_opts_hash [Hash] Resolved match options
-        # @return [Boolean, ComparisonResult] Result of tree diff comparison
-        def perform_semantic_tree_diff(html1, html2, opts, match_opts_hash)
-          # Capture original HTML strings for display (see equivalent? for details).
-          original_str1 = opts.delete(:_original_str1) ||
-            extract_original_string(html1)
-          original_str2 = opts.delete(:_original_str2) ||
-            extract_original_string(html2)
-
-          # Parse to Canon::Xml::Node (preserves preprocessing)
-          # For HTML, we parse as XML to get Canon::Xml::Node structure
-          node1 = parse_node_for_semantic(html1,
-                                          match_opts_hash[:preprocessing])
-          node2 = parse_node_for_semantic(html2,
-                                          match_opts_hash[:preprocessing])
-
-          # Create strategy using factory
-          strategy = Strategies::MatchStrategyFactory.create(
-            format: :html,
-            match_options: match_opts_hash,
-          )
-
-          # Pass Canon::Xml::Node directly - adapter now handles it
-          differences = strategy.match(node1, node2)
-
-          # Return based on verbose mode
-          if opts[:verbose]
-            # Get preprocessed strings for display
-            preprocessed = strategy.preprocess_for_display(node1, node2)
-
-            # Detect HTML version (default to HTML5 for Canon nodes)
-            html_version = :html5
-
-            # Return ComparisonResult with strategy metadata
-            ComparisonResult.new(
-              differences: differences,
-              preprocessed_strings: preprocessed,
-              original_strings: [original_str1, original_str2],
-              format: :html,
-              html_version: html_version,
-              match_options: match_opts_hash.merge(strategy.metadata),
-              algorithm: :semantic,
-              parse_errors_expected: Comparison.parse_errors_for(node1),
-              parse_errors_received: Comparison.parse_errors_for(node2),
-            )
-          else
-            # Simple boolean result - equivalent if no normative differences
-            differences.none?(&:normative?)
-          end
-        end
-
         # Parse node as fragment to preserve actual content
         # Uses HTML4.fragment or HTML5.fragment based on content detection
         #
@@ -296,15 +217,11 @@ module Canon
         # @param match_opts [Hash] Match options
         # @return [Nokogiri::HTML::DocumentFragment] Parsed fragment
         def parse_node_as_fragment(node, preprocessing = :none, match_opts = {})
-          # If already an XML fragment (no meta tags), return it
-          if node.is_a?(Nokogiri::XML::DocumentFragment)
+          if XmlBackend.document_fragment?(node)
             return node
           end
 
-          # Convert HTML fragments to string and re-parse as XML to remove phantom tags
-          # This handles cases where pre-parsed HTML4/HTML5 fragments have auto-inserted meta
-          html_string = if node.is_a?(Nokogiri::HTML4::DocumentFragment) ||
-              node.is_a?(Nokogiri::HTML5::DocumentFragment)
+          html_string = if XmlBackend.document_fragment?(node)
                           node.to_s # Use to_s to avoid re-inserting meta tags
                         elsif node.is_a?(String)
                           node
@@ -312,10 +229,7 @@ module Canon
                           node.to_html
                         end
 
-          # Use XML fragment parser to preserve structure without auto-generated elements.
-          # Decode HTML named entities (&nbsp; etc.) to UTF-8 characters since XML
-          # parser only understands the five XML entities.
-          frag = Nokogiri::XML.fragment(
+          frag = XmlBackend.xml_fragment(
             decode_html_named_entities(html_string),
           )
 
@@ -402,24 +316,15 @@ module Canon
 
             # Normalize HTML documents to fragments to avoid DTD differences
             # This ensures comparing string with document works correctly
-            if node.is_a?(Nokogiri::HTML::Document) ||
-                node.is_a?(Nokogiri::HTML4::Document) ||
-                node.is_a?(Nokogiri::HTML5::Document)
-              # Get root element and create fragment from its outer HTML
-              # This avoids DOCTYPE and other document-level nodes
+            if XmlBackend.html_document?(node)
               root = node.at_css("html") || node.root
               if root
-                node = Nokogiri::XML.fragment(root.to_html)
+                node = XmlBackend.xml_fragment(root.to_html)
               end
             end
 
-            # For preprocessing modes that require whitespace filtering,
-            # apply the same post-parsing normalization used for string inputs.
-            # This is needed because dom_diff() pre-parses HTML5 strings into
-            # Nokogiri fragments before calling HtmlComparator, bypassing the
-            # string-input path where these filters are normally applied.
             if %i[normalize format rendered].include?(preprocessing)
-              frag = node.is_a?(Nokogiri::XML::DocumentFragment) ? node : Nokogiri::XML.fragment(node.to_html)
+              frag = XmlBackend.document_fragment?(node) ? node : XmlBackend.xml_fragment(node.to_html)
               normalize_html_style_script_comments(frag)
               if preprocessing == :rendered
                 normalize_rendered_whitespace(frag, match_opts)
@@ -467,11 +372,7 @@ module Canon
                           node
                         end
 
-          # Parse as Nokogiri fragment for DOM comparison
-          # Use XML fragment parser to avoid auto-inserted meta tags.
-          # Decode HTML named entities (&nbsp; etc.) to UTF-8 characters since
-          # XML parser only understands the five XML entities.
-          frag = Nokogiri::XML.fragment(
+          frag = XmlBackend.xml_fragment(
             decode_html_named_entities(html_string),
           )
 
@@ -565,17 +466,7 @@ module Canon
         # @param node [Canon::Xml::Node, Nokogiri::XML::Node] HTML node
         # @return [Symbol] :html5 or :html4
         def detect_html_version_from_node(node)
-          # Check node type for Nokogiri
-          if node.is_a?(Nokogiri::HTML5::Document) ||
-              node.is_a?(Nokogiri::HTML5::DocumentFragment)
-            :html5
-          elsif node.is_a?(Nokogiri::HTML4::Document) ||
-              node.is_a?(Nokogiri::HTML4::DocumentFragment)
-            :html4
-          else
-            # Default to HTML5 for Canon::Xml::Node and unknown types
-            :html5
-          end
+          XmlBackend.html_version_from_node(node)
         end
 
         # Serialize node to string for diff display
@@ -585,7 +476,7 @@ module Canon
         # @return [String] Serialized HTML string
         def serialize_for_display(node)
           if node.is_a?(Canon::Xml::Node)
-            XmlNodeComparison.serialize_node_to_xml(node)
+            Canon::Diff::NodeSerializer.serialize(node)
           elsif Canon::XmlParsing.xml_node?(node)
             Canon::XmlBackend.nokogiri? ? node.to_html : Canon::XmlParsing.serialize(node)
           else
@@ -780,32 +671,18 @@ compare_profile = nil)
         # XML documents typically have XML processing instructions or are
         # instances of Nokogiri::XML::Document (not HTML variants)
         def xml_document?(node)
-          # Check if it's a pure XML document (not HTML4/HTML5 which also
-          # inherit from XML::Document)
-          # Check both Document and DocumentFragment variants
-          return false if node.is_a?(Nokogiri::HTML4::Document) ||
-            node.is_a?(Nokogiri::HTML5::Document) ||
-            node.is_a?(Nokogiri::HTML4::DocumentFragment) ||
-            node.is_a?(Nokogiri::HTML5::DocumentFragment)
+          return false if XmlBackend.html_document?(node) || XmlBackend.document_fragment?(node)
 
-          # If it's an XML document, check for XML processing instruction
-          if node.is_a?(Nokogiri::XML::Document) && node.children.any? do |child|
-            child.is_a?(Nokogiri::XML::ProcessingInstruction) &&
-                child.name == "xml"
+          if XmlBackend.nokogiri? && node.is_a?(Nokogiri::XML::Document) && node.children.any? do |child|
+            child.is_a?(Nokogiri::XML::ProcessingInstruction) && child.name == "xml"
           end
-            # XML documents often start with <?xml ...?> processing instruction
             return true
-
-            # Note: We don't blindly return true here because HTML documents
-            # also inherit from XML::Document. We only return true if there's
-            # an XML processing instruction above.
           end
 
-          # Check if it's a fragment that contains XML processing instructions
-          if (node.is_a?(Canon::Xml::Node) || Canon::XmlParsing.xml_node?(node)) && node.children.any? do |child|
-            child.is_a?(Nokogiri::XML::ProcessingInstruction) &&
-                child.name == "xml"
-          end
+          if (node.is_a?(Canon::Xml::Node) || Canon::XmlParsing.xml_node?(node)) &&
+              XmlBackend.nokogiri? && node.children.any? do |child|
+                child.is_a?(Nokogiri::XML::ProcessingInstruction) && child.name == "xml"
+              end
             return true
           end
 

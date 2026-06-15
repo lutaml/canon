@@ -16,7 +16,7 @@ module Canon
           node = operation[:node]
           content = operation[:content]
 
-          if node.respond_to?(:label)
+          if node.is_a?(Core::TreeNode)
             # Include content preview for clarity
             "Element inserted: #{content || "<#{node.label}>"}"
           else
@@ -32,7 +32,7 @@ module Canon
           node = operation[:node]
           content = operation[:content]
 
-          if node.respond_to?(:label)
+          if node.is_a?(Core::TreeNode)
             # Include content preview for clarity
             "Element deleted: #{content || "<#{node.label}>"}"
           else

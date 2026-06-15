@@ -2,8 +2,6 @@
 
 require "diff/lcs" unless RUBY_ENGINE == "opal"
 require "diff/lcs/hunk" unless RUBY_ENGINE == "opal"
-require_relative "../debug_output"
-require_relative "../theme"
 
 module Canon
   class DiffFormatter
@@ -22,10 +20,8 @@ module Canon
         def self.for_format(format, **options)
           case format
           when :xml
-            require_relative "xml_formatter"
             XmlFormatter.new(**options)
           when :html, :html4, :html5
-            require_relative "html_formatter"
             # Determine HTML version from format
             version = case format
                       when :html5 then :html5
@@ -34,13 +30,10 @@ module Canon
                       end
             HtmlFormatter.new(html_version: version, **options)
           when :json
-            require_relative "json_formatter"
             JsonFormatter.new(**options)
           when :yaml
-            require_relative "yaml_formatter"
             YamlFormatter.new(**options)
           else
-            require_relative "simple_formatter"
             SimpleFormatter.new(**options)
           end
         end
@@ -279,7 +272,7 @@ module Canon
 
           differences.select do |diff|
             # Handle both DiffNode objects and legacy Hash format
-            is_normative = if diff.respond_to?(:normative?)
+            is_normative = if diff.is_a?(Canon::Diff::DiffNode)
                              diff.normative?
                            elsif diff.is_a?(Hash) && diff.key?(:normative)
                              diff[:normative]
@@ -394,8 +387,6 @@ module Canon
         # @param diffs [Array] LCS diff array
         # @return [Array<Canon::Diff::DiffBlock>] Array of diff blocks
         def identify_diff_blocks(diffs)
-          require_relative "../../diff/diff_block"
-
           blocks = []
           current_start = nil
           current_types = []
@@ -467,8 +458,6 @@ module Canon
         # @return [Array<Canon::Diff::DiffContext>] Array of diff contexts
         def expand_contexts_with_context_lines(contexts, context_lines,
                                                 total_lines)
-          require_relative "../../diff/diff_context"
-
           contexts.map do |context|
             first_block = context.first
             last_block = context.last
@@ -736,10 +725,8 @@ module Canon
             next unless match.status == :matched
 
             [match.elem1, match.elem2].compact.each do |elem|
-              next unless elem.respond_to?(:children)
-
               elem.children.each do |child|
-                children.add(child) if child.respond_to?(:name)
+                children.add(child) if Canon::Comparison::NodeInspector.element_node?(child)
               end
             end
           end
@@ -778,8 +765,8 @@ module Canon
           return true if elements_with_semantic_diffs.include?(element)
 
           # Check all descendants
-          if element.respond_to?(:children)
-            element.children.any? do |child|
+          if Canon::Comparison::NodeInspector.element_node?(element)
+            Canon::Comparison::NodeInspector.children(element).any? do |child|
               has_semantic_diff_in_subtree?(child, elements_with_semantic_diffs)
             end
           else

@@ -1,10 +1,5 @@
 # frozen_string_literal: true
 
-require_relative "match_options/base_resolver"
-require_relative "match_options/xml_resolver"
-require_relative "match_options/json_resolver"
-require_relative "match_options/yaml_resolver"
-
 module Canon
   module Comparison
     # Matching Options for Canon Comparison
@@ -41,12 +36,6 @@ module Canon
         @options[:preprocessing]
       end
 
-      # Check if semantic diff is enabled
-      # @return [Boolean] true if semantic diff is enabled
-      def semantic_diff?
-        @options[:semantic_diff] == true
-      end
-
       def to_h
         @options.dup
       end
@@ -54,6 +43,11 @@ module Canon
 
     # Module containing match option utilities and format-specific modules
     module MatchOptions
+      autoload :BaseResolver, "canon/comparison/match_options/base_resolver"
+      autoload :JsonResolver, "canon/comparison/match_options/json_resolver"
+      autoload :XmlResolver, "canon/comparison/match_options/xml_resolver"
+      autoload :YamlResolver, "canon/comparison/match_options/yaml_resolver"
+
       # Preprocessing options - what to do before comparison
       PREPROCESSING_OPTIONS = %i[none c14n normalize format rendered].freeze
 
@@ -90,30 +84,15 @@ module Canon
 
         # Normalize text by collapsing whitespace and trimming
         # Mimics HTML whitespace collapsing
-        #
-        # Handles both ASCII and Unicode whitespace characters including:
-        # - Regular space (U+0020)
-        # - Non-breaking space (U+00A0)
-        # - Other Unicode whitespace per \p{Space}
-        #
-        # @param text [String] Text to normalize
-        # @return [String] Normalized text
         def normalize_text(text)
           return "" if text.nil?
 
           text.to_s
-            .gsub(/[\p{Space}\u00a0]+/, " ") # Collapse all whitespace to single space
+            .gsub(/[\p{Space} ]+/, " ") # Collapse all whitespace to single space
             .strip # Remove leading/trailing whitespace
         end
 
         # Normalize text preserving Unicode whitespace type distinctions.
-        #
-        # Only ASCII whitespace (space, tab, newline, etc.) is collapsed.
-        # Unicode whitespace (NBSP, ideographic space, etc.) is preserved,
-        # so different whitespace types remain distinguishable.
-        #
-        # @param text [String] Text to normalize
-        # @return [String] Normalized text with preserved whitespace types
         def normalize_text_preserving_type(text)
           return "" if text.nil?
 
@@ -123,10 +102,6 @@ module Canon
         end
 
         # Process attribute value according to match behavior
-        #
-        # @param value [String] Attribute value to process
-        # @param behavior [Symbol] Match behavior (:strict, :strip, :compact, :normalize, :ignore)
-        # @return [String] Processed value
         def process_attribute_value(value, behavior)
           case behavior
           when :strict
@@ -134,7 +109,7 @@ module Canon
           when :strip
             value.to_s.strip
           when :compact
-            value.to_s.gsub(/[\p{Space}\u00a0]+/, " ")
+            value.to_s.gsub(/[\p{Space} ]+/, " ")
           when :normalize
             normalize_text(value)
           when :ignore
@@ -147,16 +122,8 @@ module Canon
 
       # XML/HTML-specific matching options
       module Xml
-        # Matching dimensions for XML/HTML (collectively exhaustive)
-        MATCH_DIMENSIONS = %i[
-          text_content
-          structural_whitespace
-          attribute_presence
-          attribute_order
-          attribute_values
-          element_position
-          comments
-        ].freeze
+        # Single source of truth: derived from the DimensionSet in Registry.
+        MATCH_DIMENSIONS = Dimensions::Registry.for(:xml).names.freeze
 
         # Expose FORMAT_DEFAULTS from XmlResolver (for backward compatibility)
         FORMAT_DEFAULTS = MatchOptions::XmlResolver.const_get(:FORMAT_DEFAULTS)
@@ -165,27 +132,18 @@ module Canon
         MATCH_PROFILES = MatchOptions::XmlResolver.const_get(:MATCH_PROFILES)
 
         class << self
-          # Delegate to XmlResolver
           def resolve(**kwargs)
             MatchOptions::XmlResolver.resolve(**kwargs)
           end
 
-          # Delegate to XmlResolver
           def get_profile_options(profile)
             MatchOptions::XmlResolver.get_profile_options(profile)
           end
 
-          # Get valid match dimensions for XML/HTML
-          #
-          # @return [Array<Symbol>] Valid dimensions
           def match_dimensions
             MatchOptions::XmlResolver.match_dimensions
           end
 
-          # Get format-specific default options
-          #
-          # @param format [Symbol] Format type
-          # @return [Hash] Default options for the format
           def format_defaults(format)
             MatchOptions::XmlResolver.format_defaults(format)
           end
@@ -194,41 +152,25 @@ module Canon
 
       # JSON-specific matching options
       module Json
-        # Matching dimensions for JSON (collectively exhaustive)
-        MATCH_DIMENSIONS = %i[
-          text_content
-          structural_whitespace
-          key_order
-        ].freeze
+        MATCH_DIMENSIONS = Dimensions::Registry.for(:json).names.freeze
 
-        # Expose FORMAT_DEFAULTS from JsonResolver (for backward compatibility)
         FORMAT_DEFAULTS = MatchOptions::JsonResolver.const_get(:FORMAT_DEFAULTS)
 
-        # Expose MATCH_PROFILES from JsonResolver (for backward compatibility)
         MATCH_PROFILES = MatchOptions::JsonResolver.const_get(:MATCH_PROFILES)
 
         class << self
-          # Delegate to JsonResolver
           def resolve(**kwargs)
             MatchOptions::JsonResolver.resolve(**kwargs)
           end
 
-          # Delegate to JsonResolver
           def get_profile_options(profile)
             MatchOptions::JsonResolver.get_profile_options(profile)
           end
 
-          # Get valid match dimensions for JSON
-          #
-          # @return [Array<Symbol>] Valid dimensions
           def match_dimensions
             MatchOptions::JsonResolver.match_dimensions
           end
 
-          # Get format-specific default options
-          #
-          # @param format [Symbol] Format type
-          # @return [Hash] Default options for the format
           def format_defaults(format)
             MatchOptions::JsonResolver.format_defaults(format)
           end
@@ -237,42 +179,25 @@ module Canon
 
       # YAML-specific matching options
       module Yaml
-        # Matching dimensions for YAML (collectively exhaustive)
-        MATCH_DIMENSIONS = %i[
-          text_content
-          structural_whitespace
-          key_order
-          comments
-        ].freeze
+        MATCH_DIMENSIONS = Dimensions::Registry.for(:yaml).names.freeze
 
-        # Expose FORMAT_DEFAULTS from YamlResolver (for backward compatibility)
         FORMAT_DEFAULTS = MatchOptions::YamlResolver.const_get(:FORMAT_DEFAULTS)
 
-        # Expose MATCH_PROFILES from YamlResolver (for backward compatibility)
         MATCH_PROFILES = MatchOptions::YamlResolver.const_get(:MATCH_PROFILES)
 
         class << self
-          # Delegate to YamlResolver
           def resolve(**kwargs)
             MatchOptions::YamlResolver.resolve(**kwargs)
           end
 
-          # Delegate to YamlResolver
           def get_profile_options(profile)
             MatchOptions::YamlResolver.get_profile_options(profile)
           end
 
-          # Get valid match dimensions for YAML
-          #
-          # @return [Array<Symbol>] Valid dimensions
           def match_dimensions
             MatchOptions::YamlResolver.match_dimensions
           end
 
-          # Get format-specific default options
-          #
-          # @param format [Symbol] Format type
-          # @return [Hash] Default options for the format
           def format_defaults(format)
             MatchOptions::YamlResolver.format_defaults(format)
           end

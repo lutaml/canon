@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require_relative "match_options"
-
 module Canon
   module Comparison
     # Profile definition DSL with full validation

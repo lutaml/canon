@@ -142,7 +142,7 @@ module Canon
           whitespace_sensitive_tags = %w[pre code textarea script style]
 
           # Check if this node is whitespace-sensitive
-          if node.respond_to?(:label)
+          if node.is_a?(TreeNode)
             label = node.label.to_s.downcase
             return true if whitespace_sensitive_tags.include?(label)
           end

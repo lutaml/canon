@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 require "cgi"
-require_relative "../../xml/namespace_helper"
 
 module Canon
   class DiffFormatter
@@ -94,7 +93,7 @@ module Canon
         def self.get_namespace_uri_for_display(node)
           return "" unless node
 
-          Canon::Comparison::Canon::Comparison::NodeInspector.namespace_uri(node).to_s
+          Canon::Comparison::NodeInspector.namespace_uri(node).to_s
         end
 
         # --- Display helpers ---

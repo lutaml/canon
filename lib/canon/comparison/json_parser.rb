@@ -10,8 +10,6 @@ module Canon
       # @param obj [String, Hash, Array] Object to parse
       # @return [Hash, Array] Parsed Ruby object
       def self.parse_json(obj)
-        # Delegate to JsonComparator's private method via public API
-        require_relative "json_comparator"
         JsonComparator.parse_json(obj)
       end
     end

@@ -1,8 +1,5 @@
 # frozen_string_literal: true
 
-require_relative "base_formatter"
-require_relative "../legend"
-require_relative "../../tree_diff/core/xml_entity_decoder"
 require "set"
 require "strscan"
 
@@ -43,10 +40,6 @@ module Canon
           if should_skip_diff_display?
             return ""
           end
-
-          require_relative "../../diff/diff_node_enricher"
-          require_relative "../../diff/diff_line_builder"
-          require_relative "../../diff/diff_report_builder"
 
           # Compute line number width BEFORE formatting
           compute_line_num_width(doc1, doc2)
@@ -201,10 +194,6 @@ module Canon
             return ""
           end
 
-          require_relative "../../xml/data_model"
-          require_relative "../../xml/element_matcher"
-          require_relative "../../xml/line_range_mapper"
-
           output = []
 
           begin
@@ -247,7 +236,6 @@ module Canon
             end
 
             output << ""
-            require_relative "simple_formatter"
             simple = SimpleFormatter.new(
               use_color: @use_color,
               context_lines: @context_lines,
@@ -622,15 +610,14 @@ module Canon
 
           # Second pass: skip children of elements with diffs
           elements_with_diffs.each do |elem|
-            if elem.respond_to?(:parent)
-              current = elem.parent
-              while current
-                if current.respond_to?(:name) && elements_with_diffs.include?(current)
-                  elements_to_skip.add(elem)
-                  break
-                end
-                current = current.respond_to?(:parent) ? current.parent : nil
+            current = Canon::Comparison::NodeInspector.parent(elem)
+            while current
+              if Canon::Comparison::NodeInspector.element_node?(current) &&
+                  elements_with_diffs.include?(current)
+                elements_to_skip.add(elem)
+                break
               end
+              current = Canon::Comparison::NodeInspector.parent(current)
             end
           end
 
@@ -721,8 +708,6 @@ module Canon
 
         # Identify contiguous diff blocks
         def identify_diff_blocks(diffs)
-          require_relative "../../diff/diff_block"
-
           blocks = []
           current_start = nil
           current_types = []
@@ -784,8 +769,6 @@ module Canon
         # Expand contexts with context lines
         def expand_contexts_with_context_lines(contexts, context_lines,
                                                 total_lines)
-          require_relative "../../diff/diff_context"
-
           contexts.map do |context|
             first_block = context.first
             last_block = context.last
@@ -803,8 +786,6 @@ module Canon
 
         # Format a context
         def format_context(context, diffs, base_line1, base_line2)
-          require_relative "../../diff/formatting_detector"
-
           # Pre-compute block-level formatting for multi-line changes
           formatting_indices = detect_block_formatting(context, diffs)
 

@@ -1,8 +1,5 @@
 # frozen_string_literal: true
 
-require_relative "../../diff/path_builder"
-require_relative "../../diff/node_serializer"
-
 module Canon
   module TreeDiff
     module OperationConverterHelpers
@@ -45,13 +42,7 @@ module Canon
         def self.serialize(tree_node)
           return nil if tree_node.nil?
 
-          # Extract source node from TreeNode
-          source = if tree_node.respond_to?(:source_node)
-                     tree_node.source_node
-                   else
-                     tree_node
-                   end
-
+          source = tree_node.is_a?(Core::TreeNode) ? tree_node.source_node : tree_node
           Canon::Diff::NodeSerializer.serialize(source)
         end
 
@@ -62,8 +53,7 @@ module Canon
         def self.extract_attributes(tree_node)
           return nil if tree_node.nil?
 
-          # Use TreeNode's attributes directly (already normalized by adapter)
-          tree_node.respond_to?(:attributes) ? (tree_node.attributes || {}) : {}
+          tree_node.is_a?(Core::TreeNode) ? (tree_node.attributes || {}) : {}
         end
       end
     end

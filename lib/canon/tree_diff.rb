@@ -1,33 +1,32 @@
 # frozen_string_literal: true
 
 module Canon
+  # Semantic tree-diff algorithm — distinct from the DOM positional
+  # diff in {Canon::Comparison}.
+  #
+  # This module computes signature-based tree matches and produces
+  # INSERT/DELETE/UPDATE/MOVE operations. Sub-namespaces:
+  #
+  # * Core — TreeNode, Matching, NodeSignature, NodeWeight,
+  #   AttributeComparator, XmlEntityDecoder
+  # * Matchers — HashMatcher, SimilarityMatcher, StructuralPropagator,
+  #   UniversalMatcher
+  # * Operations — Operation, OperationDetector
+  # * Adapters — format-specific tree adapters (XML, JSON, HTML, YAML)
+  # * OperationConverterHelpers — MetadataEnricher, ReasonBuilder,
+  #   PostProcessor, UpdateChangeHandler
+  #
+  # Top-level entry points: OperationConverter and TreeDiffIntegrator.
+  #
+  # All children are autoloaded — never `require_relative` them.
   module TreeDiff
-    # Tree diff module for semantic object tree diffing
+    autoload :Adapters, "canon/tree_diff/adapters"
+    autoload :Core, "canon/tree_diff/core"
+    autoload :Matchers, "canon/tree_diff/matchers"
+    autoload :OperationConverter, "canon/tree_diff/operation_converter"
+    autoload :OperationConverterHelpers,
+             "canon/tree_diff/operation_converter_helpers"
+    autoload :Operations, "canon/tree_diff/operations"
+    autoload :TreeDiffIntegrator, "canon/tree_diff/tree_diff_integrator"
   end
 end
-
-# Load core components
-require_relative "tree_diff/core/tree_node"
-require_relative "tree_diff/core/node_signature"
-require_relative "tree_diff/core/node_weight"
-require_relative "tree_diff/core/matching"
-
-# Load matchers
-require_relative "tree_diff/matchers/hash_matcher"
-require_relative "tree_diff/matchers/similarity_matcher"
-require_relative "tree_diff/matchers/structural_propagator"
-require_relative "tree_diff/matchers/universal_matcher"
-
-# Load operations
-require_relative "tree_diff/operations/operation"
-require_relative "tree_diff/operations/operation_detector"
-require_relative "tree_diff/operation_converter"
-
-# Load adapters
-require_relative "tree_diff/adapters/xml_adapter"
-require_relative "tree_diff/adapters/json_adapter"
-require_relative "tree_diff/adapters/html_adapter"
-require_relative "tree_diff/adapters/yaml_adapter"
-
-# Load integrator
-require_relative "tree_diff/tree_diff_integrator"

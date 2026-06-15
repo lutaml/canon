@@ -1,10 +1,5 @@
 # frozen_string_literal: true
 
-require_relative "../comparison" # Load base module with constants
-require_relative "node_inspector"
-require_relative "../diff/diff_node"
-require_relative "../diff/path_builder"
-
 module Canon
   module Comparison
     # Base class for markup document comparison (XML, HTML)
@@ -17,67 +12,16 @@ module Canon
     # inherit from this class and add format-specific behavior.
     class MarkupComparator
       class << self
-        # Add a difference to the differences array
+        # Add a difference to the differences array.
         #
-        # Creates a DiffNode with enriched metadata including path,
-        # serialized content, and attributes for Stage 4 rendering.
-        #
-        # @param node1 [Object, nil] First node
-        # @param node2 [Object, nil] Second node
-        # @param diff1 [Symbol] Difference type for node1
-        # @param diff2 [Symbol] Difference type for node2
-        # @param dimension [Symbol] The match dimension causing this difference
-        # @param _opts [Hash] Options (unused but kept for interface compatibility)
-        # @param differences [Array] Array to append difference to
+        # Delegates to DiffNodeBuilder, the single DiffNode factory for
+        # the DOM comparison path.
         def add_difference(node1, node2, diff1, diff2, dimension, _opts,
                            differences)
-          # All differences must be DiffNode objects (OO architecture)
-          if dimension.nil?
-            raise ArgumentError,
-                  "dimension required for DiffNode"
-          end
-
-          # Build informative reason message
-          reason = build_difference_reason(node1, node2, diff1, diff2,
-                                           dimension)
-
-          # Enrich with path, serialized content, and attributes for Stage 4 rendering
-          metadata = enrich_diff_metadata(node1, node2)
-
-          diff_node = Canon::Diff::DiffNode.new(
-            node1: node1,
-            node2: node2,
-            dimension: dimension,
-            reason: reason,
-            **metadata,
+          differences << Canon::Comparison::DiffNodeBuilder.build(
+            node1: node1, node2: node2, diff1: diff1, diff2: diff2,
+            dimension: dimension
           )
-          differences << diff_node
-        end
-
-        # Enrich DiffNode with canonical path, serialized content, and attributes
-        # This extracts presentation-ready metadata from nodes for Stage 4 rendering
-        #
-        # @param node1 [Object, nil] First node
-        # @param node2 [Object, nil] Second node
-        # @return [Hash] Enriched metadata hash
-        def enrich_diff_metadata(node1, node2)
-          {
-            path: build_path_for_node(node1 || node2),
-            serialized_before: serialize_node(node1),
-            serialized_after: serialize_node(node2),
-            attributes_before: extract_attributes(node1),
-            attributes_after: extract_attributes(node2),
-          }
-        end
-
-        # Build canonical path for a node
-        #
-        # @param node [Object] Node to build path for
-        # @return [String, nil] Canonical path with ordinal indices
-        def build_path_for_node(node)
-          return nil if node.nil?
-
-          Canon::Diff::PathBuilder.build(node, format: :document)
         end
 
         # Serialize a node to string for display
@@ -87,24 +31,7 @@ module Canon
         def serialize_node(node)
           return nil if node.nil?
 
-          # Canon::Xml::Node types
-          case node
-          when Canon::Xml::Nodes::RootNode
-            # Serialize all children of root
-            node.children.map { |child| serialize_node(child) }.join
-          when Canon::Xml::Nodes::ElementNode
-            serialize_element_node(node)
-          when Canon::Xml::Nodes::TextNode
-            # Use original text (with entity references) if available,
-            # otherwise fall back to value (decoded text)
-            node.original || node.value
-          when Canon::Xml::Nodes::CommentNode
-            "<!--#{node.value}-->"
-          when Canon::Xml::Nodes::ProcessingInstructionNode
-            "<?#{node.target} #{node.data}?>"
-          else
-            node.to_s
-          end
+          Canon::Diff::NodeSerializer.serialize(node)
         end
 
         # Extract attributes from a node
@@ -114,19 +41,7 @@ module Canon
         def extract_attributes(node)
           return nil if node.nil?
 
-          # Canon::Xml::Node ElementNode
-          if node.is_a?(Canon::Xml::Nodes::ElementNode)
-            node.attribute_nodes.to_h do |attr|
-              [attr.name, attr.value]
-            end
-          # Nokogiri elements
-          elsif node.is_a?(Nokogiri::XML::Element)
-            node.attributes.to_h do |_, attr|
-              [attr.name, attr.value]
-            end
-          else
-            {}
-          end
+          Canon::Diff::NodeSerializer.extract_attributes(node)
         end
 
         # Filter children based on options
@@ -278,65 +193,11 @@ module Canon
 
         # Build a human-readable reason for a difference
         #
-        # @param node1 [Object, nil] First node
-        # @param node2 [Object, nil] Second node
-        # @param diff1 [Symbol] Difference type for node1
-        # @param diff2 [Symbol] Difference type for node2
-        # @param dimension [Symbol] The dimension of the difference
-        # @return [String] Human-readable reason
+        # Delegates to DiffNodeBuilder for consistency.
         def build_difference_reason(node1, node2, diff1, diff2, dimension)
-          # For attribute presence differences, show what attributes differ
-          if dimension == :attribute_presence
-            attrs1 = extract_attributes(node1)
-            attrs2 = extract_attributes(node2)
-            return build_attribute_difference_reason(attrs1, attrs2)
-          end
-
-          # For text content differences, show the actual text (truncated if needed)
-          if dimension == :text_content
-            text1 = extract_text_content_from_node(node1)
-            text2 = extract_text_content_from_node(node2)
-            return build_text_difference_reason(text1, text2)
-          end
-
-          # Default reason - can be overridden in subclasses
-          if diff1 == Canon::Comparison::MISSING_NODE && diff2 == Canon::Comparison::MISSING_NODE
-            "element structure mismatch (children differ)"
-          else
-            Canon::Comparison.code_pair_label(diff1, diff2)
-          end
-        end
-
-        # Build a clear reason message for attribute presence differences
-        # Shows which attributes are only in node1, only in node2, or different values
-        #
-        # @param attrs1 [Hash, nil] First node's attributes
-        # @param attrs2 [Hash, nil] Second node's attributes
-        # @return [String] Clear explanation of the attribute difference
-        def build_attribute_difference_reason(attrs1, attrs2)
-          return "#{attrs1&.keys&.size || 0} vs #{attrs2&.keys&.size || 0} attributes" unless attrs1 && attrs2
-
-          require "set"
-          keys1 = attrs1.keys.to_set
-          keys2 = attrs2.keys.to_set
-
-          only_in_1 = keys1 - keys2
-          only_in_2 = keys2 - keys1
-          common = keys1 & keys2
-
-          # Check if values differ for common keys
-          different_values = common.reject { |k| attrs1[k] == attrs2[k] }
-
-          parts = []
-          parts << "only in first: #{only_in_1.to_a.sort.join(', ')}" if only_in_1.any?
-          parts << "only in second: #{only_in_2.to_a.sort.join(', ')}" if only_in_2.any?
-          parts << "different values: #{different_values.sort.join(', ')}" if different_values.any?
-
-          if parts.empty?
-            "#{keys1.size} vs #{keys2.size} attributes (same names)"
-          else
-            parts.join("; ")
-          end
+          Canon::Comparison::DiffNodeBuilder.build_reason(
+            node1, node2, diff1, diff2, dimension
+          )
         end
 
         # Extract text content from a node for diff reason
@@ -344,69 +205,12 @@ module Canon
         # @param node [Object, nil] Node to extract text from
         # @return [String, nil] Text content or nil
         def extract_text_content_from_node(node)
-          return nil if node.nil?
-
-          case node
-          when Canon::Xml::Nodes::TextNode
-            node.value
-          when Canon::Xml::Node
-            node.text_content
-          when Nokogiri::XML::Node
-            node.content.to_s
-          when String
-            node
-          else
-            node.to_s
-          end
-        rescue StandardError
-          nil
-        end
-
-        # Build a clear reason message for text content differences
-        # Shows the actual text content (truncated if too long)
-        #
-        # @param text1 [String, nil] First text content
-        # @param text2 [String, nil] Second text content
-        # @return [String] Clear explanation of the text difference
-        def build_text_difference_reason(text1, text2)
-          # Handle nil cases
-          return "missing vs '#{truncate_text(text2)}'" if text1.nil? && text2
-          return "'#{truncate_text(text1)}' vs missing" if text1 && text2.nil?
-          return "both missing" if text1.nil? && text2.nil?
-
-          # Both have content - show truncated versions
-          "'#{truncate_text(text1)}' vs '#{truncate_text(text2)}'"
+          Canon::Comparison::DiffNodeBuilder.extract_text_content(node)
         end
 
         # Truncate text for display in reason messages
-        #
-        # @param text [String] Text to truncate
-        # @param max_length [Integer] Maximum length
-        # @return [String] Truncated text
         def truncate_text(text, max_length = 40)
-          return "" if text.nil?
-
-          text = text.to_s
-          return text if text.length <= max_length
-
-          "#{text[0...max_length]}..."
-        end
-
-        # Serialize an element node to string
-        #
-        # @param node [Canon::Xml::Nodes::ElementNode] Element node
-        # @return [String] Serialized element
-        def serialize_element_node(node)
-          attrs = node.attribute_nodes.map do |a|
-            " #{a.name}=\"#{a.value}\""
-          end.join
-          children_xml = node.children.map { |c| serialize_node(c) }.join
-
-          if children_xml.empty?
-            "<#{node.name}#{attrs}/>"
-          else
-            "<#{node.name}#{attrs}>#{children_xml}</#{node.name}>"
-          end
+          Canon::Comparison::DiffNodeBuilder.truncate(text, max_length)
         end
 
         # Determine the appropriate dimension for a node type

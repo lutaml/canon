@@ -158,9 +158,6 @@ differences)
         # @param differences [Array] Array to append difference to
         def self.add_attribute_difference(n1:, n2:, diff1:, diff2:,
 dimension:, differences:, **opts)
-          # Import DiffNodeBuilder to avoid circular dependency
-          require_relative "diff_node_builder"
-
           diff_node = Canon::Comparison::DiffNodeBuilder.build(
             node1: n1,
             node2: n2,

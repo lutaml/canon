@@ -1,8 +1,5 @@
 # frozen_string_literal: true
 
-require_relative "../match_options"
-require_relative "../../xml/namespace_helper"
-
 module Canon
   module Comparison
     module XmlComparatorHelpers

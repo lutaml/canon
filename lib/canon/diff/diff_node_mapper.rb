@@ -1,6 +1,5 @@
 # frozen_string_literal: true
 
-require_relative "diff_line"
 require "set"
 
 module Canon
@@ -159,8 +158,6 @@ module Canon
       # @param diff_lines [Array<DiffLine>] The diff lines to update
       # @param lcs_diffs [Array<Diff::LCS::Change>] The LCS changes
       def apply_block_formatting!(diff_lines, lcs_diffs)
-        require_relative "formatting_detector"
-
         blocks = group_change_blocks(lcs_diffs)
 
         blocks.each do |block|
@@ -265,7 +262,6 @@ module Canon
       # @param line2 [String] Second line
       # @return [Boolean] true if formatting-only difference
       def formatting_only_line?(line1, line2)
-        require_relative "formatting_detector"
         FormattingDetector.formatting_only?(line1, line2)
       end
 

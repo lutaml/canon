@@ -1,9 +1,6 @@
 # frozen_string_literal: true
 
 require "thor" unless RUBY_ENGINE == "opal"
-require_relative "commands/format_command"
-require_relative "commands/diff_command"
-require_relative "options/registry"
 
 module Canon
   # Command-line interface for Canon

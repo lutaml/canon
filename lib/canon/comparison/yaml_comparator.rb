@@ -1,9 +1,6 @@
 # frozen_string_literal: true
 
 require "yaml"
-require_relative "match_options"
-require_relative "comparison_result"
-require_relative "ruby_object_comparator"
 
 module Canon
   module Comparison

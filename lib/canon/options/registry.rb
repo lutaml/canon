@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require_relative "../comparison/match_options"
-
 module Canon
   module Options
     # Centralized registry for all Canon options
