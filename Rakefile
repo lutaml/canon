@@ -45,7 +45,7 @@ namespace :spec do
     Opal::RSpec::RakeTask.new(:opal) do |_server, runner|
       runner.default_path = "spec"
       runner.requires = %w[rexml_compat rexml/document rexml/xpath
-                           moxml/adapter/rexml spec_helper]
+                           moxml moxml/adapter/rexml spec_helper]
       runner.pattern = "spec/canon/opal_xml_smoke_spec.rb"
     end
   end
