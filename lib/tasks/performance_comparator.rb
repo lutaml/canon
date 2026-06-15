@@ -1,100 +1,167 @@
 # frozen_string_literal: true
 
-require_relative "performance_helpers"
+require "json"
+require "open3"
+require "fileutils"
+require "table_tennis"
 
+# Compares performance between the current branch and a base branch (default:
+# main) by running the same benchmark suite in two separate Ruby processes —
+# one per branch. Each process loads its own Canon implementation from disk,
+# fully isolated from the other, and emits a JSON result. The comparator then
+# diffs the two JSON payloads and reports regressions.
+#
+# Running each branch in its own process is required because Canon uses Ruby
+# autoload extensively; loading both branches' code into a single process
+# causes constant resolution and LOAD_PATH conflicts.
 class PerformanceComparator
   REPO_ROOT = File.expand_path(File.join(__dir__, "..", ".."))
-  DEFAULT_RUN_TIME = 10 # seconds
-  DEFAULT_THRESHOLD = 0.10 # 10% (more lenient for complex operations)
+  DEFAULT_RUN_TIME = Integer(ENV.fetch("CANON_PERF_RUN_TIME", "10"))
+  DEFAULT_THRESHOLD = 0.10 # 10%
   DEFAULT_BASE = "main"
   TMP_PERF_DIR = File.join(REPO_ROOT, "tmp", "performance")
-  BENCH_SCRIPT = File.join(TMP_PERF_DIR, "benchmark_runner.rb")
+  REPORT_SCRIPT = File.expand_path("performance_report.rb", __dir__)
 
-  # Benchmark categories - run specific subsets
-  BENCHMARK_CATEGORIES = {
-    xml_parsing: %w[xml_parse_dom_simple xml_parse_sax_simple
-                    xml_parse_dom_large xml_parse_sax_large],
-    html_parsing: %w[html_parse_simple html_parse_complex],
-    xml_comparison: %w[xml_compare_identical xml_compare_similar
-                       xml_compare_different],
-    html_comparison: %w[html_compare_identical html_compare_similar
-                        html_compare_different],
-    formatting: %w[xml_c14n_format json_format yaml_format],
-  }.freeze
+  RED    = "\e[31m"
+  GREEN  = "\e[32m"
+  YELLOW = "\e[33m"
+  CYAN   = "\e[36m"
+  BOLD   = "\e[1m"
+  DIM    = "\e[2m"
+  CLEAR  = "\e[0m"
 
   def run
-    setup_environment
-    run_benchmarks_comparison
+    clone_base
+    current = run_report(REPO_ROOT, "current")
+    base = run_report(base_clone_dir, "base (#{DEFAULT_BASE})")
+    print_report(current, base)
+    exit(1) if regressions?(current, base)
   ensure
     cleanup
   end
 
   private
 
-  def setup_environment
-    Dir.chdir(REPO_ROOT)
+  def clone_base
+    FileUtils.rm_rf(TMP_PERF_DIR)
     FileUtils.mkdir_p(TMP_PERF_DIR)
-    FileUtils.cp(File.join(REPO_ROOT, "lib", "tasks", "benchmark_runner.rb"),
-                 BENCH_SCRIPT)
 
-    PerformanceHelpers.load_into_namespace(PerformanceHelpers::Current,
-                                           BENCH_SCRIPT)
-    PerformanceHelpers.clone_base_repo(DEFAULT_BASE, TMP_PERF_DIR, BENCH_SCRIPT)
+    puts "#{DIM}Cloning base #{DEFAULT_BASE}...#{CLEAR}"
+    repo_url, = exec("git config --get remote.origin.url")
+    out, err, status = exec(
+      "git clone --branch #{DEFAULT_BASE} --single-branch #{repo_url.strip} #{base_clone_dir}",
+    )
+    return if status.success?
+
+    raise "git clone failed: #{err}\n#{out}"
   end
 
-  def run_benchmarks_comparison
-    all_current = {}
-    all_base = {}
+  def run_report(working_dir, label)
+    puts "#{DIM}Running benchmarks for #{label}...#{CLEAR}"
+    env = {
+      "CANON_PERF_RUN_TIME" => DEFAULT_RUN_TIME.to_s,
+      "BUNDLE_GEMFILE" => File.join(working_dir, "Gemfile"),
+    }
 
-    puts PerformanceHelpers::Term.header("Performance Comparison", color: PerformanceHelpers::CYAN)
-    puts
-    puts "  #{PerformanceHelpers::DIM}Comparing#{PerformanceHelpers::CLEAR}:"
-    puts "  #{PerformanceHelpers::CYAN}  Current#{PerformanceHelpers::CLEAR}: #{PerformanceHelpers.current_branch}"
-    puts "  #{PerformanceHelpers::CYAN}  Base#{PerformanceHelpers::CLEAR}: #{DEFAULT_BASE}"
-    puts "  #{PerformanceHelpers::CYAN}  Threshold#{PerformanceHelpers::CLEAR}: #{(DEFAULT_THRESHOLD * 100).round(0)}% regression allowed"
-    puts
+    script_copy = File.join(working_dir, "tmp", "performance_report.rb")
+    FileUtils.mkdir_p(File.dirname(script_copy))
+    FileUtils.cp(REPORT_SCRIPT, script_copy)
 
-    # Run all benchmarks
-    base_runner = PerformanceHelpers::Base::BenchmarkRunner.new(
-      run_time: DEFAULT_RUN_TIME,
-    )
-    current_runner = PerformanceHelpers::Current::BenchmarkRunner.new(
-      run_time: DEFAULT_RUN_TIME,
-    )
-
-    PerformanceHelpers.run_benchmarks(
-      base_runner,
-      current_runner,
-      DEFAULT_THRESHOLD,
-      all_base,
-      all_current,
-    )
-
-    summary = PerformanceHelpers.summary_report(
-      all_current,
-      all_base,
-      DEFAULT_BASE,
-      DEFAULT_RUN_TIME,
-      DEFAULT_THRESHOLD,
-    )
-
-    handle_results(summary)
-  end
-
-  def handle_results(summary)
-    puts
-    if summary[:regressions].any?
-      puts "  #{PerformanceHelpers::RED}#{PerformanceHelpers::BOLD}❌ PERFORMANCE REGRESSIONS DETECTED#{PerformanceHelpers::CLEAR}"
-      puts "  #{PerformanceHelpers::RED}#{summary[:regressions].length} benchmark(s) regressed beyond threshold#{PerformanceHelpers::CLEAR}"
-      puts
-      exit(1)
-    else
-      puts "  #{PerformanceHelpers::GREEN}#{PerformanceHelpers::BOLD}✅ ALL BENCHMARKS PASSED#{PerformanceHelpers::CLEAR}"
-      puts
+    stdout, stderr, status = Open3.capture3(env, "bundle", "exec", "ruby",
+                                            script_copy,
+                                            chdir: working_dir)
+    unless status.success?
+      raise "Benchmark failed for #{label}: #{stderr}\n#{stdout}"
     end
+
+    JSON.parse(stdout)
+  rescue JSON::ParserError => e
+    raise "Invalid JSON from #{label}: #{e.message}"
+  end
+
+  def regressions?(current, base)
+    threshold = DEFAULT_THRESHOLD
+    current.fetch("benchmarks").any? do |label, metrics|
+      base_metrics = base.fetch("benchmarks")[label]
+      next false unless base_metrics
+
+      change = change_fraction(metrics, base_metrics)
+      change && change < -threshold
+    end
+  end
+
+  def change_fraction(curr, base)
+    base_ips = base.fetch("lower").to_f
+    curr_ips = curr.fetch("upper").to_f
+    return nil if base_ips.zero?
+
+    (curr_ips - base_ips) / base_ips
+  end
+
+  def print_report(current, base)
+    threshold = DEFAULT_THRESHOLD
+    rows = current.fetch("benchmarks").map do |label, metrics|
+      base_metrics = base.fetch("benchmarks")[label]
+      change = change_fraction(metrics, base_metrics)
+      status = if base_metrics.nil?
+                 "NEW"
+               elsif change < -threshold
+                 "REGRESSED"
+               else
+                 "OK"
+               end
+      {
+        benchmark: label,
+        base_ips: base_metrics&.fetch("lower")&.round(1),
+        curr_ips: metrics.fetch("upper").round(1),
+        change: change ? format("%+0.1f%%", change * 100) : "N/A",
+        status: status,
+      }
+    end
+
+    table = TableTennis.new(rows,
+                            title: "Performance Comparison",
+                            theme: :dark,
+                            headers: {
+                              benchmark: "Benchmark",
+                              base_ips: "Base IPS",
+                              curr_ips: "Curr IPS",
+                              change: "Change",
+                              status: "Status",
+                            })
+    table.render
+    puts
+
+    print_summary(rows, threshold)
+  end
+
+  def print_summary(rows, threshold)
+    regressions = rows.select { |r| r[:status] == "REGRESSED" }
+    new_benchmarks = rows.select { |r| r[:status] == "NEW" }
+
+    if regressions.empty?
+      puts "#{GREEN}#{BOLD}✅ ALL BENCHMARKS PASSED#{CLEAR}"
+    else
+      puts "#{RED}#{BOLD}❌ PERFORMANCE REGRESSIONS DETECTED#{CLEAR}"
+      puts "#{RED}#{regressions.length} benchmark(s) regressed " \
+           "beyond #{(threshold * 100).round(0)}% threshold#{CLEAR}"
+    end
+
+    return if new_benchmarks.empty?
+
+    puts "#{YELLOW}🆕 New benchmarks (not in base):#{CLEAR}"
+    new_benchmarks.each { |r| puts "  • #{r[:benchmark]}" }
+  end
+
+  def base_clone_dir
+    @base_clone_dir ||= File.join(TMP_PERF_DIR, "base-#{DEFAULT_BASE}")
   end
 
   def cleanup
     FileUtils.rm_rf(TMP_PERF_DIR)
+  end
+
+  def exec(cmd)
+    Open3.capture3(cmd)
   end
 end
