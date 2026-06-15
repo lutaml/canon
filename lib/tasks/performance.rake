@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 require_relative "performance_comparator"
-require_relative "benchmark_runner"
 
 desc "Run performance benchmarks"
 namespace :performance do
@@ -16,66 +15,9 @@ namespace :performance do
     runner.run_benchmarks
   end
 
-  desc "Run specific benchmark category (xml_parsing, html_parsing, xml_comparison, html_comparison, formatting)"
-  task :category, [:name] do |_t, args|
-    category = args[:name]
-    unless PerformanceComparator::BENCHMARK_CATEGORIES.key?(category.to_sym)
-      puts "Unknown category: #{category}"
-      puts "Available: #{PerformanceComparator::BENCHMARK_CATEGORIES.keys.join(', ')}"
-      exit(1)
-    end
-
-    runner = BenchmarkRunner.new(run_time: 10)
-    runner.run_benchmarks
-  end
-
   desc "Quick benchmark run (faster, less accurate)"
   task :quick do
     runner = BenchmarkRunner.new(run_time: 2, warmup: 1, items: 20)
     runner.run_benchmarks
-  end
-
-  desc "Run benchmarks and output as JSON"
-  task :json do
-    require "json"
-    runner = BenchmarkRunner.new(run_time: 5)
-
-    # Suppress pretty output, just get results
-    results = runner.send(:run_all_benchmarks)
-
-    output = results.each_with_object({}) do |(label, metrics), h|
-      ips = (metrics[:lower] + metrics[:upper]) / 2.0
-      deviation = ((metrics[:upper] - metrics[:lower]) / metrics[:upper] * 100).round(1)
-      h[label] = {
-        ips: ips.round(2),
-        lower: metrics[:lower].round(2),
-        upper: metrics[:upper].round(2),
-        deviation: deviation,
-      }
-    end
-
-    puts JSON.pretty_generate(output)
-  end
-
-  desc "Run benchmarks and output as YAML"
-  task :yaml do
-    require "yaml"
-    runner = BenchmarkRunner.new(run_time: 5)
-
-    # Suppress pretty output, just get results
-    results = runner.send(:run_all_benchmarks)
-
-    output = results.each_with_object({}) do |(label, metrics), h|
-      ips = (metrics[:lower] + metrics[:upper]) / 2.0
-      deviation = ((metrics[:upper] - metrics[:lower]) / metrics[:upper] * 100).round(1)
-      h[label.to_sym] = {
-        ips: ips.round(2),
-        lower: metrics[:lower].round(2),
-        upper: metrics[:upper].round(2),
-        deviation: deviation,
-      }
-    end
-
-    puts YAML.dump(output)
   end
 end
