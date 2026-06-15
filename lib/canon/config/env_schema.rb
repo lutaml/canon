@@ -2,59 +2,31 @@
 
 module Canon
   class Config
-    # Schema definition for configuration attributes
-    # Defines attribute types and ENV variable mappings
+    # Schema definition for configuration attributes.
+    #
+    # Diff attribute types and names are derived lazily from
+    # +Canon::Config::DiffConfig.config_keys+ (the single source of
+    # truth declared via {ConfigDSL}).  Match and Format attribute
+    # types are declared here because those config classes do not yet
+    # use the DSL.
+    #
+    # The lookup is intentionally lazy so that {EnvSchema} can be
+    # loaded before {DiffConfig} is defined — the methods are only
+    # called once a {DiffConfig} instance is being built, by which
+    # time the DSL registry is populated.
     class EnvSchema
-      ATTRIBUTE_TYPES = {
-        # DiffConfig attributes
-        mode: :symbol,
-        use_color: :boolean,
-        context_lines: :integer,
-        grouping_lines: :integer,
-        show_diffs: :symbol,
-        verbose_diff: :boolean,
-        algorithm: :symbol,
-        parser: :symbol,
-        show_raw_inputs: :boolean,
-        show_raw_expected: :boolean,
-        show_raw_received: :boolean,
-        show_preprocessed_inputs: :boolean,
-        show_preprocessed_expected: :boolean,
-        show_preprocessed_received: :boolean,
-        show_prettyprint_inputs: :boolean,
-        show_prettyprint_expected: :boolean,
-        show_prettyprint_received: :boolean,
-        show_line_numbered_inputs: :boolean,
-        character_visualization: :symbol,     # true, false, :content_only
-        display_format: :symbol,
-        display_preprocessing: :symbol,       # :none, :pretty_print, :normalize_pretty_print, :c14n
-        pretty_printer_indent: :integer,
-        pretty_printer_indent_type: :symbol,  # :space or :tab
-        preserve_whitespace_elements: :string_array,
-        collapse_whitespace_elements: :string_array,
-        strip_whitespace_elements: :string_array,
-        pretty_printed_expected: :boolean,
-        pretty_printed_received: :boolean,
-        pretty_printer_sort_attributes: :boolean,
-        compact_semantic_report: :boolean,
-        expand_difference: :boolean,
-        theme: :symbol,
-
-        # MatchConfig attributes
+      MATCH_ATTRIBUTE_TYPES = {
         profile: :symbol,
+      }.freeze
 
-        # FormatConfig attributes
+      FORMAT_ATTRIBUTE_TYPES = {
         preprocessing: :string,
-
-        # Size limits to prevent hangs on large files
-        max_file_size: :integer,
-        max_node_count: :integer,
-        max_diff_lines: :integer,
       }.freeze
 
       class << self
         def type_for(attribute)
-          ATTRIBUTE_TYPES[attribute.to_sym]
+          key = attribute.to_sym
+          diff_type(key) || match_type(key) || format_type(key)
         end
 
         def env_key(format, config_type, attribute)
@@ -65,28 +37,46 @@ module Canon
           "CANON_#{attribute.to_s.upcase}"
         end
 
+        # All diff attributes declared via {ConfigDSL} on {DiffConfig}.
+        #
+        # @return [Array<Symbol>]
         def all_diff_attributes
-          %i[mode use_color context_lines grouping_lines show_diffs
-             verbose_diff algorithm parser show_raw_inputs show_raw_expected show_raw_received
-             show_preprocessed_inputs show_preprocessed_expected show_preprocessed_received
-             show_prettyprint_inputs show_prettyprint_expected show_prettyprint_received
-             show_line_numbered_inputs character_visualization
-             display_format display_preprocessing
-             pretty_printer_indent pretty_printer_indent_type
-             preserve_whitespace_elements collapse_whitespace_elements strip_whitespace_elements
-             pretty_printed_expected pretty_printed_received
-             pretty_printer_sort_attributes
-             compact_semantic_report expand_difference
-             max_file_size max_node_count max_diff_lines theme]
+          diff_config_keys.keys
         end
 
+        # Match attributes subject to ENV override.
+        #
+        # @return [Array<Symbol>]
         def all_match_attributes
           %i[profile
-             preserve_whitespace_elements collapse_whitespace_elements strip_whitespace_elements]
+             preserve_whitespace_elements collapse_whitespace_elements
+             strip_whitespace_elements]
         end
 
+        # Format attributes subject to ENV override.
+        #
+        # @return [Array<Symbol>]
         def all_format_attributes
           %i[preprocessing]
+        end
+
+        private
+
+        def diff_type(key)
+          meta = diff_config_keys[key]
+          meta&.fetch(:type)
+        end
+
+        def match_type(key)
+          MATCH_ATTRIBUTE_TYPES[key]
+        end
+
+        def format_type(key)
+          FORMAT_ATTRIBUTE_TYPES[key]
+        end
+
+        def diff_config_keys
+          Canon::Config::DiffConfig.config_keys
         end
       end
     end

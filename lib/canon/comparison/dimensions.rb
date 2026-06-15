@@ -1,54 +1,23 @@
 # frozen_string_literal: true
 
-# Comparison dimensions
-#
-# Provides dimension classes for comparing specific aspects of documents.
-# Each dimension knows how to extract and compare data according to different behaviors.
-#
-# == Architecture
-#
-# Dimensions represent "WHAT to compare" - specific aspects of a document that can be compared:
-# - Text content
-# - Comments
-# - Attribute values
-# - Attribute presence
-# - Attribute order
-# - Element position
-# - Structural whitespace
-#
-# == Behaviors
-#
-# Each dimension supports comparison behaviors:
-# - :strict - Exact comparison
-# - :normalize - Normalized comparison (e.g., collapse whitespace)
-# - :ignore - Skip comparison
-#
-# == Usage
-#
-#   # Get a dimension instance
-#   dimension = Canon::Comparison::Dimensions::Registry.get(:text_content)
-#
-#   # Compare two nodes
-#   dimension.equivalent?(node1, node2, :normalize)
-#
-#   # Or use the registry directly
-#   Canon::Comparison::Dimensions::Registry.compare(:text_content, node1, node2, :normalize)
-
-require_relative "dimensions/base_dimension"
-require_relative "dimensions/registry"
-require_relative "dimensions/text_content_dimension"
-require_relative "dimensions/comments_dimension"
-require_relative "dimensions/attribute_values_dimension"
-require_relative "dimensions/attribute_presence_dimension"
-require_relative "dimensions/attribute_order_dimension"
-require_relative "dimensions/element_position_dimension"
-require_relative "dimensions/structural_whitespace_dimension"
-
 module Canon
   module Comparison
+    # Dimension value objects for comparison aspects.
+    #
+    # Each format (XML/HTML, JSON, YAML) has a distinct set of dimensions —
+    # specific aspects of a document that can be compared with different
+    # behaviors (:strict, :normalize, :ignore).
+    #
+    # A Dimension knows its metadata (name, valid behaviors, normative
+    # classification rule).  Comparison logic stays in the comparators where
+    # it has full node context.
+    #
+    # DimensionSet groups dimensions per format.  Registry provides pre-built
+    # sets with format lookup (html/html4/html5 all resolve to the XML set).
     module Dimensions
-      # Version constant for the dimensions module
-      VERSION = "1.0.0"
+      autoload :Dimension, "canon/comparison/dimensions/dimension"
+      autoload :DimensionSet, "canon/comparison/dimensions/dimension_set"
+      autoload :Registry, "canon/comparison/dimensions/registry"
     end
   end
 end

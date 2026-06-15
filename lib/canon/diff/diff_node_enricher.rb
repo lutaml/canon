@@ -1,9 +1,5 @@
 # frozen_string_literal: true
 
-require_relative "diff_char_range"
-require_relative "text_decomposer"
-require_relative "source_locator"
-
 module Canon
   module Diff
     # Enriches DiffNodes with character position data (DiffCharRanges).

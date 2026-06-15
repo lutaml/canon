@@ -1,10 +1,6 @@
 # frozen_string_literal: true
 
 require "nokogiri" unless RUBY_ENGINE == "opal"
-require_relative "../xml_backend"
-require_relative "../xml/c14n"
-require_relative "../pretty_printer/xml"
-require_relative "../validators/xml_validator"
 
 module Canon
   module Formatters

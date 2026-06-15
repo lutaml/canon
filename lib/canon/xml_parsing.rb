@@ -264,8 +264,10 @@ module Canon
         node.to_xml
       end
 
-      def moxml_canonicalize(node, _options)
-        node.to_xml
+      def moxml_canonicalize(_node, _options)
+        raise Canon::Error,
+              "C14N canonicalization is not supported by the moxml backend. " \
+              "Use the Nokogiri backend or a different preprocessing option."
       end
 
       def moxml_node_type(node)

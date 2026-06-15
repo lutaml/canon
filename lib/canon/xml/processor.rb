@@ -1,10 +1,5 @@
 # frozen_string_literal: true
 
-require_relative "character_encoder"
-require_relative "namespace_handler"
-require_relative "attribute_handler"
-require_relative "xml_base_handler"
-
 module Canon
   module Xml
     # C14N 1.1 processor

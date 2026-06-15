@@ -3,7 +3,6 @@
 require "yaml"
 require "date"
 require "time"
-require_relative "base_validator"
 
 module Canon
   module Validators

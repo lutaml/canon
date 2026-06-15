@@ -1,9 +1,5 @@
 # frozen_string_literal: true
 
-require_relative "../pretty_printer/xml"
-require_relative "../pretty_printer/json"
-require_relative "../pretty_printer/html"
-
 module Canon
   module Commands
     # Command for canonicalizing files

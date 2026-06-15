@@ -172,7 +172,7 @@ module Canon
           path: path,
           value1: obj1,
           value2: obj2,
-          difference: diff_code,
+          diff_code: diff_code,
         }
       end
     end

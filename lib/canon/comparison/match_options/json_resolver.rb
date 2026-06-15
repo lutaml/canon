@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require_relative "base_resolver"
-
 module Canon
   module Comparison
     module MatchOptions
@@ -19,7 +17,6 @@ module Canon
 
         # Predefined match profiles for JSON
         MATCH_PROFILES = {
-          # Strict: Match exactly
           strict: {
             preprocessing: :none,
             text_content: :strict,
@@ -27,7 +24,6 @@ module Canon
             key_order: :strict,
           },
 
-          # Spec-friendly: Formatting and order don't matter
           spec_friendly: {
             preprocessing: :normalize,
             text_content: :strict,
@@ -35,7 +31,6 @@ module Canon
             key_order: :ignore,
           },
 
-          # Content-only: Only values matter
           content_only: {
             preprocessing: :normalize,
             text_content: :normalize,
@@ -45,28 +40,12 @@ module Canon
         }.freeze
 
         class << self
-          # Matching dimensions for JSON (collectively exhaustive)
-          def match_dimensions
-            %i[
-              text_content
-              structural_whitespace
-              key_order
-            ].freeze
-          end
-
           # Get format-specific default options
-          #
-          # @param format [Symbol] Format type (:json)
-          # @return [Hash] Default options for the format
           def format_defaults(format)
             FORMAT_DEFAULTS[format]&.dup || FORMAT_DEFAULTS[:json].dup
           end
 
           # Get options for a named profile
-          #
-          # @param profile [Symbol] Profile name
-          # @return [Hash] Profile options
-          # @raise [Canon::Error] If profile is unknown
           def get_profile_options(profile)
             unless MATCH_PROFILES.key?(profile)
               raise Canon::Error,
@@ -76,13 +55,10 @@ module Canon
             MATCH_PROFILES[profile].dup
           end
 
-          # JSON-specific dimension behaviors
-          def dimension_behaviors
-            {
-              text_content: %i[strict normalize ignore].freeze,
-              structural_whitespace: %i[strict normalize ignore].freeze,
-              key_order: %i[strict ignore].freeze,
-            }
+          protected
+
+          def dimension_set
+            Canon::Comparison::Dimensions::Registry.for(:json)
           end
         end
       end

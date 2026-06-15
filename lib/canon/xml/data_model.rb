@@ -2,16 +2,6 @@
 
 require "nokogiri" unless RUBY_ENGINE == "opal"
 require "set"
-require_relative "../data_model"
-require_relative "../xml_backend"
-require_relative "../xml_parsing"
-require_relative "nodes/root_node"
-require_relative "nodes/element_node"
-require_relative "nodes/namespace_node"
-require_relative "nodes/attribute_node"
-require_relative "nodes/text_node"
-require_relative "nodes/comment_node"
-require_relative "nodes/processing_instruction_node"
 
 module Canon
   module Xml

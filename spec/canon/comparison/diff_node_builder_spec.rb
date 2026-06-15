@@ -49,7 +49,7 @@ RSpec.describe Canon::Comparison::DiffNodeBuilder do
     end
 
     describe ":text_content dimension" do
-      it "shows truncated text when both have content" do
+      it "shows text with whitespace visualization when both have content" do
         node1 = Canon::Xml::Nodes::TextNode.new(value: "This is some very long text content that exceeds the limit")
         node2 = Canon::Xml::Nodes::TextNode.new(value: "This is some short content")
 
@@ -57,7 +57,8 @@ RSpec.describe Canon::Comparison::DiffNodeBuilder do
           node1, node2, 9, 9, :text_content
         )
 
-        expect(reason).to match(/\A'This is some very long text content that...' vs 'This is some short content'\z/)
+        expect(reason).to start_with('Text: "')
+        expect(reason).to include("vs")
       end
 
       it "handles missing text gracefully" do
@@ -68,7 +69,8 @@ RSpec.describe Canon::Comparison::DiffNodeBuilder do
           node1, node2, 9, 9, :text_content
         )
 
-        expect(reason).to eq("'' vs 'present'")
+        expect(reason).to start_with('Text: "')
+        expect(reason).to include("present")
       end
     end
 
@@ -170,6 +172,145 @@ RSpec.describe Canon::Comparison::DiffNodeBuilder do
         expect(reason).to eq("element 'body': missing")
         expect(reason).not_to match(/\d+ vs \d+/)
       end
+    end
+  end
+
+  describe ".build_reason :whitespace_adjacency" do
+    it "names the side that carries the whitespace" do
+      root1 = Canon::Xml::Nodes::RootNode.new
+      parent1 = Canon::Xml::Nodes::ElementNode.new(name: "p")
+      root1.add_child(parent1)
+      ws_text = Canon::Xml::Nodes::TextNode.new(value: " ")
+      content_text = Canon::Xml::Nodes::TextNode.new(value: "hello")
+      parent1.add_child(ws_text)
+      parent1.add_child(content_text)
+
+      root2 = Canon::Xml::Nodes::RootNode.new
+      parent2 = Canon::Xml::Nodes::ElementNode.new(name: "p")
+      root2.add_child(parent2)
+      parent2.add_child(Canon::Xml::Nodes::TextNode.new(value: "hello"))
+
+      reason = described_class.build_reason(
+        ws_text, content_text,
+        Canon::Comparison::MISSING_NODE,
+        Canon::Comparison::MISSING_NODE,
+        :whitespace_adjacency
+      )
+
+      expect(reason).to include("EXPECTED")
+      expect(reason).to include("absent on ACTUAL")
+    end
+
+    it "falls back to text diff when neither side is whitespace-only" do
+      node1 = Canon::Xml::Nodes::TextNode.new(value: "hello")
+      node2 = Canon::Xml::Nodes::TextNode.new(value: "world")
+
+      reason = described_class.build_reason(
+        node1, node2,
+        Canon::Comparison::UNEQUAL_TEXT_CONTENTS,
+        Canon::Comparison::UNEQUAL_TEXT_CONTENTS,
+        :whitespace_adjacency
+      )
+
+      expect(reason).to start_with('Text: "')
+    end
+  end
+
+  describe ".visualize_whitespace" do
+    it "returns empty string for nil" do
+      expect(described_class.visualize_whitespace(nil)).to eq("")
+    end
+
+    it "passes through text with no special whitespace" do
+      expect(described_class.visualize_whitespace("hello")).to eq("hello")
+    end
+
+    it "visualizes space characters" do
+      result = described_class.visualize_whitespace("a b")
+      expect(result).not_to eq("a b")
+      expect(result).to include("a")
+      expect(result).to include("b")
+    end
+  end
+
+  describe ".describe_whitespace" do
+    it "returns 0 chars for nil or empty" do
+      expect(described_class.describe_whitespace(nil)).to eq("0 chars")
+      expect(described_class.describe_whitespace("")).to eq("0 chars")
+    end
+
+    it "counts chars and reports components" do
+      result = described_class.describe_whitespace(" \n")
+      expect(result).to include("2 chars")
+      expect(result).to include("1 spaces")
+      expect(result).to include("1 newlines")
+    end
+  end
+
+  describe ".whitespace_only?" do
+    it "returns false for nil" do
+      expect(described_class.whitespace_only?(nil)).to be(false)
+    end
+
+    it "returns true for whitespace-only strings" do
+      expect(described_class.whitespace_only?("  \n\t")).to be(true)
+      expect(described_class.whitespace_only?("   ")).to be(true)
+    end
+
+    it "returns false for content strings" do
+      expect(described_class.whitespace_only?("hello")).to be(false)
+      expect(described_class.whitespace_only?(" x ")).to be(false)
+    end
+  end
+
+  describe ".build_reason :comments" do
+    it "shows comment on expected side" do
+      root = Canon::Xml::Nodes::RootNode.new
+      parent = Canon::Xml::Nodes::ElementNode.new(name: "div")
+      root.add_child(parent)
+      comment = Canon::Xml::Nodes::CommentNode.new(value: "hello")
+      parent.add_child(comment)
+
+      reason = described_class.build_reason(
+        comment, nil,
+        Canon::Comparison::MISSING_NODE,
+        Canon::Comparison::MISSING_NODE,
+        :comments
+      )
+
+      expect(reason).to eq("Comment present on EXPECTED only: <!--hello-->")
+    end
+
+    it "shows comment on actual side" do
+      root = Canon::Xml::Nodes::RootNode.new
+      parent = Canon::Xml::Nodes::ElementNode.new(name: "div")
+      root.add_child(parent)
+      comment = Canon::Xml::Nodes::CommentNode.new(value: "world")
+      parent.add_child(comment)
+
+      reason = described_class.build_reason(
+        nil, comment,
+        Canon::Comparison::MISSING_NODE,
+        Canon::Comparison::MISSING_NODE,
+        :comments
+      )
+
+      expect(reason).to eq("Comment present on ACTUAL only: <!--world-->")
+    end
+  end
+
+  describe ".build_reason :attribute_values" do
+    it "shows which attributes changed" do
+      doc1 = Nokogiri::XML('<item id="1"/>').children.first
+      doc2 = Nokogiri::XML('<item id="2"/>').children.first
+
+      reason = described_class.build_reason(
+        doc1, doc2, 4, 4, :attribute_values
+      )
+
+      expect(reason).to include('id="1"')
+      expect(reason).to include('"2"')
+      expect(reason).to include("Changed")
     end
   end
 end

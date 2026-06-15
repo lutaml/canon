@@ -193,7 +193,7 @@ module Canon
         # @param element [Nokogiri::XML::Element] Element to check
         # @return [Boolean] True if element is whitespace-sensitive
         def whitespace_sensitive?(element)
-          return false unless element.respond_to?(:name)
+          return false unless Canon::Comparison::NodeInspector.element_node?(element)
 
           # List of HTML elements where whitespace is semantically significant
           whitespace_sensitive_tags = %w[pre code textarea script style]

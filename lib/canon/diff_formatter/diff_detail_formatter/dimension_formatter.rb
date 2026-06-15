@@ -53,9 +53,6 @@ expand_difference: false)
         # @param use_color [Boolean] Whether to use colors
         # @return [Array] Tuple of [detail1, detail2, changes]
         def self.format_namespace_uri_details(diff, use_color)
-          require_relative "color_helper"
-          require_relative "node_utils"
-
           node1 = extract_node1(diff)
           node2 = extract_node2(diff)
 
@@ -87,10 +84,6 @@ expand_difference: false)
         # @param use_color [Boolean] Whether to use colors
         # @return [Array] Tuple of [detail1, detail2, changes]
         def self.format_namespace_declarations_details(diff, use_color)
-          require_relative "color_helper"
-          require_relative "node_utils"
-          require_relative "text_utils"
-
           node1 = extract_node1(diff)
           node2 = extract_node2(diff)
 
@@ -174,9 +167,6 @@ expand_difference: false)
         # @param use_color [Boolean] Whether to use colors
         # @return [Array] Tuple of [detail1, detail2, changes]
         def self.format_element_structure_details(diff, use_color)
-          require_relative "color_helper"
-          require_relative "node_utils"
-
           node1 = extract_node1(diff)
           node2 = extract_node2(diff)
 
@@ -236,9 +226,6 @@ expand_difference: false)
         # @param use_color [Boolean] Whether to use colors
         # @return [Array] Tuple of [detail1, detail2, changes]
         def self.format_attribute_presence_details(diff, use_color)
-          require_relative "color_helper"
-          require_relative "node_utils"
-
           node1 = extract_node1(diff)
           node2 = extract_node2(diff)
 
@@ -291,9 +278,6 @@ expand_difference: false)
         # @param use_color [Boolean] Whether to use colors
         # @return [Array] Tuple of [detail1, detail2, changes]
         def self.format_attribute_values_details(diff, use_color)
-          require_relative "color_helper"
-          require_relative "node_utils"
-
           node1 = extract_node1(diff)
           node2 = extract_node2(diff)
 
@@ -330,9 +314,6 @@ expand_difference: false)
         # @param use_color [Boolean] Whether to use colors
         # @return [Array] Tuple of [detail1, detail2, changes]
         def self.format_attribute_order_details(diff, use_color)
-          require_relative "color_helper"
-          require_relative "node_utils"
-
           node1 = extract_node1(diff)
           node2 = extract_node2(diff)
 
@@ -361,10 +342,6 @@ expand_difference: false)
         # @param compact [Boolean] Whether to serialize element nodes as compact XML
         # @return [Array] Tuple of [detail1, detail2, changes]
         def self.format_text_content_details(diff, use_color, compact: false)
-          require_relative "color_helper"
-          require_relative "node_utils"
-          require_relative "text_utils"
-
           node1 = extract_node1(diff)
           node2 = extract_node2(diff)
 
@@ -465,10 +442,6 @@ expand_difference: false)
         # @param use_color [Boolean] Whether to apply ANSI colours
         # @return [Array<String>] Tuple of [detail1, detail2, changes]
         def self.format_text_content_one_sided(node1, node2, use_color)
-          require_relative "color_helper"
-          require_relative "node_utils"
-          require_relative "text_utils"
-
           present = node1 || node2
 
           # Defensive: if a one-sided text-content diff carries an
@@ -515,10 +488,6 @@ expand_difference: false)
         # @param use_color [Boolean] Whether to use colors
         # @return [Array] Tuple of [detail1, detail2, changes]
         def self.format_whitespace_adjacency_details(diff, use_color)
-          require_relative "color_helper"
-          require_relative "node_utils"
-          require_relative "text_utils"
-
           node1 = extract_node1(diff)
           node2 = extract_node2(diff)
 
@@ -568,10 +537,6 @@ expand_difference: false)
         # @param use_color [Boolean] Whether to use colors
         # @return [Array] Tuple of [detail1, detail2, changes]
         def self.format_structural_whitespace_details(diff, use_color)
-          require_relative "color_helper"
-          require_relative "node_utils"
-          require_relative "text_utils"
-
           node1 = extract_node1(diff)
           node2 = extract_node2(diff)
 
@@ -594,9 +559,6 @@ expand_difference: false)
         # @param use_color [Boolean] Whether to use colors
         # @return [Array] Tuple of [detail1, detail2, changes]
         def self.format_comments_details(diff, use_color)
-          require_relative "color_helper"
-          require_relative "node_utils"
-
           node1 = extract_node1(diff)
           node2 = extract_node2(diff)
 
@@ -619,8 +581,6 @@ expand_difference: false)
         # @param use_color [Boolean] Whether to use colors
         # @return [Array] Tuple of [detail1, detail2, changes]
         def self.format_hash_diff_details(diff, use_color)
-          require_relative "color_helper"
-
           detail1 = if diff.is_a?(Hash) && diff[:value1]
                       ColorHelper.colorize(format_json_value(diff[:value1]),
                                            :red, use_color)
@@ -653,9 +613,6 @@ expand_difference: false)
         # @param compact [Boolean] Whether to serialize element nodes as compact XML
         # @return [Array] Tuple of [detail1, detail2, changes]
         def self.format_fallback_details(diff, use_color, compact: false)
-          require_relative "color_helper"
-          require_relative "node_utils"
-
           node1 = extract_node1(diff)
           node2 = extract_node2(diff)
 
@@ -749,8 +706,7 @@ expand_difference: false)
 
           declarations = {}
 
-          # Handle Canon::Xml::Node (uses namespace_nodes)
-          if node.respond_to?(:namespace_nodes)
+          if node.is_a?(Canon::Xml::Node)
             node.namespace_nodes.each do |ns|
               next if ns.prefix == "xml" && ns.uri == "http://www.w3.org/XML/1998/namespace"
 
@@ -760,30 +716,28 @@ expand_difference: false)
             return declarations
           end
 
-          # Handle Nokogiri/Moxml nodes (use attributes)
-          raw_attrs = node.respond_to?(:attribute_nodes) ? node.attribute_nodes : node.attributes
+          # Handle Nokogiri/Moxml nodes (use attribute_nodes or attributes).
+          raw_attrs = if node.is_a?(Nokogiri::XML::Node)
+                        node.attribute_nodes
+                      else
+                        node.attributes
+                      end
 
           if raw_attrs.is_a?(Array)
             raw_attrs.each do |attr|
-              name = attr.respond_to?(:name) ? attr.name : attr.to_s
-              value = attr.respond_to?(:value) ? attr.value : attr.to_s
+              name = attr.is_a?(Nokogiri::XML::Attr) ? attr.name : attr.to_s
+              value = attr.is_a?(Nokogiri::XML::Attr) ? attr.value : attr.to_s
 
               if namespace_declaration?(name)
                 prefix = name == "xmlns" ? "" : name.split(":", 2)[1]
                 declarations[prefix] = value
               end
             end
-          elsif raw_attrs.respond_to?(:each)
+          elsif raw_attrs.is_a?(Hash)
             raw_attrs.each do |key, val|
-              name = if key.is_a?(String)
-                       key
-                     else
-                       (key.respond_to?(:name) ? key.name : key.to_s)
-                     end
-              value = if val.respond_to?(:value)
+              name = hash_key_to_name(key)
+              value = if val.is_a?(Nokogiri::XML::Attr)
                         val.value
-                      elsif val.respond_to?(:content)
-                        val.content
                       else
                         val.to_s
                       end
@@ -804,6 +758,18 @@ expand_difference: false)
         # @return [Boolean] true if namespace declaration
         def self.namespace_declaration?(name)
           name == "xmlns" || name.to_s.start_with?("xmlns:")
+        end
+
+        # Coerce a hash key (from a backend-supplied attribute hash) into a
+        # plain String attribute name.
+        #
+        # @param key [String, Nokogiri::XML::Attr, Object]
+        # @return [String]
+        def self.hash_key_to_name(key)
+          return key if key.is_a?(String)
+          return key.name if key.is_a?(Nokogiri::XML::Attr)
+
+          key.to_s
         end
       end
     end

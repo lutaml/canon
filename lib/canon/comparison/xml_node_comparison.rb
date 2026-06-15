@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require_relative "node_inspector"
-
 module Canon
   module Comparison
     # XML Node Comparison Utilities
@@ -78,18 +76,9 @@ differences)
                               differences)
       end
 
-      # Filter children based on options
-      #
-      # Removes nodes that should be excluded from comparison based on
-      # options like :ignore_nodes, :ignore_comments, etc.
-      #
-      # @param children [Array] Array of child nodes
-      # @param opts [Hash] Comparison options
-      # @return [Array] Filtered array of children
+      # Filter children — delegates to MarkupComparator.
       def self.filter_children(children, opts)
-        children.reject do |child|
-          node_excluded?(child, opts)
-        end
+        MarkupComparator.filter_children(children, opts)
       end
 
       # Build a side-specific opts copy that activates the pretty-print
@@ -193,70 +182,9 @@ diff_children, differences)
 
       # Private helper methods
 
-      # Check if a node should be excluded from comparison
-      #
-      # @param node [Object] Node to check
-      # @param opts [Hash] Comparison options
-      # @return [Boolean] true if node should be excluded
+      # Check if a node should be excluded — delegates to MarkupComparator.
       def self.node_excluded?(node, opts)
-        return false if node.nil?
-
-        return true if opts[:ignore_nodes]&.include?(node)
-        return true if opts[:ignore_comments] && comment_node?(node)
-        return true if opts[:ignore_text_nodes] && text_node?(node)
-
-        # Check match options
-        match_opts = opts[:match_opts]
-        return false unless match_opts
-
-        # Filter comments based on match options and format
-        # HTML: Filter comments to avoid spurious differences from zip pairing
-        #       BUT only when not in verbose mode (verbose needs differences recorded)
-        # XML: Don't filter comments (allow informative differences to be recorded)
-        if match_opts[:comments] == :ignore && comment_node?(node)
-          # In verbose mode, don't filter comments - we want to record the differences
-          return false if opts[:verbose]
-
-          # Only filter comments for HTML, not XML (when not verbose)
-          format = opts[:format] || match_opts[:format]
-          if %i[html html4 html5].include?(format)
-            return true
-          end
-        end
-
-        # Strip whitespace-only text nodes based on parent element configuration.
-        # Use preserve_whitespace_elements / strip_whitespace_elements to control.
-        # Blacklist (strip) > preserve > collapse > format defaults.
-        return false unless text_node?(node) && node.parent
-        return false unless MatchOptions.normalize_text(node_text(node)).empty?
-
-        # HTML-specific: NBSP (U+00A0) is never insignificant whitespace —
-        # it always renders as a visible non-breaking space.
-        format = opts[:format] || match_opts[:format]
-        if %i[html html4 html5].include?(format)
-          return false if WhitespaceSensitivity.contains_nbsp?(node_text(node))
-
-          # Whitespace between inline element siblings is semantically
-          # significant (renders as a visible gap) and must not be stripped.
-          return false if WhitespaceSensitivity.inline_whitespace_significant?(node)
-        end
-
-        return true unless WhitespaceSensitivity.whitespace_preserved?(
-          node.parent, match_opts
-        )
-
-        # When the pretty-print-side flag is active (set by opts_for_side in
-        # ChildComparison.compare), drop whitespace-only text nodes that start
-        # with "\n" inside :collapse elements — they are structural indentation
-        # from the pretty-printer, not content.  Space-only nodes (no "\n") are
-        # real inline content and are kept for normalised comparison.
-        # :preserve elements are always left unchanged.
-        if match_opts[:_pretty_print_side_active]
-          ws_class = WhitespaceSensitivity.classify_text_node(node, opts)
-          return true if ws_class == :collapse && node_text(node).start_with?("\n")
-        end
-
-        false
+        MarkupComparator.node_excluded?(node, opts)
       end
 
       # Check if this is a comment vs non-comment comparison
@@ -337,9 +265,6 @@ diff_children, differences)
       # Dispatch by Canon::Xml::Node type
       def self.dispatch_canon_node_type(node1, node2, opts, child_opts,
 diff_children, differences)
-        # Import XmlComparator to use its comparison methods
-        require_relative "xml_comparator"
-
         case node1.node_type
         when :root
           XmlComparator.compare_children(node1, node2, opts, child_opts,
@@ -364,8 +289,6 @@ diff_children, differences)
       # Dispatch by legacy Nokogiri/Moxml node type
       def self.dispatch_legacy_node_type(node1, node2, opts, child_opts,
 diff_children, differences)
-        require_relative "xml_comparator"
-
         if Canon::XmlParsing.document?(node1)
           XmlComparator.compare_document_nodes(node1, node2, opts, child_opts,
                                                diff_children, differences)
@@ -401,46 +324,8 @@ diff_children, differences)
 differences)
         return unless opts[:verbose]
 
-        require_relative "xml_comparator"
         XmlComparator.add_difference(node1, node2, diff1, diff2, dimension,
                                      opts, differences)
-      end
-
-      # Serialize a Canon::Xml::Node to XML string
-      #
-      # This utility method handles serialization of different node types
-      # to their string representation for display and debugging purposes.
-      #
-      # @param node [Canon::Xml::Node, Object] Node to serialize
-      # @return [String] XML string representation
-      def self.serialize_node_to_xml(node)
-        case node
-        when Canon::Xml::Nodes::RootNode
-          # Serialize all children of root
-          node.children.map { |child| serialize_node_to_xml(child) }.join
-        when Canon::Xml::Nodes::ElementNode
-          # Serialize element with attributes and children
-          attrs = node.attribute_nodes.map do |a|
-            " #{a.name}=\"#{a.value}\""
-          end.join
-          children_xml = node.children.map do |c|
-            serialize_node_to_xml(c)
-          end.join
-
-          if children_xml.empty?
-            "<#{node.name}#{attrs}/>"
-          else
-            "<#{node.name}#{attrs}>#{children_xml}</#{node.name}>"
-          end
-        when Canon::Xml::Nodes::TextNode
-          node.value
-        when Canon::Xml::Nodes::CommentNode
-          "<!--#{node.value}-->"
-        when Canon::Xml::Nodes::ProcessingInstructionNode
-          "<?#{node.target} #{node.data}?>"
-        else
-          node.to_s
-        end
       end
     end
   end

@@ -2,14 +2,6 @@
 
 require "paint" unless RUBY_ENGINE == "opal"
 require "yaml" unless RUBY_ENGINE == "opal"
-require_relative "comparison"
-require_relative "diff/diff_block"
-require_relative "diff/diff_context"
-require_relative "diff/diff_report"
-require_relative "diff_formatter/debug_output"
-require_relative "diff_formatter/by_line_formatter"
-require_relative "diff_formatter/by_object_formatter"
-require_relative "diff_formatter/pretty_diff_formatter"
 
 module Canon
   # Formatter for displaying semantic differences with color support
@@ -65,6 +57,16 @@ module Canon
   #   )
   #
   class DiffFormatter
+    autoload :ByLineFormatter, "canon/diff_formatter/by_line_formatter"
+    autoload :ByObjectFormatter, "canon/diff_formatter/by_object_formatter"
+    autoload :DebugOutput, "canon/diff_formatter/debug_output"
+    autoload :DiffDetailFormatter, "canon/diff_formatter/diff_detail_formatter"
+    autoload :DiffDetailFormatterHelpers,
+             "canon/diff_formatter/diff_detail_formatter_helpers"
+    autoload :Legend, "canon/diff_formatter/legend"
+    autoload :PrettyDiffFormatter, "canon/diff_formatter/pretty_diff_formatter"
+    autoload :Theme, "canon/diff_formatter/theme"
+
     # Namespace for by-object mode formatters
     module ByObject
       autoload :BaseFormatter, "canon/diff_formatter/by_object/base_formatter"
@@ -76,6 +78,7 @@ module Canon
     # Namespace for by-line mode formatters
     module ByLine
       autoload :BaseFormatter, "canon/diff_formatter/by_line/base_formatter"
+      autoload :HtmlFormatter, "canon/diff_formatter/by_line/html_formatter"
       autoload :SimpleFormatter, "canon/diff_formatter/by_line/simple_formatter"
       autoload :XmlFormatter, "canon/diff_formatter/by_line/xml_formatter"
       autoload :JsonFormatter, "canon/diff_formatter/by_line/json_formatter"
@@ -420,7 +423,6 @@ module Canon
       # 2. Semantic Diff Report (ALWAYS if diffs exist)
       if comparison_result.is_a?(Canon::Comparison::ComparisonResult) &&
           comparison_result.differences.any?
-        require_relative "diff_formatter/diff_detail_formatter"
         output << DiffDetailFormatter.format_report(
           comparison_result.differences,
           use_color: @use_color,

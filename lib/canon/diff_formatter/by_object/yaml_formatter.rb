@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require_relative "json_formatter"
-
 module Canon
   class DiffFormatter
     module ByObject

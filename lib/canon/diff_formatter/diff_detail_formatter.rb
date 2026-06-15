@@ -1,13 +1,6 @@
 # frozen_string_literal: true
 
 require "rainbow" unless RUBY_ENGINE == "opal"
-require_relative "../xml/namespace_helper"
-# DiffDetailFormatter helper modules
-require_relative "diff_detail_formatter/text_utils"
-require_relative "diff_detail_formatter/color_helper"
-require_relative "diff_detail_formatter/location_extractor"
-require_relative "diff_detail_formatter/node_utils"
-require_relative "diff_detail_formatter/dimension_formatter"
 
 module Canon
   class DiffFormatter

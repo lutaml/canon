@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require_relative "../node_inspector"
-
 module Canon
   module Comparison
     module XmlComparatorHelpers
@@ -38,7 +36,6 @@ module Canon
             # pretty_printed_received → drop \n-starting whitespace nodes from node2
             # The ephemeral _pretty_print_side_active flag is consumed by node_excluded?
             # and must NOT be forwarded into recursive compare_nodes calls.
-            require_relative "../xml_node_comparison"
             opts1 = XmlNodeComparison.opts_for_side(opts, :expected)
             opts2 = XmlNodeComparison.opts_for_side(opts, :received)
 
@@ -78,9 +75,6 @@ module Canon
           # Use ElementMatcher for semantic comparison
           def use_element_matcher_comparison(children1, children2, parent_node, comparator,
                                              opts, child_opts, diff_children, differences)
-            require_relative "../../xml/element_matcher"
-            require_relative "../../xml/nodes/root_node"
-
             # Create temporary RootNode wrappers
             temp_root1 = Canon::Xml::Nodes::RootNode.new
             temp_root1.children = children1.dup

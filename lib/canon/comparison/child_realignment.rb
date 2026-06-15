@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require_relative "node_inspector"
-
 module Canon
   module Comparison
     # Shared two-cursor walk over child arrays with noise-aware realignment.

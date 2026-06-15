@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require_relative "diff_block"
-
 module Canon
   module Diff
     # Builds DiffBlocks from DiffLines

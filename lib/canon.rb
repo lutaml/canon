@@ -1,23 +1,31 @@
 # frozen_string_literal: true
 
-require_relative "canon/version"
-require_relative "canon/errors"
-require_relative "canon/xml_backend"
-require_relative "canon/xml_parsing"
-require_relative "canon/config"
-require_relative "canon/data_model"
-require_relative "canon/html"
-require_relative "canon/formatters/xml_formatter"
-require_relative "canon/formatters/yaml_formatter"
-require_relative "canon/formatters/json_formatter"
-require_relative "canon/formatters/html_formatter"
-require_relative "canon/formatters/html4_formatter"
-require_relative "canon/formatters/html5_formatter"
-require_relative "canon/comparison"
+require "canon/version"
+require "canon/errors"
+require "nokogiri" unless RUBY_ENGINE == "opal"
+require "canon/xml_backend"
+require "canon/xml_parsing"
+require "canon/config"
+require "canon/data_model"
+require "canon/xml"
+require "canon/html"
+require "canon/formatters"
+require "canon/comparison"
+require "canon/diff"
+require "canon/tree_diff"
+require "canon/validators"
+require "canon/pretty_printer"
+require "canon/options"
+require "canon/commands"
 
-require_relative "canon/rspec_matchers" if defined?(RSpec.configure)
+require "canon/rspec_matchers" if defined?(RSpec.configure)
 
 module Canon
+  autoload :Cache, "canon/cache"
+  autoload :Cli, "canon/cli"
+  autoload :ColorDetector, "canon/color_detector"
+  autoload :DiffFormatter, "canon/diff_formatter"
+
   SUPPORTED_FORMATS = %i[xml yaml json html html4 html5 string].freeze
 
   # Format content based on the specified format type
@@ -60,6 +68,8 @@ module Canon
   # Define shorthand methods for each supported format
   # Creates parse_{format} and format_{format} methods
   SUPPORTED_FORMATS.each do |format|
+    next if format == :string # comparison-only format, no formatter
+
     define_singleton_method("parse_#{format}") do |content|
       parse(content, format)
     end

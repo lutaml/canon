@@ -133,8 +133,6 @@ parse_errors_expected: nil, parse_errors_received: nil)
       # @return [String] Formatted diff output
       def diff(use_color: true, context_lines: 3, diff_grouping_lines: nil,
 show_diffs: :all, diff_mode: :separate, legacy_terminal: false)
-        require_relative "../diff_formatter"
-
         formatter = Canon::DiffFormatter.new(
           use_color: use_color,
           mode: :by_line,

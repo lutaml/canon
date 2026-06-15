@@ -35,18 +35,12 @@ module Canon
         # @param attrs2 [Hash] Second attribute hash
         # @return [Boolean] True if attributes are considered equal
         def equal?(attrs1, attrs2)
-          # Handle nil/empty cases
           return true if attrs1.nil? && attrs2.nil?
           return false if attrs1.nil? || attrs2.nil?
 
-          attrs1 = attrs1.to_h if attrs1.respond_to?(:to_h)
-          attrs2 = attrs2.to_h if attrs2.respond_to?(:to_h)
-
           if attribute_order == :strict
-            # Strict mode: order matters
             attrs1 == attrs2
           else
-            # Ignore/normalize mode: sort keys for comparison
             normalize_for_comparison(attrs1) == normalize_for_comparison(attrs2)
           end
         end

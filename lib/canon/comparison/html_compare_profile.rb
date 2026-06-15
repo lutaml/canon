@@ -1,9 +1,5 @@
 # frozen_string_literal: true
 
-require_relative "compare_profile"
-# Whitespace sensitivity module (single source of truth for sensitive elements)
-require_relative "whitespace_sensitivity"
-
 module Canon
   module Comparison
     # HtmlCompareProfile extends CompareProfile with HTML-specific comparison policies
@@ -29,34 +25,35 @@ module Canon
       # Override for HTML-specific comment handling
       #
       # In HTML, comments are presentational content (not part of the DOM semantics)
-      # unless explicitly set to :strict. This differs from XML where comments
-      # may carry semantic meaning.
-      #
-      # HTML default for comments is :ignore, so comments don't affect equivalence
-      # unless the user explicitly sets comments: :strict
+      # unless explicitly set to :strict.
       #
       # @param dimension [Symbol] The match dimension to check
       # @return [Boolean] true if differences affect equivalence
       def affects_equivalence?(dimension)
-        # Comments in HTML: default is :ignore (presentational)
-        # Only affect equivalence if explicitly set to :strict
         if dimension == :comments
-          # Check if comments key exists in options
           if match_options.is_a?(Hash)
-            # If comments key doesn't exist, default to false (HTML default: ignore)
             return false unless match_options.key?(:comments)
 
-            # If key exists, check if it's :strict
             return match_options[:comments] == :strict
           elsif match_options.is_a?(ResolvedMatchOptions)
-            behavior = behavior_for(dimension)
-            return behavior == :strict
+            return behavior_for(dimension) == :strict
           end
-          # Default: comments don't affect equivalence in HTML
           return false
         end
 
-        # All other dimensions use base class behavior
+        super
+      end
+
+      # Override normative classification for HTML-specific comment handling.
+      #
+      # Delegates to the parent class for all dimensions, which in turn delegates
+      # to Dimension objects.  For :comments, applies the same HTML-specific rule
+      # as affects_equivalence? — comments default to non-normative in HTML.
+      def normative_dimension?(dimension)
+        if dimension == :comments
+          return affects_equivalence?(:comments)
+        end
+
         super
       end
 

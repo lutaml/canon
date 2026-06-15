@@ -350,14 +350,21 @@ module Canon
         #
         # @return [String] XPath expression
         def xpath
-          # If we have a source node that supports xpath, use it
-          if @source_node.respond_to?(:path)
-            return @source_node.path
-          end
+          return @source_node.path if nokogiri_source?(@source_node)
 
-          # Otherwise construct path from tree structure
           construct_path
         end
+
+        # True when the supplied source node is a Nokogiri node that
+        # exposes an XPath via +path+.  Nokogiri is an optional
+        # backend so the constant is guarded.
+        def nokogiri_source?(node)
+          return false unless Canon::XmlBackend.nokogiri?
+
+          node.is_a?(Nokogiri::XML::Node)
+        end
+
+        private :nokogiri_source?
 
         # Construct path from tree structure
         #

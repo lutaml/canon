@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require_relative "base_formatter"
-require_relative "../legend"
 require "strscan"
 
 module Canon
@@ -37,7 +35,6 @@ module Canon
             output << colorize(
               "Warning: YAML parsing failed (#{e.message}), using simple diff", :yellow
             )
-            require_relative "simple_formatter"
             simple = SimpleFormatter.new(
               use_color: @use_color,
               context_lines: @context_lines,

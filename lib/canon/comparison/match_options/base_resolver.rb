@@ -84,34 +84,23 @@ module Canon
                   "#{self.class} must implement #get_profile_options"
           end
 
-          # Get valid match dimensions for this format
-          # Subclasses should override this
+          # Get valid match dimensions for this format.
+          # Delegates to the DimensionSet from the Registry.
           #
           # @return [Array<Symbol>] Valid dimensions
           def match_dimensions
-            raise NotImplementedError,
-                  "#{self.class} must implement #match_dimensions"
+            dimension_set.names
           end
 
           protected
 
-          # Valid match behaviors per dimension for this format.
-          # Override in subclasses to provide format-specific behaviors.
-          # Used for per-dimension validation in validate_match_options!
+          # The DimensionSet for this resolver's format.
+          # Subclasses override to declare which format they handle.
           #
-          # @return [Hash{Symbol => Array<Symbol>}] Dimension to valid behaviors mapping
-          def dimension_behaviors
-            # Default: XML/HTML behaviors (override in JSON/YAML resolvers)
-            {
-              text_content: %i[strict normalize ignore].freeze,
-              structural_whitespace: %i[strict normalize ignore].freeze,
-              attribute_presence: %i[strict ignore].freeze,
-              attribute_order: %i[strict ignore].freeze,
-              attribute_values: %i[strict strip compact normalize
-                                   ignore].freeze,
-              element_position: %i[strict ignore].freeze,
-              comments: %i[strict ignore].freeze,
-            }
+          # @return [Canon::Comparison::Dimensions::DimensionSet]
+          def dimension_set
+            raise NotImplementedError,
+                  "#{self.class} must implement #dimension_set"
           end
 
           # Validate preprocessing option
@@ -126,12 +115,14 @@ module Canon
             end
           end
 
-          # Validate match options using per-dimension behavior validation
+          # Validate match options using the DimensionSet for dimension
+          # and behavior validation.
           #
           # @param match_options [Hash] Options to validate
           # @raise [Canon::Error] If invalid dimension or behavior
           def validate_match_options!(match_options)
-            # Special options that don't need validation as dimensions
+            set = dimension_set
+
             special_options = %i[
               format
               preprocessing
@@ -150,21 +141,19 @@ module Canon
             ]
 
             match_options.each do |dimension, behavior|
-              # Skip special options (validated elsewhere or passed through)
               next if special_options.include?(dimension)
 
-              unless match_dimensions.include?(dimension)
+              dim = set[dimension]
+              unless dim
                 raise Canon::Error,
                       "Unknown match dimension: #{dimension}. " \
-                      "Valid dimensions: #{match_dimensions.join(', ')}"
+                      "Valid dimensions: #{set.names.join(', ')}"
               end
 
-              # Per-dimension behavior validation using overridable method
-              valid_behaviors = dimension_behaviors[dimension]
-              unless valid_behaviors&.include?(behavior)
+              unless dim.valid_behavior?(behavior)
                 raise Canon::Error,
                       "Unknown match behavior: #{behavior} for #{dimension}. " \
-                      "Valid behaviors for #{dimension}: #{valid_behaviors&.join(', ')}"
+                      "Valid behaviors for #{dimension}: #{dim.valid_behaviors.join(', ')}"
               end
             end
           end

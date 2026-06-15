@@ -20,7 +20,7 @@ module Canon
           # For each DELETE, try to find a matching INSERT
           deletes.each do |delete_node|
             node1 = delete_node.node1
-            next unless node1.respond_to?(:name) && node1.respond_to?(:attributes)
+            next unless backend_element?(node1)
 
             # Skip if node has no attributes (can't be attribute order diff)
             next if node1.attributes.nil? || node1.attributes.empty?
@@ -28,7 +28,7 @@ module Canon
             # Find inserts with same element name at same position
             matching_insert = inserts.find do |insert_node|
               node2 = insert_node.node2
-              next false unless node2.respond_to?(:name) && node2.respond_to?(:attributes)
+              next false unless backend_element?(node2)
               next false unless node1.name == node2.name
 
               # Must have attributes to differ in order
@@ -59,6 +59,17 @@ module Canon
           diff_nodes
         end
 
+        # True when +node+ is a backend element (Nokogiri or Moxml) that
+        # exposes its attributes via +attributes+.  Canon-native
+        # +ElementNode+ uses +attribute_nodes+ and is therefore excluded.
+        def self.backend_element?(node)
+          return false unless node
+          return false unless Canon::Comparison::NodeInspector.element_node?(node)
+
+          Canon::XmlBackend.nokogiri? ? node.is_a?(Nokogiri::XML::Node) : false
+        end
+        private_class_method :backend_element?
+
         # Check if two attribute hashes are equal ignoring order
         #
         # @param attrs1 [Hash] First attribute hash
@@ -68,11 +79,6 @@ module Canon
           return true if attrs1.nil? && attrs2.nil?
           return false if attrs1.nil? || attrs2.nil?
 
-          # Convert to hashes if needed
-          attrs1 = attrs1.to_h if attrs1.respond_to?(:to_h)
-          attrs2 = attrs2.to_h if attrs2.respond_to?(:to_h)
-
-          # Compare as sets (order-independent)
           attrs1.sort.to_h == attrs2.sort.to_h
         end
 

@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require_relative "../../xml/namespace_helper"
-
 module Canon
   module Comparison
     module XmlComparatorHelpers
@@ -153,10 +151,7 @@ changed, opts, differences)
             end.join(', ')}"
           end
 
-          # Import DiffNodeBuilder to avoid circular dependency
-          require_relative "diff_node_builder"
-
-          diff_node = DiffNodeBuilder.build(
+          diff_node = Canon::Comparison::DiffNodeBuilder.build(
             node1: node1,
             node2: node2,
             diff1: Comparison::UNEQUAL_ATTRIBUTES,

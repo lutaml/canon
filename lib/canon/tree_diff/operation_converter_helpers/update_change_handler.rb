@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require_relative "../operation_converter_helpers/reason_builder"
-
 module Canon
   module TreeDiff
     module OperationConverterHelpers
@@ -20,8 +18,8 @@ module Canon
         def self.convert(operation, metadata, is_metadata, normative_determiner)
           tree_node1 = operation[:node1] # TreeNode from adapter
           tree_node2 = operation[:node2] # TreeNode from adapter
-          node1 = tree_node1.respond_to?(:source_node) ? tree_node1.source_node : tree_node1
-          node2 = tree_node2.respond_to?(:source_node) ? tree_node2.source_node : tree_node2
+          node1 = tree_node1.is_a?(Core::TreeNode) ? tree_node1.source_node : tree_node1
+          node2 = tree_node2.is_a?(Core::TreeNode) ? tree_node2.source_node : tree_node2
           changes = operation[:changes]
 
           # Handle case where changes is a boolean or non-hash value
@@ -150,8 +148,8 @@ is_metadata, normative_determiner, tree_node1, tree_node2)
         # @param tree_node2 [Object] Second tree node
         # @return [Symbol] The dimension to use (:text_content or :comments)
         def self.dimension_for_value_change(tree_node1, tree_node2)
-          label1 = tree_node1.respond_to?(:label) ? tree_node1.label : nil
-          label2 = tree_node2.respond_to?(:label) ? tree_node2.label : nil
+          label1 = tree_node1.is_a?(Core::TreeNode) ? tree_node1.label : nil
+          label2 = tree_node2.is_a?(Core::TreeNode) ? tree_node2.label : nil
 
           # If either node is a comment, use :comments dimension
           return :comments if label1 == "comment" || label2 == "comment"

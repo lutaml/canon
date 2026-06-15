@@ -1,26 +1,5 @@
 # frozen_string_literal: true
 
-require_relative "../xml/c14n"
-require_relative "markup_comparator"
-require_relative "match_options"
-require_relative "../diff/diff_node"
-require_relative "../diff/diff_classifier"
-require_relative "../diff/path_builder"
-require_relative "../diff/node_serializer"
-require_relative "comparison_result"
-require_relative "../tree_diff"
-require_relative "strategies/match_strategy_factory"
-# XmlComparator modules
-require_relative "xml_comparator/node_parser"
-require_relative "xml_comparator/attribute_filter"
-require_relative "xml_comparator/attribute_comparator"
-require_relative "xml_comparator/namespace_comparator"
-require_relative "xml_comparator/node_type_comparator"
-require_relative "xml_comparator/child_comparison"
-require_relative "xml_comparator/diff_node_builder"
-# Whitespace sensitivity module
-require_relative "whitespace_sensitivity"
-
 module Canon
   module Comparison
     # XML comparison class
@@ -64,8 +43,7 @@ module Canon
         #   verbose
         def equivalent?(n1, n2, opts = {}, child_opts = {})
           # FAST PATH: Object identity - same object is always equivalent
-          # Skip when semantic_diff is requested (caller needs tree diff metadata)
-          if n1.equal?(n2) && !opts.dig(:match, :semantic_diff)
+          if n1.equal?(n2)
             return build_trivial_equivalent_result(n1, n2, opts)
           end
 
@@ -95,11 +73,6 @@ module Canon
 
           # Store resolved match options hash for use in comparison logic
           opts[:match_opts] = match_opts_hash
-
-          # Use tree diff if semantic_diff option is enabled
-          if match_opts.semantic_diff?
-            return perform_semantic_tree_diff(n1, n2, opts, match_opts_hash)
-          end
 
           # Create child_opts with resolved options
           child_opts = opts.merge(child_opts)
@@ -169,54 +142,6 @@ module Canon
         end
 
         private
-
-        # Perform semantic tree diff using SemanticTreeMatchStrategy
-        #
-        # @param n1 [String, Moxml::Node] First node
-        # @param n2 [String, Moxml::Node] Second node
-        # @param opts [Hash] Comparison options
-        # @param match_opts_hash [Hash] Resolved match options
-        # @return [Boolean, ComparisonResult] Result of tree diff comparison
-        def perform_semantic_tree_diff(n1, n2, opts, match_opts_hash)
-          # Store original strings for line diff display (before preprocessing)
-          # Store original strings for line diff display (before preprocessing)
-          original1 = n1.is_a?(String) ? n1 : serialize_node(n1)
-          original2 = n2.is_a?(String) ? n2 : serialize_node(n2)
-
-          # Parse to Canon::Xml::Node (preserves preprocessing)
-          node1 = parse_node(n1, match_opts_hash[:preprocessing])
-          node2 = parse_node(n2, match_opts_hash[:preprocessing])
-
-          # Create strategy using factory
-          strategy = Strategies::MatchStrategyFactory.create(
-            format: :xml,
-            match_options: match_opts_hash,
-          )
-
-          # Pass Canon::Xml::Node directly - XML adapter now handles it
-          differences = strategy.match(node1, node2)
-
-          # Return based on verbose mode
-          if opts[:verbose]
-            # Get preprocessed strings for display
-            preprocessed = strategy.preprocess_for_display(node1, node2)
-
-            # Return ComparisonResult with strategy metadata
-            ComparisonResult.new(
-              differences: differences,
-              preprocessed_strings: preprocessed,
-              original_strings: [original1, original2],
-              format: :xml,
-              match_options: match_opts_hash.merge(strategy.metadata),
-              algorithm: :semantic,
-              parse_errors_expected: Comparison.parse_errors_for(node1),
-              parse_errors_received: Comparison.parse_errors_for(node2),
-            )
-          else
-            # Simple boolean result - equivalent if no normative differences
-            differences.none?(&:normative?)
-          end
-        end
 
         # Parse a node from string or return as-is
         # Applies preprocessing transformation before parsing if specified
@@ -346,8 +271,6 @@ module Canon
         # @param node2 [Object] Second node
         # @return [Boolean] true if exactly one node is a comment
         def comment_vs_non_comment_comparison?(node1, node2)
-          require_relative "xml_node_comparison"
-
           node1_comment = XmlNodeComparison
             .comment_node?(node1, check_children: true)
           node2_comment = XmlNodeComparison
@@ -375,15 +298,12 @@ module Canon
           ns2 = Canon::XmlParsing.namespace_uri(n2)
 
           unless ns1 == ns2
-            # Create descriptive reason showing the actual namespace URIs
-            ns1_display = ns1.nil? || ns1.empty? ? "(no namespace)" : ns1
-            ns2_display = ns2.nil? || ns2.empty? ? "(no namespace)" : ns2
-
-            diff_node = Canon::Diff::DiffNode.new(
+            diff_node = Canon::Comparison::DiffNodeBuilder.build(
               node1: n1,
               node2: n2,
+              diff1: Comparison::UNEQUAL_ELEMENTS,
+              diff2: Comparison::UNEQUAL_ELEMENTS,
               dimension: :namespace_uri,
-              reason: "namespace '#{ns1_display}' vs '#{ns2_display}' on element '#{n1.name}'",
             )
             differences << diff_node if opts[:verbose]
             return Comparison::UNEQUAL_ELEMENTS
@@ -622,414 +542,6 @@ differences)
           end
 
           path
-        end
-
-        # Serialize a node to string for display
-        #
-        # @param node [Object, nil] Node to serialize
-        # @return [String, nil] Serialized content
-        def serialize_node(node)
-          return nil if node.nil?
-
-          Canon::Diff::NodeSerializer.serialize(node)
-        end
-
-        # Extract attributes from a node as a normalized hash
-        #
-        # @param node [Object, nil] Node to extract attributes from
-        # @return [Hash, nil] Normalized attributes hash
-        def extract_attributes(node)
-          return nil if node.nil?
-
-          Canon::Diff::NodeSerializer.extract_attributes(node)
-        end
-
-        # Build a human-readable reason for a difference
-        # @param node1 [Object] First node
-        # @param node2 [Object] Second node
-        # @param diff1 [String] Difference type for node1
-        # @param diff2 [String] Difference type for node2
-        # @param dimension [Symbol] The dimension of the difference
-        # @return [String] Human-readable reason
-        def build_difference_reason(node1, node2, diff1, diff2, dimension)
-          # For deleted/inserted nodes, include namespace information if available
-          if dimension == :text_content && (node1.nil? || node2.nil?)
-            node = node1 || node2
-            if Canon::XmlParsing.xml_node?(node)
-              ns = Canon::XmlParsing.namespace_uri(node)
-              ns_info = if ns.nil? || ns.empty?
-                          ""
-                        else
-                          " (namespace: #{ns})"
-                        end
-              label = Canon::Comparison.code_pair_label(diff1, diff2)
-              return "element '#{node.name}'#{ns_info}: #{label}"
-            elsif node.is_a?(Canon::Xml::Node)
-              display = if node.is_a?(Canon::Xml::Nodes::TextNode)
-                          "\"#{truncate_text(node.value)}\""
-                        else
-                          node.name.to_s
-                        end
-              return "element missing: #{display}"
-            end
-          end
-
-          # For attribute presence differences, show what attributes differ
-          if dimension == :attribute_presence
-            attrs1 = extract_attributes(node1)
-            attrs2 = extract_attributes(node2)
-            return build_attribute_diff_reason(attrs1, attrs2)
-          end
-
-          # For text content differences, show the actual text (truncated if needed)
-          if dimension == :text_content
-            text1 = extract_text_from_node(node1)
-            text2 = extract_text_from_node(node2)
-            return build_text_diff_reason(text1, text2)
-          end
-
-          if dimension == :whitespace_adjacency
-            return build_whitespace_adjacency_reason(node1, node2)
-          end
-
-          if dimension == :comments
-            return build_comments_reason(node1, node2)
-          end
-
-          # For attribute values differences, show the actual values
-          if dimension == :attribute_values
-            attrs1 = extract_attributes(node1)
-            attrs2 = extract_attributes(node2)
-            return build_attribute_value_diff_reason(attrs1, attrs2)
-          end
-
-          # For attribute order differences, show the actual attribute names
-          if dimension == :attribute_order
-            attrs1 = extract_attributes(node1)&.keys || []
-            attrs2 = extract_attributes(node2)&.keys || []
-            return "Attribute order changed: [#{attrs1.join(', ')}] → [#{attrs2.join(', ')}]"
-          end
-
-          if diff1 == Canon::Comparison::MISSING_NODE && diff2 == Canon::Comparison::MISSING_NODE
-            "element structure mismatch (children differ)"
-          elsif dimension == :element_structure &&
-              diff1 == Canon::Comparison::UNEQUAL_ELEMENTS &&
-              diff2 == Canon::Comparison::UNEQUAL_ELEMENTS &&
-              (node1.is_a?(Canon::Xml::Node) || Canon::XmlParsing.xml_node?(node1)) &&
-              (node2.is_a?(Canon::Xml::Node) || Canon::XmlParsing.xml_node?(node2)) &&
-              node1.name && node2.name && node1.name != node2.name
-            # Most common case: differing element names.  Surface the
-            # actual names rather than a generic "elements differ".
-            "different element name (<#{node1.name}> vs <#{node2.name}>)"
-          else
-            Canon::Comparison.code_pair_label(diff1, diff2)
-          end
-        end
-
-        # Build a clear reason message for attribute value differences
-        #
-        # @param attrs1 [Hash, nil] First node's attributes
-        # @param attrs2 [Hash, nil] Second node's attributes
-        # @return [String] Clear explanation of the attribute value difference
-        def build_attribute_value_diff_reason(attrs1, attrs2)
-          return "missing vs present attributes" unless attrs1 && attrs2
-
-          require "set"
-          keys1 = attrs1.keys.to_set
-          keys2 = attrs2.keys.to_set
-
-          common = keys1 & keys2
-          different_values = common.reject { |k| attrs1[k] == attrs2[k] }
-
-          return "all attribute values match" if different_values.empty?
-
-          parts = different_values.map do |k|
-            "#{k}: #{attrs1[k].inspect} vs #{attrs2[k].inspect}"
-          end
-
-          parts.join("; ")
-        end
-
-        # Build a clear reason message for attribute presence differences
-        #
-        # @param attrs1 [Hash, nil] First node's attributes
-        # @param attrs2 [Hash, nil] Second node's attributes
-        # @return [String] Clear explanation of the attribute difference
-        def build_attribute_diff_reason(attrs1, attrs2)
-          return "#{attrs1&.keys&.size || 0} vs #{attrs2&.keys&.size || 0} attributes" unless attrs1 && attrs2
-
-          require "set"
-          keys1 = attrs1.keys.to_set
-          keys2 = attrs2.keys.to_set
-
-          only_in_first = keys1 - keys2
-          only_in_second = keys2 - keys1
-          common = keys1 & keys2
-
-          # Check if values differ for common keys
-          different_values = common.reject { |k| attrs1[k] == attrs2[k] }
-
-          parts = []
-          parts << "only in first: #{only_in_first.to_a.sort.join(', ')}" if only_in_first.any?
-          parts << "only in second: #{only_in_second.to_a.sort.join(', ')}" if only_in_second.any?
-          parts << "different values: #{different_values.sort.join(', ')}" if different_values.any?
-
-          if parts.empty?
-            "#{keys1.size} vs #{keys2.size} attributes (same names)"
-          else
-            parts.join("; ")
-          end
-        end
-
-        # Extract text from a node for diff reason
-        #
-        # @param node [Object, nil] Node to extract text from
-        # @return [String, nil] Text content or nil
-        def extract_text_from_node(node)
-          return nil if node.nil?
-          return node.to_s if node.is_a?(String)
-
-          case node
-          when Canon::Xml::Nodes::TextNode
-            node.value
-          when Canon::Xml::Node
-            node.text_content
-          else
-            Canon::XmlParsing.xml_node?(node) ? Canon::XmlParsing.text_content(node).to_s : node.to_s
-          end
-        rescue StandardError
-          nil
-        end
-
-        # Build a clear reason message for text content differences
-        #
-        # @param text1 [String, nil] First text content
-        # @param text2 [String, nil] Second text content
-        # @return [String] Clear explanation of the text difference
-        def build_text_diff_reason(text1, text2)
-          # Handle nil cases
-          return "missing vs '#{truncate_text(text2)}'" if text1.nil? && text2
-          return "'#{truncate_text(text2)}' vs missing" if text1 && text2.nil?
-          return "both missing" if text1.nil? && text2.nil?
-
-          # Check if both are whitespace-only
-          if whitespace_only?(text1) && whitespace_only?(text2)
-            return "whitespace: #{describe_whitespace(text1)} vs #{describe_whitespace(text2)}"
-          end
-
-          # Show text with visible whitespace markers
-          # Use escaped representations for clarity: \n for newline, \t for tab, · for spaces
-          vis1 = visualize_whitespace(text1)
-          vis2 = visualize_whitespace(text2)
-
-          "Text: \"#{vis1}\" vs \"#{vis2}\""
-        end
-
-        # Build a Reason line for a +:whitespace_adjacency+ diff (#137).
-        # Names which side carries the whitespace, the adjacency position
-        # relative to content neighbours, and surfaces the whitespace
-        # with visible markers.
-        def build_whitespace_adjacency_reason(node1, node2)
-          text1 = extract_text_from_node(node1)
-          text2 = extract_text_from_node(node2)
-
-          ni = NodeInspector
-          ws_on_first = ni.whitespace_only_text?(node1) &&
-            !ni.whitespace_only_text?(node2)
-          ws_on_second = ni.whitespace_only_text?(node2) &&
-            !ni.whitespace_only_text?(node1)
-
-          if ws_on_first
-            ws_text = text1
-            content_text = text2
-            present_side = "EXPECTED"
-            absent_side = "ACTUAL"
-            ws_node = node1
-          elsif ws_on_second
-            ws_text = text2
-            content_text = text1
-            present_side = "ACTUAL"
-            absent_side = "EXPECTED"
-            ws_node = node2
-          else
-            return build_text_diff_reason(text1, text2)
-          end
-
-          ws_vis = visualize_whitespace(ws_text)
-
-          if content_text.nil? || content_text.strip.empty?
-            # Partner content extracts to "" / whitespace-only — naming it
-            # in the Reason ("Whitespace before \"\"") gives the reader
-            # nothing.  Fall back to the parent element name so the
-            # diff carries structural context (issue #112's contract,
-            # extended from :text_content to :whitespace_adjacency).
-            parent_label = whitespace_adjacency_parent_label(ws_node)
-            "Whitespace inside #{parent_label}: " \
-              "present on #{present_side} (\"#{ws_vis}\"), absent on #{absent_side}"
-          else
-            direction = whitespace_partner_direction(ws_node)
-            content_vis = visualize_whitespace(truncate_text(content_text))
-            "Whitespace #{direction} \"#{content_vis}\": " \
-              "present on #{present_side} (\"#{ws_vis}\"), absent on #{absent_side}"
-          end
-        end
-
-        def whitespace_adjacency_parent_label(ws_node)
-          parent = NodeInspector.parent(ws_node)
-          return "(unknown parent)" unless parent
-
-          name = parent.name
-          name && !name.empty? ? "<#{name}>" : "(unknown parent)"
-        end
-
-        # Direction of the partner content relative to the whitespace node,
-        # phrased from the partner's point of view: "before" when the
-        # whitespace immediately precedes its next non-whitespace sibling
-        # (the alignment partner on the other side), "after" when the
-        # whitespace trails the previous non-whitespace sibling, or
-        # "adjacent to" as a degenerate fallback when neither neighbour
-        # exists.
-        def whitespace_partner_direction(ws_node)
-          parent = NodeInspector.parent(ws_node)
-          return "adjacent to" unless parent
-
-          siblings = parent.children
-          idx = siblings.index(ws_node)
-          return "adjacent to" unless idx
-
-          if non_ws_sibling_exists?(siblings, idx, 1) then "before"
-          elsif non_ws_sibling_exists?(siblings, idx, -1) then "after"
-          else "adjacent to"
-          end
-        end
-
-        def non_ws_sibling_exists?(siblings, idx, direction)
-          i = idx + direction
-          while i >= 0 && i < siblings.length
-            s = siblings[i]
-            is_ws_text = NodeInspector.text_node?(s) &&
-              NodeInspector.text_content(s).strip.empty?
-            return true unless is_ws_text
-
-            i += direction
-          end
-          false
-        end
-
-        # Build a Reason line for a +:comments+ diff (#144).
-        # Names the side that carries the comment and surfaces the
-        # comment text.
-        def build_comments_reason(node1, node2)
-          cm1 = node1 && NodeInspector.comment_node?(node1)
-          cm2 = node2 && NodeInspector.comment_node?(node2)
-
-          if cm1 && !cm2
-            "Comment present on EXPECTED only: <!--#{truncate_text(comment_text(node1))}-->"
-          elsif cm2 && !cm1
-            "Comment present on ACTUAL only: <!--#{truncate_text(comment_text(node2))}-->"
-          elsif cm1 && cm2
-            t1 = truncate_text(comment_text(node1))
-            t2 = truncate_text(comment_text(node2))
-            "Comment text differs: <!--#{t1}--> vs <!--#{t2}-->"
-          else
-            "element structure mismatch (children differ)"
-          end
-        end
-
-        def comment_text(node)
-          NodeInspector.text_content(node).to_s
-        end
-
-        # Check if text is only whitespace
-        #
-        # @param text [String] Text to check
-        # @return [Boolean] true if whitespace-only
-        def whitespace_only?(text)
-          return false if text.nil?
-
-          text.to_s.strip.empty?
-        end
-
-        # Make whitespace visible in text content
-        # Uses the existing character visualization map from DiffFormatter (single source of truth)
-        #
-        # @param text [String] Text to visualize
-        # @return [String] Text with visible whitespace markers
-        def visualize_whitespace(text)
-          return "" if text.nil?
-
-          # Use the character map loader as the single source of truth
-          viz_map = character_visualization_map
-
-          # Replace each character with its visualization
-          text.chars.map { |char| viz_map[char] || char }.join
-        end
-
-        # Get the character visualization map (lazy-loaded to avoid circular dependency)
-        #
-        # @return [Hash] Character to visualization symbol mapping
-        def character_visualization_map
-          @character_visualization_map ||= begin
-            # Load the YAML file directly to avoid circular dependency
-            require "yaml"
-            lib_root = File.expand_path("../..", __dir__)
-            yaml_path = File.join(lib_root,
-                                  "canon/diff_formatter/character_map.yml")
-            data = YAML.load_file(yaml_path)
-
-            # Build visualization map from the YAML data
-            visualization_map = {}
-            data["characters"].each do |char_data|
-              # Get the character from either unicode code point or character field
-              char = if char_data["unicode"]
-                       # Convert hex string to character
-                       [char_data["unicode"].to_i(16)].pack("U")
-                     else
-                       # Use character field directly (handles \n, \t, etc.)
-                       char_data["character"]
-                     end
-
-              vis = char_data["visualization"]
-              visualization_map[char] = vis
-            end
-
-            visualization_map
-          end
-        end
-
-        # Describe whitespace content in a readable way
-        #
-        # @param text [String] Whitespace text
-        # @return [String] Description like "4 chars (2 newlines, 2 spaces)"
-        def describe_whitespace(text)
-          return "0 chars" if text.nil? || text.empty?
-
-          char_count = text.length
-          newline_count = text.count("\n")
-          space_count = text.count(" ")
-          tab_count = text.count("\t")
-
-          parts = []
-          parts << "#{newline_count} newlines" if newline_count.positive?
-          parts << "#{space_count} spaces" if space_count.positive?
-          parts << "#{tab_count} tabs" if tab_count.positive?
-
-          description = parts.join(", ")
-          "#{char_count} chars (#{description})"
-        end
-
-        # Truncate text for display in reason messages
-        #
-        # @param text [String] Text to truncate
-        # @param max_length [Integer] Maximum length
-        # @return [String] Truncated text
-        def truncate_text(text, max_length = 40)
-          return "" if text.nil?
-
-          text = text.to_s
-          return text if text.length <= max_length
-
-          "#{text[0...max_length]}..."
         end
 
         # Compare namespace declarations (xmlns and xmlns:* attributes)

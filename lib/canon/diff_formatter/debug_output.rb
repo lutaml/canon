@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require_relative "diff_detail_formatter"
-
 module Canon
   class DiffFormatter
     # Verbose diff output helper for CANON_VERBOSE mode

@@ -45,13 +45,7 @@ module Canon
         def self.extract_content_preview(node, max_length = 50)
           return "" unless node
 
-          text = if node.respond_to?(:text)
-                   node.text
-                 elsif node.respond_to?(:content)
-                   node.content
-                 else
-                   node.to_s
-                 end
+          text = Canon::Comparison::NodeInspector.text_content(node).to_s
 
           return "" if text.nil? || text.empty?
 

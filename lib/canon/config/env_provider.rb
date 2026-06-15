@@ -1,8 +1,5 @@
 # frozen_string_literal: true
 
-require_relative "env_schema"
-require_relative "type_converter"
-
 module Canon
   class Config
     # Provides environment variable values for configuration

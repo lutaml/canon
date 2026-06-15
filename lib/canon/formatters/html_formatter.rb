@@ -1,9 +1,6 @@
 # frozen_string_literal: true
 
 require "nokogiri" unless RUBY_ENGINE == "opal"
-require_relative "html_formatter_base"
-require_relative "../pretty_printer/html"
-require_relative "../validators/html_validator"
 
 module Canon
   module Formatters

@@ -1,8 +1,5 @@
 # frozen_string_literal: true
 
-require_relative "../comparison"
-require_relative "../diff_formatter"
-require_relative "../color_detector"
 require "json"
 require "yaml"
 
@@ -66,7 +63,6 @@ module Canon
 
         # Show configuration in verbose mode using shared DebugOutput
         if @options[:verbose]
-          require_relative "../diff_formatter/debug_output"
           config_output = Canon::DiffFormatter::DebugOutput.verbose_tables_only(
             result,
             {
@@ -219,12 +215,10 @@ module Canon
 
         case format
         when :xml
-          require_relative "../pretty_printer/xml"
           formatted1 = Canon::PrettyPrinter::Xml.new(indent: 2).format(content1)
           formatted2 = Canon::PrettyPrinter::Xml.new(indent: 2).format(content2)
           [formatted1, formatted2]
         when :html
-          require_relative "../pretty_printer/html"
           formatted1 = Canon::PrettyPrinter::Html.new(indent: 2).format(content1)
           formatted2 = Canon::PrettyPrinter::Html.new(indent: 2).format(content2)
           [formatted1, formatted2]

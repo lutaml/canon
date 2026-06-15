@@ -1,10 +1,5 @@
 # frozen_string_literal: true
 
-require_relative "formatting_detector"
-require_relative "xml_serialization_formatter"
-require_relative "../comparison/compare_profile"
-require_relative "../comparison/whitespace_sensitivity"
-
 module Canon
   module Diff
     # Classifies DiffNodes as normative (affects equivalence) or informative (doesn't affect equivalence)

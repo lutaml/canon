@@ -101,7 +101,9 @@ module Canon
           Digest::SHA256.hexdigest(content)[0..16]
         else
           # Opal fallback: simple string hash
-          h = content.each_char.reduce(0) { |acc, c| ((acc * 31) + c.ord) & 0xFFFFFFFF }
+          h = content.each_char.reduce(0) do |acc, c|
+            ((acc * 31) + c.ord) & 0xFFFFFFFF
+          end
           h.to_s(16).rjust(8, "0")
         end
       end

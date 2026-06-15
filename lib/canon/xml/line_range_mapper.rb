@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require_relative "../pretty_printer/xml"
-
 module Canon
   module Xml
     # Maps DOM elements to line ranges in pretty-printed XML

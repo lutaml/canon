@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require_relative "diff_context"
-
 module Canon
   module Diff
     # Builds DiffContexts from DiffBlocks

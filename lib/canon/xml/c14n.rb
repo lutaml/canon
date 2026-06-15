@@ -1,9 +1,5 @@
 # frozen_string_literal: true
 
-require_relative "data_model"
-require_relative "processor"
-require_relative "xpath_engine"
-
 module Canon
   module Xml
     # XML Canonicalization 1.1 implementation

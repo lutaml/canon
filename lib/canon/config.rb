@@ -1,14 +1,16 @@
 # frozen_string_literal: true
 
-require_relative "config/env_provider"
-require_relative "config/override_resolver"
-require_relative "config/profile_loader"
-require_relative "color_detector"
-
 module Canon
   # Global configuration for Canon
   # Provides unified configuration across CLI, Ruby API, and RSpec interfaces
   class Config
+    autoload :ConfigDSL, "canon/config/config_dsl"
+    autoload :EnvProvider, "canon/config/env_provider"
+    autoload :EnvSchema, "canon/config/env_schema"
+    autoload :OverrideResolver, "canon/config/override_resolver"
+    autoload :ProfileLoader, "canon/config/profile_loader"
+    autoload :TypeConverter, "canon/config/type_converter"
+
     class << self
       def instance
         @instance ||= new
@@ -295,22 +297,16 @@ module Canon
     end
 
     # Diff configuration for output formatting
+    #
+    # Each user-tunable attribute is declared with +config_key+ via the
+    # +ConfigDSL+ module.  The DSL generates the matching getter/setter
+    # pair and registers metadata (type, enum, default) so +EnvSchema+
+    # and +TypeConverter+ can discover it without re-declaring it
+    # (lutaml/canon TODO.improve/07 — single source of truth).
     class DiffConfig
-      attr_reader :pretty_printer
+      extend ConfigDSL
 
-      # Valid values for enum-like configuration options
-      VALID_ENUM_VALUES = {
-        mode: %i[by_line by_object pretty_diff],
-        show_diffs: %i[all normative informative],
-        algorithm: %i[dom semantic],
-        parser: %i[sax dom],
-        display_preprocessing: %i[none pretty_print normalize_pretty_print
-                                  c14n],
-        display_format: %i[raw canonical],
-        pretty_printer_indent_type: %i[space tab],
-        character_visualization: [true, false, :content_only],
-        theme: %i[light dark retro claude cyberpunk],
-      }.freeze
+      attr_reader :pretty_printer
 
       def initialize(format = nil)
         @format = format
@@ -338,416 +334,104 @@ module Canon
         @resolver.clear_profile!
       end
 
-      # Validate a config value against its allowed enum values
-      def self.validate_config_value!(key, value)
-        valid = VALID_ENUM_VALUES[key]
-        return unless valid
-
-        return if valid.include?(value)
-
-        raise ArgumentError,
-              "Invalid value #{value.inspect} for #{key}. " \
-              "Valid values: #{valid.map(&:inspect).join(', ')}"
-      end
-
-      # Accessors with ENV override support
-      def mode
-        @resolver.resolve(:mode)
-      end
-
-      def mode=(value)
-        self.class.validate_config_value!(:mode, value)
-        @resolver.set_programmatic(:mode, value)
-      end
-
-      def use_color
-        @resolver.resolve(:use_color)
-      end
-
-      def use_color=(value)
-        @resolver.set_programmatic(:use_color, value)
-      end
-
-      def context_lines
-        @resolver.resolve(:context_lines)
-      end
-
-      def context_lines=(value)
-        @resolver.set_programmatic(:context_lines, value)
-      end
-
-      def grouping_lines
-        @resolver.resolve(:grouping_lines)
-      end
-
-      def grouping_lines=(value)
-        @resolver.set_programmatic(:grouping_lines, value)
-      end
-
-      def show_diffs
-        @resolver.resolve(:show_diffs)
-      end
-
-      def show_diffs=(value)
-        self.class.validate_config_value!(:show_diffs, value)
-        @resolver.set_programmatic(:show_diffs, value)
-      end
-
-      def verbose_diff
-        @resolver.resolve(:verbose_diff)
-      end
-
-      def verbose_diff=(value)
-        @resolver.set_programmatic(:verbose_diff, value)
-      end
-
-      def show_raw_inputs
-        @resolver.resolve(:show_raw_inputs)
-      end
-
-      def show_raw_inputs=(value)
-        @resolver.set_programmatic(:show_raw_inputs, value)
-      end
-
-      # Show only the EXPECTED (fixture) block in the raw-inputs section.
-      # Has no effect unless +show_raw_inputs+ or +verbose_diff+ is also set.
-      # Use +show_raw_expected: false+ together with +show_raw_received: true+
-      # (or +show_raw_inputs: true+) to suppress the fixture display while
-      # keeping the received output.
-      #
-      # ENV variable: +CANON_<FORMAT>_DIFF_SHOW_RAW_EXPECTED+
-      def show_raw_expected
-        @resolver.resolve(:show_raw_expected)
-      end
-
-      def show_raw_expected=(value)
-        @resolver.set_programmatic(:show_raw_expected, value)
-      end
-
-      # Show only the RECEIVED (actual) block in the raw-inputs section.
-      # Combined with +show_raw_expected: false+ (or leaving it at the default
-      # +false+) this suppresses the fixture while still displaying the output
-      # that was generated.
-      #
-      # ENV variable: +CANON_<FORMAT>_DIFF_SHOW_RAW_RECEIVED+
-      def show_raw_received
-        @resolver.resolve(:show_raw_received)
-      end
-
-      def show_raw_received=(value)
-        @resolver.set_programmatic(:show_raw_received, value)
-      end
-
-      def show_preprocessed_inputs
-        @resolver.resolve(:show_preprocessed_inputs)
-      end
-
-      def show_preprocessed_inputs=(value)
-        @resolver.set_programmatic(:show_preprocessed_inputs, value)
-      end
-
-      # Show only the EXPECTED (fixture) block in the preprocessed-inputs
-      # section.  Has no effect unless +show_preprocessed_inputs+ or
-      # +verbose_diff+ is also set.  Use +show_preprocessed_expected: true+
-      # together with +show_preprocessed_received: false+ to display only the
-      # preprocessed fixture while suppressing the preprocessed received output.
-      #
-      # ENV variable: +CANON_<FORMAT>_DIFF_SHOW_PREPROCESSED_EXPECTED+
-      def show_preprocessed_expected
-        @resolver.resolve(:show_preprocessed_expected)
-      end
-
-      def show_preprocessed_expected=(value)
-        @resolver.set_programmatic(:show_preprocessed_expected, value)
-      end
-
-      # Show only the RECEIVED (actual) block in the preprocessed-inputs
-      # section.  Combined with +show_preprocessed_expected: false+ (or leaving
-      # it at the default +false+) this suppresses the fixture preprocessing
-      # display while still showing what the received document looked like after
-      # preprocessing.
-      #
-      # ENV variable: +CANON_<FORMAT>_DIFF_SHOW_PREPROCESSED_RECEIVED+
-      def show_preprocessed_received
-        @resolver.resolve(:show_preprocessed_received)
-      end
-
-      def show_preprocessed_received=(value)
-        @resolver.set_programmatic(:show_preprocessed_received, value)
-      end
-
-      # Show both EXPECTED and RECEIVED blocks in a fixture-ready pretty-printed
-      # section.  The output uses the same pretty-printer as
-      # +display_preprocessing: :pretty_print+ (one tag per line, indentation)
-      # but with *no* character visualization — whitespace appears as plain ASCII
-      # so the output can be copy-pasted directly into RSpec fixture heredocs.
-      #
-      # ENV variable: +CANON_<FORMAT>_DIFF_SHOW_PRETTYPRINT_INPUTS+
-      def show_prettyprint_inputs
-        @resolver.resolve(:show_prettyprint_inputs)
-      end
-
-      def show_prettyprint_inputs=(value)
-        @resolver.set_programmatic(:show_prettyprint_inputs, value)
-      end
-
-      # Show only the EXPECTED (fixture) block in the pretty-print section.
-      # Useful when the fixture is what needs updating and the received side is
-      # not needed for copy-pasting.
-      #
-      # ENV variable: +CANON_<FORMAT>_DIFF_SHOW_PRETTYPRINT_EXPECTED+
-      def show_prettyprint_expected
-        @resolver.resolve(:show_prettyprint_expected)
-      end
-
-      def show_prettyprint_expected=(value)
-        @resolver.set_programmatic(:show_prettyprint_expected, value)
-      end
-
-      # Show only the RECEIVED (actual) block in the pretty-print section.
-      # Use this to get a copy-pasteable pretty-printed form of the generated
-      # output (the most common fixture-update workflow).
-      #
-      # ENV variable: +CANON_<FORMAT>_DIFF_SHOW_PRETTYPRINT_RECEIVED+
-      def show_prettyprint_received
-        @resolver.resolve(:show_prettyprint_received)
-      end
-
-      def show_prettyprint_received=(value)
-        @resolver.set_programmatic(:show_prettyprint_received, value)
-      end
-
-      def show_line_numbered_inputs
-        @resolver.resolve(:show_line_numbered_inputs)
-      end
-
-      def show_line_numbered_inputs=(value)
-        @resolver.set_programmatic(:show_line_numbered_inputs, value)
-      end
-
-      def display_format
-        @resolver.resolve(:display_format)
-      end
-
-      def display_format=(value)
-        self.class.validate_config_value!(:display_format, value)
-        @resolver.set_programmatic(:display_format, value)
-      end
-
-      # Controls how documents are normalized *for display* before the line
-      # diff. This is independent of +FormatConfig#preprocessing+, which
-      # controls normalization for *comparison* (equivalence detection).
-      #
-      # Values:
-      #   :none         - use documents as-is (default, existing behaviour)
-      #   :pretty_print - run through Canon::PrettyPrinter::Xml before diffing
-      #   :c14n         - run through XML C14N normalization before diffing
-      def display_preprocessing
-        @resolver.resolve(:display_preprocessing)
-      end
-
-      def display_preprocessing=(value)
-        self.class.validate_config_value!(:display_preprocessing, value)
-        @resolver.set_programmatic(:display_preprocessing, value)
-      end
-
-      # Element names where whitespace is PRESERVED exactly (no manipulation).
-      # All whitespace characters are significant in these elements.
-      # ENV variable: +CANON_<FORMAT>_DIFF_PRESERVE_WHITESPACE_ELEMENTS+
-      def preserve_whitespace_elements
-        @resolver.resolve(:preserve_whitespace_elements) || []
-      end
-
-      def preserve_whitespace_elements=(value)
-        @resolver.set_programmatic(:preserve_whitespace_elements,
-                                   Array(value).map(&:to_s))
-      end
-
-      # Element names where whitespace is COLLAPSED (HTML-style behavior).
-      # Multiple whitespace chars collapse to single space; boundaries preserved.
-      # ENV variable: +CANON_<FORMAT>_DIFF_COLLAPSE_WHITESPACE_ELEMENTS+
-      def collapse_whitespace_elements
-        @resolver.resolve(:collapse_whitespace_elements) || []
-      end
-
-      def collapse_whitespace_elements=(value)
-        @resolver.set_programmatic(:collapse_whitespace_elements,
-                                   Array(value).map(&:to_s))
-      end
-
-      # Element names where whitespace-only text nodes are STRIPPED.
-      # ENV variable: +CANON_<FORMAT>_DIFF_STRIP_WHITESPACE_ELEMENTS+
-      def strip_whitespace_elements
-        @resolver.resolve(:strip_whitespace_elements) || []
-      end
-
-      def strip_whitespace_elements=(value)
-        @resolver.set_programmatic(:strip_whitespace_elements,
-                                   Array(value).map(&:to_s))
-      end
-
-      # When true, whitespace-only text nodes starting with "\n" in :collapse
-      # elements of the **expected** (fixture) document are treated as structural
-      # indentation and dropped from both comparison and display.  Use this when
-      # fixture files are indented but received XML is compact.
-      # ENV variable: +CANON_<FORMAT>_DIFF_PRETTY_PRINTED_EXPECTED+
-      def pretty_printed_expected
-        @resolver.resolve(:pretty_printed_expected)
-      end
-
-      def pretty_printed_expected=(value)
-        @resolver.set_programmatic(:pretty_printed_expected, value)
-      end
-
-      # When true, whitespace-only text nodes starting with "\n" in :normalize
-      # elements of the **received** document are treated as structural
-      # indentation and dropped from both comparison and display.  Use this when
-      # received XML may be pretty-printed but the fixture is compact.
-      # ENV variable: +CANON_<FORMAT>_DIFF_PRETTY_PRINTED_RECEIVED+
-      def pretty_printed_received
-        @resolver.resolve(:pretty_printed_received)
-      end
-
-      def pretty_printed_received=(value)
-        @resolver.set_programmatic(:pretty_printed_received, value)
-      end
-
-      # When true, attributes on each element are sorted by namespace URI
-      # then local name in the pretty-printed display, eliminating spurious
-      # diff noise from differing attribute order.
-      # ENV variable: +CANON_<FORMAT>_DIFF_PRETTY_PRINTER_SORT_ATTRIBUTES+
-      def pretty_printer_sort_attributes
-        @resolver.resolve(:pretty_printer_sort_attributes)
-      end
-
-      def pretty_printer_sort_attributes=(value)
-        @resolver.set_programmatic(:pretty_printer_sort_attributes, value)
-      end
-
-      # Render element nodes in the Semantic Diff Report as compact inline XML
-      # (e.g. +<strong>Annex</strong>+) instead of the verbose node_info
-      # description string (e.g. "name: strong namespace_uri: …").
-      #
-      # Default: +false+ (keep existing verbose format for backwards compatibility)
-      # ENV variable: +CANON_<FORMAT>_DIFF_COMPACT_SEMANTIC_REPORT+
-      def compact_semantic_report
-        @resolver.resolve(:compact_semantic_report)
-      end
-
-      def compact_semantic_report=(value)
-        @resolver.set_programmatic(:compact_semantic_report, value)
-      end
-
-      # Show the full serialized node content (including children) in
-      # element_structure diffs instead of just the tag name.
-      #
-      # Default: +false+ (show only the tag name, e.g. +<biblio-tag>+)
-      # ENV variable: +CANON_<FORMAT>_DIFF_EXPAND_DIFFERENCE+
-      def expand_difference
-        @resolver.resolve(:expand_difference)
-      end
-
-      def expand_difference=(value)
-        @resolver.set_programmatic(:expand_difference, value)
-      end
-
-      # Controls whether invisible characters (spaces, tabs, non-breaking
-      # spaces, etc.) are replaced with visible Unicode symbols in diff output.
-      #
-      # Values:
-      #   true          - apply the full default visualization map (default)
-      #   false         - disable visualization; output plain text
-      #   :content_only - apply visualization only to text content, not
-      #                   to structural indentation whitespace.
-      def character_visualization
-        val = @resolver.resolve(:character_visualization)
-        # Coerce symbol booleans that may arrive via ENV (env_schema uses :symbol type
-        # so "true"/"false" env strings become :true/:false symbols)
-        case val
-        when true, :true then true # rubocop:disable Lint/BooleanSymbol
-        when false, :false then false # rubocop:disable Lint/BooleanSymbol
-        else val # true/false from programmatic, or :content_only
-        end
-      end
-
-      def character_visualization=(value)
-        self.class.validate_config_value!(:character_visualization, value)
-        @resolver.set_programmatic(:character_visualization, value)
-      end
-
-      def algorithm
-        @resolver.resolve(:algorithm)
-      end
-
-      def algorithm=(value)
-        self.class.validate_config_value!(:algorithm, value)
-        @resolver.set_programmatic(:algorithm, value)
-      end
-
-      # XML parser backend (:sax or :dom, default :sax)
-      def parser
-        @resolver.resolve(:parser)
-      end
-
-      def parser=(value)
-        self.class.validate_config_value!(:parser, value)
-        @resolver.set_programmatic(:parser, value)
-      end
-
-      # Theme name (:light, :dark, :retro, :claude)
-      def theme
-        @resolver.resolve(:theme)
-      end
-
-      def theme=(value)
-        self.class.validate_config_value!(:theme, value)
-        @resolver.set_programmatic(:theme, value)
-      end
-
-      # Theme inheritance (custom theme with base + overrides)
-      def theme_inheritance
-        @resolver.resolve(:theme_inheritance)
-      end
-
-      def theme_inheritance=(value)
-        @resolver.set_programmatic(:theme_inheritance, value)
-      end
-
-      # Full custom theme hash
-      def custom_theme
-        @resolver.resolve(:custom_theme)
-      end
-
-      def custom_theme=(value)
-        @resolver.set_programmatic(:custom_theme, value)
-      end
-
-      # File size limit in bytes (default 5MB)
-      def max_file_size
-        @resolver.resolve(:max_file_size)
-      end
-
-      def max_file_size=(value)
-        @resolver.set_programmatic(:max_file_size, value)
-      end
-
-      # Maximum node count in tree (default 10,000)
-      def max_node_count
-        @resolver.resolve(:max_node_count)
-      end
-
-      def max_node_count=(value)
-        @resolver.set_programmatic(:max_node_count, value)
-      end
-
-      # Maximum diff output lines (default 10,000)
-      def max_diff_lines
-        @resolver.resolve(:max_diff_lines)
-      end
-
-      def max_diff_lines=(value)
-        @resolver.set_programmatic(:max_diff_lines, value)
-      end
+      # --- Attribute declarations --------------------------------------
+
+      config_key :mode, type: :symbol,
+                        enum: %i[by_line by_object pretty_diff],
+                        default: :by_line
+      config_key :use_color, type: :boolean,
+                             default: -> { ColorDetector.supports_color? }
+      config_key :context_lines, type: :integer, default: 3
+      config_key :grouping_lines, type: :integer, default: 10
+      config_key :show_diffs, type: :symbol,
+                              enum: %i[all normative informative],
+                              default: :all
+      config_key :verbose_diff, type: :boolean, default: false
+      config_key :algorithm, type: :symbol, enum: %i[dom semantic],
+                             default: :dom
+      config_key :parser, type: :symbol, enum: %i[sax dom], default: :sax
+
+      config_key :show_raw_inputs, type: :boolean, default: false
+      config_key :show_raw_expected, type: :boolean, default: false
+      config_key :show_raw_received, type: :boolean, default: false
+      config_key :show_preprocessed_inputs, type: :boolean, default: false
+      config_key :show_preprocessed_expected, type: :boolean, default: false
+      config_key :show_preprocessed_received, type: :boolean, default: false
+      config_key :show_prettyprint_inputs, type: :boolean, default: false
+      config_key :show_prettyprint_expected, type: :boolean, default: false
+      config_key :show_prettyprint_received, type: :boolean, default: false
+      config_key :show_line_numbered_inputs, type: :boolean, default: false
+
+      config_key :display_format, type: :symbol, enum: %i[raw canonical],
+                                  default: :raw
+      config_key :display_preprocessing, type: :symbol,
+                                         enum: %i[none pretty_print
+                                                  normalize_pretty_print c14n],
+                                         default: :none
+
+      config_key :preserve_whitespace_elements,
+                 type: :string_array,
+                 default: [],
+                 coerce: ->(v) { Array(v).map(&:to_s) },
+                 getter_coerce: ->(v) { v || [] }
+      config_key :collapse_whitespace_elements,
+                 type: :string_array,
+                 default: [],
+                 coerce: ->(v) { Array(v).map(&:to_s) },
+                 getter_coerce: ->(v) { v || [] }
+      config_key :strip_whitespace_elements,
+                 type: :string_array,
+                 default: [],
+                 coerce: ->(v) { Array(v).map(&:to_s) },
+                 getter_coerce: ->(v) { v || [] }
+
+      config_key :pretty_printed_expected, type: :boolean, default: false
+      config_key :pretty_printed_received, type: :boolean, default: false
+      config_key :pretty_printer_sort_attributes, type: :boolean,
+                                                  default: false
+      config_key :compact_semantic_report, type: :boolean, default: false
+      config_key :expand_difference, type: :boolean, default: false
+
+      # Accepts +true+, +false+, or +:content_only+.  ENV-supplied
+      # +"true"/"false"+ strings arrive as +:true/:false+ (TypeConverter
+      # uses the +:symbol+ type) so the getter coerces them back to
+      # booleans.
+      config_key :character_visualization,
+                 type: :symbol,
+                 enum: [true, false, :content_only],
+                 default: true,
+                 getter_coerce: lambda { |val|
+                   case val
+                   when true, :true then true # rubocop:disable Lint/BooleanSymbol
+                   when false, :false then false # rubocop:disable Lint/BooleanSymbol
+                   else val
+                   end
+                 }
+
+      config_key :theme, type: :symbol,
+                         enum: %i[light dark retro claude cyberpunk],
+                         default: :dark
+      config_key :theme_inheritance, type: :pass_through, default: nil
+      config_key :custom_theme, type: :pass_through, default: nil
+
+      config_key :max_file_size, type: :integer, default: 5_242_880
+      config_key :max_node_count, type: :integer, default: 10_000
+      config_key :max_diff_lines, type: :integer, default: 10_000
+
+      # Pretty-printer keys are declared here so they participate in
+      # +config_keys+ (for EnvSchema discovery and validation) even
+      # though user code reaches them via the +PrettyPrinterConfig+
+      # facade through +DiffConfig#pretty_printer+.
+      config_key :pretty_printer_indent, type: :integer, default: 2
+      config_key :pretty_printer_indent_type, type: :symbol,
+                                              enum: %i[space tab],
+                                              default: :space
+
+      # Enum constraint map derived from declared config keys.  Kept as a
+      # constant for backward compatibility with code that referenced
+      # +DiffConfig::VALID_ENUM_VALUES+ directly.  Must be assigned AFTER
+      # all +config_key+ declarations above so the registry is populated.
+      VALID_ENUM_VALUES = enum_values.freeze
 
       # Build diff options
       def to_h
@@ -792,45 +476,9 @@ module Canon
       private
 
       def build_resolver(format)
-        defaults = {
-          mode: :by_line,
-          use_color: ColorDetector.supports_color?,
-          context_lines: 3,
-          grouping_lines: 10,
-          show_diffs: :all,
-          verbose_diff: false,
-          algorithm: :dom,
-          parser: :sax,
-          show_raw_inputs: false,
-          show_raw_expected: false,
-          show_raw_received: false,
-          show_preprocessed_inputs: false,
-          show_preprocessed_expected: false,
-          show_preprocessed_received: false,
-          show_prettyprint_inputs: false,
-          show_prettyprint_expected: false,
-          show_prettyprint_received: false,
-          show_line_numbered_inputs: false,
-          character_visualization: true, # true, false, :content_only
-          display_format: :raw,          # :raw = no formatting, :canonical = HTML-aware formatting
-          display_preprocessing: :none,  # :none, :pretty_print, :c14n
-          pretty_printer_indent: 2,
-          pretty_printer_indent_type: :space, # :space or :tab
-          preserve_whitespace_elements: [],
-          collapse_whitespace_elements: [],
-          strip_whitespace_elements: [],
-          pretty_printed_expected: false,
-          pretty_printed_received: false,
-          pretty_printer_sort_attributes: false,
-          compact_semantic_report: false,
-          expand_difference: false,
-          max_file_size: 5_242_880,      # 5MB in bytes
-          max_node_count: 10_000,        # Maximum nodes in tree
-          max_diff_lines: 10_000,        # Maximum diff output lines
-          theme: :dark, # Default theme
-          theme_inheritance: nil,        # Custom theme with base + overrides
-          custom_theme: nil,             # Full custom theme hash
-        }
+        defaults = self.class.config_keys.each_with_object({}) do |(k, _m), h|
+          h[k] = self.class.resolve_default(k)
+        end
 
         env = format ? EnvProvider.load_diff_for_format(format) : {}
 

@@ -1,13 +1,5 @@
 # frozen_string_literal: true
 
-require_relative "../diff/diff_node"
-require_relative "../comparison/match_options"
-# OperationConverter helper modules
-require_relative "operation_converter_helpers/metadata_enricher"
-require_relative "operation_converter_helpers/reason_builder"
-require_relative "operation_converter_helpers/post_processor"
-require_relative "operation_converter_helpers/update_change_handler"
-
 module Canon
   module TreeDiff
     # Converts TreeDiff Operations to DiffNodes for integration with Canon's

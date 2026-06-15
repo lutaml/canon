@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require_relative "../core/xml_entity_decoder"
-
 module Canon
   module TreeDiff
     module Operations
@@ -619,13 +617,12 @@ module Canon
           # Check if this node or any ancestor is whitespace-sensitive
           current = node
           while current
-            if current.respond_to?(:label)
+            if current.is_a?(Core::TreeNode)
               label = current.label.to_s.downcase
               return true if whitespace_sensitive_tags.include?(label)
             end
 
-            # Check parent
-            current = current.parent if current.respond_to?(:parent)
+            current = current.is_a?(Core::TreeNode) ? current.parent : nil
             break unless current
           end
 

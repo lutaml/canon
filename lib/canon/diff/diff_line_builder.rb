@@ -1,8 +1,5 @@
 # frozen_string_literal: true
 
-require_relative "diff_line"
-require_relative "formatting_detector"
-
 module Canon
   module Diff
     # Assembles DiffLines from enriched DiffNodes.
