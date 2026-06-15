@@ -29,7 +29,7 @@ RSpec.describe Canon::Validators::HtmlValidator do
           Canon::ValidationError,
         ) do |error|
           expect(error.format).to eq(:html)
-          expect(error.message).to match(/HTML Validation Error/)
+          expect(error.message).to include("HTML Validation Error")
         end
       end
     end

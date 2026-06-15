@@ -437,8 +437,8 @@ RSpec.describe "DiffDetailFormatter helpers" do
         detail1, detail2, = df.format_fallback_details(diff, false,
                                                        compact: false)
         # format_node_brief returns "name(\"text\")" style
-        expect(detail1).to match(/strong/)
-        expect(detail2).to match(/strong/)
+        expect(detail1).to include("strong")
+        expect(detail2).to include("strong")
       end
 
       it "with compact: true returns compact XML" do

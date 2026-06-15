@@ -471,7 +471,7 @@ RSpec.describe Canon::Comparison::HtmlComparator do
 
         # The Reason names the parent element, not the empty partner text
         # (#112 contract extended to :whitespace_adjacency).
-        expect(changes).to match(/Whitespace inside <div/)
+        expect(changes).to include("Whitespace inside <div")
 
         # The detail output carries the parent open-tag hint (#112).
         expect(detail1).to include("in <div")

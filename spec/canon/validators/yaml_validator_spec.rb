@@ -32,7 +32,7 @@ RSpec.describe Canon::Validators::YamlValidator do
           Canon::ValidationError,
         ) do |error|
           expect(error.format).to eq(:yaml)
-          expect(error.message).to match(/YAML Validation Error/)
+          expect(error.message).to include("YAML Validation Error")
         end
       end
 

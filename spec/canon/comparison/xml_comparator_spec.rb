@@ -258,8 +258,8 @@ RSpec.describe Canon::Comparison::XmlComparator do
         expect(result.differences.size).to be >= 1
         # Reason must never contain raw Ruby object inspect output
         result.differences.each do |diff|
-          expect(diff.reason).not_to match(/#<Canon::Xml::Nodes/)
-          expect(diff.reason).not_to match(/#<Canon::Diff/)
+          expect(diff.reason).not_to include("#<Canon::Xml::Nodes")
+          expect(diff.reason).not_to include("#<Canon::Diff")
         end
       end
 
@@ -302,8 +302,8 @@ RSpec.describe Canon::Comparison::XmlComparator do
         expect(result.differences.size).to eq(1)
         # Reason must never contain raw Ruby object inspect output
         result.differences.each do |diff|
-          expect(diff.reason).not_to match(/#<Canon::Xml::Nodes/)
-          expect(diff.reason).not_to match(/#<Canon::Diff/)
+          expect(diff.reason).not_to include("#<Canon::Xml::Nodes")
+          expect(diff.reason).not_to include("#<Canon::Diff")
         end
       end
     end
