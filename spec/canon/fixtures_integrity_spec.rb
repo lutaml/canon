@@ -21,9 +21,8 @@ RSpec.describe "Fixture Files Integrity" do
           formatted_content = Canon.format(original_content, :xml)
 
           # Use Canon's own XML comparison with :normalize to ignore formatting differences
-          # rubocop:disable Layout/LineLength
+          # rubocop:disable-next Layout/LineLength
           expect(formatted_content).to be_xml_equivalent_to(original_content).with_match(structural_whitespace: :normalize)
-          # rubocop:enable Layout/LineLength
         end
       end
     end
