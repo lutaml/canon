@@ -10,9 +10,8 @@ RSpec.describe "String matcher", type: :matcher do
         xml2 = "<root>\n  <child>value</child>\n</root>"
 
         # Use :normalize to ignore whitespace differences
-        # rubocop:disable Layout/LineLength
+        # rubocop:disable-next Layout/LineLength
         expect(xml1).to be_equivalent_to(xml2, match: { structural_whitespace: :normalize })
-        # rubocop:enable Layout/LineLength
       end
 
       it "shows XML mode in diff when failing" do

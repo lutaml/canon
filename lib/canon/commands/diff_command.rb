@@ -12,7 +12,7 @@ module Canon
       end
 
       # rubocop:disable Metrics/MethodLength
-      # rubocop:disable Metrics/AbcSize
+      # rubocop:disable-next Metrics/AbcSize
       def run(file1, file2)
         # Detect formats
         format1 = @options[:format1] || @options[:format] || detect_format(file1)
@@ -98,7 +98,6 @@ module Canon
       rescue StandardError => e
         abort "Error processing files: #{e.message}"
       end
-      # rubocop:enable Metrics/AbcSize
       # rubocop:enable Metrics/MethodLength
 
       private
