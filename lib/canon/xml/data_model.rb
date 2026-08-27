@@ -159,7 +159,7 @@ preserve_whitespace: false)
         when Nokogiri::XML::Element
           build_element_node(nokogiri_node,
                              preserve_whitespace: preserve_whitespace)
-        when Nokogiri::XML::Text
+        when Nokogiri::XML::Text, Nokogiri::XML::CDATA
           build_text_node(nokogiri_node,
                           preserve_whitespace: preserve_whitespace)
         when Nokogiri::XML::Comment
@@ -222,7 +222,10 @@ preserve_whitespace: false)
       end
 
       def self.build_attribute_nodes(nokogiri_element, element)
-        nokogiri_element.attributes.each_value do |attr|
+        # attribute_nodes, not the attributes hash: the hash is keyed by
+        # local name and collapses e.g. attr / a:attr / b:attr into one
+        # entry, losing namespaced attributes (W3C C14N ex 3.3).
+        nokogiri_element.attribute_nodes.each do |attr|
           attr_node = Nodes::AttributeNode.new(
             name: attr.name,
             value: attr.value,
@@ -259,7 +262,25 @@ preserve_whitespace: false)
 
       def self.from_moxml_xml(xml_string, preserve_whitespace:)
         doc = Canon::XmlParsing.parse(xml_string)
+        check_moxml_relative_namespace_uris(doc)
         build_from_moxml(doc, preserve_whitespace: preserve_whitespace)
+      end
+
+      def self.check_moxml_relative_namespace_uris(node)
+        case node
+        when Moxml::Element
+          node.namespace_definitions.each do |ns|
+            href = ns.uri
+            next if href.nil? || href.empty?
+            if relative_uri?(href)
+              raise Canon::Error,
+                    "Relative namespace URI not allowed: #{href}"
+            end
+          end
+          node.children.each { |child| check_moxml_relative_namespace_uris(child) }
+        when Moxml::Document
+          node.children.each { |child| check_moxml_relative_namespace_uris(child) }
+        end
       end
 
       def self.build_from_moxml(moxml_doc, preserve_whitespace: false)
@@ -278,7 +299,7 @@ preserve_whitespace: false)
         when Moxml::Element
           build_moxml_element_node(node,
                                    preserve_whitespace: preserve_whitespace)
-        when Moxml::Text
+        when Moxml::Text, Moxml::Cdata
           build_moxml_text_node(node, preserve_whitespace: preserve_whitespace)
         when Moxml::Comment
           build_moxml_comment_node(node)
@@ -309,31 +330,54 @@ preserve_whitespace: false)
       end
 
       def self.build_moxml_namespace_nodes(moxml_element, element)
-        moxml_element.namespace_definitions.each do |ns|
-          ns_node = Nodes::NamespaceNode.new(
-            prefix: ns.prefix || "",
-            uri: ns.uri,
-          )
-          element.add_namespace(ns_node)
-        end
-
-        unless element.namespace_nodes.any? do |n|
-          n.prefix == "xml"
-        end
+        collect_moxml_in_scope_namespaces(moxml_element).each do |prefix, uri|
           element.add_namespace(Nodes::NamespaceNode.new(
-                                  prefix: "xml",
-                                  uri: "http://www.w3.org/XML/1998/namespace",
+                                  prefix: prefix,
+                                  uri: uri,
                                 ))
         end
       end
 
+      # Same in-scope semantics as collect_in_scope_namespaces (first
+      # declaration wins walking up; xml prebound) so both engine trees
+      # carry identical namespace nodes.
+      def self.collect_moxml_in_scope_namespaces(moxml_element)
+        namespaces = {}
+
+        current = moxml_element
+        while current && !current.is_a?(Moxml::Document)
+          if current.is_a?(Moxml::Element)
+            current.namespace_definitions.each do |ns|
+              prefix = ns.prefix || ""
+              unless namespaces.key?(prefix)
+                namespaces[prefix] = ns.uri
+              end
+            end
+          end
+          current = current.parent
+        end
+
+        namespaces["xml"] ||= "http://www.w3.org/XML/1998/namespace"
+        namespaces
+      end
+
       def self.build_moxml_attribute_nodes(moxml_element, element)
+        seen = {}
         moxml_element.attributes.each do |attr|
-          attr_node = Nodes::AttributeNode.new(
-            name: attr.name,
-            value: attr.value,
-          )
-          element.add_attribute(attr_node)
+          # Duplicate attribute names are invalid XML; engines expose
+          # them differently (libxml2 lists repeats, libleptris dedups
+          # last-wins). Canon follows the Nokogiri presentation contract:
+          # first occurrence wins, keyed by name + namespace.
+          key = [attr.name, attr.namespace&.uri]
+          next if seen.key?(key)
+
+          seen[key] = true
+          element.add_attribute(Nodes::AttributeNode.new(
+                                  name: attr.name,
+                                  value: attr.value,
+                                  namespace_uri: attr.namespace&.uri,
+                                  prefix: attr.namespace&.prefix,
+                                ))
         end
       end
 
@@ -354,7 +398,7 @@ preserve_whitespace: false)
       def self.build_moxml_pi_node(moxml_pi)
         Nodes::ProcessingInstructionNode.new(
           target: moxml_pi.target,
-          data: moxml_pi.data,
+          data: moxml_pi.content,
         )
       end
     end

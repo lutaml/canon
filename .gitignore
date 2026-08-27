@@ -16,6 +16,7 @@ Gemfile*.lock
 *.md
 !README.adoc
 !CODE_OF_CONDUCT.md
+!CLAUDE.md
 /debug_*.rb
 !lib/canon/diff_formatter/debug_output.rb
 .rubocop-https*

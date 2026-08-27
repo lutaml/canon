@@ -11,7 +11,12 @@ module Canon
       end
 
       def format(xml_string)
-        if Canon::XmlBackend.nokogiri?
+        # Output parity: pretty-printed bytes are canon's product. The
+        # moxml serializer cannot yet match Nokogiri's output (empty
+        # element expansion, declaration placement, tab indent), so the
+        # Nokogiri pipeline is used whenever available — the moxml branch
+        # is the Opal fallback.
+        if defined?(Nokogiri)
           nokogiri_format(xml_string)
         else
           moxml_format(xml_string)

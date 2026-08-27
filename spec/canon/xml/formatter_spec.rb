@@ -18,11 +18,11 @@ RSpec.describe Canon::Formatters::XmlFormatter do
     expect(result).to include("  <b>2</b>")
   end
 
-  it "parses XML into a Nokogiri document" do
+  it "parses XML into an engine document" do
     input = "<root><a>1</a><b>2</b></root>"
     result = described_class.parse(input)
 
-    expect(result).to be_a(Nokogiri::XML::Document)
+    expect(Canon::XmlParsing.document?(result)).to be(true)
     expect(result.at_xpath("//a").text).to eq("1")
     expect(result.at_xpath("//b").text).to eq("2")
   end

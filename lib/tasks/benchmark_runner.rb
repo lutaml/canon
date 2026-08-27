@@ -96,7 +96,11 @@ class BenchmarkRunner
     def self.env_info(ruby_version, platform)
       puts
       puts "  #{DIM}Environment:#{CLEAR}"
+      engine = Canon::XmlBackend.active
+      engine_info = "XML engine: #{engine}"
+      engine_info += " (forced)" unless ENV["CANON_XML_BACKEND"].to_s.empty?
       puts "  #{VL}  Ruby #{ruby_version} on #{platform}#{' ' * (60 - ruby_version.length - platform.length)}#{VL}"
+      puts "  #{VL}  #{engine_info}#{' ' * (60 - engine_info.length)}#{VL}"
       puts "  #{DIM}#{BL}#{HL * 76}#{BR}#{CLEAR}"
       puts
     end

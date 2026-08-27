@@ -3,28 +3,40 @@
 require "spec_helper"
 
 RSpec.describe Canon::XmlBackend do
+  # The default engine is :nokogiri on CRuby (conformance — see
+  # spec/canon/xml/engine_parity_spec.rb) and :moxml under Opal.
+  # CANON_XML_BACKEND forces either engine.
+  let(:forced) { ENV["CANON_XML_BACKEND"] }
+
+  after { described_class.reset! }
+
   describe ".active" do
-    it "returns :nokogiri when Nokogiri is loaded" do
-      expect(described_class.active).to eq(:nokogiri) if defined?(Nokogiri)
+    it "returns the forced backend when CANON_XML_BACKEND is set" do
+      skip "no forced backend" unless forced
+
+      expect(described_class.active).to eq(forced.to_sym)
+    end
+
+    it "follows moxml's resolved adapter (leptris when installed, nokogiri otherwise)" do
+      skip "backend is forced" if forced
+      skip "requires CRuby + Nokogiri" if RUBY_ENGINE == "opal"
+
+      expected = Canon::XmlParsing.moxml_adapter_name == :nokogiri ? :nokogiri : :moxml
+      expect(described_class.active).to eq(expected)
     end
   end
 
-  describe ".nokogiri?" do
-    it "returns true under MRI with Nokogiri" do
-      expect(described_class.nokogiri?).to be true if defined?(Nokogiri)
-    end
-  end
-
-  describe ".moxml?" do
-    it "returns false under MRI with Nokogiri" do
-      expect(described_class.moxml?).to be false if defined?(Nokogiri)
+  describe ".nokogiri? / .moxml?" do
+    it "match the active backend" do
+      expect(described_class.nokogiri?).to eq(described_class.active == :nokogiri)
+      expect(described_class.moxml?).to eq(described_class.active == :moxml)
     end
 
     it "returns true when moxml backend is forced" do
+      allow(ENV).to receive(:[]).with("CANON_XML_BACKEND").and_return("moxml")
       described_class.reset!
-      allow(described_class).to receive(:detect).and_return(:moxml)
       expect(described_class.moxml?).to be true
-      described_class.reset!
+      expect(described_class.nokogiri?).to be false
     end
   end
 
@@ -33,6 +45,21 @@ RSpec.describe Canon::XmlBackend do
       original = described_class.active
       described_class.reset!
       expect(described_class.active).to eq(original)
+    end
+  end
+
+  describe "invalid CANON_XML_BACKEND" do
+    around do |example|
+      prev = ENV["CANON_XML_BACKEND"]
+      ENV["CANON_XML_BACKEND"] = "oga"
+      described_class.reset!
+      example.run
+      ENV["CANON_XML_BACKEND"] = prev
+      described_class.reset!
+    end
+
+    it "raises" do
+      expect { described_class.active }.to raise_error(Canon::Error, /Invalid CANON_XML_BACKEND/)
     end
   end
 end

@@ -3,18 +3,35 @@
 module Canon
   # Backend-agnostic XML parsing, serialization, and type dispatch.
   #
-  # Provides a unified API that delegates to the active backend
-  # (Nokogiri or moxml/Oga). Uses backend-branching (`if XmlBackend.nokogiri?`)
-  # rather than `case/when` with constant references — this ensures Nokogiri
-  # constants are never resolved under Opal, preventing NameError at runtime.
+  # Responsibilities (MECE):
+  # - Engine actions: `parse` selects the XML engine chosen by
+  #   Canon::XmlBackend (raw Nokogiri or moxml with its resolved adapter —
+  #   leptris when installed, nokogiri otherwise).
+  # - Node type dispatch: type queries and traversal answer for ANY
+  #   recognized node (Nokogiri or moxml) regardless of the active engine —
+  #   callers may hand us nodes from either library (user input, format
+  #   detection). Dispatch is by node type, never by backend.
   #
-  # OCP: adding a new backend only requires updating this module.
-  # DRY: all backend dispatch centralized here, not scattered across
-  # comparator/formatter files.
+  # `defined?(Nokogiri)` guards keep Nokogiri constants unresolved under
+  # Opal (no NameError at runtime).
+  #
+  # OCP: adding a new engine means extending Canon::XmlBackend detection
+  # plus the node-type union here; all comparator/formatter code stays
+  # untouched because it goes through this module.
   module XmlParsing
     class << self
       def moxml_context
-        @moxml_context ||= Moxml.new(RUBY_ENGINE == "opal" ? :rexml : :oga)
+        # Opal needs the explicit rexml adapter: stock oga requires its
+        # C extension there. CRuby defers to moxml's preferred adapter
+        # (leptris when installed and capable, nokogiri otherwise).
+        @moxml_context ||= Moxml.new(RUBY_ENGINE == "opal" ? :rexml : nil)
+      end
+
+      # The adapter moxml resolved on this runtime. This is the single
+      # source of truth for engine capability: moxml owns the preference
+      # order, canon never probes gems itself.
+      def moxml_adapter_name
+        moxml_context.config.adapter_name
       end
 
       # --- Parsing ---
@@ -39,113 +56,88 @@ module Canon
       # --- Serialization ---
 
       def serialize(node)
-        if XmlBackend.nokogiri?
-          nokogiri_serialize(node)
+        if defined?(Nokogiri) && node.is_a?(Nokogiri::XML::Document)
+          node.to_xml(encoding: "UTF-8")
         else
-          moxml_serialize(node)
+          node.to_xml
         end
       end
 
-      # --- Type checks (backend-safe) ---
-      #
-      # Both Nokogiri and Moxml are loaded as dependencies. XmlBackend
-      # determines which is used for *parsing*, but nodes from either
-      # library may flow through comparison code (e.g. tests, format
-      # detection). Under Nokogiri backend, both types are checked.
+      # --- Type checks (any recognized engine node) ---
 
       def document?(obj)
-        if XmlBackend.nokogiri?
-          obj.is_a?(Nokogiri::XML::Document) || obj.is_a?(Moxml::Document)
-        else
-          obj.is_a?(Moxml::Document)
-        end
+        return true if defined?(Nokogiri) && obj.is_a?(Nokogiri::XML::Document)
+
+        obj.is_a?(Moxml::Document)
       end
 
       def xml_node?(obj)
-        if XmlBackend.nokogiri?
-          obj.is_a?(Nokogiri::XML::Node) || obj.is_a?(Moxml::Node)
-        else
-          obj.is_a?(Moxml::Node)
-        end
+        return true if defined?(Nokogiri) && obj.is_a?(Nokogiri::XML::Node)
+
+        obj.is_a?(Moxml::Node)
       end
 
       def element?(node)
-        if XmlBackend.nokogiri?
-          node.is_a?(Nokogiri::XML::Element) || node.is_a?(Moxml::Element)
-        else
-          node.is_a?(Moxml::Element)
-        end
+        return true if defined?(Nokogiri) && node.is_a?(Nokogiri::XML::Element)
+
+        node.is_a?(Moxml::Element)
       end
 
       def text_node?(node)
-        if XmlBackend.nokogiri?
-          node.is_a?(Nokogiri::XML::Text) || node.is_a?(Moxml::Text)
-        else
-          node.is_a?(Moxml::Text)
-        end
+        return true if defined?(Nokogiri) && node.is_a?(Nokogiri::XML::Text)
+
+        node.is_a?(Moxml::Text)
       end
 
       def comment?(node)
-        if XmlBackend.nokogiri?
-          node.is_a?(Nokogiri::XML::Comment) || node.is_a?(Moxml::Comment)
-        else
-          node.is_a?(Moxml::Comment)
-        end
+        return true if defined?(Nokogiri) && node.is_a?(Nokogiri::XML::Comment)
+
+        node.is_a?(Moxml::Comment)
       end
 
       def cdata?(node)
-        if XmlBackend.nokogiri?
-          node.is_a?(Nokogiri::XML::CDATA) || node.is_a?(Moxml::Cdata)
-        else
-          node.is_a?(Moxml::Cdata)
-        end
+        return true if defined?(Nokogiri) && node.is_a?(Nokogiri::XML::CDATA)
+
+        node.is_a?(Moxml::Cdata)
       end
 
       def processing_instruction?(node)
-        if XmlBackend.nokogiri?
-          node.is_a?(Nokogiri::XML::ProcessingInstruction) || node.is_a?(Moxml::ProcessingInstruction)
-        else
-          node.is_a?(Moxml::ProcessingInstruction)
-        end
+        return true if defined?(Nokogiri) && node.is_a?(Nokogiri::XML::ProcessingInstruction)
+
+        node.is_a?(Moxml::ProcessingInstruction)
       end
 
       def document_fragment?(obj)
-        if XmlBackend.nokogiri?
-          obj.is_a?(Nokogiri::XML::DocumentFragment)
-        else
-          false
-        end
+        defined?(Nokogiri) && obj.is_a?(Nokogiri::XML::DocumentFragment)
       end
 
       def dtd?(node)
-        if XmlBackend.nokogiri?
-          node.is_a?(Nokogiri::XML::DTD)
-        else
-          false
-        end
+        defined?(Nokogiri) && node.is_a?(Nokogiri::XML::DTD)
       end
 
       # --- Node traversal ---
 
       def children(node)
-        if XmlBackend.nokogiri?
-          node.is_a?(Nokogiri::XML::Node) ? node.children.to_a : []
+        if defined?(Nokogiri) && node.is_a?(Nokogiri::XML::Node)
+          node.children.to_a
+        elsif node.is_a?(Moxml::Node)
+          node.children.to_a
         else
-          node.is_a?(Moxml::Node) ? node.children.to_a : []
+          []
         end
       end
 
       def name(node)
-        if XmlBackend.nokogiri?
-          node.is_a?(Nokogiri::XML::Node) ? node.name : nil
-        else
-          node.is_a?(Moxml::Node) ? node.name : nil
+        if defined?(Nokogiri) && node.is_a?(Nokogiri::XML::Node)
+          node.name
+        elsif node.is_a?(Moxml::Node)
+          node.name
         end
       end
 
       def text_content(node)
-        if XmlBackend.nokogiri?
-          node.is_a?(Nokogiri::XML::Node) ? node.content : node.to_s
+        if defined?(Nokogiri) && node.is_a?(Nokogiri::XML::Node)
+          node.content
         else
           case node
           when Moxml::Text, Moxml::Cdata, Moxml::Comment
@@ -159,26 +151,30 @@ module Canon
       end
 
       def attributes(node)
-        if XmlBackend.nokogiri?
-          node.is_a?(Nokogiri::XML::Element) ? node.attributes.values : []
+        if defined?(Nokogiri) && node.is_a?(Nokogiri::XML::Element)
+          node.attributes.values
+        elsif node.is_a?(Moxml::Element)
+          node.attributes
         else
-          node.is_a?(Moxml::Element) ? node.attributes : []
+          []
         end
       end
 
       def attribute_value(node, attr_name)
-        if XmlBackend.nokogiri?
-          node.is_a?(Nokogiri::XML::Element) ? node[attr_name.to_s] : nil
-        else
-          node.is_a?(Moxml::Element) ? node[attr_name.to_s] : nil
+        if defined?(Nokogiri) && node.is_a?(Nokogiri::XML::Element)
+          node[attr_name.to_s]
+        elsif node.is_a?(Moxml::Element)
+          node[attr_name.to_s]
         end
       end
 
       def namespace_definitions(node)
-        if XmlBackend.nokogiri?
-          node.is_a?(Nokogiri::XML::Element) ? node.namespace_definitions : []
+        if defined?(Nokogiri) && node.is_a?(Nokogiri::XML::Element)
+          node.namespace_definitions
+        elsif node.is_a?(Moxml::Element)
+          node.namespace_definitions
         else
-          node.is_a?(Moxml::Element) ? node.namespace_definitions : []
+          []
         end
       end
 
@@ -191,34 +187,26 @@ module Canon
       end
 
       def namespace_uri(node)
-        if XmlBackend.nokogiri?
-          node.namespace&.href if node.is_a?(Nokogiri::XML::Element)
+        if defined?(Nokogiri) && node.is_a?(Nokogiri::XML::Element)
+          node.namespace&.href
         elsif node.is_a?(Moxml::Element)
           node.namespace_uri
         end
       end
 
-      # Returns a symbol for all backends (:element, :text, :comment, etc.)
+      # Returns a symbol for all engines (:element, :text, :comment, etc.)
       # or nil for unrecognised nodes.
       def node_type(node)
-        if XmlBackend.nokogiri?
+        if defined?(Nokogiri) && node.is_a?(Nokogiri::XML::Node)
           nokogiri_node_type(node)
-        else
+        elsif node.is_a?(Moxml::Node)
           moxml_node_type(node)
-        end
-      end
-
-      def canonicalize(node, options = {})
-        if XmlBackend.nokogiri?
-          node.canonicalize(options)
-        else
-          moxml_canonicalize(node, options)
         end
       end
 
       private
 
-      # --- Nokogiri backend ---
+      # --- Nokogiri engine ---
 
       def nokogiri_type_map
         @nokogiri_type_map ||= {
@@ -235,8 +223,6 @@ module Canon
       end
 
       def nokogiri_node_type(node)
-        return nil unless node.is_a?(Nokogiri::XML::Node)
-
         nokogiri_type_map[node.node_type]
       end
 
@@ -246,28 +232,10 @@ module Canon
         doc
       end
 
-      def nokogiri_serialize(node)
-        if node.is_a?(Nokogiri::XML::Document)
-          node.to_xml(encoding: "UTF-8")
-        else
-          node.to_xml
-        end
-      end
-
-      # --- Moxml backend ---
+      # --- Moxml engine ---
 
       def moxml_parse(xml_string, _options)
         moxml_context.parse(xml_string)
-      end
-
-      def moxml_serialize(node)
-        node.to_xml
-      end
-
-      def moxml_canonicalize(_node, _options)
-        raise Canon::Error,
-              "C14N canonicalization is not supported by the moxml backend. " \
-              "Use the Nokogiri backend or a different preprocessing option."
       end
 
       def moxml_node_type(node)

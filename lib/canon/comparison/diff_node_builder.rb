@@ -145,7 +145,7 @@ module Canon
         when Canon::Xml::Node
           node.text_content
         else
-          if Canon::XmlBackend.nokogiri? && node.is_a?(Nokogiri::XML::Node)
+          if defined?(Nokogiri) && node.is_a?(Nokogiri::XML::Node)
             node.content.to_s
           elsif Canon::XmlParsing.xml_node?(node)
             Canon::XmlParsing.text_content(node)
