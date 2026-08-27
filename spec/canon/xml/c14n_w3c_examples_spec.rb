@@ -6,6 +6,7 @@ RSpec.describe Canon::Xml::C14n do
   describe "W3C C14N 1.1 Specification Examples" do
     context "Example 3.1: PIs, Comments, and Outside of Document Element" do
       it "canonicalizes without comments" do
+        pending "leptris upstream: epilog PI rejected (#577), epilog comment dropped (#578)" if Canon::XmlBackend.moxml?
         input = File.read("spec/fixtures/c14n/example-3.1-pis-comments.input.xml")
         expected = File.read("spec/fixtures/c14n/example-3.1-pis-comments.canonical.xml")
 

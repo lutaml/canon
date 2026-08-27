@@ -356,10 +356,11 @@ module Canon
         end
 
         # True when the supplied source node is a Nokogiri node that
-        # exposes an XPath via +path+.  Nokogiri is an optional
-        # backend so the constant is guarded.
+        # exposes an XPath via +path+. Nokogiri nodes arrive from user
+        # input under any engine, so this is a type check; the constant
+        # is guarded for Opal.
         def nokogiri_source?(node)
-          return false unless Canon::XmlBackend.nokogiri?
+          return false unless defined?(Nokogiri)
 
           node.is_a?(Nokogiri::XML::Node)
         end

@@ -153,12 +153,12 @@ module Canon
       # @return [String] Serialized XML, one node per line, with content
       #   whitespace visualized at line boundaries
       def format(xml_string)
-        doc = if Canon::XmlBackend.moxml?
-                Canon::XmlParsing.parse(xml_string)
-              elsif @html_mode
-                Nokogiri::HTML5(xml_string)
+        # Output parity: see PrettyPrinter::Xml — the Nokogiri pipeline
+        # produces canon's byte-stable output; moxml is the Opal fallback.
+        doc = if defined?(Nokogiri)
+                @html_mode ? Nokogiri::HTML5(xml_string) : Nokogiri::XML(xml_string)
               else
-                Nokogiri::XML(xml_string)
+                Canon::XmlParsing.parse(xml_string)
               end
         lines = []
 

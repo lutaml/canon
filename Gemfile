@@ -6,6 +6,7 @@ source "https://rubygems.org"
 gemspec
 
 gem "benchmark-ips"
+gem "leptris" # dev-only here: optional accelerator; moxml picks it up when installed
 gem "openssl", "~> 3.0"
 gem "rake"
 gem "rspec"

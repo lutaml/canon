@@ -167,7 +167,7 @@ module Canon
         # accepted: dom_diff routes html/html4/html5 input through
         # Nokogiri::HTML5.fragment per #118.
         def fragment_node?(node)
-          XmlBackend.document_fragment?(node)
+          Html::NokogiriSupport.document_fragment?(node)
         end
 
         # Compare children of document fragments using the shared
@@ -217,11 +217,11 @@ module Canon
         # @param match_opts [Hash] Match options
         # @return [Nokogiri::HTML::DocumentFragment] Parsed fragment
         def parse_node_as_fragment(node, preprocessing = :none, match_opts = {})
-          if XmlBackend.document_fragment?(node)
+          if Html::NokogiriSupport.document_fragment?(node)
             return node
           end
 
-          html_string = if XmlBackend.document_fragment?(node)
+          html_string = if Html::NokogiriSupport.document_fragment?(node)
                           node.to_s # Use to_s to avoid re-inserting meta tags
                         elsif node.is_a?(String)
                           node
@@ -229,7 +229,7 @@ module Canon
                           node.to_html
                         end
 
-          frag = XmlBackend.xml_fragment(
+          frag = Html::NokogiriSupport.xml_fragment(
             decode_html_named_entities(html_string),
           )
 
@@ -316,15 +316,15 @@ module Canon
 
             # Normalize HTML documents to fragments to avoid DTD differences
             # This ensures comparing string with document works correctly
-            if XmlBackend.html_document?(node)
+            if Html::NokogiriSupport.html_document?(node)
               root = node.at_css("html") || node.root
               if root
-                node = XmlBackend.xml_fragment(root.to_html)
+                node = Html::NokogiriSupport.xml_fragment(root.to_html)
               end
             end
 
             if %i[normalize format rendered].include?(preprocessing)
-              frag = XmlBackend.document_fragment?(node) ? node : XmlBackend.xml_fragment(node.to_html)
+              frag = Html::NokogiriSupport.document_fragment?(node) ? node : Html::NokogiriSupport.xml_fragment(node.to_html)
               normalize_html_style_script_comments(frag)
               if preprocessing == :rendered
                 normalize_rendered_whitespace(frag, match_opts)
@@ -372,7 +372,7 @@ module Canon
                           node
                         end
 
-          frag = XmlBackend.xml_fragment(
+          frag = Html::NokogiriSupport.xml_fragment(
             decode_html_named_entities(html_string),
           )
 
@@ -466,7 +466,7 @@ module Canon
         # @param node [Canon::Xml::Node, Nokogiri::XML::Node] HTML node
         # @return [Symbol] :html5 or :html4
         def detect_html_version_from_node(node)
-          XmlBackend.html_version_from_node(node)
+          Html::NokogiriSupport.html_version_from_node(node)
         end
 
         # Serialize node to string for diff display
@@ -478,7 +478,7 @@ module Canon
           if node.is_a?(Canon::Xml::Node)
             Canon::Diff::NodeSerializer.serialize(node)
           elsif Canon::XmlParsing.xml_node?(node)
-            Canon::XmlBackend.nokogiri? ? node.to_html : Canon::XmlParsing.serialize(node)
+            defined?(Nokogiri) && node.is_a?(Nokogiri::XML::Node) ? node.to_html : Canon::XmlParsing.serialize(node)
           else
             node.to_s
           end
@@ -495,7 +495,7 @@ module Canon
           elsif html.is_a?(Canon::Xml::Node)
             Canon::Xml::DataModel.serialize(html)
           elsif Canon::XmlParsing.xml_node?(html)
-            Canon::XmlBackend.nokogiri? ? html.to_html : html.to_s
+            defined?(Nokogiri) && html.is_a?(Nokogiri::XML::Node) ? html.to_html : html.to_s
           else
             html.to_s
           end
@@ -671,16 +671,16 @@ compare_profile = nil)
         # XML documents typically have XML processing instructions or are
         # instances of Nokogiri::XML::Document (not HTML variants)
         def xml_document?(node)
-          return false if XmlBackend.html_document?(node) || XmlBackend.document_fragment?(node)
+          return false if Html::NokogiriSupport.html_document?(node) || Html::NokogiriSupport.document_fragment?(node)
 
-          if XmlBackend.nokogiri? && node.is_a?(Nokogiri::XML::Document) && node.children.any? do |child|
+          if defined?(Nokogiri) && node.is_a?(Nokogiri::XML::Document) && node.children.any? do |child|
             child.is_a?(Nokogiri::XML::ProcessingInstruction) && child.name == "xml"
           end
             return true
           end
 
           if (node.is_a?(Canon::Xml::Node) || Canon::XmlParsing.xml_node?(node)) &&
-              XmlBackend.nokogiri? && node.children.any? do |child|
+              defined?(Nokogiri) && node.children.any? do |child|
                 child.is_a?(Nokogiri::XML::ProcessingInstruction) && child.name == "xml"
               end
             return true

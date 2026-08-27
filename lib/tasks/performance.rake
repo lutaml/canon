@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "yaml"
+require_relative "benchmark_runner"
 require_relative "performance_comparator"
 
 desc "Run performance benchmarks"

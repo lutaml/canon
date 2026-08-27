@@ -22,37 +22,35 @@ module Canon
         # @param obj [Object] Object to detect format of
         # @return [Symbol] Format type (:xml, :html, :json, :yaml, :ruby_object, :string)
         def detect(obj)
-          if XmlBackend.moxml?
-            case obj
-            when Moxml::Node, Moxml::Document
-              :xml
-            when String
-              detect_string(obj)
-            when Hash, Array
-              :ruby_object
-            else
-              raise Canon::Error, "Unknown format for object: #{obj.class}"
-            end
+          case obj
+          when Moxml::Node, Moxml::Document
+            :xml
+          when String
+            detect_string(obj)
+          when Hash, Array
+            :ruby_object
           else
-            case obj
-            when Moxml::Node, Moxml::Document
-              :xml
-            when Nokogiri::HTML::DocumentFragment, Nokogiri::HTML5::DocumentFragment
-              :html
-            when Nokogiri::XML::DocumentFragment
-              obj.document&.html? ? :html : :xml
-            when Nokogiri::XML::Document, Nokogiri::XML::Node
-              obj.html? ? :html : :xml
-            when Nokogiri::HTML::Document, Nokogiri::HTML5::Document
-              :html
-            when String
-              detect_string(obj)
-            when Hash, Array
-              :ruby_object
-            else
-              raise Canon::Error, "Unknown format for object: #{obj.class}"
-            end
+            detect_nokogiri(obj)
           end
+        end
+
+        # Nokogiri nodes arrive from user input regardless of the active
+        # XML engine, so detection is by node type (Opal never sees them —
+        # Nokogiri is not loaded there).
+        def detect_nokogiri(obj)
+          return :html if defined?(Nokogiri) && obj.is_a?(Nokogiri::HTML::DocumentFragment)
+          return :html if defined?(Nokogiri) && obj.is_a?(Nokogiri::HTML5::DocumentFragment)
+
+          if defined?(Nokogiri) && obj.is_a?(Nokogiri::XML::DocumentFragment)
+            return obj.document&.html? ? :html : :xml
+          end
+          if defined?(Nokogiri) && (obj.is_a?(Nokogiri::XML::Document) || obj.is_a?(Nokogiri::XML::Node))
+            return obj.html? ? :html : :xml
+          end
+          return :html if defined?(Nokogiri) && obj.is_a?(Nokogiri::HTML::Document)
+          return :html if defined?(Nokogiri) && obj.is_a?(Nokogiri::HTML5::Document)
+
+          raise Canon::Error, "Unknown format for object: #{obj.class}"
         end
 
         # Detect the format of a string with caching

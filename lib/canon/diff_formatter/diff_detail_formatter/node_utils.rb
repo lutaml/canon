@@ -226,7 +226,7 @@ module Canon
           end
 
           def serialize_backend_node_compact(node)
-            if XmlBackend.nokogiri? && node.is_a?(Nokogiri::XML::Node)
+            if defined?(Nokogiri) && node.is_a?(Nokogiri::XML::Node)
               serialize_nokogiri_node_compact(node)
             elsif node.is_a?(Canon::Xml::Node)
               serialize_node_compact(node)
@@ -256,7 +256,7 @@ module Canon
           end
 
           def serialize_backend_open_tag(node)
-            if XmlBackend.nokogiri? && node.is_a?(Nokogiri::XML::Element)
+            if defined?(Nokogiri) && node.is_a?(Nokogiri::XML::Element)
               tag = node.name.to_s
               attrs = node.attribute_nodes.map do |a|
                 " #{a.name}=\"#{CGI.escapeHTML(a.value.to_s)}\""

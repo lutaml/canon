@@ -1,18 +1,13 @@
 # frozen_string_literal: true
 
-require "nokogiri" unless RUBY_ENGINE == "opal"
-
 module Canon
   module Xml
-    # Builds Canon::Xml::Node tree using Nokogiri SAX parser
+    # Builds Canon::Xml::Node tree from SAX events.
     #
-    # This is MUCH faster than DOM parsing + conversion because:
-    # 1. No intermediate Nokogiri DOM tree (saves ~60ms)
-    # 2. No tree traversal to build Canon (saves ~1200ms)
-    # 3. No memory overhead of two complete DOM trees
-    #
-    # Current (SLOW): XML String → Nokogiri DOM (~60ms) → Canon DOM (~1200ms) = ~1260ms
-    # Optimized (FAST): XML String → Nokogiri SAX → Canon DOM (~200ms) = ~200ms
+    # Engine-neutral: the event protocol is Nokogiri-shaped (qname +
+    # attribute pairs with xmlns declarations inline); Canon::Xml::Sax
+    # selects the driver. Much faster than DOM parsing + conversion —
+    # no intermediate engine DOM tree, no traversal conversion pass.
     #
     # Usage:
     #   root = SaxBuilder.parse(xml_string, preserve_whitespace: false)
@@ -21,7 +16,7 @@ module Canon
     # For C14N, use strip_doctype: true to avoid DTD default attribute expansion:
     #   root = SaxBuilder.parse(xml_string, strip_doctype: true)
     #
-    class SaxBuilder < (RUBY_ENGINE == "opal" ? Object : Nokogiri::XML::SAX::Document)
+    class SaxBuilder
       # Parse XML string and return Canon::Xml::Node tree
       #
       # @param xml_string [String] XML content to parse
@@ -30,7 +25,7 @@ module Canon
       # @return [Nodes::RootNode] Root of the data model tree
       def self.parse(xml_string, preserve_whitespace: false,
 strip_doctype: false)
-        # Strip DOCTYPE to prevent Nokogiri SAX from expanding DTD default attributes
+        # Strip DOCTYPE to prevent the SAX engine from expanding DTD default attributes
         # This is needed for C14N which should NOT include default attributes from DTD
         # Use string methods instead of complex regex to avoid ReDoS vulnerability
         if strip_doctype
@@ -38,8 +33,7 @@ strip_doctype: false)
         end
 
         builder = new(preserve_whitespace: preserve_whitespace)
-        parser = Nokogiri::XML::SAX::Parser.new(builder)
-        parser.parse(xml_string)
+        Canon::Xml::Sax.parse(xml_string, builder)
         builder.result
       end
 
@@ -79,7 +73,6 @@ strip_doctype: false)
       #
       # @param preserve_whitespace [Boolean] Whether to preserve whitespace-only text nodes
       def initialize(preserve_whitespace: false)
-        super()
         @preserve_whitespace = preserve_whitespace
         @root = Nodes::RootNode.new
         @stack = [@root]
@@ -168,13 +161,30 @@ strip_doctype: false)
       def characters(string)
         return if string.nil?
 
+        append_text(decode_character_references(string), string)
+      end
+
+      # Called for CDATA content. CDATA is literal character data:
+      # character references inside it are NOT decoded (a literal
+      # &#65; stays as written), unlike regular text where they are
+      # resolved. Whitespace and adjacency rules match characters so
+      # the two forms of character data build identical trees.
+      #
+      # @param string [String] CDATA content
+      def cdata(string)
+        return if string.nil?
+
+        append_text(string, string)
+      end
+
+      # Append character data to the tree: combine with an adjacent
+      # text node if present, else create one (respecting the
+      # whitespace-only skip rules).
+      #
+      # @param decoded_string [String] value with character references resolved
+      # @param raw_string [String] value as delivered (pre-resolution)
+      def append_text(decoded_string, raw_string)
         parent = @stack.last
-
-        # Capture raw text BEFORE entity resolution for accurate serialization
-        raw_string = string
-
-        # Decode numeric character references
-        decoded_string = decode_character_references(string)
 
         # Combine with previous text node if adjacent (SAX can split text content)
         # This MUST happen before whitespace check, because SAX may split "foo "
@@ -208,6 +218,7 @@ strip_doctype: false)
         text = Nodes::TextNode.new(value: decoded_string, original: raw_string)
         parent.add_child(text)
       end
+      private :append_text
 
       # Called for comments
       #

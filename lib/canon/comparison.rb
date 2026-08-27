@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 require "moxml"
-require "nokogiri" if Canon::XmlBackend.nokogiri?
+require "nokogiri" unless RUBY_ENGINE == "opal"
 
 module Canon
   # Comparison module for XML, HTML, JSON, and YAML documents

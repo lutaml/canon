@@ -216,8 +216,8 @@ diff_children, differences)
         when Canon::Xml::Node
           node1.node_type == node2.node_type
         else
-          if Canon::XmlBackend.nokogiri?
-            node1.is_a?(Nokogiri::XML::Node) && node1.node_type == node2.node_type
+          if defined?(Nokogiri) && node1.is_a?(Nokogiri::XML::Node)
+            node1.node_type == node2.node_type
           else
             Canon::XmlParsing.xml_node?(node1) && Canon::XmlParsing.node_type(node1) == Canon::XmlParsing.node_type(node2)
           end

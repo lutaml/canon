@@ -66,7 +66,7 @@ module Canon
           return false unless node
           return false unless Canon::Comparison::NodeInspector.element_node?(node)
 
-          Canon::XmlBackend.nokogiri? ? node.is_a?(Nokogiri::XML::Node) : false
+          Canon::XmlParsing.xml_node?(node) && defined?(Nokogiri) && node.is_a?(Nokogiri::XML::Node)
         end
         private_class_method :backend_element?
 

@@ -6,5 +6,6 @@ module Canon
   # Children are autoloaded — never `require_relative` them.
   module Html
     autoload :DataModel, "canon/html/data_model"
+    autoload :NokogiriSupport, "canon/html/nokogiri_support"
   end
 end

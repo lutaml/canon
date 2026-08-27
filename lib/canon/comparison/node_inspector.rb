@@ -35,11 +35,11 @@ module Canon
         return false unless node
         return node.node_type == :comment if node.is_a?(Canon::Xml::Node)
 
-        if XmlBackend.nokogiri?
-          return true if node.is_a?(Nokogiri::XML::Node) && node.comment?
+        if defined?(Nokogiri) && node.is_a?(Nokogiri::XML::Node)
+          return true if node.comment?
 
           # HTML comments are parsed as TEXT nodes by Nokogiri
-          if node.is_a?(Nokogiri::XML::Node) && node.text?
+          if node.text?
             text_stripped = text_content(node).to_s.strip.gsub("\\", "")
             return true if text_stripped.start_with?("<!--") && text_stripped.end_with?("-->")
           end
@@ -154,12 +154,8 @@ module Canon
         return [] if node.nil?
         return Array(node.parse_errors).map(&:to_s) if node.is_a?(Canon::Xml::Node)
 
-        if XmlBackend.nokogiri?
-          if node.is_a?(Nokogiri::XML::Document) || node.is_a?(Nokogiri::HTML5::Document)
-            Array(node.errors).map(&:to_s)
-          else
-            []
-          end
+        if defined?(Nokogiri) && (node.is_a?(Nokogiri::XML::Document) || node.is_a?(Nokogiri::HTML5::Document))
+          Array(node.errors).map(&:to_s)
         else
           []
         end

@@ -178,7 +178,7 @@ dimension:, differences:, **opts)
           when Canon::Xml::Nodes::ElementNode
             node.attribute_nodes
           else
-            if Canon::XmlBackend.nokogiri? && node.is_a?(Nokogiri::XML::Element)
+            if defined?(Nokogiri) && node.is_a?(Nokogiri::XML::Element)
               node.attribute_nodes
             else
               node.attributes
