@@ -9,7 +9,7 @@ module Canon
     # Receives preprocessed document strings from the DiffFormatter facade
     # and delegates to format-specific ByLine formatters (XML, HTML, JSON, YAML).
     class ByLineFormatter
-      # rubocop:disable Metrics/ParameterLists
+      # rubocop:disable-next Metrics/ParameterLists
       def initialize(use_color:, visualization_map:, context_lines:,
                      diff_grouping_lines:, show_diffs:, character_visualization:,
                      legacy_terminal:, diff_mode:)
@@ -22,7 +22,6 @@ module Canon
         @legacy_terminal = legacy_terminal
         @diff_mode = diff_mode
       end
-      # rubocop:enable Metrics/ParameterLists
 
       # Format a line-by-line diff between two documents.
       #

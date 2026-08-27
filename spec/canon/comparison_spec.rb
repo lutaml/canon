@@ -50,9 +50,8 @@ RSpec.describe Canon::Comparison do
       it "returns true when whitespace differs (when using :ignore)" do
         xml1 = "<root><item>Test</item></root>"
         xml2 = "<root>\n  <item>Test</item>\n</root>"
-        # rubocop:disable Layout/LineLength
+        # rubocop:disable-next Layout/LineLength
         expect(described_class.equivalent?(xml1, xml2, match: { structural_whitespace: :ignore })).to be true
-        # rubocop:enable Layout/LineLength
       end
 
       it "returns false when element structure differs" do

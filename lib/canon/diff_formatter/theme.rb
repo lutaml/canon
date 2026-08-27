@@ -125,11 +125,11 @@ module Canon
           },
           added: {
             marker: { color: :green, bg: nil, bold: false },
-            content: { color: :green,       bg: nil, bold: false,
+            content: { color: :green, bg: nil, bold: false,
                        underline: false, strikethrough: false },
           },
           changed: {
-            marker: { color: :yellow,       bg: nil, bold: true },
+            marker: { color: :yellow, bg: nil, bold: true },
             content_old: { color: :bright_red,   bg: nil, bold: false,
                            underline: false, strikethrough: true },
             content_new: { color: :bright_green, bg: nil, bold: false,
