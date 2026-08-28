@@ -130,11 +130,12 @@ module Canon
         # Add line break before PI if it's outside document element
         output << "\n" if parent_element.nil? && output.length.positive?
 
-        # C14N renders "<?target S data?>": engines differ in how much
-        # separator whitespace they retain in PI data (libxml2 consumes
-        # the whole leading run, leptris one space), so the canonical
-        # writer owns stripping it. Trailing whitespace and internal
-        # newlines are preserved (W3C ex 3.1 keeps them).
+        # C14N renders "<?target S data?>". Both CRuby engines now
+        # consume the leading whitespace run after the PI target
+        # (leptris-ruby#85), but the canonical writer owns the rule —
+        # it must not depend on engine pre-processing (and the pure-Ruby
+        # adapters don't). Trailing whitespace and internal newlines are
+        # preserved (W3C ex 3.1 keeps them).
         data = node.data.to_s.sub(/\A[ \t\r\n]+/, "")
 
         output << "<?" << node.target
