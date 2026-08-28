@@ -289,16 +289,34 @@ preserve_whitespace: false)
         if moxml_doc.is_a?(Moxml::Document) && moxml_doc.root
           root.add_child(build_moxml_element_node(moxml_doc.root,
                                                   preserve_whitespace: preserve_whitespace))
+          moxml_doc.children.each do |child|
+            next if child.equal?(moxml_doc.root)
+            next if child.is_a?(Moxml::Doctype)
+
+            node = build_moxml_node(child,
+                                    preserve_whitespace: preserve_whitespace)
+            root.add_child(node) if node
+          end
+        else
+          moxml_doc.children.each do |child|
+            next if child.is_a?(Moxml::Doctype)
+
+            node = build_moxml_node(child,
+                                    preserve_whitespace: preserve_whitespace)
+            root.add_child(node) if node
+          end
         end
 
         root
       end
 
-      def self.build_moxml_node(node, preserve_whitespace: false)
+      def self.build_moxml_node(node, preserve_whitespace: false,
+inherited_namespaces: nil)
         case node
         when Moxml::Element
           build_moxml_element_node(node,
-                                   preserve_whitespace: preserve_whitespace)
+                                   preserve_whitespace: preserve_whitespace,
+                                   inherited_namespaces: inherited_namespaces)
         when Moxml::Text, Moxml::Cdata
           build_moxml_text_node(node, preserve_whitespace: preserve_whitespace)
         when Moxml::Comment
@@ -309,7 +327,8 @@ preserve_whitespace: false)
       end
 
       def self.build_moxml_element_node(moxml_element,
-preserve_whitespace: false)
+preserve_whitespace: false,
+inherited_namespaces: nil)
         ns = moxml_element.namespace
         element = Nodes::ElementNode.new(
           name: moxml_element.name,
@@ -317,48 +336,37 @@ preserve_whitespace: false)
           prefix: ns&.prefix,
         )
 
-        build_moxml_namespace_nodes(moxml_element, element)
+        scope = moxml_namespace_scope(moxml_element, inherited_namespaces)
+        scope.each do |prefix, uri|
+          element.add_namespace(Nodes::NamespaceNode.new(
+                                  prefix: prefix,
+                                  uri: uri,
+                                ))
+        end
+
         build_moxml_attribute_nodes(moxml_element, element)
 
         moxml_element.children.each do |child|
           node = build_moxml_node(child,
-                                  preserve_whitespace: preserve_whitespace)
+                                  preserve_whitespace: preserve_whitespace,
+                                  inherited_namespaces: scope)
           element.add_child(node) if node
         end
 
         element
       end
 
-      def self.build_moxml_namespace_nodes(moxml_element, element)
-        collect_moxml_in_scope_namespaces(moxml_element).each do |prefix, uri|
-          element.add_namespace(Nodes::NamespaceNode.new(
-                                  prefix: prefix,
-                                  uri: uri,
-                                ))
+      # In-scope namespace bindings: the element's own declarations
+      # shadow inherited ones, xml is prebound. The scope is passed down
+      # the recursion so each element pays one declaration fetch instead
+      # of an ancestor walk through the adapter layer (the Nokogiri
+      # collector walks ancestors because those calls are cheap there).
+      def self.moxml_namespace_scope(moxml_element, inherited)
+        scope = inherited ? inherited.dup : { "xml" => "http://www.w3.org/XML/1998/namespace" }
+        moxml_element.namespace_definitions.each do |decl|
+          scope[decl.prefix || ""] = decl.uri
         end
-      end
-
-      # Same in-scope semantics as collect_in_scope_namespaces (first
-      # declaration wins walking up; xml prebound) so both engine trees
-      # carry identical namespace nodes.
-      def self.collect_moxml_in_scope_namespaces(moxml_element)
-        namespaces = {}
-
-        current = moxml_element
-        while current && !current.is_a?(Moxml::Document)
-          if current.is_a?(Moxml::Element)
-            current.namespace_definitions.each do |ns|
-              prefix = ns.prefix || ""
-              unless namespaces.key?(prefix)
-                namespaces[prefix] = ns.uri
-              end
-            end
-          end
-          current = current.parent
-        end
-
-        namespaces["xml"] ||= "http://www.w3.org/XML/1998/namespace"
-        namespaces
+        scope
       end
 
       def self.build_moxml_attribute_nodes(moxml_element, element)

@@ -48,7 +48,7 @@ module Canon
         if XmlBackend.nokogiri?
           Nokogiri::XML.fragment(xml_string).children.to_a
         else
-          doc = moxml_context.parse("<__frag__>#{xml_string}</__frag__>")
+          doc = moxml_context.parse("<__frag__>#{xml_string}</__frag__>", readonly: true)
           doc.root.children.to_a
         end
       end
@@ -234,8 +234,11 @@ module Canon
 
       # --- Moxml engine ---
 
+      # Readonly: canon only ever reads engine documents (conversion,
+      # serialization) — leptris memoizes reads on readonly documents,
+      # and mutation is refused loudly rather than silently corrupting.
       def moxml_parse(xml_string, _options)
-        moxml_context.parse(xml_string)
+        moxml_context.parse(xml_string, readonly: true)
       end
 
       def moxml_node_type(node)

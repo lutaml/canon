@@ -103,30 +103,24 @@ RSpec.describe "XML engine parity", :xml_engine_parity do
     end
   end
 
-  describe "XML 1.0 conformance (upstream: libleptris)" do
+  describe "XML 1.0 conformance (upstream)" do
     it "normalizes whitespace in attribute values per XML 1.0 §3.3.3" do
-      pending "libleptris does not perform attribute-value normalization " \
-              "(leptris/leptris#576: literal tab/LF/CR must each become a space)"
       xml = "<root attr=\"value\twith\nwhitespace\r\"/>"
       expect_tree_parity(xml)
     end
 
     it "keeps processing instructions before the document element" do
-      pending "libleptris stores prolog PIs (leptris#526) but leptris-ruby " \
-              "exposes no reader API (leptris-ruby#73), so the moxml adapter drops them"
       expect_tree_parity("<?pi-target pi-data?><root/>")
     end
 
     it "parses processing instructions after the document element" do
-      pending "libleptris raises ParseError on epilog PIs, rejecting valid " \
-              "XML 1.0 (leptris/leptris#577)"
       expect_tree_parity("<root/><?pi-after?>")
     end
 
-    it "keeps comments after the document element" do
-      pending "libleptris drops epilog comments — silent data loss " \
-              "(leptris/leptris#578)"
-      expect_tree_parity("<root/><!-- after -->")
+    it "keeps comments outside the document element" do
+      pending "moxml leptris adapter's document-children assembly drops " \
+              "prolog/epilog comments (fixed in libleptris 1.9.7, leptris#578)"
+      expect_tree_parity("<!-- before --><root/><!-- after -->")
     end
   end
 
@@ -136,13 +130,14 @@ RSpec.describe "XML engine parity", :xml_engine_parity do
     end
 
     it "canonicalizes W3C C14N 1.1 example 3.1 (prolog/epilog PIs and comments)" do
-      pending "blocked by leptris/leptris#577 (epilog PI rejected) and #578 " \
-              "(epilog comment dropped)"
+      pending "epilog/prolog comments dropped by the moxml leptris adapter"
       xml = File.read("spec/fixtures/c14n/example-3.1-pis-comments.input.xml")
       expect(c14n(moxml_tree(xml))).to eq(c14n(nokogiri_tree(xml)))
     end
 
     it "canonicalizes W3C C14N 1.1 example 3.3 (namespace undeclaration)" do
+      pending "libleptris 1.9.7 applies DTD ATTLIST default attributes by " \
+              "default, diverging from libxml2's no-DTDATTR default"
       xml = File.read("spec/fixtures/c14n/example-3.3-start-end-tags.input.xml")
       expect(c14n(moxml_tree(xml))).to eq(c14n(nokogiri_tree(xml)))
     end
