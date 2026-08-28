@@ -154,11 +154,12 @@ module Canon
       end
 
       def self.build_node_from_nokogiri(nokogiri_node,
-preserve_whitespace: false)
+preserve_whitespace: false, inherited_namespaces: nil)
         case nokogiri_node
         when Nokogiri::XML::Element
           build_element_node(nokogiri_node,
-                             preserve_whitespace: preserve_whitespace)
+                             preserve_whitespace: preserve_whitespace,
+                             inherited_namespaces: inherited_namespaces)
         when Nokogiri::XML::Text, Nokogiri::XML::CDATA
           build_text_node(nokogiri_node,
                           preserve_whitespace: preserve_whitespace)
@@ -169,56 +170,44 @@ preserve_whitespace: false)
         end
       end
 
-      def self.build_element_node(nokogiri_element, preserve_whitespace: false)
+      def self.build_element_node(nokogiri_element, preserve_whitespace: false,
+inherited_namespaces: nil)
         element = Nodes::ElementNode.new(
           name: nokogiri_element.name,
           namespace_uri: nokogiri_element.namespace&.href,
           prefix: nokogiri_element.namespace&.prefix,
         )
 
-        build_namespace_nodes(nokogiri_element, element)
+        scope = nokogiri_namespace_scope(nokogiri_element, inherited_namespaces)
+        scope.each do |prefix, uri|
+          element.add_namespace(Nodes::NamespaceNode.new(
+                                  prefix: prefix,
+                                  uri: uri,
+                                ))
+        end
+
         build_attribute_nodes(nokogiri_element, element)
 
         nokogiri_element.children.each do |child|
           node = build_node_from_nokogiri(child,
-                                          preserve_whitespace: preserve_whitespace)
+                                          preserve_whitespace: preserve_whitespace,
+                                          inherited_namespaces: scope)
           element.add_child(node) if node
         end
 
         element
       end
 
-      def self.build_namespace_nodes(nokogiri_element, element)
-        namespaces = collect_in_scope_namespaces(nokogiri_element)
-
-        namespaces.each do |prefix, uri|
-          ns_node = Nodes::NamespaceNode.new(
-            prefix: prefix,
-            uri: uri,
-          )
-          element.add_namespace(ns_node)
+      # In-scope namespace bindings: the element's own declarations
+      # shadow inherited ones, xml is prebound. The scope is passed down
+      # the recursion — one definition fetch per element instead of an
+      # ancestor walk per element (O(n) total, not O(n * depth)).
+      def self.nokogiri_namespace_scope(nokogiri_element, inherited)
+        scope = inherited ? inherited.dup : { "xml" => "http://www.w3.org/XML/1998/namespace" }
+        nokogiri_element.namespace_definitions.each do |ns|
+          scope[ns.prefix || ""] = ns.href
         end
-      end
-
-      def self.collect_in_scope_namespaces(nokogiri_element)
-        namespaces = {}
-
-        current = nokogiri_element
-        while current && !current.is_a?(Nokogiri::XML::Document)
-          if current.is_a?(Nokogiri::XML::Element)
-            current.namespace_definitions.each do |ns|
-              prefix = ns.prefix || ""
-              unless namespaces.key?(prefix)
-                namespaces[prefix] = ns.href
-              end
-            end
-          end
-          current = current.parent
-        end
-
-        namespaces["xml"] ||= "http://www.w3.org/XML/1998/namespace"
-
-        namespaces
+        scope
       end
 
       def self.build_attribute_nodes(nokogiri_element, element)
