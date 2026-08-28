@@ -17,12 +17,11 @@ RSpec.describe Canon::XmlBackend do
       expect(described_class.active).to eq(forced.to_sym)
     end
 
-    it "follows moxml's resolved adapter (leptris when installed, nokogiri otherwise)" do
+    it "defaults to :nokogiri under MRI (the leptris engine is opt-in until it wins the perf gates)" do
       skip "backend is forced" if forced
       skip "requires CRuby + Nokogiri" if RUBY_ENGINE == "opal"
 
-      expected = Canon::XmlParsing.moxml_adapter_name == :nokogiri ? :nokogiri : :moxml
-      expect(described_class.active).to eq(expected)
+      expect(described_class.active).to eq(:nokogiri)
     end
   end
 
@@ -33,7 +32,7 @@ RSpec.describe Canon::XmlBackend do
     end
 
     it "returns true when moxml backend is forced" do
-      allow(ENV).to receive(:[]).with("CANON_XML_BACKEND").and_return("moxml")
+      allow(ENV).to receive(:fetch).with("CANON_XML_BACKEND", nil).and_return("moxml")
       described_class.reset!
       expect(described_class.moxml?).to be true
       expect(described_class.nokogiri?).to be false
