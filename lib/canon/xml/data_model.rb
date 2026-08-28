@@ -263,7 +263,13 @@ preserve_whitespace: false)
       def self.from_moxml_xml(xml_string, preserve_whitespace:)
         doc = Canon::XmlParsing.parse(xml_string)
         check_moxml_relative_namespace_uris(doc)
-        build_from_moxml(doc, preserve_whitespace: preserve_whitespace)
+        result = build_from_moxml(doc, preserve_whitespace: preserve_whitespace)
+        # Canon owns this document's full lifecycle: the canon tree holds
+        # no engine references once built, so release the native tree now
+        # instead of waiting for the GC finalizer (moxml#134; no-op on
+        # GC-managed adapters).
+        doc.free
+        result
       end
 
       def self.check_moxml_relative_namespace_uris(node)
@@ -328,10 +334,11 @@ preserve_whitespace: false)
         own_namespaces = {}.compare_by_identity
 
         moxml_element.materialize do |record|
-          # Document-level records (depth 0, non-element) are handled by
-          # the document-children enumeration below — and moxml 0.5.10's
-          # stream only carries some of them (epilog, not prolog), so
-          # they cannot be the source of truth here.
+          # The record contract is root-subtree-only since moxml 0.5.11
+          # (moxml#140). Older 0.5.x releases — still allowed by canon's
+          # gemspec floor — leaked epilog document-level records at depth
+          # 0, which the document-children enumeration below also covers;
+          # one integer compare per record keeps those working.
           next if record[:depth] == 0 && record[:kind] != :element
 
           node = case record[:kind]
