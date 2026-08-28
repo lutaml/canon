@@ -69,7 +69,7 @@ RSpec.describe "XML engine parity", :xml_engine_parity do
     end
 
     it "matches on CDATA content (literal — character references not decoded)" do
-      xml = %q(<a>x<![CDATA[y &amp; &#65; ]]>z<wht>  </wht></a>)
+      xml = "<a>x<![CDATA[y &amp; &#65; ]]>z<wht>  </wht></a>"
       expect_tree_parity(xml)
     end
 

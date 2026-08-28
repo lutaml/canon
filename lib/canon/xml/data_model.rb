@@ -339,7 +339,7 @@ preserve_whitespace: false)
           # gemspec floor — leaked epilog document-level records at depth
           # 0, which the document-children enumeration below also covers;
           # one integer compare per record keeps those working.
-          next if record[:depth] == 0 && record[:kind] != :element
+          next if record[:depth].zero? && record[:kind] != :element
 
           node = case record[:kind]
                  when :element
@@ -364,8 +364,8 @@ preserve_whitespace: false)
 
         element = top[1]
         assign_moxml_namespace_scopes(element,
-                                       { "xml" => "http://www.w3.org/XML/1998/namespace" },
-                                       own_namespaces)
+                                      { "xml" => "http://www.w3.org/XML/1998/namespace" },
+                                      own_namespaces)
         element
       end
 
