@@ -261,7 +261,7 @@ preserve_whitespace: false)
       # --- Moxml path ---
 
       def self.from_moxml_xml(xml_string, preserve_whitespace:)
-        doc = Canon::XmlParsing.parse(xml_string)
+        doc = Canon::XmlParsing.moxml_context.parse(xml_string, readonly: true)
         check_moxml_relative_namespace_uris(doc)
         result = build_from_moxml(doc, preserve_whitespace: preserve_whitespace)
         # Canon owns this document's full lifecycle: the canon tree holds
@@ -390,11 +390,11 @@ preserve_whitespace: false)
                                 ))
         end
 
-        # Adopt completed children (they stack in reverse: unshift
-        # restores document order).
+        # Adopt completed children: they pop in reverse order; reversing
+        # once is O(n) (unshift per child would be O(n^2) on wide trees).
         children = []
-        children.unshift(frames.pop[1]) while frames.any? && frames.last[0] > record[:depth]
-        children.each { |child| element.add_child(child) }
+        children << frames.pop[1] while frames.any? && frames.last[0] > record[:depth]
+        children.reverse_each { |child| element.add_child(child) }
 
         own_namespaces[element] = record[:namespaces]
         element
