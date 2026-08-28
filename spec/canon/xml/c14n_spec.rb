@@ -102,7 +102,6 @@ RSpec.describe Canon::Xml::C14n do
       end
 
       it "adds line breaks around comments outside document element" do
-        pending "epilog/prolog comments dropped by the moxml leptris adapter's document-children assembly (leptris#578 fixed at C level)" if Canon::XmlBackend.moxml?
         input = "<!-- before --><root/><!-- after -->"
         result = described_class.canonicalize(input, with_comments: true)
         # Comments outside the document element get line breaks

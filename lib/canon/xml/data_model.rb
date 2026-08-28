@@ -287,8 +287,9 @@ preserve_whitespace: false)
         root = Nodes::RootNode.new
 
         if moxml_doc.is_a?(Moxml::Document) && moxml_doc.root
-          root.add_child(build_moxml_element_node(moxml_doc.root,
-                                                  preserve_whitespace: preserve_whitespace))
+          element = build_moxml_subtree_from_records(moxml_doc.root,
+                                                     preserve_whitespace: preserve_whitespace)
+          root.add_child(element) if element
           moxml_doc.children.each do |child|
             next if child.equal?(moxml_doc.root)
             next if child.is_a?(Moxml::Doctype)
@@ -308,6 +309,119 @@ preserve_whitespace: false)
         end
 
         root
+      end
+
+      # Document path: build the root subtree from materialize records —
+      # one flattened record stream (moxml#132/#138) instead of a wrapper
+      # walk, so conversion costs no Moxml::Node allocation per node.
+      #
+      # Records arrive post-order (children before parents): completed
+      # nodes stack up with their depth, and an element record adopts
+      # every completed node deeper than itself. Each element's OWN
+      # namespace declarations ride an identity-keyed stash; afterwards
+      # assign_moxml_namespace_scopes expands them to in-scope scopes
+      # with the same first-wins/xml-prebound semantics as the Nokogiri
+      # collector.
+      def self.build_moxml_subtree_from_records(moxml_element,
+preserve_whitespace: false)
+        frames = []
+        own_namespaces = {}.compare_by_identity
+
+        moxml_element.materialize do |record|
+          # Document-level records (depth 0, non-element) are handled by
+          # the document-children enumeration below — and moxml 0.5.10's
+          # stream only carries some of them (epilog, not prolog), so
+          # they cannot be the source of truth here.
+          next if record[:depth] == 0 && record[:kind] != :element
+
+          node = case record[:kind]
+                 when :element
+                   build_moxml_element_from_record(record, frames,
+                                                   own_namespaces)
+                 when :text, :cdata
+                   build_moxml_text_from_record(record, preserve_whitespace)
+                 when :comment
+                   Nodes::CommentNode.new(value: record[:text])
+                 when :processing_instruction
+                   Nodes::ProcessingInstructionNode.new(
+                     target: record[:qname],
+                     data: record[:text] || "",
+                   )
+                 end
+
+          frames.push([record[:depth], node]) if node
+        end
+
+        top = frames.last
+        return nil unless top
+
+        element = top[1]
+        assign_moxml_namespace_scopes(element,
+                                       { "xml" => "http://www.w3.org/XML/1998/namespace" },
+                                       own_namespaces)
+        element
+      end
+
+      def self.build_moxml_element_from_record(record, frames, own_namespaces)
+        element = Nodes::ElementNode.new(
+          name: record[:qname],
+          namespace_uri: record[:namespace_uri],
+          prefix: record[:prefix],
+        )
+
+        seen = {}
+        record[:attributes].each do |name, value, namespace_uri, prefix|
+          key = [name, namespace_uri]
+          next if seen.key?(key)
+
+          seen[key] = true
+          element.add_attribute(Nodes::AttributeNode.new(
+                                  name: name,
+                                  value: value,
+                                  namespace_uri: namespace_uri,
+                                  prefix: prefix,
+                                ))
+        end
+
+        # Adopt completed children (they stack in reverse: unshift
+        # restores document order).
+        children = []
+        children.unshift(frames.pop[1]) while frames.any? && frames.last[0] > record[:depth]
+        children.each { |child| element.add_child(child) }
+
+        own_namespaces[element] = record[:namespaces]
+        element
+      end
+
+      # Text records inside a document subtree always have an element
+      # parent (only the document element sits at depth 0), so the
+      # whitespace-only skip rule matches the wrapper path exactly.
+      def self.build_moxml_text_from_record(record, preserve_whitespace)
+        content = record[:text].to_s
+        return nil if !preserve_whitespace && content.strip.empty?
+
+        Nodes::TextNode.new(value: content, original: content)
+      end
+
+      # Expand each element's own declarations to in-scope bindings:
+      # the element's declarations shadow inherited ones; xml is
+      # prebound. Scope flows down the canon tree — no engine calls.
+      def self.assign_moxml_namespace_scopes(element, inherited, own_namespaces)
+        scope = inherited.dup
+        own_namespaces[element].to_a.each do |prefix, uri|
+          scope[prefix || ""] = uri
+        end
+
+        scope.each do |prefix, uri|
+          element.add_namespace(Nodes::NamespaceNode.new(
+                                  prefix: prefix,
+                                  uri: uri,
+                                ))
+        end
+
+        element.children.each do |child|
+          assign_moxml_namespace_scopes(child, scope, own_namespaces) if child.is_a?(Nodes::ElementNode)
+        end
       end
 
       def self.build_moxml_node(node, preserve_whitespace: false,
