@@ -130,10 +130,17 @@ module Canon
         # Add line break before PI if it's outside document element
         output << "\n" if parent_element.nil? && output.length.positive?
 
+        # C14N renders "<?target S data?>": engines differ in how much
+        # separator whitespace they retain in PI data (libxml2 consumes
+        # the whole leading run, leptris one space), so the canonical
+        # writer owns stripping it. Trailing whitespace and internal
+        # newlines are preserved (W3C ex 3.1 keeps them).
+        data = node.data.to_s.sub(/\A[ \t\r\n]+/, "")
+
         output << "<?" << node.target
 
-        unless node.data.empty?
-          output << " " << node.data
+        unless data.empty?
+          output << " " << data
         end
 
         output << "?>"

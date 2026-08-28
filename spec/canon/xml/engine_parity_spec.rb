@@ -118,8 +118,6 @@ RSpec.describe "XML engine parity", :xml_engine_parity do
     end
 
     it "keeps comments outside the document element" do
-      pending "moxml leptris adapter's document-children assembly drops " \
-              "prolog/epilog comments (fixed in libleptris 1.9.7, leptris#578)"
       expect_tree_parity("<!-- before --><root/><!-- after -->")
     end
   end
@@ -130,7 +128,6 @@ RSpec.describe "XML engine parity", :xml_engine_parity do
     end
 
     it "canonicalizes W3C C14N 1.1 example 3.1 (prolog/epilog PIs and comments)" do
-      pending "epilog/prolog comments dropped by the moxml leptris adapter"
       xml = File.read("spec/fixtures/c14n/example-3.1-pis-comments.input.xml")
       expect(c14n(moxml_tree(xml))).to eq(c14n(nokogiri_tree(xml)))
     end
