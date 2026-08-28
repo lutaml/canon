@@ -133,8 +133,6 @@ RSpec.describe "XML engine parity", :xml_engine_parity do
     end
 
     it "canonicalizes W3C C14N 1.1 example 3.3 (namespace undeclaration)" do
-      pending "libleptris 1.9.7 applies DTD ATTLIST default attributes by " \
-              "default, diverging from libxml2's no-DTDATTR default"
       xml = File.read("spec/fixtures/c14n/example-3.3-start-end-tags.input.xml")
       expect(c14n(moxml_tree(xml))).to eq(c14n(nokogiri_tree(xml)))
     end
