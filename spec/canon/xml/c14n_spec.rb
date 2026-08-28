@@ -40,7 +40,6 @@ RSpec.describe Canon::Xml::C14n do
     it "normalizes whitespace in attribute values per XML spec" do
       # Per XML spec, attribute value normalization converts tabs, newlines,
       # and carriage returns to spaces during parsing
-      pending "libleptris lacks attribute-value normalization (leptris/leptris#576)" if Canon::XmlBackend.moxml?
       input = "<root attr=\"value\twith\nwhitespace\r\"/>"
       result = described_class.canonicalize(input)
       # After normalization by XML parser, whitespace becomes spaces
@@ -75,14 +74,12 @@ RSpec.describe Canon::Xml::C14n do
     end
 
     it "processes processing instructions" do
-      pending "prolog PIs: libleptris stores them (leptris#526) but leptris-ruby exposes no reader API" if Canon::XmlBackend.moxml?
       input = "<?pi-target pi-data?><root/>"
       result = described_class.canonicalize(input)
       expect(result).to include("<?pi-target pi-data?>")
     end
 
     it "adds line breaks around PIs outside document element" do
-      pending "epilog PI rejected by libleptris (leptris/leptris#577); prolog PI reader missing in leptris-ruby" if Canon::XmlBackend.moxml?
       input = "<?pi-before?><root/><?pi-after?>"
       result = described_class.canonicalize(input)
       # PIs outside the document element get line breaks
@@ -105,7 +102,7 @@ RSpec.describe Canon::Xml::C14n do
       end
 
       it "adds line breaks around comments outside document element" do
-        pending "epilog comment dropped by libleptris (leptris/leptris#578)" if Canon::XmlBackend.moxml?
+        pending "epilog/prolog comments dropped by the moxml leptris adapter's document-children assembly (leptris#578 fixed at C level)" if Canon::XmlBackend.moxml?
         input = "<!-- before --><root/><!-- after -->"
         result = described_class.canonicalize(input, with_comments: true)
         # Comments outside the document element get line breaks
