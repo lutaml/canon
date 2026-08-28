@@ -47,8 +47,10 @@ module Canon
 
         # Parse an HTML string into an XML fragment for the XML comparator.
         def xml_fragment(html_string)
-          raise Canon::Error,
-                "HTML fragment parsing requires Nokogiri" unless defined?(Nokogiri)
+          unless defined?(Nokogiri)
+            raise Canon::Error,
+                  "HTML fragment parsing requires Nokogiri"
+          end
 
           Nokogiri::XML.fragment(html_string)
         end

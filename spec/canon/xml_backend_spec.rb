@@ -6,7 +6,7 @@ RSpec.describe Canon::XmlBackend do
   # The default engine is :nokogiri on CRuby (conformance — see
   # spec/canon/xml/engine_parity_spec.rb) and :moxml under Opal.
   # CANON_XML_BACKEND forces either engine.
-  let(:forced) { ENV["CANON_XML_BACKEND"] }
+  let(:forced) { ENV.fetch("CANON_XML_BACKEND", nil) }
 
   after { described_class.reset! }
 
@@ -50,7 +50,7 @@ RSpec.describe Canon::XmlBackend do
 
   describe "invalid CANON_XML_BACKEND" do
     around do |example|
-      prev = ENV["CANON_XML_BACKEND"]
+      prev = ENV.fetch("CANON_XML_BACKEND", nil)
       ENV["CANON_XML_BACKEND"] = "oga"
       described_class.reset!
       example.run

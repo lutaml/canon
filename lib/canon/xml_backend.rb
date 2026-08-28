@@ -44,7 +44,7 @@ module Canon
 
       # Escape hatch and A/B test switch: CANON_XML_BACKEND=nokogiri|moxml.
       def forced
-        value = ENV["CANON_XML_BACKEND"]
+        value = ENV.fetch("CANON_XML_BACKEND", nil)
         return nil if value.nil? || value.empty?
 
         backend = value.to_sym
