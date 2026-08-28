@@ -10,16 +10,19 @@ module Canon
   #   leptris no HTML parser (see Canon::Html::NokogiriSupport).
   #
   # SSOT: moxml owns adapter preference (Moxml::Config prefers leptris when
-  # installed and capable; see XmlParsing.moxml_adapter_name). Canon's default
-  # engine follows it: leptris whenever available, raw Nokogiri only as the
-  # fallback when it is not (wrapping Nokogiri in moxml buys nothing — the
-  # wrapper layer adds 2-3x overhead). CANON_XML_BACKEND forces either engine.
+  # installed and capable; see XmlParsing.moxml_adapter_name). Canon's
+  # default engine is Nokogiri on CRuby until leptris WINS somewhere
+  # measurably: conformance parity is complete (engine_parity_spec 12/12),
+  # but the leptris SAX driver is blocked by a data-corruption bug
+  # (leptris-ruby#95) and the record-based conversion runs ~0.55x Nokogiri
+  # (CI performance gate: -42..45% on from_xml) pending lighter record
+  # emission upstream. Flipping the default is the one-line change in
+  # #detect; CANON_XML_BACKEND=moxml opts in today. Under Opal the engine
+  # is moxml (rexml adapter).
   #
-  # Known leptris conformance gaps are tracked upstream (leptris/leptris
-  # #576/#577/#578) and gated in spec/canon/xml/engine_parity_spec.rb plus
-  # engine-conditional pendings in the C14N specs; HTML stays on Nokogiri
-  # (Canon::Html::NokogiriSupport) and the pretty-printers keep the Nokogiri
-  # pipeline until the moxml serializer matches its output byte-for-byte.
+  # HTML stays on Nokogiri on CRuby (Canon::Html::NokogiriSupport) and the
+  # pretty-printers keep the Nokogiri pipeline — pretty-printed bytes are
+  # canon's product (moxml#129).
   module XmlBackend
     VALID_BACKENDS = %i[nokogiri moxml].freeze
 
@@ -60,7 +63,7 @@ module Canon
       def detect
         return :moxml if RUBY_ENGINE == "opal"
 
-        XmlParsing.moxml_adapter_name == :nokogiri ? :nokogiri : :moxml
+        :nokogiri
       end
     end
   end
