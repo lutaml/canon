@@ -9,6 +9,11 @@ module Canon
     # selects the driver. Much faster than DOM parsing + conversion —
     # no intermediate engine DOM tree, no traversal conversion pass.
     #
+    # Construction goes through TreeBuilder like every other feed:
+    # this class owns only what is SAX-specific — qname parsing, xmlns
+    # separation, character-reference decoding, adjacency combining,
+    # the namespace stack, and document-level reordering.
+    #
     # Usage:
     #   root = SaxBuilder.parse(xml_string, preserve_whitespace: false)
     #   # root is a Canon::Xml::Nodes::RootNode
@@ -123,25 +128,22 @@ strip_doctype: false)
           end
         end
 
-        # Push new namespace scope with declarations
+        # Push new namespace scope with declarations (own shadows
+        # inherited — the same merge the TreeBuilder scope kernel applies)
         new_scope = @namespace_stack.last.merge(ns_hash)
         @namespace_stack.push(new_scope)
 
-        # Find namespace URI from current scope
-        ns_uri = new_scope[prefix.to_s]
-
-        # Create element node
-        element = Nodes::ElementNode.new(
+        element = TreeBuilder::DEFAULT.element(
           name: local_name,
-          namespace_uri: ns_uri,
           prefix: prefix,
+          namespace_uri: new_scope[prefix.to_s],
+          namespace_scope: new_scope,
+          attributes: regular_attrs.map do |attr_name, attr_value|
+            attr_prefix, attr_local = parse_qname(attr_name)
+            attr_ns_uri = attr_prefix ? new_scope[attr_prefix] : nil
+            [attr_local, decode_character_references(attr_value || ""), attr_ns_uri, attr_prefix]
+          end,
         )
-
-        # Add namespace nodes from current scope
-        add_namespace_nodes(element, new_scope)
-
-        # Build and add attribute nodes (excluding xmlns declarations)
-        add_attribute_nodes(element, regular_attrs)
 
         parent.add_child(element)
         @stack.push(element)
@@ -206,8 +208,9 @@ strip_doctype: false)
                                                       preserve_whitespace: @preserve_whitespace,
                                                       element_parent: parent.node_type == :element)
 
-        text = Nodes::TextNode.new(value: decoded_string, original: raw_string)
-        parent.add_child(text)
+        parent.add_child(
+          TreeBuilder::DEFAULT.text(decoded_string, keep: true, original: raw_string),
+        )
       end
       private :append_text
 
@@ -215,9 +218,7 @@ strip_doctype: false)
       #
       # @param string [String] Comment content
       def comment(string)
-        parent = @stack.last
-        comment_node = Nodes::CommentNode.new(value: string)
-        parent.add_child(comment_node)
+        @stack.last.add_child(TreeBuilder::DEFAULT.comment(string))
       end
 
       # Called for processing instructions
@@ -225,10 +226,9 @@ strip_doctype: false)
       # @param name [String] PI target
       # @param content [String] PI content
       def processing_instruction(name, content)
-        parent = @stack.last
-        pi = Nodes::ProcessingInstructionNode.new(target: name,
-                                                  data: content || "")
-        parent.add_child(pi)
+        @stack.last.add_child(
+          TreeBuilder::DEFAULT.processing_instruction(name, content || ""),
+        )
       end
 
       # Return the built tree
@@ -314,44 +314,7 @@ strip_doctype: false)
         [ns_decls, regular_attrs]
       end
 
-      # Add namespace nodes to element
-      #
-      # @param element [Nodes::ElementNode] Element to add namespaces to
-      # @param scope [Hash] Current namespace scope
-      def add_namespace_nodes(element, scope)
-        scope.each do |prefix, uri|
-          ns_node = Nodes::NamespaceNode.new(prefix: prefix, uri: uri)
-          element.add_namespace(ns_node)
-        end
-      end
-
-      # Add attribute nodes to element
-      #
-      # @param element [Nodes::ElementNode] Element to add attributes to
-      # @param attrs [Array] Array of [name, value] pairs
-      def add_attribute_nodes(element, attrs)
-        attrs.each do |attr_name, attr_value|
-          attr_prefix, attr_local = parse_qname(attr_name)
-
-          # Find namespace for attribute (if prefixed)
-          attr_ns_uri = attr_prefix ? @namespace_stack.last[attr_prefix] : nil
-
-          # Decode numeric character references (e.g., &#38; → &)
-          # Nokogiri SAX leaves these as-is, but we need them decoded for C14N
-          decoded_value = decode_character_references(attr_value || "")
-
-          attr_node = Nodes::AttributeNode.new(
-            name: attr_local,
-            value: decoded_value,
-            namespace_uri: attr_ns_uri,
-            prefix: attr_prefix,
-          )
-          element.add_attribute(attr_node)
-        end
-      end
-
-      # Decode numeric character references in a string
-      # Handles both &#decimal; and &#xhex; forms
+      # Decode numeric character references (e.g., &#38; → &)
       #
       # @param value [String] String potentially containing character references
       # @return [String] String with character references decoded

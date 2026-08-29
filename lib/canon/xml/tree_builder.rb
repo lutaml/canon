@@ -16,6 +16,9 @@ module Canon
     # repeats, libleptris deduplicates), so the builder resolves them
     # once — first occurrence wins.
     class TreeBuilder
+      # Stateless module: one shared instance serves every feed.
+      DEFAULT = new
+
       NO_ATTRIBUTES = [].freeze
       XML_NAMESPACE_PREFIX = "xml"
       XML_NAMESPACE_URI = "http://www.w3.org/XML/1998/namespace"

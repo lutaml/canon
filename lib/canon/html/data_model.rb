@@ -80,7 +80,7 @@ module Canon
       # fragment — a TreeBuilder walk like the XML extractors, with the
       # HTML whitespace policy and xmlns-free attributes.
       def self.build_from_nokogiri(nokogiri_doc)
-        builder = Canon::Xml::TreeBuilder.new
+        builder = Canon::Xml::TreeBuilder::DEFAULT
         root = Canon::Xml::Nodes::RootNode.new
         skip_types = defined?(Nokogiri) ? [Nokogiri::XML::DTD] : []
 
