@@ -126,149 +126,85 @@ module Canon
         end
       end
 
-      # --- Shared construction kernels (identical semantics per engine) ---
+      # --- Engine extractors ---
+      #
+      # Traversal and engine mapping only. Each walk maps its engine's
+      # shapes onto TreeBuilder's interface; all construction semantics
+      # (namespace scopes, attribute normalization, whitespace policy,
+      # node kinds, document ordering) live in TreeBuilder and
+      # WhitespacePolicy — one dialect, three feeds.
 
-      # Attach document-level children (prolog/epilog PIs, comments,
-      # document-level text) to the canon root, in document order,
-      # skipping the document element and the doctype. `converter`
-      # converts one engine child to a canon node (or nil).
-      def self.add_document_children(root, children, document_element,
-                                      skip_types, converter)
-        children.each do |child|
-          next if child.equal?(document_element)
-          next if skip_types.any? { |type| child.is_a?(type) }
+      TREE_BUILDER = TreeBuilder.new
 
-          node = converter.call(child)
-          root.add_child(node) if node
-        end
-      end
-
-      # In-scope namespace bindings: the element's own declarations
-      # shadow inherited ones; xml is prebound at the base. Declaration
-      # pairs are [prefix-or-nil, uri]; nil and "" both mean the default
-      # namespace.
-      def self.merge_namespace_scope(inherited, declaration_pairs)
-        scope = inherited ? inherited.dup : { "xml" => "http://www.w3.org/XML/1998/namespace" }
-        declaration_pairs.each do |prefix, uri|
-          scope[prefix || ""] = uri
-        end
-        scope
-      end
+      # -- Nokogiri walk: top-down, scope flows down the recursion --
 
       def self.build_from_nokogiri(nokogiri_doc, preserve_whitespace: false)
         root = Nodes::RootNode.new
-
-        converter = ->(child) { build_node_from_nokogiri(child, preserve_whitespace: preserve_whitespace) }
         skip_types = defined?(Nokogiri) ? [Nokogiri::XML::DTD] : []
 
         if nokogiri_doc.is_a?(Nokogiri::XML::Document) && nokogiri_doc.root
-          root.add_child(build_element_node(nokogiri_doc.root,
-                                            preserve_whitespace: preserve_whitespace))
-          add_document_children(root, nokogiri_doc.children, nokogiri_doc.root,
-                                skip_types, converter)
+          root.add_child(walk_nokogiri(nokogiri_doc.root,
+                                       preserve_whitespace: preserve_whitespace))
+          TREE_BUILDER.add_document_children(root, nokogiri_doc.children,
+                                             nokogiri_doc.root, skip_types) do |child|
+            walk_nokogiri(child, preserve_whitespace: preserve_whitespace)
+          end
         else
-          add_document_children(root, nokogiri_doc.children, nil,
-                                skip_types, converter)
+          TREE_BUILDER.add_document_children(root, nokogiri_doc.children,
+                                             nil, skip_types) do |child|
+            walk_nokogiri(child, preserve_whitespace: preserve_whitespace)
+          end
         end
 
         root
       end
 
-      def self.build_node_from_nokogiri(nokogiri_node,
-preserve_whitespace: false, inherited_namespaces: nil)
-        case nokogiri_node
-        when Nokogiri::XML::Element
-          build_element_node(nokogiri_node,
-                             preserve_whitespace: preserve_whitespace,
-                             inherited_namespaces: inherited_namespaces)
-        when Nokogiri::XML::Text, Nokogiri::XML::CDATA
-          build_text_node(nokogiri_node,
-                          preserve_whitespace: preserve_whitespace)
-        when Nokogiri::XML::Comment
-          build_comment_node(nokogiri_node)
-        when Nokogiri::XML::ProcessingInstruction
-          build_pi_node(nokogiri_node)
-        end
-      end
-
-      def self.build_element_node(nokogiri_element, preserve_whitespace: false,
+      def self.walk_nokogiri(node, preserve_whitespace:,
 inherited_namespaces: nil)
-        element = Nodes::ElementNode.new(
-          name: nokogiri_element.name,
-          namespace_uri: nokogiri_element.namespace&.href,
-          prefix: nokogiri_element.namespace&.prefix,
-        )
-
-        scope = nokogiri_namespace_scope(nokogiri_element, inherited_namespaces)
-        scope.each do |prefix, uri|
-          element.add_namespace(Nodes::NamespaceNode.new(
-                                  prefix: prefix,
-                                  uri: uri,
-                                ))
-        end
-
-        build_attribute_nodes(nokogiri_element, element)
-
-        nokogiri_element.children.each do |child|
-          node = build_node_from_nokogiri(child,
-                                          preserve_whitespace: preserve_whitespace,
-                                          inherited_namespaces: scope)
-          element.add_child(node) if node
-        end
-
-        element
-      end
-
-      # In-scope bindings via the shared kernel; the scope is passed down
-      # the recursion — one definition fetch per element instead of an
-      # ancestor walk per element (O(n) total, not O(n * depth)).
-      def self.nokogiri_namespace_scope(nokogiri_element, inherited)
-        merge_namespace_scope(inherited,
-                              nokogiri_element.namespace_definitions.map do |ns|
-                                [ns.prefix, ns.href]
-                              end)
-      end
-
-      def self.build_attribute_nodes(nokogiri_element, element)
-        # attribute_nodes, not the attributes hash: the hash is keyed by
-        # local name and collapses e.g. attr / a:attr / b:attr into one
-        # entry, losing namespaced attributes (W3C C14N ex 3.3).
-        nokogiri_element.attribute_nodes.each do |attr|
-          attr_node = Nodes::AttributeNode.new(
-            name: attr.name,
-            value: attr.value,
-            namespace_uri: attr.namespace&.href,
-            prefix: attr.namespace&.prefix,
+        case node
+        when Nokogiri::XML::Element
+          scope = TREE_BUILDER.merge_namespace_scope(
+            inherited_namespaces,
+            node.namespace_definitions.map { |ns| [ns.prefix, ns.href] },
           )
-          element.add_attribute(attr_node)
+          element = TREE_BUILDER.element(
+            name: node.name,
+            prefix: node.namespace&.prefix,
+            namespace_uri: node.namespace&.href,
+            attributes: node.attribute_nodes.map do |attr|
+              [attr.name, attr.value, attr.namespace&.href, attr.namespace&.prefix]
+            end,
+            namespace_scope: scope,
+          )
+          node.children.each do |child|
+            built = walk_nokogiri(child,
+                                  preserve_whitespace: preserve_whitespace,
+                                  inherited_namespaces: scope)
+            element.add_child(built) if built
+          end
+          element
+        when Nokogiri::XML::Text, Nokogiri::XML::CDATA
+          TREE_BUILDER.text(node.content,
+                            keep: WhitespacePolicy.keep_dom_text?(
+                              node.content,
+                              preserve_whitespace: preserve_whitespace,
+                              element_parent: node.parent.is_a?(Nokogiri::XML::Element),
+                            ),
+                            original: node.to_xml)
+        when Nokogiri::XML::Comment
+          TREE_BUILDER.comment(node.content)
+        when Nokogiri::XML::ProcessingInstruction
+          TREE_BUILDER.processing_instruction(node.name, node.content)
         end
       end
 
-      def self.build_text_node(nokogiri_text, preserve_whitespace: false)
-        content = nokogiri_text.content
-
-        unless WhitespacePolicy.keep_dom_text?(content,
-                                               preserve_whitespace: preserve_whitespace,
-                                               element_parent: nokogiri_text.parent.is_a?(Nokogiri::XML::Element))
-          return nil
-        end
-
-        original = nokogiri_text.to_xml
-        Nodes::TextNode.new(value: content, original: original)
-      end
-
-      def self.build_comment_node(nokogiri_comment)
-        Nodes::CommentNode.new(value: nokogiri_comment.content)
-      end
-
-      def self.build_pi_node(nokogiri_pi)
-        Nodes::ProcessingInstructionNode.new(
-          target: nokogiri_pi.name,
-          data: nokogiri_pi.content,
-        )
-      end
-
-      # --- Moxml path ---
+      # -- moxml record stream: post-order frames adopt children --
+      # One flattened record stream (moxml#132/#138) instead of a
+      # wrapper walk, so document conversion costs no Moxml::Node
+      # allocation per node. Own namespace declarations ride an
+      # identity-keyed stash; assign_moxml_namespace_scopes expands
+      # them to in-scope scopes afterwards (post-order arrival means
+      # scopes cannot flow down during the stream).
 
       def self.from_moxml_xml(xml_string, preserve_whitespace:)
         doc = Canon::XmlParsing.moxml_context.parse(xml_string, readonly: true)
@@ -301,35 +237,26 @@ inherited_namespaces: nil)
 
       def self.build_from_moxml(moxml_doc, preserve_whitespace: false)
         root = Nodes::RootNode.new
-
-        converter = ->(child) { build_moxml_node(child, preserve_whitespace: preserve_whitespace) }
         skip_types = [Moxml::Doctype]
 
         if moxml_doc.is_a?(Moxml::Document) && moxml_doc.root
           element = build_moxml_subtree_from_records(moxml_doc.root,
                                                      preserve_whitespace: preserve_whitespace)
           root.add_child(element) if element
-          add_document_children(root, moxml_doc.children, moxml_doc.root,
-                                skip_types, converter)
+          TREE_BUILDER.add_document_children(root, moxml_doc.children,
+                                             moxml_doc.root, skip_types) do |child|
+            walk_moxml(child, preserve_whitespace: preserve_whitespace)
+          end
         else
-          add_document_children(root, moxml_doc.children, nil,
-                                skip_types, converter)
+          TREE_BUILDER.add_document_children(root, moxml_doc.children,
+                                             nil, skip_types) do |child|
+            walk_moxml(child, preserve_whitespace: preserve_whitespace)
+          end
         end
 
         root
       end
 
-      # Document path: build the root subtree from materialize records —
-      # one flattened record stream (moxml#132/#138) instead of a wrapper
-      # walk, so conversion costs no Moxml::Node allocation per node.
-      #
-      # Records arrive post-order (children before parents): completed
-      # nodes stack up with their depth, and an element record adopts
-      # every completed node deeper than itself. Each element's OWN
-      # namespace declarations ride an identity-keyed stash; afterwards
-      # assign_moxml_namespace_scopes expands them to in-scope scopes
-      # with the same first-wins/xml-prebound semantics as the Nokogiri
-      # collector.
       def self.build_moxml_subtree_from_records(moxml_element,
 preserve_whitespace: false)
         frames = []
@@ -339,8 +266,8 @@ preserve_whitespace: false)
           # The record contract is root-subtree-only since moxml 0.5.11
           # (moxml#140). Older 0.5.x releases — still allowed by canon's
           # gemspec floor — leaked epilog document-level records at depth
-          # 0, which the document-children enumeration below also covers;
-          # one integer compare per record keeps those working.
+          # 0, which the document-children enumeration also covers; one
+          # integer compare per record keeps those working.
           next if record[:depth].zero? && record[:kind] != :element
 
           node = case record[:kind]
@@ -348,14 +275,16 @@ preserve_whitespace: false)
                    build_moxml_element_from_record(record, frames,
                                                    own_namespaces)
                  when :text, :cdata
-                   build_moxml_text_from_record(record, preserve_whitespace)
+                   content = record[:text].to_s
+                   TREE_BUILDER.text(content,
+                                     keep: WhitespacePolicy.keep_dom_text?(
+                                       content, preserve_whitespace: preserve_whitespace
+                                     ))
                  when :comment
-                   Nodes::CommentNode.new(value: record[:text])
+                   TREE_BUILDER.comment(record[:text])
                  when :processing_instruction
-                   Nodes::ProcessingInstructionNode.new(
-                     target: record[:qname],
-                     data: record[:text] || "",
-                   )
+                   TREE_BUILDER.processing_instruction(record[:qname],
+                                                       record[:text] || "")
                  end
 
           frames.push([record[:depth], node]) if node
@@ -364,33 +293,17 @@ preserve_whitespace: false)
         top = frames.last
         return nil unless top
 
-        element = top[1]
-        assign_moxml_namespace_scopes(element,
-                                      { "xml" => "http://www.w3.org/XML/1998/namespace" },
-                                      own_namespaces)
-        element
+        assign_moxml_namespace_scopes(top[1], nil, own_namespaces)
+        top[1]
       end
 
       def self.build_moxml_element_from_record(record, frames, own_namespaces)
-        element = Nodes::ElementNode.new(
+        element = TREE_BUILDER.element(
           name: record[:qname],
-          namespace_uri: record[:namespace_uri],
           prefix: record[:prefix],
+          namespace_uri: record[:namespace_uri],
+          attributes: record[:attributes],
         )
-
-        seen = {}
-        record[:attributes].each do |name, value, namespace_uri, prefix|
-          key = [name, namespace_uri]
-          next if seen.key?(key)
-
-          seen[key] = true
-          element.add_attribute(Nodes::AttributeNode.new(
-                                  name: name,
-                                  value: value,
-                                  namespace_uri: namespace_uri,
-                                  prefix: prefix,
-                                ))
-        end
 
         # Adopt completed children: they pop in reverse order; reversing
         # once is O(n) (unshift per child would be O(n^2) on wide trees).
@@ -402,133 +315,54 @@ preserve_whitespace: false)
         element
       end
 
-      # Text records inside a document subtree always have an element
-      # parent (only the document element sits at depth 0), so the
-      # whitespace-only skip rule matches the wrapper path exactly.
-      def self.build_moxml_text_from_record(record, preserve_whitespace)
-        content = record[:text].to_s
-        return nil unless WhitespacePolicy.keep_dom_text?(content, preserve_whitespace: preserve_whitespace)
-
-        Nodes::TextNode.new(value: content, original: content)
-      end
-
-      # Expand each element's own declarations to in-scope bindings via
-      # the shared kernel. Scope flows down the canon tree — no engine
-      # calls.
       def self.assign_moxml_namespace_scopes(element, inherited, own_namespaces)
-        scope = merge_namespace_scope(inherited, own_namespaces[element].to_a)
-
-        scope.each do |prefix, uri|
-          element.add_namespace(Nodes::NamespaceNode.new(
-                                  prefix: prefix,
-                                  uri: uri,
-                                ))
-        end
+        scope = TREE_BUILDER.merge_namespace_scope(inherited,
+                                                   own_namespaces[element].to_a)
+        TREE_BUILDER.attach_namespace_scope(element, scope)
 
         element.children.each do |child|
           assign_moxml_namespace_scopes(child, scope, own_namespaces) if child.is_a?(Nodes::ElementNode)
         end
       end
 
-      def self.build_moxml_node(node, preserve_whitespace: false,
+      # -- moxml wrapper walk: fragments and user-supplied nodes --
+
+      def self.walk_moxml(node, preserve_whitespace: false,
 inherited_namespaces: nil)
         case node
         when Moxml::Element
-          build_moxml_element_node(node,
-                                   preserve_whitespace: preserve_whitespace,
-                                   inherited_namespaces: inherited_namespaces)
+          scope = TREE_BUILDER.merge_namespace_scope(
+            inherited_namespaces,
+            node.namespace_definitions.map { |ns| [ns.prefix, ns.uri] },
+          )
+          element = TREE_BUILDER.element(
+            name: node.name,
+            prefix: node.namespace&.prefix,
+            namespace_uri: node.namespace&.uri,
+            attributes: node.attributes.map do |attr|
+              [attr.name, attr.value, attr.namespace&.uri, attr.namespace&.prefix]
+            end,
+            namespace_scope: scope,
+          )
+          node.children.each do |child|
+            built = walk_moxml(child,
+                               preserve_whitespace: preserve_whitespace,
+                               inherited_namespaces: scope)
+            element.add_child(built) if built
+          end
+          element
         when Moxml::Text, Moxml::Cdata
-          build_moxml_text_node(node, preserve_whitespace: preserve_whitespace)
+          TREE_BUILDER.text(node.content,
+                            keep: WhitespacePolicy.keep_dom_text?(
+                              node.content,
+                              preserve_whitespace: preserve_whitespace,
+                              element_parent: node.parent.is_a?(Moxml::Element),
+                            ))
         when Moxml::Comment
-          build_moxml_comment_node(node)
+          TREE_BUILDER.comment(node.content)
         when Moxml::ProcessingInstruction
-          build_moxml_pi_node(node)
+          TREE_BUILDER.processing_instruction(node.target, node.content)
         end
-      end
-
-      def self.build_moxml_element_node(moxml_element,
-preserve_whitespace: false,
-inherited_namespaces: nil)
-        ns = moxml_element.namespace
-        element = Nodes::ElementNode.new(
-          name: moxml_element.name,
-          namespace_uri: ns&.uri,
-          prefix: ns&.prefix,
-        )
-
-        scope = moxml_namespace_scope(moxml_element, inherited_namespaces)
-        scope.each do |prefix, uri|
-          element.add_namespace(Nodes::NamespaceNode.new(
-                                  prefix: prefix,
-                                  uri: uri,
-                                ))
-        end
-
-        build_moxml_attribute_nodes(moxml_element, element)
-
-        moxml_element.children.each do |child|
-          node = build_moxml_node(child,
-                                  preserve_whitespace: preserve_whitespace,
-                                  inherited_namespaces: scope)
-          element.add_child(node) if node
-        end
-
-        element
-      end
-
-      # In-scope namespace bindings: the element's own declarations
-      # shadow inherited ones, xml is prebound. The scope is passed down
-      # the recursion so each element pays one declaration fetch instead
-      # of an ancestor walk through the adapter layer (the Nokogiri
-      # collector walks ancestors because those calls are cheap there).
-      def self.moxml_namespace_scope(moxml_element, inherited)
-        merge_namespace_scope(inherited,
-                              moxml_element.namespace_definitions.map do |decl|
-                                [decl.prefix, decl.uri]
-                              end)
-      end
-
-      def self.build_moxml_attribute_nodes(moxml_element, element)
-        seen = {}
-        moxml_element.attributes.each do |attr|
-          # Duplicate attribute names are invalid XML; engines expose
-          # them differently (libxml2 lists repeats, libleptris dedups
-          # last-wins). Canon follows the Nokogiri presentation contract:
-          # first occurrence wins, keyed by name + namespace.
-          key = [attr.name, attr.namespace&.uri]
-          next if seen.key?(key)
-
-          seen[key] = true
-          element.add_attribute(Nodes::AttributeNode.new(
-                                  name: attr.name,
-                                  value: attr.value,
-                                  namespace_uri: attr.namespace&.uri,
-                                  prefix: attr.namespace&.prefix,
-                                ))
-        end
-      end
-
-      def self.build_moxml_text_node(moxml_text, preserve_whitespace: false)
-        content = moxml_text.content
-
-        unless WhitespacePolicy.keep_dom_text?(content,
-                                               preserve_whitespace: preserve_whitespace,
-                                               element_parent: moxml_text.parent.is_a?(Moxml::Element))
-          return nil
-        end
-
-        Nodes::TextNode.new(value: content, original: content)
-      end
-
-      def self.build_moxml_comment_node(moxml_comment)
-        Nodes::CommentNode.new(value: moxml_comment.content)
-      end
-
-      def self.build_moxml_pi_node(moxml_pi)
-        Nodes::ProcessingInstructionNode.new(
-          target: moxml_pi.target,
-          data: moxml_pi.content,
-        )
       end
     end
   end
