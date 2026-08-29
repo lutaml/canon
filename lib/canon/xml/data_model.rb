@@ -228,7 +228,9 @@ inherited_namespaces: nil)
       def self.build_text_node(nokogiri_text, preserve_whitespace: false)
         content = nokogiri_text.content
 
-        if !preserve_whitespace && content.strip.empty? && nokogiri_text.parent.is_a?(Nokogiri::XML::Element)
+        unless WhitespacePolicy.keep_dom_text?(content,
+                                               preserve_whitespace: preserve_whitespace,
+                                               element_parent: nokogiri_text.parent.is_a?(Nokogiri::XML::Element))
           return nil
         end
 
@@ -394,7 +396,7 @@ preserve_whitespace: false)
       # whitespace-only skip rule matches the wrapper path exactly.
       def self.build_moxml_text_from_record(record, preserve_whitespace)
         content = record[:text].to_s
-        return nil if !preserve_whitespace && content.strip.empty?
+        return nil unless WhitespacePolicy.keep_dom_text?(content, preserve_whitespace: preserve_whitespace)
 
         Nodes::TextNode.new(value: content, original: content)
       end
@@ -502,7 +504,9 @@ inherited_namespaces: nil)
       def self.build_moxml_text_node(moxml_text, preserve_whitespace: false)
         content = moxml_text.content
 
-        if !preserve_whitespace && content.strip.empty? && moxml_text.parent.is_a?(Moxml::Element)
+        unless WhitespacePolicy.keep_dom_text?(content,
+                                               preserve_whitespace: preserve_whitespace,
+                                               element_parent: moxml_text.parent.is_a?(Moxml::Element))
           return nil
         end
 

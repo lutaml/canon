@@ -28,6 +28,7 @@ module Canon
     autoload :Sax, "canon/xml/sax"
     autoload :SaxBuilder, "canon/xml/sax_builder"
     autoload :WhitespaceNormalizer, "canon/xml/whitespace_normalizer"
+    autoload :WhitespacePolicy, "canon/xml/whitespace_policy"
     autoload :XmlBaseHandler, "canon/xml/xml_base_handler"
     autoload :XPathEngine, "canon/xml/xpath_engine"
   end
