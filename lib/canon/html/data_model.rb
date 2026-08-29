@@ -76,171 +76,74 @@ module Canon
         Canon::Xml::DataModel.serialize(node)
       end
 
-      # Build XPath data model from Nokogiri document or fragment
+      # Build XPath data model from a Nokogiri HTML document or
+      # fragment — a TreeBuilder walk like the XML extractors, with the
+      # HTML whitespace policy and xmlns-free attributes.
       def self.build_from_nokogiri(nokogiri_doc)
+        builder = Canon::Xml::TreeBuilder.new
         root = Canon::Xml::Nodes::RootNode.new
+        skip_types = defined?(Nokogiri) ? [Nokogiri::XML::DTD] : []
 
         if nokogiri_doc.is_a?(Nokogiri::XML::Document) && nokogiri_doc.root
-          # For Documents (HTML4, HTML5): process the root element
-          root.add_child(build_element_node(nokogiri_doc.root))
-
-          # Process PIs and comments outside doc element
-          nokogiri_doc.children.each do |child|
-            next if child == nokogiri_doc.root
-            next if child.is_a?(Nokogiri::XML::DTD)
-
-            node = build_node_from_nokogiri(child)
-            root.add_child(node) if node
+          root.add_child(walk(builder, nokogiri_doc.root))
+          builder.add_document_children(root, nokogiri_doc.children,
+                                        nokogiri_doc.root, skip_types) do |child|
+            walk(builder, child)
           end
         else
-          # For DocumentFragments: process all children directly
-          # Fragments don't have a single .root, they contain multiple top-level nodes
-          nokogiri_doc.children.each do |child|
-            next if child.is_a?(Nokogiri::XML::DTD)
-
-            node = build_node_from_nokogiri(child)
-            root.add_child(node) if node
+          builder.add_document_children(root, nokogiri_doc.children,
+                                        nil, skip_types) do |child|
+            walk(builder, child)
           end
         end
 
         root
       end
 
-      # Build node from Nokogiri node
-      def self.build_node_from_nokogiri(nokogiri_node)
-        case nokogiri_node
+      def self.walk(builder, node, inherited_namespaces: nil)
+        case node
         when Nokogiri::XML::Element
-          build_element_node(nokogiri_node)
+          scope = builder.merge_namespace_scope(
+            inherited_namespaces,
+            node.namespace_definitions.map { |ns| [ns.prefix, ns.href] },
+          )
+          element = builder.element(
+            name: node.name,
+            prefix: node.namespace&.prefix,
+            namespace_uri: node.namespace&.href,
+            # HTML attributes are namespace-free; xmlns declarations are
+            # not reported as attributes.
+            attributes: node.attribute_nodes.filter_map do |attr|
+              next if attr.name.start_with?("xmlns")
+
+              [attr.name, attr.value, nil, nil]
+            end,
+            namespace_scope: scope,
+          )
+          node.children.each do |child|
+            built = walk(builder, child, inherited_namespaces: scope)
+            element.add_child(built) if built
+          end
+          element
         when Nokogiri::XML::Text
-          build_text_node(nokogiri_node)
+          builder.text(
+            node.content,
+            keep: Canon::Xml::WhitespacePolicy.keep_html_text?(
+              node.content,
+              parent_name: node.parent.is_a?(Nokogiri::XML::Element) ? node.parent.name : nil,
+              inline_significant:
+                Canon::Comparison::WhitespaceSensitivity.inline_whitespace_significant?(node),
+            ),
+          )
         when Nokogiri::XML::Comment
-          build_comment_node(nokogiri_node)
+          builder.comment(node.content)
         when Nokogiri::XML::ProcessingInstruction
-          build_pi_node(nokogiri_node)
+          builder.processing_instruction(node.name, node.content)
         end
-      end
-
-      # Build element node from Nokogiri element
-      def self.build_element_node(nokogiri_element)
-        element = Canon::Xml::Nodes::ElementNode.new(
-          name: nokogiri_element.name,
-          namespace_uri: nokogiri_element.namespace&.href,
-          prefix: nokogiri_element.namespace&.prefix,
-        )
-
-        # Build namespace nodes (includes inherited namespaces)
-        build_namespace_nodes(nokogiri_element, element)
-
-        # Build attribute nodes
-        build_attribute_nodes(nokogiri_element, element)
-
-        # Build child nodes
-        nokogiri_element.children.each do |child|
-          node = build_node_from_nokogiri(child)
-          element.add_child(node) if node
-        end
-
-        element
-      end
-
-      # Build namespace nodes for an element
-      def self.build_namespace_nodes(nokogiri_element, element)
-        # Collect all in-scope namespaces
-        namespaces = collect_in_scope_namespaces(nokogiri_element)
-
-        namespaces.each do |prefix, uri|
-          ns_node = Canon::Xml::Nodes::NamespaceNode.new(
-            prefix: prefix,
-            uri: uri,
-          )
-          element.add_namespace(ns_node)
-        end
-      end
-
-      # Collect all in-scope namespaces for an element
-      def self.collect_in_scope_namespaces(nokogiri_element)
-        namespaces = {}
-
-        # Walk up the tree to collect all namespace declarations
-        current = nokogiri_element
-        while current && !current.is_a?(Nokogiri::XML::Document)
-          if current.is_a?(Nokogiri::XML::Element)
-            current.namespace_definitions.each do |ns|
-              prefix = ns.prefix || ""
-              # Only add if not already defined (child overrides parent)
-              unless namespaces.key?(prefix)
-                namespaces[prefix] = ns.href
-              end
-            end
-          end
-          current = current.parent
-        end
-
-        # Always include xml namespace
-        namespaces["xml"] ||= "http://www.w3.org/XML/1998/namespace"
-
-        namespaces
-      end
-
-      # Build attribute nodes for an element
-      def self.build_attribute_nodes(nokogiri_element, element)
-        nokogiri_element.attributes.each do |name, attr|
-          next if name.start_with?("xmlns")
-
-          attr_node = Canon::Xml::Nodes::AttributeNode.new(
-            name: attr.name,
-            value: attr.value,
-            namespace_uri: attr.namespace&.href,
-            prefix: attr.namespace&.prefix,
-          )
-          element.add_attribute(attr_node)
-        end
-      end
-
-      # Build text node from Nokogiri text node
-      # HTML-specific: handles whitespace-sensitive elements (pre, code, textarea, script, style)
-      # and preserves whitespace between inline element siblings.
-      def self.build_text_node(nokogiri_text)
-        # Skip text nodes that are only whitespace between elements
-        # EXCEPT in whitespace-sensitive elements (pre, code, textarea, script, style)
-        # and when whitespace is between inline element siblings (semantically significant)
-        content = nokogiri_text.content
-
-        # NBSP (U+00A0) is never insignificant whitespace
-        if content.strip.empty? && nokogiri_text.parent.is_a?(Nokogiri::XML::Element) && !content.include?("\u00A0")
-          # Check if parent is whitespace-sensitive
-          parent_name = nokogiri_text.parent.name.downcase
-          whitespace_sensitive_tags = %w[pre code textarea script style]
-
-          # Check if whitespace is between inline siblings
-          unless whitespace_sensitive_tags.include?(parent_name) ||
-              Canon::Comparison::WhitespaceSensitivity.inline_whitespace_significant?(nokogiri_text)
-            return nil
-          end
-        end
-
-        # Nokogiri already handles CDATA conversion and entity resolution
-        Canon::Xml::Nodes::TextNode.new(value: content)
-      end
-
-      # Build comment node from Nokogiri comment
-      def self.build_comment_node(nokogiri_comment)
-        Canon::Xml::Nodes::CommentNode.new(value: nokogiri_comment.content)
-      end
-
-      # Build PI node from Nokogiri PI
-      def self.build_pi_node(nokogiri_pi)
-        Canon::Xml::Nodes::ProcessingInstructionNode.new(
-          target: nokogiri_pi.name,
-          data: nokogiri_pi.content,
-        )
       end
 
       class << self
-        private :build_from_nokogiri, :build_node_from_nokogiri,
-                :build_element_node, :build_namespace_nodes,
-                :collect_in_scope_namespaces, :build_attribute_nodes,
-                :build_text_node, :build_comment_node, :build_pi_node
+        private :build_from_nokogiri, :walk
       end
     end
   end

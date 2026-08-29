@@ -32,6 +32,24 @@ module Canon
 
         !content.gsub(/[ \t\r\n]/, "").empty?
       end
+
+      # HTML conversion rule: whitespace-only text is dropped except in
+      # whitespace-sensitive elements (pre/code/textarea/script/style),
+      # between inline siblings (semantically significant), and when it
+      # carries NBSP (U+00A0 — never insignificant; strip is ASCII-only
+      # so it is checked explicitly).
+      HTML_WHITESPACE_SENSITIVE_TAGS = %w[pre code textarea script style].freeze
+
+      def keep_html_text?(content, parent_name:, inline_significant: false)
+        return true unless content.strip.empty?
+        return true if content.include?("\u00A0")
+
+        parent_name = parent_name.to_s.downcase
+        return true if HTML_WHITESPACE_SENSITIVE_TAGS.include?(parent_name)
+        return true if inline_significant
+
+        false
+      end
     end
   end
 end

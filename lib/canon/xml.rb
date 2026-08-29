@@ -27,6 +27,7 @@ module Canon
     autoload :Processor, "canon/xml/processor"
     autoload :Sax, "canon/xml/sax"
     autoload :SaxBuilder, "canon/xml/sax_builder"
+    autoload :TreeBuilder, "canon/xml/tree_builder"
     autoload :WhitespaceNormalizer, "canon/xml/whitespace_normalizer"
     autoload :WhitespacePolicy, "canon/xml/whitespace_policy"
     autoload :XmlBaseHandler, "canon/xml/xml_base_handler"
