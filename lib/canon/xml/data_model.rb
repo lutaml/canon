@@ -126,28 +126,49 @@ module Canon
         end
       end
 
+      # --- Shared construction kernels (identical semantics per engine) ---
+
+      # Attach document-level children (prolog/epilog PIs, comments,
+      # document-level text) to the canon root, in document order,
+      # skipping the document element and the doctype. `converter`
+      # converts one engine child to a canon node (or nil).
+      def self.add_document_children(root, children, document_element,
+                                      skip_types, converter)
+        children.each do |child|
+          next if child.equal?(document_element)
+          next if skip_types.any? { |type| child.is_a?(type) }
+
+          node = converter.call(child)
+          root.add_child(node) if node
+        end
+      end
+
+      # In-scope namespace bindings: the element's own declarations
+      # shadow inherited ones; xml is prebound at the base. Declaration
+      # pairs are [prefix-or-nil, uri]; nil and "" both mean the default
+      # namespace.
+      def self.merge_namespace_scope(inherited, declaration_pairs)
+        scope = inherited ? inherited.dup : { "xml" => "http://www.w3.org/XML/1998/namespace" }
+        declaration_pairs.each do |prefix, uri|
+          scope[prefix || ""] = uri
+        end
+        scope
+      end
+
       def self.build_from_nokogiri(nokogiri_doc, preserve_whitespace: false)
         root = Nodes::RootNode.new
+
+        converter = ->(child) { build_node_from_nokogiri(child, preserve_whitespace: preserve_whitespace) }
+        skip_types = defined?(Nokogiri) ? [Nokogiri::XML::DTD] : []
 
         if nokogiri_doc.is_a?(Nokogiri::XML::Document) && nokogiri_doc.root
           root.add_child(build_element_node(nokogiri_doc.root,
                                             preserve_whitespace: preserve_whitespace))
-          nokogiri_doc.children.each do |child|
-            next if child == nokogiri_doc.root
-            next if child.is_a?(Nokogiri::XML::DTD)
-
-            node = build_node_from_nokogiri(child,
-                                            preserve_whitespace: preserve_whitespace)
-            root.add_child(node) if node
-          end
+          add_document_children(root, nokogiri_doc.children, nokogiri_doc.root,
+                                skip_types, converter)
         else
-          nokogiri_doc.children.each do |child|
-            next if child.is_a?(Nokogiri::XML::DTD)
-
-            node = build_node_from_nokogiri(child,
-                                            preserve_whitespace: preserve_whitespace)
-            root.add_child(node) if node
-          end
+          add_document_children(root, nokogiri_doc.children, nil,
+                                skip_types, converter)
         end
 
         root
@@ -198,16 +219,14 @@ inherited_namespaces: nil)
         element
       end
 
-      # In-scope namespace bindings: the element's own declarations
-      # shadow inherited ones, xml is prebound. The scope is passed down
+      # In-scope bindings via the shared kernel; the scope is passed down
       # the recursion — one definition fetch per element instead of an
       # ancestor walk per element (O(n) total, not O(n * depth)).
       def self.nokogiri_namespace_scope(nokogiri_element, inherited)
-        scope = inherited ? inherited.dup : { "xml" => "http://www.w3.org/XML/1998/namespace" }
-        nokogiri_element.namespace_definitions.each do |ns|
-          scope[ns.prefix || ""] = ns.href
-        end
-        scope
+        merge_namespace_scope(inherited,
+                              nokogiri_element.namespace_definitions.map do |ns|
+                                [ns.prefix, ns.href]
+                              end)
       end
 
       def self.build_attribute_nodes(nokogiri_element, element)
@@ -283,26 +302,18 @@ inherited_namespaces: nil)
       def self.build_from_moxml(moxml_doc, preserve_whitespace: false)
         root = Nodes::RootNode.new
 
+        converter = ->(child) { build_moxml_node(child, preserve_whitespace: preserve_whitespace) }
+        skip_types = [Moxml::Doctype]
+
         if moxml_doc.is_a?(Moxml::Document) && moxml_doc.root
           element = build_moxml_subtree_from_records(moxml_doc.root,
                                                      preserve_whitespace: preserve_whitespace)
           root.add_child(element) if element
-          moxml_doc.children.each do |child|
-            next if child.equal?(moxml_doc.root)
-            next if child.is_a?(Moxml::Doctype)
-
-            node = build_moxml_node(child,
-                                    preserve_whitespace: preserve_whitespace)
-            root.add_child(node) if node
-          end
+          add_document_children(root, moxml_doc.children, moxml_doc.root,
+                                skip_types, converter)
         else
-          moxml_doc.children.each do |child|
-            next if child.is_a?(Moxml::Doctype)
-
-            node = build_moxml_node(child,
-                                    preserve_whitespace: preserve_whitespace)
-            root.add_child(node) if node
-          end
+          add_document_children(root, moxml_doc.children, nil,
+                                skip_types, converter)
         end
 
         root
@@ -401,14 +412,11 @@ preserve_whitespace: false)
         Nodes::TextNode.new(value: content, original: content)
       end
 
-      # Expand each element's own declarations to in-scope bindings:
-      # the element's declarations shadow inherited ones; xml is
-      # prebound. Scope flows down the canon tree — no engine calls.
+      # Expand each element's own declarations to in-scope bindings via
+      # the shared kernel. Scope flows down the canon tree — no engine
+      # calls.
       def self.assign_moxml_namespace_scopes(element, inherited, own_namespaces)
-        scope = inherited.dup
-        own_namespaces[element].to_a.each do |prefix, uri|
-          scope[prefix || ""] = uri
-        end
+        scope = merge_namespace_scope(inherited, own_namespaces[element].to_a)
 
         scope.each do |prefix, uri|
           element.add_namespace(Nodes::NamespaceNode.new(
@@ -474,11 +482,10 @@ inherited_namespaces: nil)
       # of an ancestor walk through the adapter layer (the Nokogiri
       # collector walks ancestors because those calls are cheap there).
       def self.moxml_namespace_scope(moxml_element, inherited)
-        scope = inherited ? inherited.dup : { "xml" => "http://www.w3.org/XML/1998/namespace" }
-        moxml_element.namespace_definitions.each do |decl|
-          scope[decl.prefix || ""] = decl.uri
-        end
-        scope
+        merge_namespace_scope(inherited,
+                              moxml_element.namespace_definitions.map do |decl|
+                                [decl.prefix, decl.uri]
+                              end)
       end
 
       def self.build_moxml_attribute_nodes(moxml_element, element)
