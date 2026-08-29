@@ -134,8 +134,6 @@ module Canon
       # node kinds, document ordering) live in TreeBuilder and
       # WhitespacePolicy — one dialect, three feeds.
 
-      TREE_BUILDER = TreeBuilder.new
-
       # -- Nokogiri walk: top-down, scope flows down the recursion --
 
       def self.build_from_nokogiri(nokogiri_doc, preserve_whitespace: false)
@@ -145,13 +143,13 @@ module Canon
         if nokogiri_doc.is_a?(Nokogiri::XML::Document) && nokogiri_doc.root
           root.add_child(walk_nokogiri(nokogiri_doc.root,
                                        preserve_whitespace: preserve_whitespace))
-          TREE_BUILDER.add_document_children(root, nokogiri_doc.children,
-                                             nokogiri_doc.root, skip_types) do |child|
+          TreeBuilder::DEFAULT.add_document_children(root, nokogiri_doc.children,
+                                                     nokogiri_doc.root, skip_types) do |child|
             walk_nokogiri(child, preserve_whitespace: preserve_whitespace)
           end
         else
-          TREE_BUILDER.add_document_children(root, nokogiri_doc.children,
-                                             nil, skip_types) do |child|
+          TreeBuilder::DEFAULT.add_document_children(root, nokogiri_doc.children,
+                                                     nil, skip_types) do |child|
             walk_nokogiri(child, preserve_whitespace: preserve_whitespace)
           end
         end
@@ -163,11 +161,11 @@ module Canon
 inherited_namespaces: nil)
         case node
         when Nokogiri::XML::Element
-          scope = TREE_BUILDER.merge_namespace_scope(
+          scope = TreeBuilder::DEFAULT.merge_namespace_scope(
             inherited_namespaces,
             node.namespace_definitions.map { |ns| [ns.prefix, ns.href] },
           )
-          element = TREE_BUILDER.element(
+          element = TreeBuilder::DEFAULT.element(
             name: node.name,
             prefix: node.namespace&.prefix,
             namespace_uri: node.namespace&.href,
@@ -184,17 +182,17 @@ inherited_namespaces: nil)
           end
           element
         when Nokogiri::XML::Text, Nokogiri::XML::CDATA
-          TREE_BUILDER.text(node.content,
-                            keep: WhitespacePolicy.keep_dom_text?(
-                              node.content,
-                              preserve_whitespace: preserve_whitespace,
-                              element_parent: node.parent.is_a?(Nokogiri::XML::Element),
-                            ),
-                            original: node.to_xml)
+          TreeBuilder::DEFAULT.text(node.content,
+                                    keep: WhitespacePolicy.keep_dom_text?(
+                                      node.content,
+                                      preserve_whitespace: preserve_whitespace,
+                                      element_parent: node.parent.is_a?(Nokogiri::XML::Element),
+                                    ),
+                                    original: node.to_xml)
         when Nokogiri::XML::Comment
-          TREE_BUILDER.comment(node.content)
+          TreeBuilder::DEFAULT.comment(node.content)
         when Nokogiri::XML::ProcessingInstruction
-          TREE_BUILDER.processing_instruction(node.name, node.content)
+          TreeBuilder::DEFAULT.processing_instruction(node.name, node.content)
         end
       end
 
@@ -243,13 +241,13 @@ inherited_namespaces: nil)
           element = build_moxml_subtree_from_records(moxml_doc.root,
                                                      preserve_whitespace: preserve_whitespace)
           root.add_child(element) if element
-          TREE_BUILDER.add_document_children(root, moxml_doc.children,
-                                             moxml_doc.root, skip_types) do |child|
+          TreeBuilder::DEFAULT.add_document_children(root, moxml_doc.children,
+                                                     moxml_doc.root, skip_types) do |child|
             walk_moxml(child, preserve_whitespace: preserve_whitespace)
           end
         else
-          TREE_BUILDER.add_document_children(root, moxml_doc.children,
-                                             nil, skip_types) do |child|
+          TreeBuilder::DEFAULT.add_document_children(root, moxml_doc.children,
+                                                     nil, skip_types) do |child|
             walk_moxml(child, preserve_whitespace: preserve_whitespace)
           end
         end
@@ -276,15 +274,15 @@ preserve_whitespace: false)
                                                    own_namespaces)
                  when :text, :cdata
                    content = record[:text].to_s
-                   TREE_BUILDER.text(content,
-                                     keep: WhitespacePolicy.keep_dom_text?(
-                                       content, preserve_whitespace: preserve_whitespace
-                                     ))
+                   TreeBuilder::DEFAULT.text(content,
+                                             keep: WhitespacePolicy.keep_dom_text?(
+                                               content, preserve_whitespace: preserve_whitespace
+                                             ))
                  when :comment
-                   TREE_BUILDER.comment(record[:text])
+                   TreeBuilder::DEFAULT.comment(record[:text])
                  when :processing_instruction
-                   TREE_BUILDER.processing_instruction(record[:qname],
-                                                       record[:text] || "")
+                   TreeBuilder::DEFAULT.processing_instruction(record[:qname],
+                                                               record[:text] || "")
                  end
 
           frames.push([record[:depth], node]) if node
@@ -298,7 +296,7 @@ preserve_whitespace: false)
       end
 
       def self.build_moxml_element_from_record(record, frames, own_namespaces)
-        element = TREE_BUILDER.element(
+        element = TreeBuilder::DEFAULT.element(
           name: record[:qname],
           prefix: record[:prefix],
           namespace_uri: record[:namespace_uri],
@@ -316,9 +314,9 @@ preserve_whitespace: false)
       end
 
       def self.assign_moxml_namespace_scopes(element, inherited, own_namespaces)
-        scope = TREE_BUILDER.merge_namespace_scope(inherited,
-                                                   own_namespaces[element].to_a)
-        TREE_BUILDER.attach_namespace_scope(element, scope)
+        scope = TreeBuilder::DEFAULT.merge_namespace_scope(inherited,
+                                                           own_namespaces[element].to_a)
+        TreeBuilder::DEFAULT.attach_namespace_scope(element, scope)
 
         element.children.each do |child|
           assign_moxml_namespace_scopes(child, scope, own_namespaces) if child.is_a?(Nodes::ElementNode)
@@ -331,11 +329,11 @@ preserve_whitespace: false)
 inherited_namespaces: nil)
         case node
         when Moxml::Element
-          scope = TREE_BUILDER.merge_namespace_scope(
+          scope = TreeBuilder::DEFAULT.merge_namespace_scope(
             inherited_namespaces,
             node.namespace_definitions.map { |ns| [ns.prefix, ns.uri] },
           )
-          element = TREE_BUILDER.element(
+          element = TreeBuilder::DEFAULT.element(
             name: node.name,
             prefix: node.namespace&.prefix,
             namespace_uri: node.namespace&.uri,
@@ -352,16 +350,16 @@ inherited_namespaces: nil)
           end
           element
         when Moxml::Text, Moxml::Cdata
-          TREE_BUILDER.text(node.content,
-                            keep: WhitespacePolicy.keep_dom_text?(
-                              node.content,
-                              preserve_whitespace: preserve_whitespace,
-                              element_parent: node.parent.is_a?(Moxml::Element),
-                            ))
+          TreeBuilder::DEFAULT.text(node.content,
+                                    keep: WhitespacePolicy.keep_dom_text?(
+                                      node.content,
+                                      preserve_whitespace: preserve_whitespace,
+                                      element_parent: node.parent.is_a?(Moxml::Element),
+                                    ))
         when Moxml::Comment
-          TREE_BUILDER.comment(node.content)
+          TreeBuilder::DEFAULT.comment(node.content)
         when Moxml::ProcessingInstruction
-          TREE_BUILDER.processing_instruction(node.target, node.content)
+          TreeBuilder::DEFAULT.processing_instruction(node.target, node.content)
         end
       end
     end
