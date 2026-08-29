@@ -57,12 +57,16 @@ module Canon
         )
         attach_namespace_scope(element, namespace_scope) if namespace_scope
 
-        seen = {}
-        attributes.each do |attr_name, value, attr_namespace_uri, attr_prefix|
-          key = [attr_name, attr_namespace_uri]
-          next if seen.key?(key)
+        # Duplicate (name, namespace) pairs are invalid XML — first
+        # occurrence wins. Attributes per element are few, so a pairwise
+        # scan beats a per-element seen-hash on allocation (this is the
+        # hot SAX path).
+        attributes.each_with_index do |(attr_name, value, attr_namespace_uri, attr_prefix), index|
+          duplicate = attributes[0...index].any? do |prior_name, _v, prior_ns, _p|
+            prior_name == attr_name && prior_ns == attr_namespace_uri
+          end
+          next if duplicate
 
-          seen[key] = true
           element.add_attribute(Nodes::AttributeNode.new(
                                   name: attr_name,
                                   value: value,
