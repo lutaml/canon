@@ -3,12 +3,12 @@
 require "spec_helper"
 
 RSpec.describe Canon::Xml::WhitespacePolicy do
-  def dom_keep?(content, preserve: false, element_parent: true)
-    described_class.keep_dom_text?(content, preserve_whitespace: preserve, element_parent: element_parent)
+  def dom_keep?(content, preserve: false)
+    described_class.keep_dom_text?(content, preserve_whitespace: preserve)
   end
 
-  def sax_keep?(content, preserve: false, element_parent: true)
-    described_class.keep_sax_text?(content, preserve_whitespace: preserve, element_parent: element_parent)
+  def sax_keep?(content, preserve: false)
+    described_class.keep_sax_text?(content, preserve_whitespace: preserve)
   end
 
   describe "shared shape" do
@@ -22,9 +22,9 @@ RSpec.describe Canon::Xml::WhitespacePolicy do
       expect(sax_keep?("   ", preserve: true)).to be true
     end
 
-    it "keeps whitespace-only content at document level" do
-      expect(dom_keep?("  ", element_parent: false)).to be true
-      expect(sax_keep?("  ", element_parent: false)).to be true
+    it "drops whitespace-only content at document level even when preserving (XPath data model has no root text children)" do
+      expect(described_class.keep_dom_text?("  ", preserve_whitespace: true, element_parent: false)).to be false
+      expect(described_class.keep_sax_text?("  ", preserve_whitespace: true, element_parent: false)).to be false
     end
 
     it "drops pure ASCII whitespace runs under elements" do

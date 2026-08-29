@@ -200,7 +200,8 @@ strip_doctype: false)
 
         # Skip whitespace-only text nodes unless preserving, per the SAX
         # policy (CR-bearing content always survives for C14N;
-        # non-ASCII whitespace is meaningful content).
+        # non-ASCII whitespace is meaningful content; document-level
+        # whitespace drops with every policy).
         return unless WhitespacePolicy.keep_sax_text?(decoded_string,
                                                       preserve_whitespace: @preserve_whitespace,
                                                       element_parent: parent.node_type == :element)
