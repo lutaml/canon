@@ -9,14 +9,14 @@ module Canon
   # - HTML support — always Nokogiri on CRuby; moxml has no HTML adapter and
   #   leptris no HTML parser (see Canon::Html::NokogiriSupport).
   #
-  # SSOT: moxml owns adapter preference (Moxml::Config prefers leptris when
-  # installed and capable; see XmlParsing.moxml_adapter_name). Canon's
-  # default engine follows it: leptris whenever resolved — its SAX is
-  # faster and correct (leptris#625, leptris-ruby#99 fixed), conversion
-  # records are light (moxml#143), and conformance parity is complete
-  # (engine_parity_spec 12/12, zero pendings). Raw Nokogiri remains the
-  # fallback when leptris is absent, and CANON_XML_BACKEND forces either
-  # engine. Under Opal the engine is moxml (rexml adapter).
+  # SSOT: moxml owns adapter preference (Moxml::Config prefers leptris
+  # when installed; see XmlParsing.moxml_adapter_name). The SAX engine
+  # follows the resolved adapter — leptris (correct since leptris#625
+  # and leptris-ruby#99; CI perf-gated). The DOM engine stays Nokogiri
+  # until the record conversion passes the same gate (moxml#143's fix
+  # landed; still -40%/-37% from_xml on the CI runner). Conformance
+  # parity is complete (engine_parity_spec 12/12, zero pendings).
+  # CANON_XML_BACKEND=moxml opts into the leptris DOM engine today.
   #
   # HTML stays on Nokogiri on CRuby (Canon::Html::NokogiriSupport) and the
   # pretty-printers keep the Nokogiri pipeline — pretty-printed bytes are
@@ -61,12 +61,12 @@ module Canon
       def detect
         return :moxml if RUBY_ENGINE == "opal"
 
-        # All flip blockers resolved (leptris#625, leptris-ruby#99,
-        # moxml#143): leptris SAX is correct and faster, conversion
-        # records are light, conformance parity is 12/12. The leptris
-        # engine is the default whenever moxml resolves it; raw
-        # Nokogiri remains the fallback when it is absent.
-        XmlParsing.moxml_adapter_name == :nokogiri ? :nokogiri : :moxml
+        # The SAX engine flipped to leptris (leptris#625/#99 fixed,
+        # CI-gated — see Canon::Xml::Sax), but the DOM conversion still
+        # trails Nokogiri on the CI runner (-40%/-37% from_xml after
+        # moxml#143's emission fix landed). Nokogiri stays the DOM
+        # default until that gate passes; flipping is this one line.
+        :nokogiri
       end
     end
   end

@@ -10,12 +10,13 @@ module Canon
     # API to that protocol. OCP: a new engine is a new driver plus one line
     # here; the builder never changes.
     #
-    # Engine choice follows the active XML engine (XmlBackend): leptris
-    # SAX — the batch-attribute corruption (leptris#625) and the missing
-    # xmlns reporting (leptris-ruby#99) are both fixed, and the
-    # interest-proportional callbacks outperform Nokogiri SAX. With the
-    # engine forced to nokogiri (or leptris absent) the driver calls
-    # Nokogiri directly — the wrapper layer only adds overhead there.
+    # Engine choice follows the resolved adapter — independent of the
+    # DOM engine default: leptris SAX (corruption leptris#625 and the
+    # missing xmlns reporting leptris-ruby#99 both fixed) builds canon
+    # trees at parity with or faster than Nokogiri SAX, CI-gated. The
+    # DOM engine default stays Nokogiri until the record conversion
+    # passes the same gate (see XmlBackend). With leptris absent the
+    # driver calls Nokogiri directly.
     module Sax
       autoload :NokogiriDriver, "canon/xml/sax/nokogiri_driver"
       autoload :MoxmlDriver, "canon/xml/sax/moxml_driver"
@@ -23,7 +24,7 @@ module Canon
       class << self
         # Drive `builder` with the runtime's SAX engine.
         def parse(xml_string, builder)
-          if RUBY_ENGINE == "opal" || Canon::XmlBackend.moxml?
+          if RUBY_ENGINE == "opal" || Canon::XmlParsing.moxml_adapter_name != :nokogiri
             MoxmlDriver.new(builder).parse(xml_string)
           else
             NokogiriDriver.new(builder).parse(xml_string)
