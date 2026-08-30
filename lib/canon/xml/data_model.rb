@@ -205,9 +205,16 @@ inherited_namespaces: nil)
       # scopes cannot flow down during the stream).
 
       def self.from_moxml_xml(xml_string, preserve_whitespace:)
-        doc = Canon::XmlParsing.moxml_context.parse(xml_string, readonly: true)
+        # strict: false keeps the Nokogiri-engine contract — malformed
+        # input yields a recovered document plus diagnostics instead of
+        # an exception (moxml 0.5.15 defaults strict to true; issue
+        # #147 rides recover errors on Document#parse_errors).
+        doc = Canon::XmlParsing.moxml_context.parse(xml_string,
+                                                    readonly: true,
+                                                    strict: false)
         check_moxml_relative_namespace_uris(doc)
         result = build_from_moxml(doc, preserve_whitespace: preserve_whitespace)
+        result.parse_errors = doc.parse_errors if doc.parse_errors.any?
         # Canon owns this document's full lifecycle: the canon tree holds
         # no engine references once built, so release the native tree now
         # instead of waiting for the GC finalizer (moxml#134; no-op on

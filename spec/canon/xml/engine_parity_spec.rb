@@ -97,9 +97,6 @@ RSpec.describe "XML engine parity", :xml_engine_parity do
     end
 
     it "NokogiriDriver and MoxmlDriver build identical trees" do
-      pending "leptris 1.9.36's correctness-first SAX path drops xmlns " \
-              "declarations from events (leptris-ruby#99); attributes are " \
-              "correct again but namespace bindings vanish"
       xml = %(<catalog version="2.0" xmlns:x="http://x.example" xmlns="http://def.example"><?pi instr?><!--c--><x:book id="1" x:tag="t">Title &amp; sub&#65;<![CDATA[lit &amp; &#65;]]><note/></x:book><empty/></catalog>)
       expect(tree_string(sax_tree(Canon::Xml::Sax::MoxmlDriver, xml)))
         .to eq(tree_string(sax_tree(Canon::Xml::Sax::NokogiriDriver, xml)))
