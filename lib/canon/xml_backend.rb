@@ -10,13 +10,12 @@ module Canon
   #   leptris no HTML parser (see Canon::Html::NokogiriSupport).
   #
   # SSOT: moxml owns adapter preference (Moxml::Config prefers leptris
-  # when installed; see XmlParsing.moxml_adapter_name). The SAX engine
-  # follows the resolved adapter — leptris (correct since leptris#625
-  # and leptris-ruby#99; CI perf-gated). The DOM engine stays Nokogiri
-  # until the record conversion passes the same gate (moxml#143's fix
-  # landed; still -40%/-37% from_xml on the CI runner). Conformance
-  # parity is complete (engine_parity_spec 12/12, zero pendings).
-  # CANON_XML_BACKEND=moxml opts into the leptris DOM engine today.
+  # when installed; see XmlParsing.moxml_adapter_name). Both engines
+  # follow the resolved adapter: SAX since leptris#625/#99 were fixed,
+  # DOM since moxml#143's materialize_fields stream (zero-allocation
+  # flat buffers) made the conversion competitive. Conformance parity
+  # is complete (engine_parity_spec 12/12). CANON_XML_BACKEND forces
+  # either engine; the CI performance gate is the standing referee.
   #
   # HTML stays on Nokogiri on CRuby (Canon::Html::NokogiriSupport) and the
   # pretty-printers keep the Nokogiri pipeline — pretty-printed bytes are
@@ -61,12 +60,11 @@ module Canon
       def detect
         return :moxml if RUBY_ENGINE == "opal"
 
-        # The SAX engine flipped to leptris (leptris#625/#99 fixed,
-        # CI-gated — see Canon::Xml::Sax), but the DOM conversion still
-        # trails Nokogiri on the CI runner (-40%/-37% from_xml after
-        # moxml#143's emission fix landed). Nokogiri stays the DOM
-        # default until that gate passes; flipping is this one line.
-        :nokogiri
+        # Both engines now run leptris: SAX since leptris#625/#99
+        # (CI-gated), DOM since moxml#143's zero-allocation
+        # materialize_fields stream made the conversion competitive.
+        # The CI performance gate is the standing referee.
+        XmlParsing.moxml_adapter_name == :nokogiri ? :nokogiri : :moxml
       end
     end
   end
