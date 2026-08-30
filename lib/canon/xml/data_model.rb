@@ -222,7 +222,6 @@ inherited_namespaces: nil)
         result
       end
 
-
       def self.build_from_moxml(moxml_doc, preserve_whitespace: false)
         root = Nodes::RootNode.new
         skip_types = [Moxml::Doctype]
