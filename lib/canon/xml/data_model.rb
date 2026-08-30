@@ -267,32 +267,37 @@ preserve_whitespace: false)
         frames = []
         own_namespaces = {}.compare_by_identity
 
-        moxml_element.materialize do |record|
+        # materialize_fields: the zero-allocation hot path (moxml#143).
+        # Flat reused buffers — attributes stride 4, namespaces stride
+        # 2 — valid only inside the block, so the element builder
+        # copies them into pairs before returning.
+        moxml_element.materialize_fields do |kind, qname, prefix, namespace_uri, namespaces, attributes, text, depth|
           # The record contract is root-subtree-only since moxml 0.5.11
           # (moxml#140). Older 0.5.x releases — still allowed by canon's
           # gemspec floor — leaked epilog document-level records at depth
           # 0, which the document-children enumeration also covers; one
           # integer compare per record keeps those working.
-          next if record[:depth].zero? && record[:kind] != :element
+          next if depth.zero? && kind != :element
 
-          node = case record[:kind]
+          node = case kind
                  when :element
-                   build_moxml_element_from_record(record, frames,
-                                                   own_namespaces)
+                   build_moxml_element_from_fields(
+                     qname, prefix, namespace_uri, namespaces, attributes,
+                     depth, frames, own_namespaces
+                   )
                  when :text, :cdata
-                   content = record[:text].to_s
+                   content = text.to_s
                    TreeBuilder::DEFAULT.text(content,
                                              keep: WhitespacePolicy.keep_dom_text?(
                                                content, preserve_whitespace: preserve_whitespace
                                              ))
                  when :comment
-                   TreeBuilder::DEFAULT.comment(record[:text])
+                   TreeBuilder::DEFAULT.comment(text)
                  when :processing_instruction
-                   TreeBuilder::DEFAULT.processing_instruction(record[:qname],
-                                                               record[:text] || "")
+                   TreeBuilder::DEFAULT.processing_instruction(qname, text || "")
                  end
 
-          frames.push([record[:depth], node]) if node
+          frames.push([depth, node]) if node
         end
 
         top = frames.last
@@ -302,21 +307,24 @@ preserve_whitespace: false)
         top[1]
       end
 
-      def self.build_moxml_element_from_record(record, frames, own_namespaces)
+      def self.build_moxml_element_from_fields(qname, prefix, namespace_uri,
+                                               namespaces, attributes, depth,
+                                               frames, own_namespaces)
         element = TreeBuilder::DEFAULT.element(
-          name: record[:qname],
-          prefix: record[:prefix],
-          namespace_uri: record[:namespace_uri],
-          attributes: record[:attributes],
+          name: qname,
+          prefix: prefix,
+          namespace_uri: namespace_uri,
+          attributes: attributes.each_slice(4).to_a,
         )
 
         # Adopt completed children: they pop in reverse order; reversing
         # once is O(n) (unshift per child would be O(n^2) on wide trees).
         children = []
-        children << frames.pop[1] while frames.any? && frames.last[0] > record[:depth]
+        children << frames.pop[1] while frames.any? && frames.last[0] > depth
         children.reverse_each { |child| element.add_child(child) }
 
-        own_namespaces[element] = record[:namespaces]
+        # Copy the declarations out of the reused buffer.
+        own_namespaces[element] = namespaces.each_slice(2).to_a
         element
       end
 
