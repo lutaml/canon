@@ -212,7 +212,6 @@ inherited_namespaces: nil)
         doc = Canon::XmlParsing.moxml_context.parse(xml_string,
                                                     readonly: true,
                                                     strict: false)
-        check_moxml_relative_namespace_uris(doc)
         result = build_from_moxml(doc, preserve_whitespace: preserve_whitespace)
         result.parse_errors = doc.parse_errors if doc.parse_errors.any?
         # Canon owns this document's full lifecycle: the canon tree holds
@@ -223,22 +222,6 @@ inherited_namespaces: nil)
         result
       end
 
-      def self.check_moxml_relative_namespace_uris(node)
-        case node
-        when Moxml::Element
-          node.namespace_definitions.each do |ns|
-            href = ns.uri
-            next if href.nil? || href.empty?
-            if relative_uri?(href)
-              raise Canon::Error,
-                    "Relative namespace URI not allowed: #{href}"
-            end
-          end
-          node.children.each { |child| check_moxml_relative_namespace_uris(child) }
-        when Moxml::Document
-          node.children.each { |child| check_moxml_relative_namespace_uris(child) }
-        end
-      end
 
       def self.build_from_moxml(moxml_doc, preserve_whitespace: false)
         root = Nodes::RootNode.new
@@ -278,6 +261,21 @@ preserve_whitespace: false)
           # 0, which the document-children enumeration also covers; one
           # integer compare per record keeps those working.
           next if depth.zero? && kind != :element
+
+          # Relative-namespace validation rides the stream (the
+          # namespaces buffer is the element's own declarations) — no
+          # separate wrapper-tree walk per parse.
+          if kind == :element
+            i = 1
+            while i < namespaces.size
+              href = namespaces[i]
+              if !href.nil? && !href.empty? && relative_uri?(href)
+                raise Canon::Error,
+                      "Relative namespace URI not allowed: #{href}"
+              end
+              i += 2
+            end
+          end
 
           node = case kind
                  when :element
