@@ -25,7 +25,6 @@ RSpec.describe "parse error surface (issue #130)" do
     end
 
     it "surfaces the libxml FATAL on the received side" do
-      pending "leptris SAX reports no events for recoverable errors (leptris/leptris#647)" if Canon::XmlParsing.moxml_adapter_name != :nokogiri
       expect(result.parse_errors_received).not_to be_empty
       expect(result.parse_errors_received.join("\n"))
         .to include("Attribute xml:lang redefined")
@@ -36,12 +35,10 @@ RSpec.describe "parse error surface (issue #130)" do
     end
 
     it "answers parse_errors? truthfully" do
-      pending "leptris SAX reports no events for recoverable errors (leptris/leptris#647)" if Canon::XmlParsing.moxml_adapter_name != :nokogiri
       expect(result.parse_errors?).to be true
     end
 
     it "renders a banner at the top of the diff report" do
-      pending "leptris SAX reports no events for recoverable errors (leptris/leptris#647)" if Canon::XmlParsing.moxml_adapter_name != :nokogiri
       output = formatter.format_comparison_result(result, expected, received)
       banner_line = output.lines.find { |l| l.include?("⚠️  PARSE ERRORS") }
       expect(banner_line).not_to be_nil
@@ -52,8 +49,12 @@ RSpec.describe "parse error surface (issue #130)" do
     end
 
     it "renders the banner before the semantic diff section" do
-      pending "leptris SAX reports no events for recoverable errors (leptris/leptris#647)" if Canon::XmlParsing.moxml_adapter_name != :nokogiri
-      output = formatter.format_comparison_result(result, expected, received)
+      # The duplicate attribute dedupes first-wins, so the received tree
+      # only differs when the content differs too.
+      differing = received.sub(">x<", ">y<")
+      diff_result = Canon::Comparison.equivalent?(expected, differing,
+                                                  format: :xml, verbose: true)
+      output = formatter.format_comparison_result(diff_result, expected, differing)
       banner_idx = output.index("PARSE ERRORS")
       report_idx = output.index("SEMANTIC DIFF REPORT")
       expect(banner_idx).not_to be_nil
