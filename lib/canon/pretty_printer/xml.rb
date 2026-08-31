@@ -12,14 +12,14 @@ module Canon
 
       def format(xml_string)
         # Output parity: pretty-printed bytes are canon's product. The
-        # moxml serializer cannot yet match Nokogiri's output (empty
-        # element expansion, declaration placement, tab indent), so the
-        # Nokogiri pipeline is used whenever available — the moxml branch
-        # is the Opal fallback.
-        if defined?(Nokogiri)
-          nokogiri_format(xml_string)
-        else
+        # leptris serializer matches Nokogiri byte-for-byte for space
+        # and tab indentation (moxml#153/#155/#156) — the fixture
+        # integrity suite is the standing gate. Nokogiri serves the
+        # fallback engine and Opal.
+        if RUBY_ENGINE == "opal" || Canon::XmlBackend.moxml?
           moxml_format(xml_string)
+        else
+          nokogiri_format(xml_string)
         end
       end
 
@@ -35,8 +35,16 @@ module Canon
       end
 
       def moxml_format(xml_string)
-        doc = Canon::XmlParsing.parse(xml_string)
-        doc.to_xml
+        # noblanks mutates the tree (strips whitespace-only text), so
+        # the document cannot be readonly.
+        doc = Canon::XmlParsing.moxml_context.parse(xml_string, noblanks: true)
+        if @indent_type == "tab"
+          doc.to_xml(declaration: true, encoding: "UTF-8",
+                     indent: 1, indent_text: "\t", expand_empty: false)
+        else
+          doc.to_xml(declaration: true, encoding: "UTF-8",
+                     indent: @indent, expand_empty: false)
+        end
       end
     end
   end
