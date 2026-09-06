@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "nokogiri" unless RUBY_ENGINE == "opal"
+require "set"
 
 module Canon
   module Formatters
@@ -55,6 +56,14 @@ module Canon
       WHITESPACE_SENSITIVE_ELEMENTS = %w[
         pre code textarea script style
       ].freeze
+      # Set form for the per-sibling hot lookup; Nokogiri lowercases
+      # HTML element names, so the downcase fallback only runs for
+      # unusual (already-mixed-case) input.
+      BLOCK_ELEMENT_SET = BLOCK_ELEMENTS.to_set
+      # Compiled once — building the alternation and compiling the
+      # regex per format call cost more than the gsub it drives.
+      BLOCK_SPACING_PATTERN =
+        Regexp.new("(</(?:#{BLOCK_ELEMENTS.join('|')})>)(<(?:#{BLOCK_ELEMENTS.join('|')})[\s>])").freeze
       # Format HTML using canonical form
       # @param html [String] HTML document to canonicalize
       # @return [String] Canonical form of HTML
@@ -100,6 +109,15 @@ module Canon
           next unless node.element?
           next if node.attributes.empty?
 
+          names = node.attributes.keys
+          # Already-sorted un-namespaced is the common case — removing
+          # and re-adding every attribute is expensive, so check first.
+          # Namespaced attributes must take the slow path: the
+          # remove/re-add below flattens their prefix, and skipping
+          # would change the canonical output.
+          next if names.each_cons(2).all? { |a, b| (a <=> b) <= 0 } &&
+            node.attributes.each_value.all? { |a| a.namespace.nil? }
+
           sorted_attrs = node.attributes.sort_by { |name, _| name }
           node.attributes.each_key { |name| node.remove_attribute(name) }
           sorted_attrs.each { |name, attr| node[name] = attr.value }
@@ -122,7 +140,7 @@ module Canon
           end
 
           # Handle whitespace-only text nodes
-          if node.text.strip.empty? && node.parent&.element?
+          if node.text.match?(Canon::Xml::WhitespacePolicy::STRIP_ONLY) && node.parent&.element?
             # Check if this text node is between block-level elements
             prev_sibling = node.previous_sibling
             next_sibling = node.next_sibling
@@ -138,14 +156,17 @@ module Canon
           else
             # Collapse multiple whitespace characters into single spaces
             # but preserve leading/trailing single spaces for inline content
-            normalized = node.text.gsub(/\s+/, " ")
+            text = node.text
+            normalized = text.gsub(/\s+/, " ")
             # Only strip if the entire parent chain suggests it's appropriate
             # (e.g., at document boundaries)
             if node.parent&.name == "body" &&
                 (node.previous_sibling.nil? || node.next_sibling.nil?)
               normalized = normalized.strip
             end
-            node.content = normalized
+            # node.content= re-parses the string — skip it when nothing
+            # changed (text with no collapsible whitespace).
+            node.content = normalized unless normalized == text
           end
         end
       end
@@ -154,19 +175,20 @@ module Canon
       # @param html [String] Serialized HTML string
       # @return [String] HTML with proper spacing between block elements
       def self.ensure_block_element_spacing(html)
-        # Build regex pattern for block element tags
-        block_tags = BLOCK_ELEMENTS.join("|")
-
         # Add space between closing and opening block element tags
-        # Match: ><opening_block_tag or </closing_block_tag><opening_block_tag
-        html.gsub(/(<\/(?:#{block_tags})>)(<(?:#{block_tags})[\s>])/, '\1 \2')
+        # (pattern compiled once — see BLOCK_SPACING_PATTERN)
+        html.gsub(BLOCK_SPACING_PATTERN, '\1 \2')
       end
 
       # Check if a node is a block-level element
       # @param node [Nokogiri::XML::Node, nil] Node to check
       # @return [Boolean] true if node is a block element
       def self.block_element?(node)
-        node&.element? && BLOCK_ELEMENTS.include?(node.name.downcase)
+        return false unless node&.element?
+
+        name = node.name
+        BLOCK_ELEMENT_SET.include?(name) ||
+          BLOCK_ELEMENT_SET.include?(name.downcase)
       end
 
       # Check if a node is a whitespace-sensitive element
@@ -178,8 +200,14 @@ module Canon
         # Check if this element or any ancestor is whitespace-sensitive
         current = node
         while current
-          if current.element? && WHITESPACE_SENSITIVE_ELEMENTS.include?(current.name.downcase)
-            return true
+          if current.element?
+            name = current.name
+            # Nokogiri lowercases HTML names — the downcase fallback
+            # only allocates for unusual mixed-case input.
+            if WHITESPACE_SENSITIVE_ELEMENTS.include?(name) ||
+                WHITESPACE_SENSITIVE_ELEMENTS.include?(name.downcase)
+              return true
+            end
           end
           # Stop at document root - documents don't have parents
           break if current.is_a?(Nokogiri::XML::Document) || current.is_a?(Nokogiri::HTML5::Document)
