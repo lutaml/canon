@@ -129,8 +129,13 @@ strip_doctype: false)
         end
 
         # Push new namespace scope with declarations (own shadows
-        # inherited — the same merge the TreeBuilder scope kernel applies)
-        new_scope = @namespace_stack.last.merge(ns_hash)
+        # inherited — the same merge the TreeBuilder scope kernel
+        # applies). Elements that declare nothing push the inherited
+        # scope object itself, so scopes — and their cached
+        # namespace-node arrays in TreeBuilder — are shared down runs
+        # of undeclaring elements instead of re-merged per element.
+        inherited_scope = @namespace_stack.last
+        new_scope = ns_hash.empty? ? inherited_scope : inherited_scope.merge(ns_hash)
         @namespace_stack.push(new_scope)
 
         element = TreeBuilder::DEFAULT.element(

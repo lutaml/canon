@@ -14,6 +14,13 @@ module Canon
     # text; engines that report it (libxml2 does not, libleptris 1.9.38+
     # does) stay byte-compatible through here.
     module WhitespacePolicy
+      # Zero-allocation forms of the `content.strip.empty?` /
+      # `content.gsub(...).empty?` checks these policies used to run
+      # per text node. STRIP_ONLY is exactly String#strip's set
+      # (ASCII whitespace plus null); SAX drops space/tab/CR/LF runs.
+      STRIP_ONLY = /\A[\0\t\n\v\f\r ]*\z/
+      SAX_DROPPED = /\A[ \t\r\n]*\z/
+
       module_function
 
       # DOM conversion rule: whitespace-only text is dropped unless
@@ -27,11 +34,11 @@ element_parent: true)
         # The XPath data model has no root text children — drop
         # whitespace-only document-level text even when preserving
         # (engines that report it stay byte-compatible with libxml2).
-        return false if !element_parent && content.strip.empty?
+        return false if !element_parent && content.match?(STRIP_ONLY)
 
         return true if preserve_whitespace
 
-        !content.strip.empty?
+        !content.match?(STRIP_ONLY)
       end
 
       # SAX rule: same shape, plus CR-bearing content is always kept
@@ -39,12 +46,12 @@ element_parent: true)
       # whitespace (space, tab, CR, LF) are dropped when not preserving.
       def keep_sax_text?(content, preserve_whitespace:,
 element_parent: true)
-        return false if !element_parent && content.strip.empty?
+        return false if !element_parent && content.match?(STRIP_ONLY)
 
         return true if preserve_whitespace
         return true if content.include?("\r")
 
-        !content.gsub(/[ \t\r\n]/, "").empty?
+        !content.match?(SAX_DROPPED)
       end
 
       # HTML conversion rule: whitespace-only text is dropped except in
@@ -55,7 +62,7 @@ element_parent: true)
       HTML_WHITESPACE_SENSITIVE_TAGS = %w[pre code textarea script style].freeze
 
       def keep_html_text?(content, parent_name:, inline_significant: false)
-        return true unless content.strip.empty?
+        return true unless content.match?(STRIP_ONLY)
         return true if content.include?(" ")
 
         parent_name = parent_name.to_s.downcase
