@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "set"
+
 module Canon
   module Xml
     # Parse-time whitespace policy: whether a character-data node
@@ -60,13 +62,18 @@ element_parent: true)
       # carries NBSP (U+00A0 — never insignificant; strip is ASCII-only
       # so it is checked explicitly).
       HTML_WHITESPACE_SENSITIVE_TAGS = %w[pre code textarea script style].freeze
+      # Set form for the hot lookup; element names arrive lowercased
+      # from the HTML parser, so the downcase fallback only allocates
+      # for unusual (non-lowercased) names.
+      HTML_SENSITIVE_TAG_SET = HTML_WHITESPACE_SENSITIVE_TAGS.to_set
 
       def keep_html_text?(content, parent_name:, text_node: nil)
         return true unless content.match?(STRIP_ONLY)
         return true if content.include?(" ")
 
-        parent_name = parent_name.to_s.downcase
-        return true if HTML_WHITESPACE_SENSITIVE_TAGS.include?(parent_name)
+        parent_name = parent_name.to_s
+        return true if HTML_SENSITIVE_TAG_SET.include?(parent_name)
+        return true if HTML_SENSITIVE_TAG_SET.include?(parent_name.downcase)
 
         # Computed last: the sibling scan is O(siblings), so it must
         # not run for the content-bearing text nodes that fail the

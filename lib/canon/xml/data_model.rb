@@ -79,19 +79,29 @@ module Canon
         nil
       end
 
+      # Encoding-declaration probe: anchored, and it only ever scans the
+      # XML declaration prefix — a document without one bails after a
+      # few characters.
+      XML_ENCODING_DECL = /\A\s*<\?xml[^>]*\bencoding\s*=\s*["']([^"']+)["'][^>]*\?>/i
+
       def self.extract_xml_encoding(xml_string)
         # A valid UTF-8 string matches directly (the regex is
         # ASCII-only); anything else still needs the BINARY view so a
-        # broken byte sequence cannot raise mid-probe. Skipping the
-        # dup avoids a full-document copy on every parse.
-        unless xml_string.encoding.name == "UTF-8" && xml_string.valid_encoding?
+        # broken byte sequence cannot raise mid-probe. The validity is
+        # tested by the match itself, not a full-document scan: invalid
+        # bytes outside the scanned prefix never raise, and invalid
+        # bytes inside it fall back to the BINARY retry.
+        if xml_string.encoding.name == "UTF-8"
+          begin
+            return xml_string[XML_ENCODING_DECL, 1]
+          rescue ArgumentError
+            xml_string = xml_string.dup.force_encoding("BINARY")
+          end
+        else
           xml_string = xml_string.dup.force_encoding("BINARY")
         end
-        if xml_string =~ /\A\s*<\?xml[^>]*\bencoding\s*=\s*["']([^"']+)["'][^>]*\?>/i
-          return Regexp.last_match(1)
-        end
 
-        nil
+        xml_string[XML_ENCODING_DECL, 1]
       end
 
       def self.parse(xml_string)

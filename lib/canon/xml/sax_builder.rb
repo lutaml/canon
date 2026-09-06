@@ -52,8 +52,9 @@ strip_doctype: false)
       # @param xml [String] XML string potentially containing DOCTYPE
       # @return [String] XML string with DOCTYPE removed
       def self.strip_doctype_declaration(xml)
-        # Find DOCTYPE start (case-insensitive)
-        doctype_start = xml.upcase.index("<!DOCTYPE")
+        # Find DOCTYPE start (case-insensitive). A literal + /i index
+        # scans in place — upcase would copy the whole document per call.
+        doctype_start = xml.index(/<!DOCTYPE/i)
         return xml unless doctype_start
 
         # Find the end of DOCTYPE - it ends with >

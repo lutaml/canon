@@ -39,16 +39,26 @@ module Canon
 
       class << self
         # Classify the whitespace behaviour for an element using ancestor walk.
+        # Results are cached per element per match_opts (classify runs
+        # per text node/pair otherwise — once per element is enough;
+        # the sets it depends on are memoized alongside in the same
+        # entry).
         def classify_element(element, match_opts)
           return :strip unless element
           return :strip unless node_name(element)
 
-          preserve_set  = resolved_preserve_elements_set(match_opts)
-          collapse_set  = resolved_collapse_elements_set(match_opts)
-          strip_set = resolved_strip_elements_set(match_opts)
+          cache = classification_map(match_opts)
+          cached = cache[element]
+          return cached if cached
 
-          walk_ancestor_classification(element, preserve_set, collapse_set,
-                                       strip_set)
+          classification = walk_ancestor_classification(
+            element,
+            resolved_preserve_elements_set(match_opts),
+            resolved_collapse_elements_set(match_opts),
+            resolved_strip_elements_set(match_opts),
+          )
+          cache[element] = classification
+          classification
         end
 
         # Check if an element is whitespace-sensitive based on configuration.
@@ -147,12 +157,27 @@ module Canon
           parent = NodeInspector.parent(text_node)
           return false unless parent
 
+          # One pass: find the node by identity while tracking the
+          # nearest non-whitespace siblings on each side (index plus
+          # two directional scans cost three passes before).
           siblings = NodeInspector.children(parent)
-          idx = siblings.index(text_node)
-          return false unless idx
+          prev_neighbour = nil
+          next_neighbour = nil
+          found = false
 
-          prev_neighbour = nearest_non_whitespace_sibling(siblings, idx, -1)
-          next_neighbour = nearest_non_whitespace_sibling(siblings, idx,  1)
+          siblings.each do |sibling|
+            if found
+              if next_neighbour.nil? && !whitespace_text_node?(sibling)
+                next_neighbour = sibling
+                break
+              end
+            elsif sibling.equal?(text_node)
+              found = true
+            elsif !whitespace_text_node?(sibling)
+              prev_neighbour = sibling
+            end
+          end
+          return false unless found
 
           inline_element?(prev_neighbour) && inline_element?(next_neighbour)
         end
@@ -234,6 +259,20 @@ module Canon
           cache = (@resolved_sets_cache ||= {}.compare_by_identity)
           cache.clear if cache.size >= RESOLVED_SETS_LIMIT
           cache[match_opts] ||= [nil, nil, nil]
+        end
+
+        # Per-match_opts classification map (slot 3 of the resolved
+        # entry). Weak element keys: entries vanish with their trees,
+        # so finished comparisons retain nothing. Opal has no
+        # ObjectSpace::WeakMap — there the map holds strong references
+        # and dies with the bounded resolved-sets cache clear.
+        def classification_map(match_opts)
+          entry = resolved_sets_entry(match_opts)
+          entry[3] ||= if defined?(ObjectSpace::WeakMap)
+                         ObjectSpace::WeakMap.new
+                       else
+                         {}.compare_by_identity
+                       end
         end
 
         def walk_ancestor_classification(element, preserve_set, collapse_set,
