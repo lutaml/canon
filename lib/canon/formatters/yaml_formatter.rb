@@ -23,8 +23,12 @@ module Canon
       def self.sort_yaml_keys(obj)
         case obj
         when Hash
-          obj.transform_values { |v| sort_yaml_keys(v) }
-            .sort.to_h
+          # Single pass: sorted keys once, one rebuilt hash (the
+          # transform_values + sort.to_h form rebuilt every container
+          # twice).
+          sorted = {}
+          obj.keys.sort.each { |key| sorted[key] = sort_yaml_keys(obj[key]) }
+          sorted
         when Array
           obj.map { |item| sort_yaml_keys(item) }
         else

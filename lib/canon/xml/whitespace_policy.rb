@@ -61,13 +61,18 @@ element_parent: true)
       # so it is checked explicitly).
       HTML_WHITESPACE_SENSITIVE_TAGS = %w[pre code textarea script style].freeze
 
-      def keep_html_text?(content, parent_name:, inline_significant: false)
+      def keep_html_text?(content, parent_name:, text_node: nil)
         return true unless content.match?(STRIP_ONLY)
         return true if content.include?(" ")
 
         parent_name = parent_name.to_s.downcase
         return true if HTML_WHITESPACE_SENSITIVE_TAGS.include?(parent_name)
-        return true if inline_significant
+
+        # Computed last: the sibling scan is O(siblings), so it must
+        # not run for the content-bearing text nodes that fail the
+        # whitespace-only check above.
+        return true if text_node &&
+          Canon::Comparison::WhitespaceSensitivity.inline_whitespace_significant?(text_node)
 
         false
       end

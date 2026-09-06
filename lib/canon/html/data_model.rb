@@ -134,8 +134,7 @@ module Canon
             keep: Canon::Xml::WhitespacePolicy.keep_html_text?(
               node.content,
               parent_name: node.parent.is_a?(Nokogiri::XML::Element) ? node.parent.name : nil,
-              inline_significant:
-                Canon::Comparison::WhitespaceSensitivity.inline_whitespace_significant?(node),
+              text_node: node,
             ),
           )
         when Nokogiri::XML::Comment
