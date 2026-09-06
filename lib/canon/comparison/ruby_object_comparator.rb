@@ -24,6 +24,15 @@ module Canon
           return Comparison::UNEQUAL_TYPES
         end
 
+        # FAST PATH: deep-equal objects in identical key order — every
+        # nested comparison is trivially equivalent and no key-order
+        # difference exists (strict key_order compares insertion
+        # order, which keys == keys preserves). Most object pairs in
+        # similar documents hit this and skip the path-building walk.
+        if obj1 == obj2 && (!obj1.is_a?(Hash) || obj1.keys == obj2.keys)
+          return Comparison::EQUIVALENT
+        end
+
         case obj1
         when Hash
           compare_hashes(obj1, obj2, opts, differences, path)
