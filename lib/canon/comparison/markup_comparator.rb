@@ -93,7 +93,7 @@ module Canon
           # Use preserve_whitespace_elements / strip_whitespace_elements to control.
           # Blacklist (strip) > preserve > collapse > format defaults.
           return false unless text_node?(node) && node.parent
-          return false unless MatchOptions.normalize_text(node_text(node)).empty?
+          return false unless MatchOptions.whitespace_only?(node_text(node))
 
           # NBSP (U+00A0) is never insignificant whitespace —
           # it always renders as a visible non-breaking space.

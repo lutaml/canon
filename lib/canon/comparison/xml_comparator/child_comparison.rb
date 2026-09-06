@@ -75,21 +75,10 @@ module Canon
           # Use ElementMatcher for semantic comparison
           def use_element_matcher_comparison(children1, children2, parent_node, comparator,
                                              opts, child_opts, diff_children, differences)
-            # Create temporary RootNode wrappers
-            temp_root1 = Canon::Xml::Nodes::RootNode.new
-            temp_root1.children = children1.dup
-
-            temp_root2 = Canon::Xml::Nodes::RootNode.new
-            temp_root2.children = children2.dup
-
-            matcher = Canon::Xml::ElementMatcher.new
-            matches = matcher.match_trees(temp_root1, temp_root2)
-
-            # Filter matches to only include direct children
-            matches = matches.select do |m|
-              (m.elem1.nil? || children1.include?(m.elem1)) &&
-                (m.elem2.nil? || children2.include?(m.elem2))
-            end
+            # Single-level matching: the comparator itself descends via
+            # compare_nodes below, so nested matches would be discarded.
+            matches = Canon::Xml::ElementMatcher.new
+              .match_children_only(children1, children2)
 
             # If no matches and children exist, they're all different
             if matches.empty? && (!children1.empty? || children2.empty?)

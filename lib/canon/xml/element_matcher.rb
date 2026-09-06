@@ -130,6 +130,21 @@ module Canon
         @matches
       end
 
+      # Match one level of children only — no descent into matched
+      # pairs. The comparator walks descendants itself (compare_nodes →
+      # ChildComparison per level), so the nested matches match_trees
+      # would produce below this level are discarded by its direct-
+      # children filter; matching them is wasted work.
+      #
+      # @param children1 [Array<Canon::Xml::Node>] First parent's children
+      # @param children2 [Array<Canon::Xml::Node>] Second parent's children
+      # @return [Array<MatchResult>] Match results for these children only
+      def match_children_only(children1, children2)
+        @matches = []
+        match_level(children1, children2, [], recursive: false)
+        @matches
+      end
+
       private
 
       # Match children recursively
@@ -137,9 +152,24 @@ module Canon
         # FAST PATH: Same array object means all children match
         return if children1.equal?(children2)
 
+        match_level(children1, children2, path, recursive: true)
+      end
+
+      # One matching level: identity attributes, then name+namespace
+      # position, then class attribute, then deleted/inserted recording.
+      # With +recursive:+ true, matched pairs descend immediately after
+      # being recorded (match_trees' ordering contract).
+      def match_level(children1, children2, path, recursive:)
         # Filter to only element nodes
         elems1 = children1.select { |n| n.node_type == :element }
         elems2 = children2.select { |n| n.node_type == :element }
+
+        # Positions by identity: elems.index(elem) was an O(n) scan per
+        # recorded match — O(n²) per level on element-heavy parents.
+        positions1 = {}
+        elems1.each_with_index { |e, i| positions1[e] = i }
+        positions2 = {}
+        elems2.each_with_index { |e, i| positions2[e] = i }
 
         # Build identity maps for quick lookup
         map1 = build_identity_map(elems1)
@@ -160,24 +190,22 @@ module Canon
                                   path + [elem1.name]
                                 end
 
-            # Track positions
-            pos1 = elems1.index(elem1)
-            pos2 = elems2.index(elem2)
-
             @matches << MatchResult.new(
               status: :matched,
               elem1: elem1,
               elem2: elem2,
               path: elem_path_with_ns,
-              pos1: pos1,
-              pos2: pos2,
+              pos1: positions1[elem1],
+              pos2: positions2[elem2],
             )
 
             matched1.add(elem1)
             matched2.add(elem2)
 
             # Recursively match children
-            match_children(elem1.children, elem2.children, elem_path_with_ns)
+            if recursive
+              match_children(elem1.children, elem2.children, elem_path_with_ns)
+            end
           end
         end
 
@@ -185,14 +213,15 @@ module Canon
         unmatched1 = elems1.reject { |e| matched1.include?(e) }
         unmatched2 = elems2.reject { |e| matched2.include?(e) }
 
-        match_by_position(unmatched1, unmatched2, path, matched1, matched2)
+        match_by_position(unmatched1, unmatched2, path, matched1, matched2,
+                          recursive: recursive)
 
         # Fallback: match remaining elements by class attribute
         # This handles insertions that shift positions
         still_unmatched1 = elems1.reject { |e| matched1.include?(e) }
         still_unmatched2 = elems2.reject { |e| matched2.include?(e) }
         match_by_class(still_unmatched1, still_unmatched2, path, matched1,
-                       matched2)
+                       matched2, recursive: recursive)
 
         # Record unmatched as deleted/inserted
         unmatched1.each do |elem1|
@@ -203,14 +232,13 @@ module Canon
                               else
                                 path + [elem1.name]
                               end
-          pos1 = elems1.index(elem1)
 
           @matches << MatchResult.new(
             status: :deleted,
             elem1: elem1,
             elem2: nil,
             path: elem_path_with_ns,
-            pos1: pos1,
+            pos1: positions1[elem1],
             pos2: nil,
           )
         end
@@ -223,7 +251,6 @@ module Canon
                               else
                                 path + [elem2.name]
                               end
-          pos2 = elems2.index(elem2)
 
           @matches << MatchResult.new(
             status: :inserted,
@@ -231,16 +258,24 @@ module Canon
             elem2: elem2,
             path: elem_path_with_ns,
             pos1: nil,
-            pos2: pos2,
+            pos2: positions2[elem2],
           )
         end
       end
 
       # Match remaining elements by name and position
-      def match_by_position(elems1, elems2, path, matched1, matched2)
+      def match_by_position(elems1, elems2, path, matched1, matched2,
+                            recursive:)
         # Group by element name AND namespace_uri
         by_identity1 = elems1.group_by { |e| [e.name, e.namespace_uri] }
         by_identity2 = elems2.group_by { |e| [e.name, e.namespace_uri] }
+
+        # Positions within these (already unmatched-filtered) lists —
+        # elems.index(elem) was an O(n) scan per recorded match
+        subset_positions1 = {}
+        elems1.each_with_index { |e, i| subset_positions1[e] = i }
+        subset_positions2 = {}
+        elems2.each_with_index { |e, i| subset_positions2[e] = i }
 
         # For each name+namespace combination, match by position
         by_identity1.each do |identity, list1|
@@ -264,33 +299,38 @@ module Canon
                                   path + [name]
                                 end
 
-            # Track positions in original element lists
-            pos1 = elems1.index(elem1)
-            pos2 = elems2.index(elem2)
-
             @matches << MatchResult.new(
               status: :matched,
               elem1: elem1,
               elem2: elem2,
               path: elem_path_with_ns,
-              pos1: pos1,
-              pos2: pos2,
+              pos1: subset_positions1[elem1],
+              pos2: subset_positions2[elem2],
             )
             matched1.add(elem1)
             matched2.add(elem2)
 
             # Recursively match children
-            match_children(elem1.children, elem2.children, elem_path_with_ns)
+            if recursive
+              match_children(elem1.children, elem2.children, elem_path_with_ns)
+            end
           end
         end
       end
 
       # Match remaining elements by class attribute (position-independent)
       # This handles cases where insertions shift positions but elements have class-based identity
-      def match_by_class(elems1, elems2, path, matched1, matched2)
+      def match_by_class(elems1, elems2, path, matched1, matched2,
+                         recursive:)
         # Build class maps for elements that have class attributes
         class_map1 = build_class_map(elems1)
         class_map2 = build_class_map(elems2)
+
+        # Positions within these (still-unmatched-filtered) lists
+        subset_positions1 = {}
+        elems1.each_with_index { |e, i| subset_positions1[e] = i }
+        subset_positions2 = {}
+        elems2.each_with_index { |e, i| subset_positions2[e] = i }
 
         # Match by class attribute
         class_map1.each do |class_value, elem1|
@@ -311,23 +351,21 @@ module Canon
                                 path + [elem1.name]
                               end
 
-          # Track positions in original element lists
-          pos1 = elems1.index(elem1)
-          pos2 = elems2.index(elem2)
-
           @matches << MatchResult.new(
             status: :matched,
             elem1: elem1,
             elem2: elem2,
             path: elem_path_with_ns,
-            pos1: pos1,
-            pos2: pos2,
+            pos1: subset_positions1[elem1],
+            pos2: subset_positions2[elem2],
           )
           matched1.add(elem1)
           matched2.add(elem2)
 
           # Recursively match children
-          match_children(elem1.children, elem2.children, elem_path_with_ns)
+          if recursive
+            match_children(elem1.children, elem2.children, elem_path_with_ns)
+          end
         end
       end
 

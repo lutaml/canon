@@ -230,6 +230,16 @@ module Canon
       #   - :verbose - Return detailed diff array (default: false)
       # @return [Boolean, Array] true if equivalent, or array of diffs if verbose
       def equivalent?(obj1, obj2, opts = {})
+        # FAST PATH: identical inputs never differ under any profile —
+        # byte-identical strings parse to identical structures, and one
+        # object parsed twice yields the same tree. Verbose callers need
+        # full metadata (differences list, statistics), so they take the
+        # whole pipeline.
+        if !opts[:verbose] && (obj1.equal?(obj2) ||
+            (obj1.is_a?(String) && obj2.is_a?(String) && obj1 == obj2))
+          return true
+        end
+
         # Normalize: match: { semantic_diff: true } → diff_algorithm: :semantic
         if opts.dig(:match, :semantic_diff) || opts.dig(:match, :semantic_tree)
           opts = opts.merge(diff_algorithm: :semantic)

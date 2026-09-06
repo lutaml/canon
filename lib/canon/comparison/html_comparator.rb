@@ -44,6 +44,16 @@ module Canon
         # @return [Boolean, Array] true if equivalent, or array of diffs if
         #   verbose
         def equivalent?(html1, html2, opts = {}, child_opts = {})
+          # FAST PATH: identical inputs never differ under any profile —
+          # byte-identical HTML parses to identical DOMs. Comparison's
+          # entry point already catches this; it is repeated here for
+          # callers invoking the comparator directly. Verbose callers
+          # need full metadata, so they take the whole pipeline.
+          if !opts[:verbose] && (html1.equal?(html2) ||
+              (html1.is_a?(String) && html2.is_a?(String) && html1 == html2))
+            return true
+          end
+
           opts = DEFAULT_OPTS.merge(opts)
 
           # Capture original HTML strings for display.
@@ -94,10 +104,6 @@ module Canon
           # Create child_opts with resolved options
           child_opts = opts.merge(child_opts)
 
-          # Serialize preprocessed nodes for diff display (avoid re-preprocessing)
-          preprocessed_str1 = serialize_for_display(node1)
-          preprocessed_str2 = serialize_for_display(node2)
-
           differences = []
           diff_children = opts[:diff_children] || false
 
@@ -124,10 +130,11 @@ module Canon
           if opts[:verbose]
             ComparisonResult.new(
               differences: differences,
-              preprocessed_strings: [preprocessed_str1, preprocessed_str2],
+              preprocessed_strings: [serialize_for_display(node1),
+                                     serialize_for_display(node2)],
               original_strings: [original_str1, original_str2],
               format: :html,
-              html_version: detect_html_version_from_node(node1),
+              html_version: html_version,
               match_options: match_opts_hash,
               algorithm: :dom,
               parse_errors_expected: Comparison.parse_errors_for(node1),

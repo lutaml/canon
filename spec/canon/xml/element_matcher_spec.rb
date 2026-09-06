@@ -6,6 +6,35 @@ require_relative "../../../lib/canon/xml/element_matcher"
 RSpec.describe Canon::Xml::ElementMatcher do
   let(:matcher) { described_class.new }
 
+  describe "#match_children_only" do
+    it "pairs one level of children and does not descend into matched pairs" do
+      xml1 = '<root><a id="1"><x>t1</x></a><b/></root>'
+      xml2 = '<root><a id="1"><x>t2</x></a><b/></root>'
+      root1 = Canon::Xml::DataModel.from_xml(xml1).children.first
+      root2 = Canon::Xml::DataModel.from_xml(xml2).children.first
+
+      matches = matcher.match_children_only(root1.children, root2.children)
+
+      expect(matches.map(&:status)).to all(eq(:matched))
+      expect(matches.map { |m| m.elem1.name }.sort).to eq(%w[a b])
+      # Single level only: nested <x> matches must not appear.
+      expect(matches.flat_map { |m| m.path.flatten }).not_to include("x")
+    end
+
+    it "records deleted and inserted elements at this level" do
+      xml1 = "<root><a/><b/></root>"
+      xml2 = "<root><a/><c/></root>"
+      root1 = Canon::Xml::DataModel.from_xml(xml1).children.first
+      root2 = Canon::Xml::DataModel.from_xml(xml2).children.first
+
+      matches = matcher.match_children_only(root1.children, root2.children)
+
+      expect(matches.find { |m| m.matched? && m.elem1.name == "a" }).not_to be_nil
+      expect(matches.find { |m| m.deleted? && m.elem1.name == "b" }).not_to be_nil
+      expect(matches.find { |m| m.inserted? && m.elem2.name == "c" }).not_to be_nil
+    end
+  end
+
   describe "#match_trees" do
     context "with namespace handling" do
       it "matches elements with same name and same namespace URI" do
