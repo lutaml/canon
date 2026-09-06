@@ -68,8 +68,11 @@ module Canon
       def self.whitespace_only_text?(node)
         return false unless text_node?(node)
 
+        # This runs per child pair in the realignment walk — the
+        # zero-allocation form of `text.strip.empty?` (exactly
+        # String#strip's character set; see WhitespacePolicy).
         text = text_content(node)
-        !text.empty? && text.strip.empty?
+        !text.empty? && text.match?(Canon::Xml::WhitespacePolicy::STRIP_ONLY)
       end
 
       # --- Noise classification ---
