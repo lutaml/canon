@@ -53,15 +53,26 @@ module Canon
           (@attribute_nodes ||= []) << attribute_node
         end
 
-        # Get namespace nodes in sorted order (lexicographically by local name)
+        # Get namespace nodes in sorted order (lexicographically by local name).
         def sorted_namespace_nodes
-          namespace_nodes.sort_by(&:local_name)
+          nodes = namespace_nodes
+          return nodes if nodes.empty?
+
+          nodes.sort_by(&:local_name)
         end
 
-        # Get attribute nodes in sorted order (by namespace URI then local name)
+        # Get attribute nodes in sorted order (by namespace URI then local
+        # name). A comparator block instead of sort_by keys allocates no
+        # per-attribute key arrays; (uri, name) pairs are unique per
+        # element (duplicates are resolved at build), so the order is
+        # identical.
         def sorted_attribute_nodes
-          attribute_nodes.sort_by do |attr|
-            [attr.namespace_uri.to_s, attr.local_name]
+          attrs = attribute_nodes
+          return attrs if attrs.empty?
+
+          attrs.sort do |a, b|
+            (a.namespace_uri.to_s <=> b.namespace_uri.to_s).nonzero? ||
+              (a.local_name <=> b.local_name)
           end
         end
 
