@@ -14,7 +14,7 @@ module Canon
       def process_namespaces(element, output, parent_element = nil)
         return unless element.in_node_set?
 
-        namespaces = element.sorted_namespace_nodes.select(&:in_node_set?)
+        namespaces = renderable_namespaces(element)
 
         # Check if we need to emit xmlns="" for empty default namespace
         if should_emit_empty_default_namespace?(element, namespaces,
@@ -61,25 +61,44 @@ module Canon
       end
 
       # Check if a namespace node should be skipped
-      def should_skip_namespace?(ns, _element, parent_element)
+      def should_skip_namespace?(ns, element, parent_element)
         # Skip xml namespace with standard URI
         return true if ns.xml_namespace?
 
         # Skip if an ancestor already declared this namespace
-        return true if namespace_declared_by_ancestor?(ns, parent_element)
+        return true if namespace_declared_by_ancestor?(ns, element,
+                                                       parent_element)
 
         false
       end
 
       # Check if a namespace is already declared by an ancestor
-      def namespace_declared_by_ancestor?(ns, parent_element)
+      def namespace_declared_by_ancestor?(ns, element, parent_element)
         return false unless parent_element
 
-        parent_ns = parent_element.namespace_nodes.find do |parent_ns|
+        parent_nodes = parent_element.namespace_nodes
+        # Elements that declared nothing share their parent's scope
+        # object (TreeBuilder scope sharing), so identical arrays mean
+        # identical bindings — every namespace of this element is
+        # already declared above and will be skipped without a scan.
+        return true if parent_nodes.equal?(element.namespace_nodes)
+
+        parent_ns = parent_nodes.find do |parent_ns|
           parent_ns.prefix == ns.prefix && parent_ns.in_node_set?
         end
 
         parent_ns && parent_ns.uri == ns.uri
+      end
+
+      # Sorted, in-node-set namespaces for one element. Undeclaring
+      # elements share one frozen array object, and node-set marking is
+      # fixed before processing runs, so the rendered form is cached
+      # per array identity for the lifetime of this handler (one
+      # canonicalization run).
+      def renderable_namespaces(element)
+        cache = (@renderable_namespaces ||= {}.compare_by_identity)
+        nodes = element.namespace_nodes
+        cache[nodes] ||= nodes.sort_by(&:local_name).select(&:in_node_set?)
       end
     end
   end
