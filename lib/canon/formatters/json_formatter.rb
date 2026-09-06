@@ -23,8 +23,12 @@ module Canon
       def self.sort_json_keys(obj)
         case obj
         when Hash
-          obj.transform_values { |v| sort_json_keys(v) }
-            .sort.to_h
+          # Single pass: sorted keys once, one rebuilt hash. The
+          # previous form (transform_values + sort.to_h) rebuilt every
+          # container twice per canonicalization.
+          sorted = {}
+          obj.keys.sort.each { |key| sorted[key] = sort_json_keys(obj[key]) }
+          sorted
         when Array
           obj.map { |item| sort_json_keys(item) }
         else
