@@ -198,7 +198,7 @@ module Canon
 
           return Comparison::EQUIVALENT if children1.empty? && children2.empty?
 
-          emitter = html_diff_emitter(differences)
+          emitter = html_diff_emitter(differences, opts)
           ChildRealignment.walk(children1, children2, emitter,
                                 emit_structural_orphans: true) do |c1, c2|
             XmlNodeComparison.compare_nodes(c1, c2, opts, child_opts,
@@ -208,10 +208,12 @@ module Canon
 
         # Build a diff emitter for the HTML comparator path that
         # creates DiffNode objects via DiffNodeBuilder.
-        def html_diff_emitter(differences)
+        def html_diff_emitter(differences, opts)
+          verbose = opts[:verbose]
           proc do |n1, n2, d1, d2, dim|
             differences << Canon::Comparison::DiffNodeBuilder.build(
               node1: n1, node2: n2, diff1: d1, diff2: d2, dimension: dim,
+              verbose: verbose
             )
           end
         end

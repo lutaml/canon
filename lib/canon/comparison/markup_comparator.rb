@@ -16,11 +16,11 @@ module Canon
         #
         # Delegates to DiffNodeBuilder, the single DiffNode factory for
         # the DOM comparison path.
-        def add_difference(node1, node2, diff1, diff2, dimension, _opts,
+        def add_difference(node1, node2, diff1, diff2, dimension, opts,
                            differences)
           differences << Canon::Comparison::DiffNodeBuilder.build(
             node1: node1, node2: node2, diff1: diff1, diff2: diff2,
-            dimension: dimension
+            dimension: dimension, verbose: opts[:verbose]
           )
         end
 
@@ -53,6 +53,19 @@ module Canon
         # @param opts [Hash] Comparison options
         # @return [Array] Filtered array of children
         def filter_children(children, opts)
+          # Fast path: with no ignore_nodes list, only text/comment
+          # children can ever be excluded (node_excluded? returns false
+          # for every other kind) — an all-element child list passes
+          # through untouched, with no reject copy and no per-child
+          # exclusion checks.
+          ignore_nodes = opts[:ignore_nodes]
+          if (ignore_nodes.nil? || ignore_nodes.empty?) && !children.empty?
+            excludable = children.any? do |child|
+              text_node?(child) || comment_node?(child)
+            end
+            return children unless excludable
+          end
+
           children.reject do |child|
             node_excluded?(child, opts)
           end

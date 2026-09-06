@@ -298,14 +298,18 @@ module Canon
           ns2 = Canon::XmlParsing.namespace_uri(n2)
 
           unless ns1 == ns2
-            diff_node = Canon::Comparison::DiffNodeBuilder.build(
-              node1: n1,
-              node2: n2,
-              diff1: Comparison::UNEQUAL_ELEMENTS,
-              diff2: Comparison::UNEQUAL_ELEMENTS,
-              dimension: :namespace_uri,
-            )
-            differences << diff_node if opts[:verbose]
+            # The DiffNode is only ever appended in verbose mode — skip
+            # building it entirely otherwise.
+            if opts[:verbose]
+              differences << Canon::Comparison::DiffNodeBuilder.build(
+                node1: n1,
+                node2: n2,
+                diff1: Comparison::UNEQUAL_ELEMENTS,
+                diff2: Comparison::UNEQUAL_ELEMENTS,
+                dimension: :namespace_uri,
+                verbose: true,
+              )
+            end
             return Comparison::UNEQUAL_ELEMENTS
           end
 
