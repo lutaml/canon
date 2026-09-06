@@ -44,7 +44,8 @@ module Canon
           cache.delete(oldest_key) if oldest_key
         end
 
-        cache[key] = { value: value, accessed: Time.now }
+        @clock = (@clock || 0) + 1
+        cache[key] = { value: value, accessed: @clock }
         value
       end
 
@@ -75,12 +76,6 @@ module Canon
       # Generate cache key for document parsing
       def key_for_document(content, format, preprocessing)
         "doc:#{format}:#{preprocessing}:#{content_hash(content)}"
-      end
-
-      # Generate cache key for format detection
-      def key_for_format_detection(content)
-        preview = content[0..100].b
-        "fmt:#{content_hash(preview + content.length.to_s)}"
       end
 
       # Generate cache key for XML canonicalization

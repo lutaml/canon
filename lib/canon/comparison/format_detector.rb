@@ -53,15 +53,16 @@ module Canon
           raise Canon::Error, "Unknown format for object: #{obj.class}"
         end
 
-        # Detect the format of a string with caching
+        # Detect the format of a string
         #
         # @param str [String] String to detect format of
         # @return [Symbol] Format type
         def detect_string(str)
-          # Use cache for format detection
-          Cache.fetch(:format_detect, Cache.key_for_format_detection(str)) do # rubocop:disable Lint/UselessDefaultValueArgument
-            detect_string_uncached(str)
-          end
+          # Detection is a handful of prefix checks and one anchored
+          # regex — building the SHA256 cache key (plus LRU clock
+          # bookkeeping) cost several times the detection itself, so
+          # the answer is computed directly.
+          detect_string_uncached(str)
         end
 
         # Detect the format of a string without caching
