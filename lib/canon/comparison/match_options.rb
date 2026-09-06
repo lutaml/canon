@@ -93,6 +93,21 @@ module Canon
         end
 
         # Normalize text preserving Unicode whitespace type distinctions.
+        # Fast form of `normalize_text(text).empty?`, called per text
+        # node by node_excluded?. Pure-ASCII whitespace (the common
+        # case — pretty-print indentation) matches a plain class with
+        # no intermediate strings and no \p{} property (Opal's JS
+        # regexes do not honor \p{Space}); anything else falls back to
+        # normalize_text's exact semantics. NUL is included because
+        # String#strip strips nulls too.
+        ASCII_WHITESPACE_ONLY = /\A[ \t\r\n\v\f\x00]*\z/
+
+        def whitespace_only?(text)
+          text = text.to_s
+          text.empty? || text.match?(ASCII_WHITESPACE_ONLY) ||
+            normalize_text(text).empty?
+        end
+
         def normalize_text_preserving_type(text)
           return "" if text.nil?
 

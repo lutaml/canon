@@ -171,13 +171,16 @@ inherited_namespaces: nil)
             inherited_namespaces,
             node.namespace_definitions.map { |ns| [ns.prefix, ns.href] },
           )
+          flat_attributes = []
+          node.attribute_nodes.each do |attr|
+            flat_attributes << attr.name << attr.value <<
+              attr.namespace&.href << attr.namespace&.prefix
+          end
           element = TreeBuilder::DEFAULT.element(
             name: node.name,
             prefix: node.namespace&.prefix,
             namespace_uri: node.namespace&.href,
-            attributes: node.attribute_nodes.map do |attr|
-              [attr.name, attr.value, attr.namespace&.href, attr.namespace&.prefix]
-            end,
+            attributes: flat_attributes,
             namespace_scope: scope,
           )
           node.children.each do |child|
@@ -252,13 +255,18 @@ inherited_namespaces: nil)
 
       def self.build_moxml_subtree_from_records(moxml_element,
 preserve_whitespace: false)
-        frames = []
+        # Parallel depth/node stacks: one [depth, node] pair per record
+        # cost two Arrays per node; depths are Integers (immediate
+        # values), so two parallel arrays allocate nothing per record.
+        frame_depths = []
+        frame_nodes = []
         own_namespaces = {}.compare_by_identity
 
         # materialize_fields: the zero-allocation hot path (moxml#143).
         # Flat reused buffers — attributes stride 4, namespaces stride
         # 2 — valid only inside the block, so the element builder
-        # copies them into pairs before returning.
+        # consumes them synchronously before the next record reuses
+        # the buffer.
         moxml_element.materialize_fields do |kind, qname, prefix, namespace_uri, namespaces, attributes, text, depth|
           # The record contract is root-subtree-only since moxml 0.5.11
           # (moxml#140). Older 0.5.x releases — still allowed by canon's
@@ -286,7 +294,7 @@ preserve_whitespace: false)
                  when :element
                    build_moxml_element_from_fields(
                      qname, prefix, namespace_uri, namespaces, attributes,
-                     depth, frames, own_namespaces
+                     depth, frame_depths, frame_nodes, own_namespaces
                    )
                  when :text, :cdata
                    content = text.to_s
@@ -300,30 +308,39 @@ preserve_whitespace: false)
                    TreeBuilder::DEFAULT.processing_instruction(qname, text || "")
                  end
 
-          frames.push([depth, node]) if node
+          if node
+            frame_depths << depth
+            frame_nodes << node
+          end
         end
 
-        top = frames.last
-        return nil unless top
+        return nil if frame_nodes.empty?
 
-        assign_moxml_namespace_scopes(top[1], nil, own_namespaces)
-        top[1]
+        top = frame_nodes.last
+        assign_moxml_namespace_scopes(top, nil, own_namespaces)
+        top
       end
 
       def self.build_moxml_element_from_fields(qname, prefix, namespace_uri,
                                                namespaces, attributes, depth,
-                                               frames, own_namespaces)
+                                               frame_depths, frame_nodes,
+                                               own_namespaces)
+        # The flat attribute buffer is consumed synchronously — the
+        # next record reuses it (no each_slice copy out of the block).
         element = TreeBuilder::DEFAULT.element(
           name: qname,
           prefix: prefix,
           namespace_uri: namespace_uri,
-          attributes: attributes.each_slice(4).to_a,
+          attributes: attributes,
         )
 
         # Adopt completed children: they pop in reverse order; reversing
         # once is O(n) (unshift per child would be O(n^2) on wide trees).
         children = []
-        children << frames.pop[1] while frames.any? && frames.last[0] > depth
+        while frame_depths.any? && frame_depths.last > depth
+          frame_depths.pop
+          children << frame_nodes.pop
+        end
         children.reverse_each { |child| element.add_child(child) }
 
         # Copy the declarations out of the reused buffer (most
@@ -352,13 +369,16 @@ inherited_namespaces: nil)
             inherited_namespaces,
             node.namespace_definitions.map { |ns| [ns.prefix, ns.uri] },
           )
+          flat_attributes = []
+          node.attributes.each do |attr|
+            flat_attributes << attr.name << attr.value <<
+              attr.namespace&.uri << attr.namespace&.prefix
+          end
           element = TreeBuilder::DEFAULT.element(
             name: node.name,
             prefix: node.namespace&.prefix,
             namespace_uri: node.namespace&.uri,
-            attributes: node.attributes.map do |attr|
-              [attr.name, attr.value, attr.namespace&.uri, attr.namespace&.prefix]
-            end,
+            attributes: flat_attributes,
             namespace_scope: scope,
           )
           node.children.each do |child|

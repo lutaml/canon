@@ -107,17 +107,20 @@ module Canon
             inherited_namespaces,
             node.namespace_definitions.map { |ns| [ns.prefix, ns.href] },
           )
+          # HTML attributes are namespace-free; xmlns declarations are
+          # not reported as attributes. Flat stride-4 array
+          # (TreeBuilder#element contract).
+          flat_attributes = []
+          node.attribute_nodes.each do |attr|
+            next if attr.name.start_with?("xmlns")
+
+            flat_attributes << attr.name << attr.value << nil << nil
+          end
           element = builder.element(
             name: node.name,
             prefix: node.namespace&.prefix,
             namespace_uri: node.namespace&.href,
-            # HTML attributes are namespace-free; xmlns declarations are
-            # not reported as attributes.
-            attributes: node.attribute_nodes.filter_map do |attr|
-              next if attr.name.start_with?("xmlns")
-
-              [attr.name, attr.value, nil, nil]
-            end,
+            attributes: flat_attributes,
             namespace_scope: scope,
           )
           node.children.each do |child|

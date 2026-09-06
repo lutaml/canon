@@ -24,6 +24,19 @@ module Canon
         time tt u var wbr
       ].freeze
 
+      # Precomputed symbol forms of the default lists: format_default_*
+      # used to map(&:to_sym) per call — one array per classified node.
+      HTML_PRESERVE_SYMBOLS = HTML_PRESERVE_ELEMENTS.map(&:to_sym).freeze
+      HTML_COLLAPSE_SYMBOLS = HTML_COLLAPSE_ELEMENTS.map(&:to_sym).freeze
+
+      # The resolved element sets depend only on match_opts, which is
+      # resolved once per comparison — but classification runs per node,
+      # so the sets are memoized per match_opts object (identity-keyed;
+      # side-flag merges produce distinct objects and their own entries).
+      # Bounded: stale entries of finished comparisons cost a few
+      # hundred bytes until the next clear.
+      RESOLVED_SETS_LIMIT = 1024
+
       class << self
         # Classify the whitespace behaviour for an element using ancestor walk.
         def classify_element(element, match_opts)
@@ -107,7 +120,7 @@ module Canon
           format = match_opts[:format] || :xml
           case format
           when :html, :html4, :html5
-            HTML_PRESERVE_ELEMENTS.map(&:to_sym).freeze
+            HTML_PRESERVE_SYMBOLS
           else
             [].freeze
           end
@@ -117,7 +130,7 @@ module Canon
           format = match_opts[:format] || :xml
           case format
           when :html, :html4, :html5
-            HTML_COLLAPSE_ELEMENTS.map(&:to_sym).freeze
+            HTML_COLLAPSE_SYMBOLS
           else
             [].freeze
           end
@@ -184,30 +197,43 @@ module Canon
         end
 
         def resolved_preserve_elements_set(match_opts)
-          set = Set.new(format_default_preserve_elements(match_opts).map(&:to_s))
+          entry = resolved_sets_entry(match_opts)
+          entry[0] ||= begin
+            set = Set.new(format_default_preserve_elements(match_opts).map(&:to_s))
 
-          if match_opts[:preserve_whitespace_elements]
-            set |= match_opts[:preserve_whitespace_elements].map(&:to_s)
+            if match_opts[:preserve_whitespace_elements]
+              set |= match_opts[:preserve_whitespace_elements].map(&:to_s)
+            end
+
+            strip_set = resolved_strip_elements_set(match_opts)
+            set.reject { |e| strip_set.include?(e) }.to_set
           end
-
-          strip_set = resolved_strip_elements_set(match_opts)
-          set.reject { |e| strip_set.include?(e) }.to_set
         end
 
         def resolved_collapse_elements_set(match_opts)
-          set = Set.new(format_default_collapse_elements(match_opts).map(&:to_s))
+          entry = resolved_sets_entry(match_opts)
+          entry[1] ||= begin
+            set = Set.new(format_default_collapse_elements(match_opts).map(&:to_s))
 
-          if match_opts[:collapse_whitespace_elements]
-            set |= match_opts[:collapse_whitespace_elements].map(&:to_s)
+            if match_opts[:collapse_whitespace_elements]
+              set |= match_opts[:collapse_whitespace_elements].map(&:to_s)
+            end
+
+            strip_set = resolved_strip_elements_set(match_opts)
+            set.reject { |e| strip_set.include?(e) }.to_set
           end
-
-          strip_set = resolved_strip_elements_set(match_opts)
-          set.reject { |e| strip_set.include?(e) }.to_set
         end
 
         def resolved_strip_elements_set(match_opts)
-          raw = match_opts[:strip_whitespace_elements]
-          Set.new((raw || []).map(&:to_s))
+          entry = resolved_sets_entry(match_opts)
+          entry[2] ||= Set.new((match_opts[:strip_whitespace_elements] || [])
+                                 .map(&:to_s))
+        end
+
+        def resolved_sets_entry(match_opts)
+          cache = (@resolved_sets_cache ||= {}.compare_by_identity)
+          cache.clear if cache.size >= RESOLVED_SETS_LIMIT
+          cache[match_opts] ||= [nil, nil, nil]
         end
 
         def walk_ancestor_classification(element, preserve_set, collapse_set,
@@ -271,7 +297,7 @@ module Canon
           name = node_name(element)
           return false unless name
 
-          list.map(&:to_s).include?(name.to_s)
+          list.any? { |e| e.to_s == name }
         end
 
         def text_node_parent?(node)

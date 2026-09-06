@@ -138,16 +138,22 @@ strip_doctype: false)
         new_scope = ns_hash.empty? ? inherited_scope : inherited_scope.merge(ns_hash)
         @namespace_stack.push(new_scope)
 
+        # Flat stride-4 attribute array (TreeBuilder#element contract):
+        # one array per element instead of one sub-array per attribute.
+        flat_attributes = []
+        regular_attrs.each do |attr_name, attr_value|
+          attr_prefix, attr_local = parse_qname(attr_name)
+          attr_ns_uri = attr_prefix ? new_scope[attr_prefix] : nil
+          flat_attributes << attr_local <<
+            decode_character_references(attr_value || "") << attr_ns_uri << attr_prefix
+        end
+
         element = TreeBuilder::DEFAULT.element(
           name: local_name,
           prefix: prefix,
           namespace_uri: new_scope[prefix.to_s],
           namespace_scope: new_scope,
-          attributes: regular_attrs.map do |attr_name, attr_value|
-            attr_prefix, attr_local = parse_qname(attr_name)
-            attr_ns_uri = attr_prefix ? new_scope[attr_prefix] : nil
-            [attr_local, decode_character_references(attr_value || ""), attr_ns_uri, attr_prefix]
-          end,
+          attributes: flat_attributes,
         )
 
         parent.add_child(element)
@@ -324,6 +330,10 @@ strip_doctype: false)
       # @param value [String] String potentially containing character references
       # @return [String] String with character references decoded
       def decode_character_references(value)
+        # Fast path: no reference opener means nothing to decode —
+        # skip the gsub and its string copy on every plain text chunk.
+        return value unless value.include?("&")
+
         value.gsub(/&#(x?[0-9a-fA-F]+);/) do |match|
           code_str = Regexp.last_match(1)
           code_point = if code_str.start_with?("x")
