@@ -10,9 +10,20 @@ module Canon
     # attributes), and whitespace visualization — previously duplicated
     # across MarkupComparator and XmlComparator.
     class DiffNodeBuilder
-      # Build an enriched DiffNode.
-      def self.build(node1:, node2:, diff1:, diff2:, dimension:, **_opts)
+      # Build a DiffNode. Verbose callers get the fully enriched form —
+      # reason, path, serialized content, attributes; non-verbose
+      # callers only ever ask normative?, and DiffClassifier reads node
+      # refs and dimension alone, so reason building and metadata
+      # enrichment (five display operations per difference) are
+      # skipped entirely.
+      def self.build(node1:, node2:, diff1:, diff2:, dimension:,
+                     verbose: false, **_opts)
         raise ArgumentError, "dimension required for DiffNode" if dimension.nil?
+
+        unless verbose
+          return Canon::Diff::DiffNode.new(node1: node1, node2: node2,
+                                           dimension: dimension)
+        end
 
         reason = build_reason(node1, node2, diff1, diff2, dimension)
         metadata = enrich_metadata(node1, node2)

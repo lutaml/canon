@@ -22,6 +22,10 @@ module Canon
     #   root = SaxBuilder.parse(xml_string, strip_doctype: true)
     #
     class SaxBuilder
+      # Shared empties for the no-declaration common case: both
+      # consumers only iterate them.
+      NO_NAMESPACE_DECLS = [].freeze
+      EMPTY_NS_HASH = {}.freeze
       # Parse XML string and return Canon::Xml::Node tree
       #
       # @param xml_string [String] XML content to parse
@@ -109,6 +113,31 @@ strip_doctype: false)
       # @param attrs [Array] Array of [name, value] pairs
       def start_element(name, attrs = [])
         parent = @stack.last
+
+        # Fast path: attribute-less elements (the bulk of most
+        # documents) declare no namespaces — no separation, no hash,
+        # no qname pair array; the inherited scope object is pushed
+        # as-is (shared scope → cached namespace-node array).
+        if attrs.empty?
+          if (colon = name.index(":"))
+            prefix = name[0...colon]
+            local_name = name[(colon + 1)..]
+          else
+            prefix = nil
+            local_name = name
+          end
+          new_scope = @namespace_stack.last
+          @namespace_stack.push(new_scope)
+          element = TreeBuilder::DEFAULT.element(
+            name: local_name,
+            prefix: prefix,
+            namespace_uri: new_scope[prefix.to_s],
+            namespace_scope: new_scope,
+          )
+          parent.add_child(element)
+          @stack.push(element)
+          return
+        end
 
         # Parse namespace from name (prefix:localname or just localname)
         prefix, local_name = parse_qname(name)
@@ -280,6 +309,8 @@ strip_doctype: false)
       # @param ns_decls [Array] Array of [name, value] pairs for namespace declarations
       # @return [Hash] Namespace prefix => URI mapping
       def build_ns_hash(ns_decls)
+        return EMPTY_NS_HASH if ns_decls.empty?
+
         result = {}
         ns_decls.each do |name, uri|
           # xmlns="..." for default namespace, xmlns:prefix="..." for prefixed
@@ -311,6 +342,12 @@ strip_doctype: false)
       # @param attrs [Array] Array of [name, value] pairs
       # @return [Array] Two arrays: [namespace_decls, regular_attrs]
       def separate_namespaces(attrs)
+        # Fast path: no xmlns declarations — the attribute pairs pass
+        # through untouched and nothing is copied.
+        unless attrs.any? { |name, _| name == "xmlns" || name.start_with?("xmlns:") }
+          return [NO_NAMESPACE_DECLS, attrs]
+        end
+
         ns_decls = []
         regular_attrs = []
 

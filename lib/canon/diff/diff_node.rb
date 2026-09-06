@@ -34,7 +34,7 @@ module Canon
       # @param serialized_after [String, nil] Optional serialized content for display
       # @param attributes_before [Hash, nil] Optional normalized attributes hash
       # @param attributes_after [Hash, nil] Optional normalized attributes hash
-      def initialize(node1:, node2:, dimension:, reason:,
+      def initialize(node1:, node2:, dimension:, reason: nil,
                      path: nil, serialized_before: nil, serialized_after: nil,
                      attributes_before: nil, attributes_after: nil)
         @node1 = node1
