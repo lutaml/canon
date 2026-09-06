@@ -15,12 +15,16 @@ module Canon
           @attribute_nodes = nil
         end
 
-        # Lazy: most elements carry no attributes, and inherited
-        # namespace nodes arrive as one shared frozen array (see
-        # TreeBuilder#attach_namespace_scope) — eager per-element arrays
-        # were the largest retained-allocation source in a built tree.
+        # Lazy: attribute-free elements (common in real documents) share
+        # one frozen empty array on read instead of materializing one
+        # per element; writers install a private array first. Inherited
+        # namespace nodes arrive as one shared frozen array from
+        # TreeBuilder#attach_namespace_scope.
+        EMPTY_ATTRIBUTE_NODES = [].freeze
+        EMPTY_NAMESPACE_NODES = [].freeze
+
         def namespace_nodes
-          @namespace_nodes ||= []
+          @namespace_nodes || EMPTY_NAMESPACE_NODES
         end
 
         def namespace_nodes=(nodes)
@@ -28,7 +32,7 @@ module Canon
         end
 
         def attribute_nodes
-          @attribute_nodes ||= []
+          @attribute_nodes || EMPTY_ATTRIBUTE_NODES
         end
 
         def node_type
@@ -41,12 +45,12 @@ module Canon
 
         def add_namespace(namespace_node)
           namespace_node.parent = self
-          namespace_nodes << namespace_node
+          (@namespace_nodes ||= []) << namespace_node
         end
 
         def add_attribute(attribute_node)
           attribute_node.parent = self
-          attribute_nodes << attribute_node
+          (@attribute_nodes ||= []) << attribute_node
         end
 
         # Get namespace nodes in sorted order (lexicographically by local name)
