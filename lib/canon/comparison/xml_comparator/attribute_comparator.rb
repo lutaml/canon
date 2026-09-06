@@ -26,6 +26,14 @@ module Canon
           match_opts = opts[:match_opts]
           attribute_order_behavior = match_opts[:attribute_order] || :strict
 
+          # FAST PATH: identical filtered attributes in identical key
+          # order — exact equality implies behavioral equality for every
+          # value behavior, and no order difference exists. Most element
+          # pairs hit this and skip the sort/hash/value work entirely.
+          if attrs1 == attrs2 && attrs1.keys == attrs2.keys
+            return Comparison::EQUIVALENT
+          end
+
           # Check attribute order if not ignored
           keys1 = attrs1.keys.map(&:to_s)
           keys2 = attrs2.keys.map(&:to_s)

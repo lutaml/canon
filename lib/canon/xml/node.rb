@@ -4,6 +4,13 @@ module Canon
   module Xml
     # Base class for all XPath data model nodes
     class Node
+      # Shared by every childless node: leaves (text, attributes,
+      # namespaces, comments, PIs) and empty elements read `children`
+      # without materializing a private array. Mutating the returned
+      # array is a bug — writers go through add_child/children=, which
+      # install a private array first.
+      EMPTY_CHILDREN = [].freeze
+
       attr_reader :parent
 
       def initialize
@@ -12,12 +19,8 @@ module Canon
         @in_node_set = true
       end
 
-      # Leaf nodes (text, attributes, namespaces, comments, PIs) never
-      # gain children; allocating the array eagerly cost one Array per
-      # node — the single largest retained-allocation source in a built
-      # tree — so it materializes on first add or read.
       def children
-        @children ||= []
+        @children || EMPTY_CHILDREN
       end
 
       def children=(new_children)
@@ -26,7 +29,7 @@ module Canon
 
       def add_child(child)
         child.parent = self
-        children << child
+        (@children ||= []) << child
       end
 
       def in_node_set?

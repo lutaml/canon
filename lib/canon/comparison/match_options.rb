@@ -70,6 +70,10 @@ module Canon
           when :strict
             text1 == text2
           when :normalize
+            # Identical strings normalize identically — skip the two
+            # gsub+strip chains.
+            return true if text1 == text2
+
             if whitespace_type == :normalize
               normalize_text(text1) == normalize_text(text2)
             else
@@ -92,22 +96,34 @@ module Canon
             .strip # Remove leading/trailing whitespace
         end
 
-        # Normalize text preserving Unicode whitespace type distinctions.
         # Fast form of `normalize_text(text).empty?`, called per text
         # node by node_excluded?. Pure-ASCII whitespace (the common
         # case — pretty-print indentation) matches a plain class with
         # no intermediate strings and no \p{} property (Opal's JS
-        # regexes do not honor \p{Space}); anything else falls back to
-        # normalize_text's exact semantics. NUL is included because
-        # String#strip strips nulls too.
+        # regexes do not honor \p{Space}); a pure-ASCII miss is
+        # conclusively non-whitespace; only non-ASCII text falls back
+        # to normalize_text's exact Unicode semantics. NUL is included
+        # because String#strip strips nulls too.
         ASCII_WHITESPACE_ONLY = /\A[ \t\r\n\v\f\x00]*\z/
+        ASCII_ONLY = /\A[\x00-\x7f]*\z/
 
         def whitespace_only?(text)
           text = text.to_s
-          text.empty? || text.match?(ASCII_WHITESPACE_ONLY) ||
-            normalize_text(text).empty?
+          return true if text.empty?
+          return true if text.match?(ASCII_WHITESPACE_ONLY)
+          # A pure-ASCII string that failed the class contains an ASCII
+          # non-whitespace character, which survives both the collapse
+          # and the strip — conclusively not whitespace-only, with no
+          # intermediate strings. Only non-ASCII text (NBSP, U+3000,
+          # ...) needs normalize_text's exact Unicode semantics — and
+          # no \p{} classes appear in the fast paths, which Opal's JS
+          # regexes would not honor anyway.
+          return false if text.match?(ASCII_ONLY)
+
+          normalize_text(text).empty?
         end
 
+        # Normalize text preserving Unicode whitespace type distinctions.
         def normalize_text_preserving_type(text)
           return "" if text.nil?
 

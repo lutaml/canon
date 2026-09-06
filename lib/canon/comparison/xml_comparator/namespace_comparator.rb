@@ -17,6 +17,9 @@ module Canon
           ns_decls1 = extract_declarations(node1)
           ns_decls2 = extract_declarations(node2)
 
+          # Most element pairs declare nothing — skip the set algebra.
+          return Comparison::EQUIVALENT if ns_decls1.empty? && ns_decls2.empty?
+
           # Find missing, extra, and changed namespace declarations
           missing = ns_decls1.keys - ns_decls2.keys  # In node1 but not node2
           extra = ns_decls2.keys - ns_decls1.keys    # In node2 but not node1
