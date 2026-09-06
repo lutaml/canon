@@ -4,17 +4,29 @@ module Canon
   module Xml
     # Base class for all XPath data model nodes
     class Node
-      attr_reader :parent, :children
+      attr_reader :parent
 
       def initialize
         @parent = nil
-        @children = []
+        @children = nil
         @in_node_set = true
+      end
+
+      # Leaf nodes (text, attributes, namespaces, comments, PIs) never
+      # gain children; allocating the array eagerly cost one Array per
+      # node — the single largest retained-allocation source in a built
+      # tree — so it materializes on first add or read.
+      def children
+        @children ||= []
+      end
+
+      def children=(new_children)
+        @children = new_children
       end
 
       def add_child(child)
         child.parent = self
-        @children << child
+        children << child
       end
 
       def in_node_set?

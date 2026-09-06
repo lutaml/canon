@@ -12,10 +12,6 @@ module Canon
         def node_type
           :root
         end
-
-        def children=(new_children)
-          @children = new_children
-        end
       end
     end
   end

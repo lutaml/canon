@@ -80,8 +80,14 @@ module Canon
       end
 
       def self.extract_xml_encoding(xml_string)
-        binary_string = xml_string.dup.force_encoding("BINARY")
-        if binary_string =~ /\A\s*<\?xml[^>]*\bencoding\s*=\s*["']([^"']+)["'][^>]*\?>/i
+        # A valid UTF-8 string matches directly (the regex is
+        # ASCII-only); anything else still needs the BINARY view so a
+        # broken byte sequence cannot raise mid-probe. Skipping the
+        # dup avoids a full-document copy on every parse.
+        unless xml_string.encoding.name == "UTF-8" && xml_string.valid_encoding?
+          xml_string = xml_string.dup.force_encoding("BINARY")
+        end
+        if xml_string =~ /\A\s*<\?xml[^>]*\bencoding\s*=\s*["']([^"']+)["'][^>]*\?>/i
           return Regexp.last_match(1)
         end
 
@@ -320,8 +326,9 @@ preserve_whitespace: false)
         children << frames.pop[1] while frames.any? && frames.last[0] > depth
         children.reverse_each { |child| element.add_child(child) }
 
-        # Copy the declarations out of the reused buffer.
-        own_namespaces[element] = namespaces.each_slice(2).to_a
+        # Copy the declarations out of the reused buffer (most
+        # elements declare none — stash nothing for those).
+        own_namespaces[element] = namespaces.each_slice(2).to_a unless namespaces.empty?
         element
       end
 
