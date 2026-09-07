@@ -29,6 +29,7 @@ PENDING_UPSTREAM = {
   "comment-only documents" => ["# just a comment\n", "yeptris-ruby#29"],
   "sexagesimal scalars" => ["a: 1:30\n", "yeptris-ruby#30 — 90 vs Psych 5400"],
   "bignum integers" => ["a: 12345678901234567890123\n", "yeptris-ruby#31 — String vs Integer"],
+  "JSON duplicate keys" => ['{"a":1,"a":2}', "yeptris-ruby#37 — last-wins vs json gem 3.0 strict raise"],
 }.freeze
 
 JSON_PARITY_CASES = {
