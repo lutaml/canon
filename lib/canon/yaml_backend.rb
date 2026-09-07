@@ -51,6 +51,14 @@ module Canon
         false
       end
 
+      # The JSON fast path needs the fused C-API materializer
+      # (Yeptris::Native — load_json) specifically: the FFI ladder is
+      # ~29x slower than the stdlib JSON C extension, so JSON loads
+      # fall back to stdlib when only FFI is present.
+      def yeptris_native?
+        yeptris? && yeptris_available? && !defined?(::Yeptris::Native).nil?
+      end
+
       private
 
       def forced

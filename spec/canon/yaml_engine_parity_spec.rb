@@ -31,6 +31,17 @@ PENDING_UPSTREAM = {
   "bignum integers" => ["a: 12345678901234567890123\n", "yeptris-ruby#31 — String vs Integer"],
 }.freeze
 
+JSON_PARITY_CASES = {
+  "flat" => '{"a":1,"b":2,"c":true,"d":false,"e":null}',
+  "nested" => '{"x":{"y":[1,[2,{"z":[]}]],"w":{}}}',
+  "floats" => '{"a":1.5,"b":1e10,"c":-0.25}',
+  "unicode escapes" => '{"a":"héllo","b":"日本語"}',
+  "string escapes" => %q({"esc":"a\"b\nc\td","empty":""}),
+  "top array" => '[1,"two",{"three":3}]',
+  "whitespace" => "  {\"a\" : 1 }  \n",
+  "deep" => (1..40).reduce("1") { |acc, _| "[#{acc}]" },
+}.freeze
+
 RSpec.describe "YAML engine parity" do
   def load_both(yaml)
     [Canon::YamlParsing.safe_load(yaml.dup, aliases: true),
@@ -69,6 +80,17 @@ RSpec.describe "YAML engine parity" do
     xit "#{name} (#{reason})" do
       canon_loaded, psych_loaded = load_both(yaml)
       expect(canon_loaded).to eq(psych_loaded)
+    end
+  end
+
+  # JSON parsing parity (yeptris uses Yeptris::YAML.load's JSON
+  # auto-detection — native materializer). Pending cases are
+  # YAML-only (#30/#31 do not apply to JSON; #29 fixed in 0.1.12).
+  JSON_PARITY_CASES.each do |name, json|
+    it "parses JSON #{name} identically to JSON.parse" do
+      canon_loaded = Canon::JsonParsing.parse(json.dup)
+      stdlib_loaded = JSON.parse(json)
+      expect(deep_equal?(canon_loaded, stdlib_loaded)).to be(true)
     end
   end
 end

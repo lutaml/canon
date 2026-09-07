@@ -64,7 +64,7 @@ module Canon
           return obj unless obj.is_a?(String)
 
           begin
-            JSON.parse(obj)
+            Canon::JsonParsing.parse(obj)
           rescue JSON::ParserError
             obj
           end
