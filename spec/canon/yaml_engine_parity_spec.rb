@@ -40,6 +40,13 @@ JSON_PARITY_CASES = {
   "top array" => '[1,"two",{"three":3}]',
   "whitespace" => "  {\"a\" : 1 }  \n",
   "deep" => (1..40).reduce("1") { |acc, _| "[#{acc}]" },
+  # Quirk boundaries where the YAML (Psych-contract) and strict JSON
+  # surfaces diverge: exponent-without-dot, y/n quoted, negative zero,
+  # exponent forms, duplicate keys.
+  "exponent no dot" => '{"a":1e3,"b":1E+2}',
+  "quoted y n" => '{"a":"y","b":"n","c":"yes"}',
+  "negative zero" => '{"a":-0,"b":-0.0}',
+  "duplicate keys" => '{"a":1,"a":2}',
 }.freeze
 
 RSpec.describe "YAML engine parity" do
