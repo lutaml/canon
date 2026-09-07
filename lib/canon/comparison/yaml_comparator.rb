@@ -90,7 +90,7 @@ module Canon
         def parse_yaml(obj)
           return obj unless obj.is_a?(String)
 
-          YAML.safe_load(obj, aliases: true)
+          Canon::YamlParsing.safe_load(obj, aliases: true)
         end
       end
     end

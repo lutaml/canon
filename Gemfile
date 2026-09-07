@@ -15,6 +15,13 @@ gem "rubocop-performance"
 gem "rubocop-rake"
 gem "rubocop-rspec"
 
+# Optional YAML engine (CANON_YAML_BACKEND=yeptris). Requires a
+# loadable libyeptris (YEPTRIS_LIB_PATH or the vendored platform gem);
+# canon degrades to Psych when it is absent.
+group :yeptris do
+  gem "yeptris"
+end
+
 group :opal do
   gem "opal", "~> 1.8"
   gem "opal-rspec", "~> 1.0"
