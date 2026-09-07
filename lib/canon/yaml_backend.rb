@@ -59,6 +59,22 @@ module Canon
         yeptris? && yeptris_available? && !defined?(::Yeptris::Native).nil?
       end
 
+      # JSON defaults to the strict yeptris surface whenever the
+      # native materializer is installed (0.1.13.4 ships platform
+      # gems — zero compilation, zero env). JSON parity is
+      # spec-pinned to JSON.parse upstream and complete except the
+      # #37 duplicate-keys leniency; YAML keeps waiting on #30/#31
+      # and stays behind the env opt-in. CANON_YAML_BACKEND=psych
+      # forces both formats back to stdlib.
+      def json_yeptris?
+        return false if RUBY_ENGINE == "opal"
+        return false if ENV["CANON_YAML_BACKEND"].to_s.casecmp("psych").zero?
+
+        # Independent of the YAML selection: the strict JSON surface
+        # is complete on its own, so JSON does not wait for #30/#31.
+        yeptris_available? && !defined?(::Yeptris::Native).nil?
+      end
+
       private
 
       def forced

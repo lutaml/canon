@@ -14,7 +14,7 @@ module Canon
     module_function
 
     def parse(json)
-      if Canon::YamlBackend.yeptris_native?
+      if Canon::YamlBackend.json_yeptris?
         begin
           # The strict JSON surface — spec-pinned to exact JSON.parse
           # semantics upstream, deliberately separate from the YAML
