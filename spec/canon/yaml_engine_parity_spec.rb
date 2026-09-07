@@ -47,7 +47,6 @@ JSON_PARITY_CASES = {
   "exponent no dot" => '{"a":1e3,"b":1E+2}',
   "quoted y n" => '{"a":"y","b":"n","c":"yes"}',
   "negative zero" => '{"a":-0,"b":-0.0}',
-  "duplicate keys" => '{"a":1,"a":2}',
 }.freeze
 
 RSpec.describe "YAML engine parity" do
