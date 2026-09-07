@@ -143,6 +143,10 @@ Engine parity is complete through libleptris 1.9.8 / leptris-ruby 1.9.33 / moxml
 
 Engine A/B testing: `CANON_XML_BACKEND=nokogiri bundle exec rspec` (or `=moxml` to force leptris when it isn't the resolved default). The default suite must stay green under BOTH values; the only expected pendings are the upstream-tracked ones. The benchmark header (`rake performance:quick`) reports the active engine.
 
+### YAML Engines
+
+`Canon::YamlBackend` selects the YAML engine: `:psych` (default) or `:yeptris` (FFI over libyeptris, the YAML counterpart of the leptris XML stack — `CANON_YAML_BACKEND=yeptris` opts in; the optional `yeptris` Gemfile group must be enabled). `Canon::YamlParsing` is the single gateway for string loads; `YAML.dump` stays on Psych everywhere — canonical output bytes are canon's product and the writers differ. The default stays `:psych` until the yeptris Psych-parity gaps close (yeptris-ruby#29 empty documents, #30 sexagesimal scalars, #31 >64-bit integers); `spec/canon/yaml_engine_parity_spec.rb` is the executable gate, with upstream-tracked cases pending. Never `require "yeptris/psych"` — it rebinds the global `::Psych` constant for the whole process; only the namespaced `Yeptris::YAML` API is used.
+
 ### Format Detection
 
 `Canon::Comparison::FormatDetector` auto-detects format from string content or object type (Moxml::Node → XML, Nokogiri::HTML → HTML, Hash → JSON, etc.). HTML4 vs HTML5 is determined by DOCTYPE.
