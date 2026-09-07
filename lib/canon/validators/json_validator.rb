@@ -20,7 +20,7 @@ module Canon
         return if input.is_a?(Hash) || input.is_a?(Array) # Already parsed
         return if input.strip.empty?
 
-        JSON.parse(input)
+        Canon::JsonParsing.parse(input)
       rescue JSON::ParserError => e
         # Extract position from error message
         position = extract_position(e.message)

@@ -17,7 +17,7 @@ module Canon
         # Return as-is if already parsed
         return json if json.is_a?(Hash) || json.is_a?(Array)
 
-        JSON.parse(json)
+        Canon::JsonParsing.parse(json)
       end
 
       def self.sort_json_keys(obj)
