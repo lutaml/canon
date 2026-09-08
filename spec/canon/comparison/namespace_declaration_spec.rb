@@ -59,8 +59,12 @@ RSpec.describe "Namespace declaration diffs" do
     end
 
     it "reports namespace declarations separately from data attributes" do
-      xml1 = '<ownedEnd xmlns:xmi="http://www.omg.org/spec/XMI/20131001" xmi:type="xmi_type" xmi:id="my_id" type="test"/>'
-      xml2 = '<ownedEnd xmi:id="my_id" xmi:type="xmi_type" type="test"/>'
+      # Both sides declare xmi (attributes compare by expanded name —
+      # an undeclared prefix is namespace-invalid and not the same
+      # attribute); the declaration difference rides on an extra
+      # declaration instead.
+      xml1 = '<ownedEnd xmlns:xmi="http://www.omg.org/spec/XMI/20131001" xmlns:extra="http://example.com/e" xmi:type="xmi_type" xmi:id="my_id" type="test"/>'
+      xml2 = '<ownedEnd xmlns:xmi="http://www.omg.org/spec/XMI/20131001" xmi:id="my_id" xmi:type="xmi_type" type="test"/>'
 
       result = Canon::Comparison::XmlComparator.equivalent?(xml1, xml2,
                                                             verbose: true)
@@ -175,8 +179,10 @@ RSpec.describe "Namespace declaration diffs" do
 
   describe "namespace declarations vs data attributes separation" do
     it "excludes xmlns attributes from data attribute comparison" do
-      xml1 = '<element xmlns:ns="http://example.com" ns:attr="value" data="test"/>'
-      xml2 = '<element ns:attr="value" data="test"/>'
+      # Both sides declare ns (expanded-name attribute comparison);
+      # the declaration difference rides on an extra declaration.
+      xml1 = '<element xmlns:ns="http://example.com" xmlns:extra="http://example.com/e" ns:attr="value" data="test"/>'
+      xml2 = '<element xmlns:ns="http://example.com" ns:attr="value" data="test"/>'
 
       result = Canon::Comparison::XmlComparator.equivalent?(xml1, xml2,
                                                             verbose: true)
