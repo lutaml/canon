@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require_relative "atomic_writer"
-
 module Canon
   module Rebaseliner
     # Replace a heredoc's body in a spec file with new content, preserving
@@ -9,15 +7,15 @@ module Canon
     module HeredocRewriter
       module_function
 
-      # @param spec [HeredocSpec] description of the heredoc to rewrite
+      # @param spec [HeredocTarget] description of the heredoc to rewrite
       # @param new_body [String] new heredoc body (pretty-printed actual);
       #   may or may not have a trailing newline; the rewriter normalises.
       # @return [void]
       def rewrite!(spec, new_body)
         body = format_body(new_body, spec.style, spec.terminator_indent)
         new_source = spec.source.byteslice(0, spec.content_start_offset) +
-                     body +
-                     spec.source.byteslice(spec.content_end_offset..-1)
+          body +
+          spec.source.byteslice(spec.content_end_offset..-1)
         AtomicWriter.write(spec.spec_path, new_source)
       end
 

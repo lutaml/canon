@@ -8,33 +8,33 @@ require "tmpdir"
 
 RSpec.describe Canon::Rebaseliner do
   describe ".enabled?" do
-    before { Canon::Rebaseliner.reset! }
-    after { Canon::Rebaseliner.reset! }
+    before { described_class.reset! }
+    after { described_class.reset! }
 
     it "is false by default" do
-      expect(Canon::Rebaseliner.enabled?).to be false
+      expect(described_class.enabled?).to be false
     end
 
     it "is true when env var is 'true'" do
       ENV["CANON_REGENERATE_EXPECTED"] = "true"
-      Canon::Rebaseliner.reset!
-      expect(Canon::Rebaseliner.enabled?).to be true
+      described_class.reset!
+      expect(described_class.enabled?).to be true
     ensure
       ENV.delete("CANON_REGENERATE_EXPECTED")
     end
 
     it "is true when env var is '1'" do
       ENV["CANON_REGENERATE_EXPECTED"] = "1"
-      Canon::Rebaseliner.reset!
-      expect(Canon::Rebaseliner.enabled?).to be true
+      described_class.reset!
+      expect(described_class.enabled?).to be true
     ensure
       ENV.delete("CANON_REGENERATE_EXPECTED")
     end
 
     it "is false for empty string" do
       ENV["CANON_REGENERATE_EXPECTED"] = ""
-      Canon::Rebaseliner.reset!
-      expect(Canon::Rebaseliner.enabled?).to be false
+      described_class.reset!
+      expect(described_class.enabled?).to be false
     ensure
       ENV.delete("CANON_REGENERATE_EXPECTED")
     end
@@ -46,6 +46,7 @@ RSpec.describe Canon::Rebaseliner do
 
     let(:fixture_dir) { File.expand_path("../fixtures/rebaseliner", __dir__) }
 
+    # rubocop:disable RSpec/InstanceVariable -- scratch dir for the subprocess run
     def copy_fixture(name)
       target = File.join(@tmpdir, name)
       FileUtils.cp(File.join(fixture_dir, name), target)
@@ -66,7 +67,7 @@ RSpec.describe Canon::Rebaseliner do
       File.expand_path("../..", __dir__)
     end
 
-    around(:each) do |example|
+    around do |example|
       Dir.mktmpdir do |dir|
         @tmpdir = dir
         example.run
@@ -81,7 +82,7 @@ RSpec.describe Canon::Rebaseliner do
         expect(status).to be_success, "rspec failed: #{stdout}\n#{stderr}"
         expect(File.read(target)).to include("<root>fresh</root>")
         expect(File.read(target)).not_to include("<root>stale</root>")
-        expect(stderr).to match(/\[canon:rebaseline\] rewritten/)
+        expect(stderr).to include("[canon:rebaseline] rewritten")
         # Second run with the env var OFF must pass.
         _stdout2, _stderr2, status2 = run_rspec(target, regenerate: false)
         expect(status2).to be_success
@@ -99,7 +100,7 @@ RSpec.describe Canon::Rebaseliner do
         expect(contents).to include("<second>fresh2</second>")
         expect(contents).not_to include("<first>stale</first>")
         expect(contents).not_to include("<second>stale</second>")
-        expect(stderr.scan(/\[canon:rebaseline\] rewritten/).size).to eq(2)
+        expect(stderr.scan("[canon:rebaseline] rewritten").size).to eq(2)
       end
     end
 
@@ -123,7 +124,7 @@ RSpec.describe Canon::Rebaseliner do
         # Assertion still fails — interpolation case is not rewritten.
         expect(status).not_to be_success
         expect(File.read(target)).to eq(original_contents)
-        expect(stderr).to match(/\[canon:rebaseline\] skipped_interpolation/)
+        expect(stderr).to include("[canon:rebaseline] skipped_interpolation")
       end
     end
 
@@ -135,7 +136,7 @@ RSpec.describe Canon::Rebaseliner do
       aggregate_failures do
         expect(status).not_to be_success
         expect(File.read(target)).to eq(original_contents)
-        expect(stderr).to match(/\[canon:rebaseline\] skipped_inline_string/)
+        expect(stderr).to include("[canon:rebaseline] skipped_inline_string")
       end
     end
 
@@ -149,8 +150,9 @@ RSpec.describe Canon::Rebaseliner do
         # negation holds). The file must NOT be rewritten.
         expect(status).to be_success
         expect(File.read(target)).to eq(original_contents)
-        expect(stderr).not_to match(/\[canon:rebaseline\] rewritten/)
+        expect(stderr).not_to include("[canon:rebaseline] rewritten")
       end
     end
   end
 end
+# rubocop:enable RSpec/InstanceVariable

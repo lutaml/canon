@@ -1,12 +1,11 @@
 # frozen_string_literal: true
 
 require "prism"
-require_relative "heredoc_spec"
 
 module Canon
   module Rebaseliner
     # Resolve a Prism AST node (the `expected` argument passed to a Canon
-    # matcher) to a {HeredocSpec} that can be rewritten in-place, or to a
+    # matcher) to a {HeredocTarget} that can be rewritten in-place, or to a
     # skip reason. Handles the metanorma-iso pattern of multiple sequential
     # assignments to the same local var via "most-recent assignment before
     # the matcher line" semantics.
@@ -18,7 +17,7 @@ module Canon
       end
 
       # @param spec_path [String] absolute path of the spec file (passed through
-      #   into any returned HeredocSpec)
+      #   into any returned HeredocTarget)
       # @param source [String] full file source string
       # @param enclosing_block [Prism::Node] the `it`/`example` block node
       #   that contains the matcher invocation
@@ -36,7 +35,7 @@ module Canon
         @matcher_line = matcher_line
       end
 
-      # @return [Result] :ok with a HeredocSpec, or a :skipped_* status
+      # @return [Result] :ok with a HeredocTarget, or a :skipped_* status
       def resolve
         resolve_node(@expected_node)
       end
@@ -99,7 +98,7 @@ module Canon
       end
 
       def walk(node, &block)
-        return unless node.respond_to?(:child_nodes)
+        return unless node.is_a?(Prism::Node)
 
         node.child_nodes.each do |child|
           next if child.nil?
@@ -127,7 +126,7 @@ module Canon
         style = heredoc_style(opening)
         terminator_indent = closing_loc.start_column
 
-        HeredocSpec.new(
+        HeredocTarget.new(
           spec_path: @spec_path,
           source: @source,
           style: style,

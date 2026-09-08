@@ -190,9 +190,9 @@ module Canon
         locations.find do |loc|
           path = loc.absolute_path || loc.path
           next false unless path
-          next false if path =~ %r{/gems/rspec-(expectations|core|mocks|support)-}
-          next false if path =~ %r{/lib/rspec/(expectations|core|mocks|support)/}
-          next false if path =~ %r{/canon/lib/canon/}
+          next false if %r{/gems/rspec-(expectations|core|mocks|support)-}.match?(path)
+          next false if %r{/lib/rspec/(expectations|core|mocks|support)/}.match?(path)
+          next false if path.include?("/canon/lib/canon/")
           next false if path.end_with?("/lib/canon/rspec_matchers.rb")
 
           true
