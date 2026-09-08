@@ -34,14 +34,24 @@ module Canon
         # @param filtered [Hash] Output hash to populate
         def self.filter_array_attributes(attributes, opts, match_opts, filtered)
           attributes.each do |attr|
-            name = attr.name
+            # Expanded name (XML Namespaces 1.0 §5.2/§5.3): an
+            # unprefixed attribute is in NO namespace — {no-ns}srsName
+            # and {uri}srsName are different attributes, and two
+            # prefixes bound to the same URI are the same attribute.
+            # Local-name keys conflated qualified with unqualified
+            # attributes whenever the prefix matched the element's
+            # (issue #155).
+            name = expanded_attribute_name(attr)
             value = attr.value
 
             # Skip namespace declarations - they're handled separately
-            next if namespace_declaration?(name)
+            next if namespace_declaration?(attr.name)
 
-            # Skip if attribute name should be ignored
-            next if ignore_by_name?(name, opts)
+            # Skip if attribute name should be ignored — by local name
+            # (user-facing list) or expanded key, so ignore lists keep
+            # working against both forms.
+            next if ignore_by_name?(attr.name, opts) ||
+              ignore_by_name?(name, opts)
 
             # Skip if attribute content should be ignored
             next if ignore_by_content?(value, opts)
@@ -52,6 +62,26 @@ module Canon
 
             filtered[name] = value
           end
+        end
+
+        # Expanded attribute key: "{namespace-uri}local-name", or the
+        # bare local name when the attribute is in no namespace.
+        # Prefixed-but-unresolvable attributes (namespace-invalid
+        # documents — an undeclared prefix has no expanded name) fall
+        # back to the local name: recovery comparison cannot do better.
+        def self.expanded_attribute_name(attr)
+          case attr
+          when Canon::Xml::Nodes::AttributeNode
+            uri = attr.namespace_uri
+            attr.prefix
+          when defined?(Nokogiri) && Nokogiri::XML::Attr
+            uri = attr.namespace&.href
+            attr.namespace&.prefix
+          else
+            uri = attr.namespace_uri
+            nil
+          end
+          uri && !uri.empty? ? "{#{uri}}#{attr.name}" : attr.name
         end
 
         # Filter hash-format attributes (Nokogiri/Moxml)

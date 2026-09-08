@@ -12,9 +12,19 @@ Key features:
 
 * **Format support**: XML, HTML, JSON, YAML
 * **Canonicalization**: W3C XML C14N 1.1, sorted JSON/YAML keys
-* **Semantic comparison**: Compare meaning, not formatting
+* **Semantic comparison**: Compare meaning, not formatting — attributes by
+  expanded name (namespace URI + local name), prefixes never affect results
 * **Multiple interfaces**: Ruby API, CLI, RSpec matchers
 * **Smart diff output**: By-line or by-object modes with syntax highlighting
+* **Fast native engines, zero mandatory C deps**:
+** XML on https://github.com/leptris/leptris[libleptris] (via moxml) whenever
+   installed — Nokogiri otherwise and for HTML; both byte-compatible, engine
+   parity is spec-gated
+** JSON on https://github.com/leptris/yeptris[libyeptris]' strict JSON surface
+   whenever the native materializer is installed (`gem install yeptris` —
+   platform gems, zero compilation), the stdlib JSON extension otherwise
+** YAML on yeptris opt-in (`CANON_YAML_BACKEND=yeptris`, ~3x Psych loads);
+   Psych otherwise
 
 == When to use formatting vs comparison
 
@@ -957,10 +967,25 @@ bundle exec rake performance:yaml
 * **XML/HTML Comparison**: Identical, similar, different documents
 * **Format Canonicalization**: XML C14N, JSON, YAML
 
+=== Engines
+
+Canon is engine-agnostic across its formats:
+
+* **XML**: libleptris via moxml whenever installed (parse, comparison, C14N,
+  pretty-printing); raw Nokogiri otherwise, and always Nokogiri for HTML.
+  `CANON_XML_BACKEND=nokogiri|moxml` forces either engine; parity between the
+  two is spec-gated (`spec/canon/xml/engine_parity_spec.rb`).
+* **JSON**: yeptris' strict JSON surface when the native materializer is
+  installed (platform gems — zero compilation), the stdlib JSON extension
+  otherwise. `CANON_YAML_BACKEND=psych` forces stdlib.
+* **YAML**: Psych by default; yeptris (≈3x loads) behind
+  `CANON_YAML_BACKEND=yeptris`. Parity is spec-gated
+  (`spec/canon/yaml_engine_parity_spec.rb`).
+
 === SAX Parser
 
 Canon includes a SAX-based XML parser (`Canon::Xml::SaxBuilder`) that provides
-significantly faster XML parsing by avoiding intermediate Nokogiri DOM trees.
+significantly faster XML parsing by avoiding intermediate engine DOM trees.
 
 [source,ruby]
 ----
