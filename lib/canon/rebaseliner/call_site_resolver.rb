@@ -78,12 +78,12 @@ module Canon
           next unless MATCHER_NAMES.include?(node.name)
 
           loc = node.location
-          next unless loc.start_line <= @line && loc.end_line >= @line
+          next unless @line.between?(loc.start_line, loc.end_line)
 
           # Prefer the narrowest enclosing match (innermost matcher).
           if match.nil? ||
-             (loc.end_line - loc.start_line) <
-             (match.location.end_line - match.location.start_line)
+              (loc.end_line - loc.start_line) <
+                  (match.location.end_line - match.location.start_line)
             match = node
           end
         end
@@ -103,7 +103,7 @@ module Canon
           loc = node.location
           target_loc = target_call.location
           next unless loc.start_line <= target_loc.start_line &&
-                      loc.end_line >= target_loc.end_line
+            loc.end_line >= target_loc.end_line
 
           candidates << node.block
         end
@@ -115,7 +115,7 @@ module Canon
         return unless node
 
         yield node
-        return unless node.respond_to?(:child_nodes)
+        return unless node.is_a?(Prism::Node)
 
         node.child_nodes.each do |child|
           walk(child, &block) unless child.nil?

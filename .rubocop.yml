@@ -17,3 +17,5 @@ plugins:
 
 AllCops:
   TargetRubyVersion: 3.0
+  Exclude:
+    - "spec/fixtures/**/*"

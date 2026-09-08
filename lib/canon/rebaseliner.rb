@@ -1,12 +1,5 @@
 # frozen_string_literal: true
 
-require_relative "rebaseliner/atomic_writer"
-require_relative "rebaseliner/logger"
-require_relative "rebaseliner/heredoc_spec"
-require_relative "rebaseliner/heredoc_rewriter"
-require_relative "rebaseliner/heredoc_locator"
-require_relative "rebaseliner/call_site_resolver"
-
 module Canon
   # In-place rebaselining of `be_*_equivalent_to` heredoc expectations.
   #
@@ -19,6 +12,12 @@ module Canon
   # See docs/features/regenerate-expected.adoc for the supported
   # expected-argument forms and the recommended workflow.
   module Rebaseliner
+    autoload :AtomicWriter, "canon/rebaseliner/atomic_writer"
+    autoload :Logger, "canon/rebaseliner/logger"
+    autoload :HeredocTarget, "canon/rebaseliner/heredoc_target"
+    autoload :HeredocRewriter, "canon/rebaseliner/heredoc_rewriter"
+    autoload :HeredocLocator, "canon/rebaseliner/heredoc_locator"
+    autoload :CallSiteResolver, "canon/rebaseliner/call_site_resolver"
     ENV_VAR = "CANON_REGENERATE_EXPECTED"
 
     # @return [Boolean] true when the env var is set to a truthy value.
@@ -102,7 +101,7 @@ module Canon
       old_line_count = line_count_in_range(call_site.source,
                                            result.heredoc_spec)
       HeredocRewriter.rewrite!(result.heredoc_spec, prettyprinted_actual)
-      new_line_count = count_newlines(File.read(spec_path)
+      count_newlines(File.read(spec_path)
         .byteslice(result.heredoc_spec.content_start_offset,
                    File.size(spec_path) -
                    result.heredoc_spec.content_start_offset))

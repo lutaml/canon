@@ -6,7 +6,7 @@ module Canon
     # where its body lives in the source (byte range), what style of heredoc
     # delimiter opens it (`<<~`, `<<-`, `<<`), and what indent the
     # terminator sits at (used by `<<~` re-indenting).
-    HeredocSpec = Struct.new(
+    HeredocTarget = Struct.new(
       :spec_path,           # absolute path
       :source,              # full file source string (UTF-8)
       :style,               # :squiggly (<<~) | :dash (<<-) | :strict (<<)

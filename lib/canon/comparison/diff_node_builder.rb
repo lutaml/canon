@@ -179,6 +179,15 @@ module Canon
           return "whitespace: #{describe_whitespace(text1)} vs #{describe_whitespace(text2)}"
         end
 
+        # Identical content modulo whitespace: two full visualized
+        # copies read as materially different text when the only
+        # delta is trailing/invisible whitespace (#94) — the compact
+        # character-count description says what actually differs.
+        if text1.strip == text2.strip
+          return "whitespace-only: #{describe_whitespace(text1)} vs " \
+                 "#{describe_whitespace(text2)}"
+        end
+
         "Text: \"#{visualize_whitespace(text1)}\" vs \"#{visualize_whitespace(text2)}\""
       end
 
