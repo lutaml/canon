@@ -261,10 +261,10 @@ new code.
 
 == See also
 
-* link:../../features/diff-formatting/display-preprocessing.adoc[Display preprocessing]
+* link:../../diff-formatting/display-preprocessing/[Display preprocessing]
   — the `display_preprocessing` option and `XmlNormalized` serializer
-* link:index.adoc[Match options overview] — whitespace sensitivity classification
-* link:../../reference/options-across-interfaces.adoc[Options across interfaces]
+* link:../[Match options overview] — whitespace sensitivity classification
+* link:../../../reference/options-across-interfaces/[Options across interfaces]
   — cross-interface reference table
-* link:../../reference/environment-variables.adoc[Environment variables]
+* link:../../../reference/environment-variables/[Environment variables]
   — `CANON_XML_DIFF_PRETTY_PRINTED_EXPECTED`, `CANON_XML_DIFF_PRETTY_PRINTED_RECEIVED`

@@ -71,7 +71,7 @@ Canon separates comparison concerns into four layers:
 
 Only Layer 2 differs between algorithms, and the enriched DiffNode structure ensures clean communication between layers.
 
-See link:../understanding/architecture.adoc[Architecture] for the complete overview.
+See link:../understanding/architecture/[Architecture] for the complete overview.
 
 === Enriched Metadata Flow
 
@@ -265,7 +265,7 @@ def add_difference(node1, node2, diff1, diff2, dimension, opts, differences)
 end
 ----
 
-See link:../understanding/algorithms/dom-diff.adoc[DOM Diff Algorithm] for details.
+See link:../understanding/algorithms/dom-diff/[DOM Diff Algorithm] for details.
 
 === Semantic Algorithm
 
@@ -289,11 +289,11 @@ def convert_insert(operation)
 end
 ----
 
-See link:../understanding/algorithms/semantic-tree-diff.adoc[Semantic Tree Diff Algorithm] for details.
+See link:../understanding/algorithms/semantic-tree-diff/[Semantic Tree Diff Algorithm] for details.
 
 == See Also
 
-* link:../understanding/architecture.adoc[Architecture] - 4-layer architecture overview
+* link:../understanding/architecture/[Architecture] - 4-layer architecture overview
 * link:../understanding/algorithms/[Algorithms] - DOM and Semantic algorithm details
 * link:../features/diff-formatting/[Diff Formatting] - Layer 4 rendering options
 * link:../advanced/[Advanced Topics] - Deep technical documentation

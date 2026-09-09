@@ -314,4 +314,4 @@ See the following files for implementation details:
 
 * link:index.html[Match Options] - Overview of match system
 * link:algorithm-specific-behavior.html[Algorithm-Specific Behavior] - How algorithms handle options
-* link:../../advanced/diff-classification.html[Diff Classification] - Normative vs informative
+* link:../../../advanced/diff-classification/[Diff Classification] - Normative vs informative

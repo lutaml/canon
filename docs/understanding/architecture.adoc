@@ -11,9 +11,9 @@ nav_order: 1
 
 This document explains Canon's 4-layer comparison architecture and how documents flow through preprocessing, algorithm selection, semantic matching, and diff rendering.
 
-For a guided walkthrough of choosing configurations, see link:../guides/choosing-configuration.adoc[Choosing Configuration].
+For a guided walkthrough of choosing configurations, see link:../../guides/choosing-configuration/[Choosing Configuration].
 
-For detailed 4-layer pipeline documentation, see link:comparison-pipeline.adoc[Comparison Pipeline].
+For detailed 4-layer pipeline documentation, see link:../comparison-pipeline/[Comparison Pipeline].
 
 == Overview
 
@@ -799,7 +799,7 @@ Control how differences are displayed. **This layer is algorithm-specific** - ea
 * **DOM algorithm**: Generates line-based differences
 * **Semantic algorithm**: Generates operation-based differences (INSERT, DELETE, UPDATE, MOVE)
 
-See link:../features/diff-formatting/algorithm-specific-output.adoc[Algorithm-Specific Output] for detailed comparison.
+See link:../../features/diff-formatting/algorithm-specific-output/[Algorithm-Specific Output] for detailed comparison.
 
 === Diff options
 
@@ -865,7 +865,7 @@ result = Canon::Comparison.equivalent?(doc1, doc2,
 )
 ----
 
-See link:comparison-pipeline.adoc[Comparison Pipeline] for layer-by-layer examples.
+See link:../comparison-pipeline/[Comparison Pipeline] for layer-by-layer examples.
 
 === DiffNode: Representation of differences
 
@@ -1153,16 +1153,16 @@ This refactoring improves:
 
 == See also
 
-* link:comparison-pipeline.adoc[Comparison Pipeline] - Complete 4-layer walkthrough
+* link:../comparison-pipeline/[Comparison Pipeline] - Complete 4-layer walkthrough
 * link:algorithms/[Algorithms] - DOM and Semantic algorithm details
 * link:../internals/[Internals] - Implementation details and data structures
-* link:../internals/diffnode-enrichment.adoc[DiffNode Enrichment] - How metadata flows from Layer 2 to Layer 4
+* link:../../internals/diffnode-enrichment/[DiffNode Enrichment] - How metadata flows from Layer 2 to Layer 4
 * link:../features/preprocessing/[Preprocessing options]
 * link:../features/match-options/[Match dimensions and profiles]
-* link:../features/match-options/algorithm-specific-behavior.adoc[Algorithm-Specific Behavior]
+* link:../../features/match-options/algorithm-specific-behavior/[Algorithm-Specific Behavior]
 * link:../features/diff-formatting/[Diff formatting]
-* link:../features/diff-formatting/algorithm-specific-output.adoc[Algorithm-Specific Output]
-* link:../guides/choosing-configuration.adoc[Choosing Configuration]
+* link:../../features/diff-formatting/algorithm-specific-output/[Algorithm-Specific Output]
+* link:../../guides/choosing-configuration/[Choosing Configuration]
 * link:../interfaces/ruby-api/[Ruby API documentation]
 * link:../interfaces/cli/[Command-line interface]
 * link:../interfaces/rspec/[RSpec matchers]

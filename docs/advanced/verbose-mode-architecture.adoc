@@ -498,6 +498,6 @@ This ensures the correct output order and separation of concerns.
 == See also
 
 * link:../features/diff-formatting/[Diff Formatting] - Diff output customization
-* link:../understanding/comparison-pipeline.adoc[Comparison Pipeline] - 4-layer architecture
+* link:../../understanding/comparison-pipeline/[Comparison Pipeline] - 4-layer architecture
 * link:../interfaces/rspec/[RSpec Matchers] - Using verbose mode in tests
 * link:../interfaces/cli/[CLI] - Command-line verbose mode

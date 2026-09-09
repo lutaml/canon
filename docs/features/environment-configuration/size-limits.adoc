@@ -267,7 +267,7 @@ export CANON_VERBOSE_DIFF=false
 
 == See also
 
-* link:index.adoc[Environment Configuration] - Complete ENV configuration
-* link:override-system.adoc[Override System] - How ENV vars work
-* link:../../reference/environment-variables.adoc[Environment Variables Reference] - All variables
-* link:../../understanding/algorithms/dom-diff.adoc[DOM Algorithm] - Faster for large files
+* link:../[Environment Configuration] - Complete ENV configuration
+* link:../override-system/[Override System] - How ENV vars work
+* link:../../../reference/environment-variables/[Environment Variables Reference] - All variables
+* link:../../../understanding/algorithms/dom-diff/[DOM Algorithm] - Faster for large files

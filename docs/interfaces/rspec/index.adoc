@@ -428,7 +428,7 @@ IMPORTANT: Display filtering does NOT affect equivalence determination. It
 only controls which differences appear in the failure output. Equivalence is
 always based on normative differences only.
 
-See link:../../features/diff-formatting/display-filtering.adoc[Display
+See link:../../features/diff-formatting/display-filtering/[Display
 filtering] for complete details.
 
 == Diff algorithms

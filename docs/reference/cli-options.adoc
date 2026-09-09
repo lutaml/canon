@@ -11,9 +11,9 @@ nav_order: 1
 
 This page provides a complete reference for all Canon command-line interface options organized by command and function.
 
-For conceptual understanding, see link:../understanding/comparison-pipeline.adoc[Comparison Pipeline].
+For conceptual understanding, see link:../../understanding/comparison-pipeline/[Comparison Pipeline].
 
-For choosing the right configuration, see link:../guides/choosing-configuration.adoc[Choosing Configuration].
+For choosing the right configuration, see link:../../guides/choosing-configuration/[Choosing Configuration].
 
 == Command syntax
 
@@ -413,8 +413,8 @@ canon diff page1.html page2.html \
 
 == See also
 
-* link:../understanding/comparison-pipeline.adoc[Comparison Pipeline] - 4-layer architecture
-* link:../guides/choosing-configuration.adoc[Choosing Configuration] - Decision guide
+* link:../../understanding/comparison-pipeline/[Comparison Pipeline] - 4-layer architecture
+* link:../../guides/choosing-configuration/[Choosing Configuration] - Decision guide
 * link:../features/match-options/[Match Options] - Dimension reference
 * link:../features/diff-formatting/[Diff Formatting] - Output customization
 * link:../interfaces/cli/[CLI Interface] - Command-line usage guide

@@ -120,7 +120,7 @@ export CANON_DIFF_THEME=claude
 
 Valid values: `light`, `dark`, `retro`, `claude`
 
-See link:../diff-formatting/themes.adoc[Diff display themes] for complete theme documentation.
+See link:../diff-formatting/themes/[Diff display themes] for complete theme documentation.
 
 === Context and grouping
 
@@ -162,7 +162,7 @@ Valid values: `true`, `false`, `1`, `0`, `yes`, `no`
 
 Canon provides configurable size limits to prevent hangs or excessive resource usage when processing very large files.
 
-See link:size-limits.adoc[Size Limits] for detailed configuration.
+See link:size-limits/[Size Limits] for detailed configuration.
 
 Key variables:
 
@@ -172,7 +172,7 @@ Key variables:
 
 == Override system
 
-See link:override-system.adoc[Override System] for how environment variables interact with programmatic configuration.
+See link:override-system/[Override System] for how environment variables interact with programmatic configuration.
 
 == Usage across interfaces
 
@@ -307,7 +307,7 @@ export CANON_USE_COLOR=false
 
 == Complete variable reference
 
-See link:../../reference/environment-variables.adoc[Environment Variables Reference] for a complete table of all environment variables.
+See link:../../reference/environment-variables/[Environment Variables Reference] for a complete table of all environment variables.
 
 == Troubleshooting
 
@@ -344,7 +344,7 @@ puts "Source of algorithm: #{resolver.source_for(:algorithm)}"
 
 == See also
 
-* link:size-limits.adoc[Size Limits] - File size and node count limits
-* link:override-system.adoc[Override System] - How ENV vars override defaults
-* link:../../reference/environment-variables.adoc[Environment Variables Reference] - Complete variable listing
-* link:../../reference/options-across-interfaces.adoc[Options Across Interfaces] - How options map across CLI, Ruby, and RSpec
+* link:size-limits/[Size Limits] - File size and node count limits
+* link:override-system/[Override System] - How ENV vars override defaults
+* link:../../reference/environment-variables/[Environment Variables Reference] - Complete variable listing
+* link:../../reference/options-across-interfaces/[Options Across Interfaces] - How options map across CLI, Ruby, and RSpec

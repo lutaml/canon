@@ -396,9 +396,9 @@ XHTML is treated as XML and follows stricter rules.
 
 == See also
 
-* link:../comparison-pipeline.adoc[Comparison Pipeline] - Understanding the 4 layers
+* link:../../comparison-pipeline/[Comparison Pipeline] - Understanding the 4 layers
 * link:../../features/match-options/[Match Options] - All matching options
-* link:../../guides/choosing-configuration.adoc[Choosing Configuration] - Decision guide
-* link:index.adoc[Format Support] - Overview of all formats
-* link:xml.adoc[XML Format] - XML-specific features
-* link:json.adoc[JSON Format] - JSON-specific features
+* link:../../../guides/choosing-configuration/[Choosing Configuration] - Decision guide
+* link:../[Format Support] - Overview of all formats
+* link:../xml/[XML Format] - XML-specific features
+* link:../json/[JSON Format] - JSON-specific features

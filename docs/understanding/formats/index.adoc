@@ -20,10 +20,10 @@ Canon provides unified canonicalization and comparison for four serialization fo
 
 This page provides an overview of format support. See the child pages for format-specific details:
 
-* link:xml.adoc[XML Format] - W3C C14N, namespace handling
-* link:html.adoc[HTML Format] - HTML4/5 detection, rendering behavior
-* link:json.adoc[JSON Format] - Sorted keys, type preservation
-* link:yaml.adoc[YAML Format] - YAML specifics, anchors and aliases
+* link:xml/[XML Format] - W3C C14N, namespace handling
+* link:html/[HTML Format] - HTML4/5 detection, rendering behavior
+* link:json/[JSON Format] - Sorted keys, type preservation
+* link:yaml/[YAML Format] - YAML specifics, anchors and aliases
 
 == Format detection
 
@@ -257,5 +257,5 @@ Canon::Comparison::YamlComparator.equivalent?(yaml1, yaml2,
 * link:../../interfaces/ruby-api/[Ruby API documentation]
 * link:../../interfaces/cli/[Command-line interface]
 * link:../../features/match-options/[Match options reference]
-* link:../comparison-pipeline.adoc[Comparison Pipeline]
+* link:../comparison-pipeline/[Comparison Pipeline]
 * link:../../features/preprocessing/[Preprocessing options]

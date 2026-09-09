@@ -357,9 +357,9 @@ end
 
 == See Also
 
-* link:index.adoc[Match Options Overview]
+* link:../[Match Options Overview]
 * link:../../understanding/algorithms/[Algorithms] - Detailed algorithm documentation
-* link:dimensions.adoc[Match Dimensions] - All available dimensions
-* link:profiles.adoc[Match Profiles] - Preset configurations
-* link:../diff-formatting/algorithm-specific-output.adoc[Algorithm-Specific Output] - How output differs
-* link:../../guides/choosing-configuration.adoc[Choosing Configuration] - Decision guide
+* link:../match-options/[Match dimensions] - All available dimensions
+* link:../match-options/[Match profiles] - Preset configurations
+* link:../../diff-formatting/algorithm-specific-output/[Algorithm-Specific Output] - How output differs
+* link:../../../guides/choosing-configuration/[Choosing Configuration] - Decision guide

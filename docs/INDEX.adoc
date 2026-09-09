@@ -140,4 +140,4 @@ See link:contributing[Contributing to Documentation]
 * Configuration profiles with element-level whitespace classification
 * Three-way whitespace sensitivity: strict, normalize, insensitive
 
-See link:https://github.com/lutaml/canon/blob/main/CHANGELOG.md[Full Changelog]
+See link:https://github.com/lutaml/canon/releases[Full Changelog]

@@ -174,7 +174,7 @@ Canon::Comparison.equivalent?(doc1, doc2,
 )
 ----
 
-See link:../../features/match-options/algorithm-specific-behavior.adoc[Algorithm-Specific Behavior] for how DOM interprets match options.
+See link:../../../features/match-options/algorithm-specific-behavior/[Algorithm-Specific Behavior] for how DOM interprets match options.
 
 === With Diff Formatting
 
@@ -289,7 +289,7 @@ The DOM algorithm cannot detect when content moves to a different position:
 
 **Limitation**: Reordered content shows as DELETE + INSERT pairs
 
-**Workaround**: Use link:semantic-tree-diff.adoc[Semantic Algorithm] for move detection
+**Workaround**: Use link:../semantic-tree-diff/[Semantic Algorithm] for move detection
 
 === Position-Dependent
 
@@ -297,7 +297,7 @@ The algorithm assumes similar structure between documents:
 
 **Limitation**: Heavily restructured documents produce noisy diffs
 
-**Workaround**: Use link:semantic-tree-diff.adoc[Semantic Algorithm] for restructured documents
+**Workaround**: Use link:../semantic-tree-diff/[Semantic Algorithm] for restructured documents
 
 == Common Use Cases
 
@@ -381,9 +381,9 @@ Canon::Comparison.equivalent?(html1, html2,
 
 == See Also
 
-* link:index.adoc[Algorithms Overview] - Comparison of DOM vs Semantic
-* link:semantic-tree-diff.adoc[Semantic Algorithm] - Alternative algorithm
-* link:../../features/match-options/algorithm-specific-behavior.adoc[Algorithm-Specific Behavior] - How DOM interprets options
-* link:../../features/diff-formatting/algorithm-specific-output.adoc[Algorithm-Specific Output] - Output format details
-* link:../../guides/choosing-configuration.adoc[Choosing Configuration] - Complete decision guide
-* link:../../advanced/dom-diff-internals.adoc[DOM Diff Internals] - Advanced implementation details (if available)
+* link:../[Algorithms Overview] - Comparison of DOM vs Semantic
+* link:../semantic-tree-diff/[Semantic Algorithm] - Alternative algorithm
+* link:../../../features/match-options/algorithm-specific-behavior/[Algorithm-Specific Behavior] - How DOM interprets options
+* link:../../../features/diff-formatting/algorithm-specific-output/[Algorithm-Specific Output] - Output format details
+* link:../../../guides/choosing-configuration/[Choosing Configuration] - Complete decision guide
+* link:../dom-diff/[DOM Diff] - Implementation details

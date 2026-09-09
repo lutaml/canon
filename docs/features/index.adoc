@@ -79,7 +79,7 @@ Customize how differences are displayed.
 
 === Configuration Profiles
 
-link:configuration-profiles.adoc[**Configuration Profiles**]::
+link:configuration-profiles/[**Configuration Profiles**]::
 Bundle all settings into named presets defined in YAML.
 +
 * Built-in profiles (metanorma, metanorma_debug)

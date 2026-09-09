@@ -347,7 +347,7 @@ Colors `:bright_black` and `:bright_white` are not supported by Rainbow in 16-co
 
 == See also
 
-* link:colors-and-symbols.adoc[Colors and symbols] - Diff markers and classification
-* link:display-filtering.adoc[Display filtering] - Control which diff types appear
+* link:../colors-and-symbols/[Colors and symbols] - Diff markers and classification
+* link:../display-filtering/[Display filtering] - Control which diff types appear
 * link:../environment-configuration/index.html[Environment configuration] - ENV variable setup
 * link:../../reference/environment-variables.html[Environment variables reference] - Complete variable listing
