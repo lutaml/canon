@@ -43,7 +43,7 @@ Configuration values are resolved using a strict four-level priority:
 
 **Rule**: Higher priority always wins, regardless of when values are set.
 
-See link:../configuration-profiles.adoc[Configuration Profiles] for details on the profile layer.
+See link:../../configuration-profiles/[Configuration Profiles] for details on the profile layer.
 
 == How overrides work
 
@@ -437,7 +437,7 @@ end
 
 == See also
 
-* link:index.adoc[Environment Configuration] - Overview and usage
-* link:size-limits.adoc[Size Limits] - Limit-specific ENV variables
-* link:../../reference/environment-variables.adoc[Environment Variables Reference] - Complete listing
-* link:../../reference/options-across-interfaces.adoc[Options Across Interfaces] - How options work in CLI, Ruby, RSpec
+* link:../[Environment Configuration] - Overview and usage
+* link:../size-limits/[Size Limits] - Limit-specific ENV variables
+* link:../../../reference/environment-variables/[Environment Variables Reference] - Complete listing
+* link:../../../reference/options-across-interfaces/[Options Across Interfaces] - How options work in CLI, Ruby, RSpec

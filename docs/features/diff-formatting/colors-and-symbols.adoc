@@ -480,7 +480,7 @@ Canon supports multiple color themes that adapt the diff display to your termina
 * `:retro` -- Amber CRT, low blue light, accessibility
 * `:claude` -- Claude Code diff style with red/green backgrounds
 
-See link:themes.adoc[Diff display themes] for full theme documentation.
+See link:../themes/[Diff display themes] for full theme documentation.
 
 === Automatic Color Detection
 
@@ -727,9 +727,9 @@ The combination ensures diffs are readable even without color perception.
 
 == Related Features
 
-* link:display-filtering.adoc[Display Filtering] - Control which diff types to show
-* link:context-and-grouping.adoc[Context and Grouping] - Control surrounding context
-* link:../match-options/index.adoc[Match Options] - Configure what's considered normative vs informative
+* link:../display-filtering/[Display Filtering] - Control which diff types to show
+* link:../context-and-grouping/[Context and Grouping] - Control surrounding context
+* link:../../match-options/[Match Options] - Configure what's considered normative vs informative
 
 == See Also
 

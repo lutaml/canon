@@ -216,7 +216,7 @@ Canon::Comparison.equivalent?(doc1, doc2,
 )
 ----
 
-**Remember**: Match options behave differently with each algorithm! See link:../features/match-options/algorithm-specific-behavior.adoc[Algorithm-Specific Behavior].
+**Remember**: Match options behave differently with each algorithm! See link:../../features/match-options/algorithm-specific-behavior/[Algorithm-Specific Behavior].
 
 ==== Whitespace Type Sensitivity
 
@@ -709,14 +709,14 @@ Profiles bundle all layers (preprocessing, match profile, diff settings,
 whitespace element lists) into a named preset defined in YAML.
 Custom file profiles can inherit from built-in profiles.
 
-See link:../features/configuration-profiles.adoc[Configuration Profiles] for full documentation.
+See link:../../features/configuration-profiles/[Configuration Profiles] for full documentation.
 
 == See Also
 
-* link:../features/configuration-profiles.adoc[Configuration Profiles] - Named config presets
-* link:../understanding/comparison-pipeline.adoc[Comparison Pipeline] - Understanding the 4 layers
+* link:../../features/configuration-profiles/[Configuration Profiles] - Named config presets
+* link:../../understanding/comparison-pipeline/[Comparison Pipeline] - Understanding the 4 layers
 * link:../understanding/algorithms/[Algorithms] - Detailed algorithm documentation
-* link:../features/match-options/algorithm-specific-behavior.adoc[Algorithm-Specific Behavior] - How algorithms differ
-* link:../features/diff-formatting/algorithm-specific-output.adoc[Algorithm-Specific Output] - Output format differences
+* link:../../features/match-options/algorithm-specific-behavior/[Algorithm-Specific Behavior] - How algorithms differ
+* link:../../features/diff-formatting/algorithm-specific-output/[Algorithm-Specific Output] - Output format differences
 * link:../features/match-options/[Match Options] - All matching options
 * link:../features/diff-formatting/[Diff Formatting] - Formatting options

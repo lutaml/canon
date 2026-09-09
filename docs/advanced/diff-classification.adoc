@@ -279,7 +279,7 @@ direction relative to the partner content: `before`, `after`, or
   re-alignment walk encounters an asymmetric whitespace node
 * **Report-only** — does not change equivalence outcomes compared to
   pre-#137 behaviour; only changes the diff-report shape (see
-  link:../features/diff-formatting/whitespace-adjacency.adoc[Whitespace
+  link:../../features/diff-formatting/whitespace-adjacency/[Whitespace
   adjacency] for details)
 
 .Example: Comment handling

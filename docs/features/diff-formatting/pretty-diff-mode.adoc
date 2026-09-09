@@ -94,7 +94,7 @@ For preformatted elements where every whitespace character is significant, use
 `preserve_whitespace_elements` instead (e.g. `%w[pre code]`).
 
 See
-link:display-preprocessing.adoc#_controlling_whitespace_visualization_with_element_classification[display-preprocessing:
+link:../display-preprocessing/#_controlling_whitespace_visualization_with_element_classification[display-preprocessing:
 element classification] for the full three-way classification system and HTML
 format defaults.
 
@@ -146,9 +146,9 @@ to avoid resolving against `Canon::Diff` which is an unrelated internal module.
 
 == See also
 
-* link:display-preprocessing.adoc[Display preprocessing] — normalising input
+* link:../display-preprocessing/[Display preprocessing] — normalising input
   before the diff
-* link:context-and-grouping.adoc[Context and grouping] — context_lines and
+* link:../context-and-grouping/[Context and grouping] — context_lines and
   diff grouping
-* link:display-filtering.adoc[Display filtering] — normative/informative
+* link:../display-filtering/[Display filtering] — normative/informative
   filtering (`:by_line` only)

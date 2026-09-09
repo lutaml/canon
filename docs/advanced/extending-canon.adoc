@@ -188,6 +188,6 @@ See the source code for examples of:
 
 == See Also
 
-* link:../understanding/architecture.adoc[Architecture] - 4-layer architecture overview
+* link:../../understanding/architecture/[Architecture] - 4-layer architecture overview
 * link:../features/diff-formatting/[Diff Formatting] - Layer 4 rendering options
 * link:diff-pipeline[Comparison Pipeline] - Technical pipeline details

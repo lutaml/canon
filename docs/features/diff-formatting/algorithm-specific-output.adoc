@@ -525,9 +525,9 @@ result = Canon::Comparison.equivalent?(doc1, doc2,
 
 == See Also
 
-* link:index.adoc[Diff Formatting Overview]
-* link:diff-modes.adoc[Diff Modes] - by_line vs by_object details
-* link:../match-options/algorithm-specific-behavior.adoc[Algorithm-Specific Behavior] - How algorithms work
+* link:../[Diff Formatting Overview]
+* link:../diff-formatting/[Diff modes] - by_line vs by_object details
+* link:../../match-options/algorithm-specific-behavior/[Algorithm-Specific Behavior] - How algorithms work
 * link:../../understanding/algorithms/[Algorithms] - Detailed algorithm documentation
-* link:colors-and-symbols.adoc[Colors and Symbols] - Visual formatting options
-* link:../../guides/choosing-configuration.adoc[Choosing Configuration] - Decision guide
+* link:../colors-and-symbols/[Colors and Symbols] - Visual formatting options
+* link:../../../guides/choosing-configuration/[Choosing Configuration] - Decision guide

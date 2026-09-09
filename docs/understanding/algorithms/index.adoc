@@ -12,7 +12,7 @@ has_children: true
 
 Canon provides two comparison algorithms, each with different strengths and use cases. This section explains how to choose between them and what to expect from each.
 
-This corresponds to **Layer 2 (Algorithm Selection)** in Canon's 4-layer architecture. See link:../comparison-pipeline.adoc[Comparison Pipeline] for the complete flow.
+This corresponds to **Layer 2 (Algorithm Selection)** in Canon's 4-layer architecture. See link:../comparison-pipeline/[Comparison Pipeline] for the complete flow.
 
 == Overview
 
@@ -21,12 +21,12 @@ Canon supports two algorithms for document comparison:
 * **DOM Algorithm** - Fast, stable, positional comparison (default)
 * **Semantic Algorithm** - Slower, intelligent, detects moves and restructuring (experimental)
 
-**Critical**: The algorithm choice affects how Layers 3 and 4 behave. See link:../../features/match-options/algorithm-specific-behavior.adoc[Algorithm-Specific Behavior] and link:../../features/diff-formatting/algorithm-specific-output.adoc[Algorithm-Specific Output].
+**Critical**: The algorithm choice affects how Layers 3 and 4 behave. See link:../../features/match-options/algorithm-specific-behavior/[Algorithm-Specific Behavior] and link:../../features/diff-formatting/algorithm-specific-output/[Algorithm-Specific Output].
 
 == Child Pages
 
-* link:dom-diff.adoc[DOM Algorithm] - Positional comparison details
-* link:semantic-tree-diff.adoc[Semantic Algorithm] - Tree-based comparison details
+* link:dom-diff/[DOM Algorithm] - Positional comparison details
+* link:semantic-tree-diff/[Semantic Algorithm] - Tree-based comparison details
 
 == Algorithm Comparison
 
@@ -249,7 +249,7 @@ NOTE: These are approximate times. Actual performance depends on document struct
 3. Performance slower but more intelligent
 4. Output format changes to operation-based
 
-See link:../../features/match-options/algorithm-specific-behavior.adoc[Algorithm-Specific Behavior] for migration details.
+See link:../../features/match-options/algorithm-specific-behavior/[Algorithm-Specific Behavior] for migration details.
 
 === Switching from Semantic to DOM
 
@@ -306,9 +306,9 @@ end
 
 == See also
 
-* link:dom-diff.adoc[DOM Algorithm] - Detailed DOM algorithm documentation
-* link:semantic-tree-diff.adoc[Semantic Algorithm] - Detailed semantic algorithm documentation
-* link:../comparison-pipeline.adoc[Comparison Pipeline] - 4-layer architecture
-* link:../../features/match-options/algorithm-specific-behavior.adoc[Algorithm-Specific Behavior] - How algorithms interpret options
-* link:../../features/diff-formatting/algorithm-specific-output.adoc[Algorithm-Specific Output] - Output format differences
-* link:../../guides/choosing-configuration.adoc[Choosing Configuration] - Complete decision guide
+* link:dom-diff/[DOM Algorithm] - Detailed DOM algorithm documentation
+* link:semantic-tree-diff/[Semantic Algorithm] - Detailed semantic algorithm documentation
+* link:../comparison-pipeline/[Comparison Pipeline] - 4-layer architecture
+* link:../../features/match-options/algorithm-specific-behavior/[Algorithm-Specific Behavior] - How algorithms interpret options
+* link:../../features/diff-formatting/algorithm-specific-output/[Algorithm-Specific Output] - Output format differences
+* link:../../guides/choosing-configuration/[Choosing Configuration] - Complete decision guide

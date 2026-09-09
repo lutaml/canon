@@ -32,7 +32,7 @@ Canon's diff formatting includes:
   themselves instead of cascading into mismatches against neighbouring
   content. The Reason line names the direction relative to the partner
   (`before`/`after`/`adjacent to`)
-  (link:./whitespace-adjacency.adoc[details])
+  (link:whitespace-adjacency/[details])
 
 == Available formatting options
 
@@ -45,7 +45,7 @@ determination.
 * Show only normative differences (affect equivalence)
 * Show only informative differences (don't affect equivalence)
 
-See link:display-filtering.adoc[Display filtering] for complete details.
+See link:display-filtering/[Display filtering] for complete details.
 
 === Colors and symbols
 
@@ -56,7 +56,7 @@ Canon uses color-coded output to distinguish different types of changes:
 * Yellow: Normative structural changes
 * Cyan: Informative differences
 
-See link:colors-and-symbols.adoc[Colors and symbols] for details.
+See link:colors-and-symbols/[Colors and symbols] for details.
 
 === Diff display themes
 
@@ -67,7 +67,7 @@ Choose from 4 predefined color themes (light, dark, retro, claude) or create cus
 * Retro theme: Amber CRT, low blue light
 * Claude theme: Maximum contrast with colored backgrounds
 
-See link:themes.adoc[Themes] for complete theme documentation.
+See link:themes/[Themes] for complete theme documentation.
 
 === Character visualization
 
@@ -90,7 +90,7 @@ Canon::Config.configure do |cfg|
 end
 ----
 
-See link:character-visualization.adoc[Character visualization] for details.
+See link:character-visualization/[Character visualization] for details.
 
 === Context and grouping
 
@@ -99,7 +99,7 @@ Control how much surrounding context to show:
 * Context lines: Number of unchanged lines around changes
 * Grouping: Combine nearby changes into single blocks
 
-See link:context-and-grouping.adoc[Context and grouping] for details.
+See link:context-and-grouping/[Context and grouping] for details.
 
 === Display preprocessing
 
@@ -111,7 +111,7 @@ algorithm:
 * `:pretty_print` — run through `Canon::PrettyPrinter::Xml` (one tag per line)
 * `:c14n` — run through XML C14N normalization
 
-See link:display-preprocessing.adoc[Display preprocessing] for details,
+See link:display-preprocessing/[Display preprocessing] for details,
 including the character-visualization constraint for future extensibility.
 
 === Pretty-diff mode
@@ -133,7 +133,7 @@ formatter = Canon::DiffFormatter.new(
 )
 ----
 
-See link:pretty-diff-mode.adoc[Pretty-diff mode] for details and limitations.
+See link:pretty-diff-mode/[Pretty-diff mode] for details and limitations.
 
 === Algorithm-specific output
 
@@ -142,7 +142,7 @@ Different diff algorithms produce different output styles:
 * DOM diff: Line-by-line or by-object output
 * Semantic tree diff: Operation-based output with tree structure
 
-See link:algorithm-specific-output.adoc[Algorithm-specific output] for details.
+See link:algorithm-specific-output/[Algorithm-specific output] for details.
 
 == Common use cases
 
@@ -189,16 +189,16 @@ Diff formatting can be configured:
 * Per-format (XML, HTML, JSON, YAML)
 * Per-operation via method parameters
 
-See link:../../reference/cli-options.adoc[CLI options] and
-link:../../interfaces/ruby-api/index.adoc[Ruby API] for configuration details.
+See link:../../reference/cli-options/[CLI options] and
+link:../../interfaces/ruby-api/[Ruby API] for configuration details.
 
 == See also
 
-* link:../../understanding/comparison-pipeline.adoc[Comparison pipeline] -
+* link:../../understanding/comparison-pipeline/[Comparison pipeline] -
   Understanding the diff generation process
-* link:../match-options/index.adoc[Match options] - Controlling what gets
+* link:../match-options/[Match options] - Controlling what gets
   compared
-* link:../../advanced/diff-classification.adoc[Diff classification] -
+* link:../../advanced/diff-classification/[Diff classification] -
   Normative vs informative differences
-* link:../../interfaces/cli/index.adoc[CLI interface] - Command-line usage
-* link:../../interfaces/ruby-api/index.adoc[Ruby API] - Programmatic usage
+* link:../../interfaces/cli/[CLI interface] - Command-line usage
+* link:../../interfaces/ruby-api/[Ruby API] - Programmatic usage

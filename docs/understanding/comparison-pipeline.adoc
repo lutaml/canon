@@ -67,7 +67,7 @@ graph TD
 * Match profiles (preset combinations)
 * Algorithm-specific behaviors
 
-**Documentation**: See link:../features/match-options/[Match Options] and link:../features/match-options/algorithm-specific-behavior.adoc[Algorithm-Specific Behavior]
+**Documentation**: See link:../features/match-options/[Match Options] and link:../../features/match-options/algorithm-specific-behavior/[Algorithm-Specific Behavior]
 
 === Layer 4: Diff Formatting
 
@@ -81,7 +81,7 @@ graph TD
 * Context and grouping
 * Character visualization
 
-**Documentation**: See link:../features/diff-formatting/[Diff Formatting] and link:../features/diff-formatting/algorithm-specific-output.adoc[Algorithm-Specific Output]
+**Documentation**: See link:../features/diff-formatting/[Diff Formatting] and link:../../features/diff-formatting/algorithm-specific-output/[Algorithm-Specific Output]
 
 == DiffNode Data Flow
 
@@ -154,7 +154,7 @@ After creation, DiffNodes are enriched with metadata for Layer 4 rendering:
 * **NodeSerializer**: Library-agnostic serialization of node content
 * **Attribute extraction**: Normalized attribute hashes
 
-See link:../internals/diffnode-enrichment.adoc[DiffNode Enrichment] for implementation details.
+See link:../../internals/diffnode-enrichment/[DiffNode Enrichment] for implementation details.
 
 === Layer 3: Classification
 
@@ -432,8 +432,8 @@ Canon::Comparison.equivalent?(doc1, doc2,
 
 == See Also
 
-* link:architecture.adoc[Architecture] - Overall system design
+* link:../architecture/[Architecture] - Overall system design
 * link:algorithms/[Algorithms] - Detailed algorithm documentation
-* link:../features/match-options/algorithm-specific-behavior.adoc[Algorithm-Specific Behavior] - How algorithms interpret match options
-* link:../features/diff-formatting/algorithm-specific-output.adoc[Algorithm-Specific Output] - Different output formats
-* link:../guides/choosing-configuration.adoc[Choosing Configuration] - Decision guide for all layers
+* link:../../features/match-options/algorithm-specific-behavior/[Algorithm-Specific Behavior] - How algorithms interpret match options
+* link:../../features/diff-formatting/algorithm-specific-output/[Algorithm-Specific Output] - Different output formats
+* link:../../guides/choosing-configuration/[Choosing Configuration] - Decision guide for all layers

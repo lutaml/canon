@@ -230,7 +230,7 @@ Canon::Comparison.equivalent?(doc1, doc2,
 )
 ----
 
-See link:../../features/match-options/algorithm-specific-behavior.adoc[Algorithm-Specific Behavior] for details.
+See link:../../../features/match-options/algorithm-specific-behavior/[Algorithm-Specific Behavior] for details.
 
 === With Diff Formatting
 
@@ -525,9 +525,9 @@ When switching from DOM to Semantic:
 
 == See Also
 
-* link:index.adoc[Algorithms Overview] - Comparison of DOM vs Semantic
-* link:dom-diff.adoc[DOM Algorithm] - Standard algorithm
-* link:../../features/match-options/algorithm-specific-behavior.adoc[Algorithm-Specific Behavior] - How Semantic interprets options
-* link:../../features/diff-formatting/algorithm-specific-output.adoc[Algorithm-Specific Output] - Output format details
-* link:../../guides/choosing-configuration.adoc[Choosing Configuration] - Complete decision guide
-* link:../../advanced/semantic-tree-diff-internals.adoc[Semantic Tree Diff Internals] - Advanced details (if available)
+* link:../[Algorithms Overview] - Comparison of DOM vs Semantic
+* link:../dom-diff/[DOM Algorithm] - Standard algorithm
+* link:../../../features/match-options/algorithm-specific-behavior/[Algorithm-Specific Behavior] - How Semantic interprets options
+* link:../../../features/diff-formatting/algorithm-specific-output/[Algorithm-Specific Output] - Output format details
+* link:../../../guides/choosing-configuration/[Choosing Configuration] - Complete decision guide
+* link:../semantic-tree-diff/[Semantic Tree Diff] - Advanced details

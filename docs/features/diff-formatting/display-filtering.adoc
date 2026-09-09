@@ -507,10 +507,10 @@ puts result.differences.count  # Number of informative diffs
 
 == See also
 
-* link:../match-options/index.adoc[Match options] - Configure match dimensions
-* link:colors-and-symbols.adoc[Colors and symbols] - Understanding diff
+* link:../../match-options/[Match options] - Configure match dimensions
+* link:../colors-and-symbols/[Colors and symbols] - Understanding diff
   visualization
-* link:../../../understanding/algorithms/index.adoc[Diff algorithms] -
+* link:../../../understanding/algorithms/[Diff algorithms] -
   Algorithm-specific behavior
-* link:../../../advanced/diff-classification.adoc[Diff classification] -
+* link:../../../advanced/diff-classification/[Diff classification] -
   Normative vs informative classification

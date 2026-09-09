@@ -128,7 +128,7 @@ export CANON_JSON_FORMAT_PREPROCESSING=normalize
 |`CANON_XML_DIFF_PRETTY_PRINTED_EXPECTED`
 |boolean
 |`false`
-|When `true`, whitespace-only text nodes that start with `"\n"` inside `:collapse`-classified elements are dropped from the **expected (fixture)** document before it reaches the line diff.  Solves the asymmetric case where the expected side is a hand-indented heredoc fixture but the received side is compact programmatic XML.  Only applies when `display_preprocessing: :normalize_pretty_print`.  Format-specific; no global form.  See also link:../features/match-options/pretty-printed-fixtures.adoc[Pretty-printed fixture support].
+|When `true`, whitespace-only text nodes that start with `"\n"` inside `:collapse`-classified elements are dropped from the **expected (fixture)** document before it reaches the line diff.  Solves the asymmetric case where the expected side is a hand-indented heredoc fixture but the received side is compact programmatic XML.  Only applies when `display_preprocessing: :normalize_pretty_print`.  Format-specific; no global form.  See also link:../../features/match-options/pretty-printed-fixtures/[Pretty-printed fixture support].
 |XML (display only)
 
 |`CANON_XML_DIFF_PRETTY_PRINTED_RECEIVED`

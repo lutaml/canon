@@ -280,11 +280,11 @@ Profile YAML keys map directly to Canon configuration accessors:
 |===
 
 All `DiffConfig` and `MatchConfig` attributes documented in
-link:../reference/options-across-interfaces.adoc[Options Across Interfaces]
+link:../../reference/options-across-interfaces/[Options Across Interfaces]
 are supported.
 
 == See also
 
-* link:environment-configuration/override-system.adoc[Override System] -- ENV variable priority
-* link:match-options/index.adoc[Match Options] -- match profile presets (`:strict`, `:spec_friendly`, etc.)
-* link:../guides/choosing-configuration.adoc[Choosing Configuration] -- decision guide
+* link:../environment-configuration/override-system/[Override System] -- ENV variable priority
+* link:../match-options/[Match Options] -- match profile presets (`:strict`, `:spec_friendly`, etc.)
+* link:../../guides/choosing-configuration/[Choosing Configuration] -- decision guide

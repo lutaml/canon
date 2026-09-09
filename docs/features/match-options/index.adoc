@@ -12,7 +12,7 @@ has_children: true
 
 This section provides a complete reference for Canon's match options, including match dimensions, behaviors, and predefined profiles.
 
-Match options control **Layer 3 (Match Options)** of Canon's 4-layer comparison architecture. See link:../../understanding/comparison-pipeline.adoc[Comparison Pipeline] for the complete flow.
+Match options control **Layer 3 (Match Options)** of Canon's 4-layer comparison architecture. See link:../../understanding/comparison-pipeline/[Comparison Pipeline] for the complete flow.
 
 == Overview
 
@@ -22,15 +22,15 @@ Match options control which aspects of documents are compared and how strictly t
 * **Dimension behaviors**: How each dimension is compared (`:strict`, `:normalize`, `:ignore`)
 * **Match profiles**: Predefined combinations for common scenarios
 
-**Important**: Match options behave differently with each algorithm. See link:algorithm-specific-behavior.adoc[Algorithm-Specific Behavior] for details.
+**Important**: Match options behave differently with each algorithm. See link:algorithm-specific-behavior/[Algorithm-Specific Behavior] for details.
 
 == Child Pages
 
-* link:dimensions.adoc[Match Dimensions] - Detailed reference for all dimensions
-* link:profiles.adoc[Match Profiles] - Predefined configurations
-* link:algorithm-specific-behavior.adoc[Algorithm-Specific Behavior] - How DOM and Semantic algorithms interpret options differently
-* link:html-policies.adoc[HTML-Specific Policies] - HTML format-specific comparison policies
-* link:pretty-printed-fixtures.adoc[Pretty-Printed Fixture Support] - Comparing compact generated XML against hand-indented fixture heredocs without spurious whitespace differences
+* link:../match-options/[Match dimensions] - Detailed reference for all dimensions
+* link:../match-options/[Match profiles] - Predefined configurations
+* link:algorithm-specific-behavior/[Algorithm-Specific Behavior] - How DOM and Semantic algorithms interpret options differently
+* link:html-policies/[HTML-Specific Policies] - HTML format-specific comparison policies
+* link:pretty-printed-fixtures/[Pretty-Printed Fixture Support] - Comparing compact generated XML against hand-indented fixture heredocs without spurious whitespace differences
 
 == Match dimensions overview
 

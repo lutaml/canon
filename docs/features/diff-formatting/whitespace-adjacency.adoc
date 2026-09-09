@@ -110,7 +110,7 @@ information. In that case Canon falls back to naming the parent
 element instead — `Whitespace inside <PARENT>` — and the
 Expected/Actual detail block renders each side's parent element
 compactly per the contract from
-link:../../advanced/semantic-diff-report.adoc#parent-context-fallback-for-ambiguous-text-diffs[issue #112].
+link:../../../advanced/semantic-diff-report/#parent-context-fallback-for-ambiguous-text-diffs[issue #112].
 
 NOTE: An earlier wording (`Whitespace surrounding "X"`) classified the
 *whitespace node's position among its own siblings* rather than its
@@ -212,9 +212,9 @@ whitespace node as a single normative `:whitespace_adjacency` diff.
 
 == Related
 
-* link:../../advanced/diff-classification.adoc[Diff classification] —
+* link:../../../advanced/diff-classification/[Diff classification] —
   Normative vs informative differences.
-* link:../match-options/index.adoc[Match options] — Configuring
+* link:../../match-options/[Match options] — Configuring
   `preserve_whitespace_elements`, `collapse_whitespace_elements`, and
   `strip_whitespace_elements`.
 

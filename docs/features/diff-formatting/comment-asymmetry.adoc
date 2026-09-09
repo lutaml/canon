@@ -88,7 +88,7 @@ DIFFERENCE #1 — comments: Comment present on EXPECTED only:
 == Combined with whitespace asymmetry
 
 The same realignment walk handles asymmetric whitespace-only text
-nodes (link:whitespace-adjacency.adoc[issue #137]) and asymmetric
+nodes (link:../whitespace-adjacency/[issue #137]) and asymmetric
 comment nodes together. When a children mismatch is fully explained by
 a combination of asymmetric whitespace and asymmetric comments, the
 walker emits one diff per asymmetric node with the appropriate
@@ -147,9 +147,9 @@ Both comparison paths delegate to `ChildRealignment.walk`:
 
 == Related
 
-* link:whitespace-adjacency.adoc[Whitespace adjacency] — sibling
+* link:../whitespace-adjacency/[Whitespace adjacency] — sibling
   contract for asymmetric whitespace-only text nodes.
-* link:../../advanced/diff-classification.adoc[Diff classification] —
+* link:../../../advanced/diff-classification/[Diff classification] —
   Normative vs informative differences.
 
 == History
