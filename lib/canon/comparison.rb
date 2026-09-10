@@ -110,6 +110,8 @@ module Canon
     autoload :Strategies, "canon/comparison/strategies"
     autoload :WhitespaceSensitivity, "canon/comparison/whitespace_sensitivity"
     autoload :XmlComparator, "canon/comparison/xml_comparator"
+    autoload :NativeStructuralIdentity,
+      "canon/comparison/native_structural_identity"
     autoload :XmlComparatorHelpers, "canon/comparison/xml_comparator_helpers"
     autoload :XmlNodeComparison, "canon/comparison/xml_node_comparison"
     autoload :XmlParser, "canon/comparison/xml_parser"
