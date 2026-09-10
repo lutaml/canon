@@ -53,6 +53,23 @@ module Canon
             return true
           end
 
+          # FAST PATH: Native structural identity via the optional
+          # leptris accelerator (libleptris >= 1.9.127 tree diff).
+          # Byte-different strings whose trees are structurally
+          # identical (attribute order, quote style, whitespace
+          # between tags) answer true without entering the Ruby
+          # comparison pipeline: the engine parses both strings in
+          # C and prunes equal subtrees by content-defined Merkle
+          # digest, so the equal case costs one digest compare per
+          # subtree. Structural identity implies equivalence under
+          # any profile (profiles forgive differences; none create
+          # them). Trees that DO differ fall through unchanged.
+          if !opts[:verbose] && n1.is_a?(String) && n2.is_a?(String) &&
+              NativeStructuralIdentity.available?
+            hit = NativeStructuralIdentity.identical?(n1, n2)
+            return true if hit == true
+          end
+
           opts = DEFAULT_OPTS.merge(opts)
 
           # Resolve match options with format-specific defaults
