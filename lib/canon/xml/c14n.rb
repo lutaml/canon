@@ -10,12 +10,56 @@ module Canon
       # @param with_comments [Boolean] Include comments in canonical form
       # @return [String] Canonical form in UTF-8
       def self.canonicalize(xml, with_comments: false)
+        if (native = native_canonicalize(xml, with_comments))
+          return native
+        end
+
         # Build XPath data model
         root_node = DataModel.from_xml(xml)
 
         # Process to canonical form
         processor = Processor.new(with_comments: with_comments)
         processor.process(root_node)
+      end
+
+      # leptris' C-side C14N 1.1 — ~50x faster than the Ruby processor
+      # but NOT yet byte-identical on canon's edge-case corpus
+      # (attribute ordering, `>` escaping, document-level PIs, one
+      # prefix case — leptris#1015; the parity spec pins
+      # each). Opt-in via CANON_C14N_BACKEND=leptris until those
+      # close; comments mode keeps the Ruby path regardless (the
+      # native seam exposes no with-comments form).
+      def self.native_canonicalize(xml, with_comments)
+        return nil if with_comments
+        return nil if RUBY_ENGINE == "opal"
+        return nil unless ENV["CANON_C14N_BACKEND"].to_s.casecmp("leptris").zero?
+        return nil unless Canon::XmlBackend.moxml? &&
+          Canon::XmlParsing.moxml_adapter_name == :leptris
+        return nil unless native_c14n_available?
+
+        doc = Canon::XmlParsing.moxml_context.parse(xml, readonly: true,
+                                                         strict: false)
+        begin
+          doc.native.canonicalize(::Leptris::XML::FFI::C14N_1_1, nil,
+                                  mode: ::Leptris::XML::FFI::C14N_MODE_CANONICAL)
+        ensure
+          doc.free
+        end
+      rescue StandardError
+        # Malformed inputs are the Ruby path's domain (recovery parse
+        # + parse_errors surfacing), not the native lane's.
+        nil
+      end
+
+      def self.native_c14n_available?
+        return @native_c14n_available unless @native_c14n_available.nil?
+
+        @native_c14n_available = defined?(::Leptris::XML::FFI::C14N_1_1) &&
+          ::Leptris::XML::FFI.constants.include?(:C14N_MODE_CANONICAL)
+      end
+
+      def self.reset_native_probe!
+        @native_c14n_available = nil
       end
 
       # Canonicalize a document subset selected by XPath expression.
