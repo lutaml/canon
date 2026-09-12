@@ -22,7 +22,7 @@ module Canon
         return if input.is_a?(Hash) || input.is_a?(Array) # Already parsed
         return if input.strip.empty?
 
-        Canon::YamlParsing.safe_load(input)
+        Canon::YamlParsing.safe_load(input, aliases: true)
       rescue Psych::SyntaxError => e
         location = extract_location(e)
 

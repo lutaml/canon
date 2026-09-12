@@ -6,12 +6,12 @@ module Canon
   # stack).
   #
   # Mirrors XmlBackend's discipline (MECE — this module owns selection,
-  # YamlParsing owns the calls). The default stays :psych until the
-  # yeptris Psych-safe_load parity gaps close (yeptris-ruby#29 empty
-  # documents crash, #30 sexagesimal scalars, #31 >64-bit integers);
-  # yeptris is 3.1x faster at loading (measured, 2,000-item document),
-  # so CANON_YAML_BACKEND=yeptris opts in early and the default flips
-  # once the parity spec runs clean.
+  # YamlParsing owns the calls). yeptris loads 4.5–5x faster than Psych
+  # (0.1.28 Marshal materialization, 2,000-item document) and the
+  # Psych-safe_load parity spec runs clean — the former gate-blockers
+  # (yeptris-ruby#29/#30/#31) are all fixed upstream. The default
+  # therefore follows availability: yeptris when loadable, Psych
+  # otherwise. CANON_YAML_BACKEND=psych forces the stdlib engine.
   #
   # Only the namespaced API (Yeptris::YAML) is ever used — requiring
   # "yeptris/psych" rebinds the global ::Psych constant for the whole
@@ -22,7 +22,7 @@ module Canon
     class << self
       def active
         @active ||= begin
-          wanted = forced || :psych
+          wanted = forced || (yeptris_available? ? :yeptris : :psych)
           # A forced yeptris without a loadable gem/native lib must
           # degrade to Psych, not NameError in the gateway.
           wanted = :psych if wanted == :yeptris && !yeptris_available?
