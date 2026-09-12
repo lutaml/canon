@@ -225,6 +225,13 @@ compare_against: nil)
       failure_means: "Slow formatting affects serialization performance. C14N is critical for digital signatures and XML canonicalization.",
       compare_against: "Previous branch (main).",
     },
+    data_comparison: {
+      name: "Data Comparison",
+      icon: "🧮",
+      description: "JSON and YAML semantic comparison. Both formats load through their engine gateways (yeptris/stdlib), so this referees engine choice.",
+      failure_means: "Slow data comparison affects validation pipelines and test suites. A regression here can also signal an engine lane flip gone wrong.",
+      compare_against: "Previous branch (main). Inputs are freshly generated (different values), so the comparison does real work.",
+    },
   }.freeze
 
   # Test definitions
@@ -264,6 +271,12 @@ compare_against: nil)
       { name: "XML C14N", method: :xml_c14n_format, desc: "Canonical XML" },
       { name: "JSON", method: :json_format, desc: "JSON formatting" },
       { name: "YAML", method: :yaml_format, desc: "YAML formatting" },
+    ],
+    data_comparison: [
+      { name: "JSON", method: :json_compare_equivalent,
+        desc: "JSON equivalence" },
+      { name: "YAML", method: :yaml_compare_equivalent,
+        desc: "YAML equivalence" },
     ],
   }.freeze
 
@@ -555,6 +568,14 @@ compare_against: nil)
       yaml = DataGenerator.generate_yaml(items: @items)
       data = YAML.safe_load(yaml, permitted_classes: [Time])
       measure { Canon.format_yaml(data) }
+    when :json_compare_equivalent
+      json1 = DataGenerator.generate_json(items: @items)
+      json2 = DataGenerator.generate_json(items: @items)
+      measure { Canon::Comparison.equivalent?(json1, json2, format: :json) }
+    when :yaml_compare_equivalent
+      yaml1 = DataGenerator.generate_yaml(items: @items)
+      yaml2 = DataGenerator.generate_yaml(items: @items)
+      measure { Canon::Comparison.equivalent?(yaml1, yaml2, format: :yaml) }
     else
       raise "Unknown benchmark: #{method}"
     end

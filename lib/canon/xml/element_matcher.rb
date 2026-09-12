@@ -164,6 +164,21 @@ module Canon
         elems1 = children1.select { |n| n.node_type == :element }
         elems2 = children2.select { |n| n.node_type == :element }
 
+        # FAST PATH: pairwise-corresponding children. When both lists
+        # are the same length and every position pairs elements with
+        # equal name, namespace URI, and identity value, the full
+        # matcher's output is exactly the positional pairing: unique
+        # identity keys pair same-with-same, duplicate keys pair
+        # last-with-last in the identity phase and the rest pair in
+        # order in the positional phase. No deleted/inserted results
+        # either way. Skip the identity/positional/class machinery.
+        if !elems1.empty? && elems1.length == elems2.length &&
+            pairwise_corresponding?(elems1, elems2)
+          record_positional_matches(elems1, elems2, path,
+                                    recursive: recursive)
+          return
+        end
+
         # Positions by identity: elems.index(elem) was an O(n) scan per
         # recorded match — O(n²) per level on element-heavy parents.
         positions1 = {}
@@ -260,6 +275,48 @@ module Canon
             pos1: nil,
             pos2: positions2[elem2],
           )
+        end
+      end
+
+      # True when every position pairs elements with equal name,
+      # namespace URI, and identity value (nil-safe).
+      def pairwise_corresponding?(elems1, elems2)
+        elems1.each_index.all? do |i|
+          e1 = elems1[i]
+          e2 = elems2[i]
+          e1.name == e2.name && e1.namespace_uri == e2.namespace_uri &&
+            extract_identity(e1) == extract_identity(e2)
+        end
+      end
+
+      # Record the positional pairing as :matched MatchResults,
+      # descending per pair in recursive mode (match_trees' ordering
+      # contract).
+      def record_positional_matches(elems1, elems2, path, recursive:)
+        elems1.each_index do |i|
+          elem1 = elems1[i]
+          elem_path = element_path(path, elem1)
+          @matches << MatchResult.new(
+            status: :matched,
+            elem1: elem1,
+            elem2: elems2[i],
+            path: elem_path,
+            pos1: i,
+            pos2: i,
+          )
+          if recursive
+            match_children(elem1.children, elems2[i].children, elem_path)
+          end
+        end
+      end
+
+      # Path segment for an element: expanded under a namespace,
+      # bare otherwise.
+      def element_path(path, elem)
+        if elem.namespace_uri && !elem.namespace_uri.empty?
+          path + ["{#{elem.namespace_uri}}#{elem.name}"]
+        else
+          path + [elem.name]
         end
       end
 
