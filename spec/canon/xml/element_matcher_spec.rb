@@ -21,6 +21,38 @@ RSpec.describe Canon::Xml::ElementMatcher do
       expect(matches.flat_map { |m| m.path.flatten }).not_to include("x")
     end
 
+    it "takes the positional fast path for pairwise-corresponding children" do
+      xml1 = '<root><item id="1">a</item><item id="2">b</item><item>plain</item></root>'
+      xml2 = '<root><item id="1">x</item><item id="2">y</item><item>z</item></root>'
+      root1 = Canon::Xml::DataModel.from_xml(xml1).children.first
+      root2 = Canon::Xml::DataModel.from_xml(xml2).children.first
+
+      matches = matcher.match_children_only(root1.children, root2.children)
+
+      expect(matches.map(&:status)).to all(eq(:matched))
+      expect(matches.map { |m| [m.elem1.object_id, m.elem2.object_id] })
+        .to eq(root1.children.each_index.map { |i| [root1.children[i].object_id, root2.children[i].object_id] })
+      expect(matches.map(&:pos1)).to eq([0, 1, 2])
+      expect(matches.map(&:pos2)).to eq([0, 1, 2])
+    end
+
+    it "falls back to the full matcher when identity values differ at a position" do
+      xml1 = '<root><item id="1">a</item><item id="2">b</item></root>'
+      xml2 = '<root><item id="1">a</item><item id="3">b</item></root>'
+      root1 = Canon::Xml::DataModel.from_xml(xml1).children.first
+      root2 = Canon::Xml::DataModel.from_xml(xml2).children.first
+
+      matches = matcher.match_children_only(root1.children, root2.children)
+
+      # The full matcher's positional phase recovers the id-changed
+      # element as a match (same name, same position); the attribute
+      # comparator reports the id difference itself. Positional-phase
+      # matches carry subset indexes, so only pos1 == pos2 is
+      # observable (position_changed? never fires for them).
+      expect(matches.map(&:status)).to all(eq(:matched))
+      expect(matches.map(&:pos1)).to eq(matches.map(&:pos2))
+    end
+
     it "records deleted and inserted elements at this level" do
       xml1 = "<root><a/><b/></root>"
       xml2 = "<root><a/><c/></root>"
