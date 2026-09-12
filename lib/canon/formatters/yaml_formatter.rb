@@ -17,7 +17,7 @@ module Canon
         # Return as-is if already parsed
         return yaml if yaml.is_a?(Hash) || yaml.is_a?(Array)
 
-        Canon::YamlParsing.safe_load(yaml)
+        Canon::YamlParsing.safe_load(yaml, aliases: true)
       end
 
       def self.sort_yaml_keys(obj)

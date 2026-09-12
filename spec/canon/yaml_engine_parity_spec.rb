@@ -24,12 +24,14 @@ PARITY_CASES = {
   "underscored integers" => "a: 1_000\nb: +2\n",
 }.freeze
 
-PENDING_UPSTREAM = {
-  "empty documents" => ["", "yeptris-ruby#29 — FFI::NullPointerError; gateway maps to nil meanwhile"],
-  "comment-only documents" => ["# just a comment\n", "yeptris-ruby#29"],
-  "sexagesimal scalars" => ["a: 1:30\n", "yeptris-ruby#30 — 90 vs Psych 5400"],
-  "bignum integers" => ["a: 12345678901234567890123\n", "yeptris-ruby#31 — String vs Integer"],
-  "JSON duplicate keys" => ['{"a":1,"a":2}', "yeptris-ruby#37 — last-wins vs json gem 3.0 strict raise"],
+# Formerly pending on yeptris-ruby#29/#30/#31/#37 — all fixed upstream
+# (0.1.12–0.1.15.1); the duplicate-key verdict follows the resolved
+# json gem's own behavior (>= 3 raises naming the key, 2.x last-wins).
+FORMERLY_PENDING = {
+  "empty documents" => "",
+  "comment-only documents" => "# just a comment\n",
+  "sexagesimal scalars" => "a: 1:30\n",
+  "bignum integers" => "a: 12345678901234567890123\n",
 }.freeze
 
 JSON_PARITY_CASES = {
@@ -72,22 +74,63 @@ RSpec.describe "YAML engine parity" do
     end
   end
 
-  it "default backend is Psych until parity gaps close" do
-    expect(Canon::YamlBackend.active).to eq(:psych) unless Canon::YamlBackend.yeptris?
+  it "default backend follows yeptris availability" do
+    old = ENV.fetch("CANON_YAML_BACKEND", nil)
+    ENV["CANON_YAML_BACKEND"] = nil
+    Canon::YamlBackend.reset!
+    available = Canon::YamlBackend.yeptris_available?
+    begin
+      expect(Canon::YamlBackend.active).to eq(available ? :yeptris : :psych)
+    ensure
+      ENV["CANON_YAML_BACKEND"] = old
+      Canon::YamlBackend.reset!
+    end
   end
 
-  PARITY_CASES.each do |name, yaml|
+  it "forced backend wins over availability" do
+    old = ENV.fetch("CANON_YAML_BACKEND", nil)
+    ENV["CANON_YAML_BACKEND"] = "psych"
+    Canon::YamlBackend.reset!
+    begin
+      expect(Canon::YamlBackend.active).to eq(:psych)
+    ensure
+      ENV["CANON_YAML_BACKEND"] = old
+      Canon::YamlBackend.reset!
+    end
+  end
+
+  PARITY_CASES.merge(FORMERLY_PENDING).each do |name, yaml|
     it "loads #{name} identically to Psych" do
       canon_loaded, psych_loaded = load_both(yaml)
       expect(deep_equal?(canon_loaded, psych_loaded)).to be(true)
     end
   end
 
-  PENDING_UPSTREAM.each do |name, (yaml, reason)|
-    xit "#{name} (#{reason})" do
-      canon_loaded, psych_loaded = load_both(yaml)
-      expect(canon_loaded).to eq(psych_loaded)
+  it "JSON duplicate keys follow the resolved json gem's own verdict" do
+    canon_loaded = Canon::JsonParsing.parse('{"a":1,"a":2}')
+    stdlib = begin
+      JSON.parse('{"a":1,"a":2}')
+    rescue JSON::ParserError
+      :raised
     end
+    expect(canon_loaded).to eq(stdlib)
+    begin
+      require "yeptris"
+      yeptris = begin
+        Yeptris::JSON.load('{"a":1,"a":2}')
+      rescue StandardError
+        :raised
+      end
+      expect(yeptris).to eq(stdlib)
+    rescue LoadError
+      skip "yeptris not installed"
+    end
+  end
+
+  it "resolves anchors identically (canon always aliases: true)" do
+    yaml = "base: &b\n  x: 1\nuse:\n  <<: *b\n  y: 2\n"
+    canon_loaded, psych_loaded = load_both(yaml)
+    expect(deep_equal?(canon_loaded, psych_loaded)).to be(true)
   end
 
   # JSON parsing parity (yeptris uses Yeptris::YAML.load's JSON

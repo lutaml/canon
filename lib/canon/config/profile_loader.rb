@@ -126,7 +126,7 @@ module Canon
 
         def load_yaml(path)
           content = File.read(path)
-          YAML.safe_load(content, permitted_classes: [Symbol]) || {}
+          Canon::YamlParsing.safe_load(content, permitted_classes: [Symbol]) || {}
         end
       end
     end

@@ -199,10 +199,10 @@ module Canon
           content
         when :json
           # Parse JSON to Ruby object
-          JSON.parse(content)
+          Canon::JsonParsing.parse(content)
         when :yaml
           # Parse YAML to Ruby object
-          YAML.safe_load(content)
+          Canon::YamlParsing.safe_load(content)
         else
           abort "Error: Unsupported format '#{format}'"
         end
