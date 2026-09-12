@@ -16,6 +16,7 @@ module Canon
   module Xml
     autoload :AttributeHandler, "canon/xml/attribute_handler"
     autoload :C14n, "canon/xml/c14n"
+    autoload :DigestGate, "canon/xml/digest_gate"
     autoload :CharacterEncoder, "canon/xml/character_encoder"
     autoload :DataModel, "canon/xml/data_model"
     autoload :ElementMatcher, "canon/xml/element_matcher"
