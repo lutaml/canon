@@ -107,7 +107,11 @@ RSpec.describe "YAML engine parity" do
   end
 
   it "JSON duplicate keys follow the resolved json gem's own verdict" do
-    canon_loaded = Canon::JsonParsing.parse('{"a":1,"a":2}')
+    canon_loaded = begin
+      Canon::JsonParsing.parse('{"a":1,"a":2}')
+    rescue JSON::ParserError
+      :raised
+    end
     stdlib = begin
       JSON.parse('{"a":1,"a":2}')
     rescue JSON::ParserError
