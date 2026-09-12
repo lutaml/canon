@@ -74,6 +74,25 @@ module Canon
           # Store resolved match options hash for use in comparison logic
           opts[:match_opts] = match_opts_hash
 
+          # FAST PATH: leptris Merkle digest — equal root-subtree
+          # digests plus identical document-level skeletons prove
+          # content identity (modulo whitespace-only text nodes and
+          # attribute order), which implies equivalence wherever
+          # canon's whitespace handling is the same symmetric
+          # parse-time strip. Callers whose whitespace semantics
+          # differ from that skip the gate: strict attribute order
+          # (invisible to the digest), user-configured whitespace
+          # element lists, xml:space documents (checked inside the
+          # gate), and verbose callers who need the report.
+          if !(opts[:verbose] ||
+                 match_opts_hash[:attribute_order] == :strict ||
+                 match_opts_hash[:preserve_whitespace_elements] ||
+                 match_opts_hash[:collapse_whitespace_elements] ||
+                 match_opts_hash[:strip_whitespace_elements]) &&
+              Xml::DigestGate.equal?(n1, n2)
+            return true
+          end
+
           # Create child_opts with resolved options
           child_opts = opts.merge(child_opts)
 
