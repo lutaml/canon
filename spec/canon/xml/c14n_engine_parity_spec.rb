@@ -16,6 +16,7 @@ CORPUS = {
   "mixed content" => %(<r>text <b>bold</b> more <i>it</i> tail</r>),
   "empty elements" => %(<r><a/><b></b><c/></r>),
   "xml attributes" => %(<r xml:lang="en" xml:space="default"><a xml:id="x1"/></r>),
+  "attribute ordering" => %(<e z="1" a="2" m="3" x:n="4" xmlns:x="urn:x"/>),
 }.freeze
 
 # rubocop:disable-next Style/StringConcatenation -- fixture assembly
@@ -25,9 +26,8 @@ BIG_DOC = '<?xml version="1.0"?><root xmlns="urn:r" xmlns:x="urn:x">' +
 
 # Upstream-tracked divergences (leptris native C14N 1.1 vs canon's
 # Ruby processor). When these pass, the default flips per the gate.
+# "attribute ordering" moved to CORPUS: fixed in libleptris 1.9.144.1.
 PENDING_UPSTREAM = {
-  "attribute ordering" => ['<e z="1" a="2" m="3" x:n="4" xmlns:x="urn:x"/>',
-                           "leptris#1015 — native sorts a m x:n z; spec (and canon) sort no-namespace attrs first: a m z x:n"],
   "prefixed element under mixed default+prefixed ns" => ['<root xmlns="urn:r" xmlns:x="urn:x"><x:b/></root>',
                                                          "leptris#1015 — native serializes <b> losing the x: prefix"],
   "right angle escaping" => ["<r>t &gt; w</r>",
