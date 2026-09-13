@@ -613,13 +613,17 @@ module Canon
         # occurrence. Shorter strings match too many places in the document.
         min_locate_length = 3
 
-        # Element added (only in text2)
+        # Element added (only in text2). Index-aware first — see the
+        # removed branch note (identical-sibling anchor bug).
         if before.nil?
-          loc = if after.length < min_locate_length && path
-                  locate_via_parent_element(path, @text2, @line_map2)
-                else
-                  SourceLocator.locate(after, @text2, @line_map2)
+          loc = if path
+                  locate_element_at_index(after, @text2, @line_map2, path)
                 end
+          loc ||= if after.length < min_locate_length && path
+                    locate_via_parent_element(path, @text2, @line_map2)
+                  else
+                    SourceLocator.locate(after, @text2, @line_map2)
+                  end
 
           if loc
             end_line = find_end_line(loc[:line_number], @line_map2, after)
@@ -643,13 +647,20 @@ module Canon
           return
         end
 
-        # Element removed (only in text1)
+        # Element removed (only in text1). The path-aware locate runs
+        # FIRST: an identical sibling earlier in the document would win
+        # a plain first-occurrence search, anchoring the deletion to
+        # the wrong element and letting the line builder absorb it
+        # into a formatting gap (issue #85/#86).
         if after.nil?
-          loc = if before.length < min_locate_length && path
-                  locate_via_parent_element(path, @text1, @line_map1)
-                else
-                  SourceLocator.locate(before, @text1, @line_map1)
+          loc = if path
+                  locate_element_at_index(before, @text1, @line_map1, path)
                 end
+          loc ||= if before.length < min_locate_length && path
+                    locate_via_parent_element(path, @text1, @line_map1)
+                  else
+                    SourceLocator.locate(before, @text1, @line_map1)
+                  end
 
           if loc
             end_line = find_end_line(loc[:line_number], @line_map1, before)
@@ -979,6 +990,39 @@ module Canon
         end
 
         # Fallback: return first occurrence
+        SourceLocator.locate(value, text, line_map)
+      end
+
+      # Index-aware location for element_structure changes: the path's
+      # last bracketed segment names the element itself (unlike
+      # text_content paths, whose last segment is the text node).
+      # Picks the occurrence whose element index matches the path, so
+      # identical siblings anchor at the right one; falls back to the
+      # first occurrence when no indexed match exists.
+      def locate_element_at_index(value, text, line_map, path)
+        return nil if value.nil? || value.length < 3
+
+        segments = path.split("/").reject(&:empty?)
+        element_segment = segments.reverse.find { |seg| seg.include?("[") }
+        return nil unless element_segment
+
+        element_match = element_segment.match(/([a-zA-Z0-9_:-]+)\[(\d+)\]/)
+        return nil unless element_match
+
+        element_name = element_match[1]
+        target_index = element_match[2].to_i
+
+        # Occurrence offsets point AT the element's own opening tag,
+        # so the prefix scan counts exactly the preceding siblings —
+        # no "inside the element" correction (count_elements_before_
+        # position subtracts one for text-node offsets).
+        opener = /<#{element_name}[>\s]/
+        occurrences = SourceLocator.locate_all(value, text, line_map)
+        occurrences.each do |occ|
+          count = text[0...occ[:char_offset]].scan(opener).length
+          return occ if count == target_index
+        end
+
         SourceLocator.locate(value, text, line_map)
       end
 
