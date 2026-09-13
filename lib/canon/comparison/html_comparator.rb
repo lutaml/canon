@@ -657,16 +657,11 @@ compare_profile = nil)
 
         # Determine if a text node should have leading/trailing whitespace
         # trimmed Text nodes at the start or end of their parent element should
-        # be trimmed
+        # be trimmed. Only/first/last child ⟺ a missing sibling pointer —
+        # checked without allocating the parent's children NodeSet.
+        # (The walk runs on Nokogiri fragments only — see the callers.)
         def should_trim_text_node?(text_node)
-          parent = text_node.parent
-          siblings = parent.children
-
-          # Trim if text is the only child
-          return true if siblings.length == 1
-
-          # Trim if text is at the start or end of parent
-          text_node == siblings.first || text_node == siblings.last
+          text_node.previous_sibling.nil? || text_node.next_sibling.nil?
         end
 
         # Remove whitespace-only text nodes from the document
