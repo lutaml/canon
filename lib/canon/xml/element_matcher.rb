@@ -447,7 +447,16 @@ module Canon
         map = {}
 
         elements.each do |elem|
-          class_attr = elem.attribute_nodes.find { |a| a.name == "class" }
+          class_attr = nil
+          attrs = elem.attribute_nodes
+          j = 0
+          while j < attrs.length
+            if attrs[j].name == "class"
+              class_attr = attrs[j]
+              break
+            end
+            j += 1
+          end
           next unless class_attr
 
           # Use element name + class as key to handle multiple element types
@@ -458,11 +467,24 @@ module Canon
         map
       end
 
-      # Extract identity from element attributes
+      # Extract identity from element attributes. Index loops, not
+      # find/detect blocks — Enumerable#find allocates ~3 objects per
+      # call on CRuby 3.4 and this runs per element (both sides) on
+      # every comparison level.
       def extract_identity(elem)
-        @identity_attrs.each do |attr_name|
-          attr = elem.attribute_nodes.find { |a| a.name == attr_name }
-          return attr.value if attr
+        attrs = elem.attribute_nodes
+        i = 0
+        identity_count = @identity_attrs.length
+        while i < identity_count
+          attr_name = @identity_attrs[i]
+          j = 0
+          attr_count = attrs.length
+          while j < attr_count
+            return attrs[j].value if attrs[j].name == attr_name
+
+            j += 1
+          end
+          i += 1
         end
         nil
       end
