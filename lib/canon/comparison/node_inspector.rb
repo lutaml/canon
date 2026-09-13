@@ -40,7 +40,14 @@ module Canon
 
           # HTML comments are parsed as TEXT nodes by Nokogiri
           if node.text?
-            text_stripped = text_content(node).to_s.strip.gsub("\\", "")
+            raw = text_content(node).to_s
+            # A comment-shaped text must start (after whitespace and
+            # backslash removal) with '<' — anything else is a cheap
+            # negative with no strip/gsub copies. ('\' must reach the
+            # slow path: backslash removal happens before the check.)
+            return false unless raw.match?(/\A[ \t\r\n\f]*[<\\]/)
+
+            text_stripped = raw.strip.gsub("\\", "")
             return true if text_stripped.start_with?("<!--") && text_stripped.end_with?("-->")
           end
           false

@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "set"
 require "nokogiri" unless RUBY_ENGINE == "opal"
 
 module Canon
@@ -596,6 +597,12 @@ compare_profile = nil)
                                   # Use default list from WhitespaceSensitivity (single source of truth)
                                   WhitespaceSensitivity.format_default_preserve_elements(match_opts).map(&:to_s)
                                 end
+          preserve_set = preserve_whitespace.to_set
+          # Element names arrive lowercased from the HTML parser but the
+          # ancestor walk would still allocate a downcase copy per visit;
+          # memoize per unique name instead (bounded by the tag vocabulary).
+          name_cache = {}
+          whitespace_result_cache = {}
 
           # Walk all text nodes
           doc.xpath(".//text()").each do |text_node|
@@ -603,11 +610,20 @@ compare_profile = nil)
             # Check all ancestors, not just immediate parent
             # Whitespace preservation happens REGARDLESS of text_content setting
             parent = text_node.parent
-            next if ancestor_preserves_whitespace?(parent, preserve_whitespace)
+            next if ancestor_preserves_whitespace?(parent, preserve_set,
+                                                   name_cache,
+                                                   whitespace_result_cache)
 
             # Collapse whitespace sequences (spaces, tabs, newlines) to single
             # space - use tr/squeeze to avoid ReDoS vulnerability from gsub(/\s+/)
-            normalized = text_node.content.tr("\t\n\r\f\v", " ").squeeze(" ")
+            # Content with no tab-class char and no space run is already
+            # collapsed — skip the copies entirely.
+            content = text_node.content
+            normalized = if content.match?(/[\t\n\r\f\v]/) || content.include?(" ")
+                           content.tr("\t\n\r\f\v", " ").squeeze(" ")
+                         else
+                           content
+                         end
 
             # Trim leading/trailing whitespace if appropriate
             normalized = normalized.strip if should_trim_text_node?(text_node)
@@ -616,17 +632,27 @@ compare_profile = nil)
           end
         end
 
-        # Check if any ancestor of the given node preserves whitespace
-        def ancestor_preserves_whitespace?(node, preserve_list)
-          current = node
-          while current.is_a?(Canon::Xml::Node) || Canon::XmlParsing.xml_node?(current)
-            return true if preserve_list.include?(current.name.downcase)
+        # Check if any ancestor of the given node preserves whitespace.
+        # +name_cache+ memoizes downcased names per unique element name
+        # (one downcase per tag vocabulary entry), and +result_cache+
+        # memoizes the verdict per element — engine node names allocate
+        # a fresh String per call, so sibling text nodes must not
+        # re-walk shared ancestors.
+        def ancestor_preserves_whitespace?(node, preserve_set, name_cache,
+                                          result_cache)
+          return false unless node.is_a?(Canon::Xml::Node) ||
+            Canon::XmlParsing.xml_node?(node)
 
-            break if Canon::XmlParsing.document?(current)
+          cached = result_cache[node]
+          return cached unless cached.nil?
 
-            current = current.parent
-          end
-          false
+          name = node.name
+          name = (name_cache[name] ||= name.downcase)
+          result_cache[node] = preserve_set.include?(name) ||
+            ancestor_preserves_whitespace?(
+              node.parent, preserve_set, name_cache,
+              result_cache
+            )
         end
 
         # Determine if a text node should have leading/trailing whitespace
@@ -654,12 +680,16 @@ compare_profile = nil)
         def remove_whitespace_only_text_nodes(doc)
           # Elements where whitespace is significant - don't remove whitespace-only nodes
           # SINGLE SOURCE OF TRUTH: WhitespaceSensitivity.format_default_preserve_elements
-          preserve_whitespace = WhitespaceSensitivity.format_default_preserve_elements(format: :html).map(&:to_s)
+          preserve_whitespace = WhitespaceSensitivity.format_default_preserve_elements(format: :html).to_set(&:to_s)
+          name_cache = {}
+          whitespace_result_cache = {}
 
           doc.xpath(".//text()").each do |text_node|
             # CRITICAL: Skip if this text node is inside a whitespace-preserving element
             parent = text_node.parent
-            next if ancestor_preserves_whitespace?(parent, preserve_whitespace)
+            next if ancestor_preserves_whitespace?(parent, preserve_whitespace,
+                                                   name_cache,
+                                                   whitespace_result_cache)
 
             content = text_node.content
 
