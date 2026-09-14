@@ -29,9 +29,7 @@ module Canon
         # difference exists (strict key_order compares insertion
         # order, which keys == keys preserves). Most object pairs in
         # similar documents hit this and skip the path-building walk.
-        if obj1 == obj2 && (!obj1.is_a?(Hash) || obj1.keys == obj2.keys)
-          return Comparison::EQUIVALENT
-        end
+        return Comparison::EQUIVALENT if deep_equal?(obj1, obj2)
 
         case obj1
         when Hash
@@ -68,8 +66,16 @@ module Canon
         # Sort keys if order should be ignored (based on match options)
         match_opts = opts[:match_opts]
         if match_opts && match_opts[:key_order] != :strict
-          keys1 = keys1.sort_by(&:to_s)
-          keys2 = keys2.sort_by(&:to_s)
+          # Identical key arrays: one sort replaces two (the sorted
+          # forms are trivially equal, and the set algebra below
+          # degenerates — missing/extra empty, common = the sorted
+          # keys themselves).
+          if keys1 == keys2
+            keys1 = keys2 = keys1.sort_by(&:to_s)
+          else
+            keys1 = keys1.sort_by(&:to_s)
+            keys2 = keys2.sort_by(&:to_s)
+          end
         elsif match_opts && match_opts[:key_order] == :strict
           # Strict mode: key order matters
           # Check if keys are in same order
@@ -85,8 +91,8 @@ module Canon
         end
 
         # Check for missing keys
-        missing_in_second = keys1 - keys2
-        missing_in_first = keys2 - keys1
+        missing_in_second = keys1 == keys2 ? EMPTY_KEYS : keys1 - keys2
+        missing_in_first = keys1 == keys2 ? EMPTY_KEYS : keys2 - keys1
 
         missing_in_second.each do |key|
           key_path = path.empty? ? key.to_s : "#{path}.#{key}"
@@ -102,13 +108,19 @@ module Canon
 
         has_missing_keys = !missing_in_first.empty? || !missing_in_second.empty?
 
-        # Compare common keys
-        common_keys = keys1 & keys2
+        # Compare common keys. The path string is built lazily: deep-equal
+        # pairs (the overwhelming majority in similar documents) answer
+        # equivalent without ever needing it.
+        common_keys = keys1 == keys2 ? keys1 : keys1 & keys2
         all_equivalent = true
         common_keys.each do |key|
+          value1 = hash1[key]
+          value2 = hash2[key]
+          next if deep_equal?(value1, value2)
+
           key_path = path.empty? ? key.to_s : "#{path}.#{key}"
-          result = compare_objects(hash1[key], hash2[key], opts,
-                                   differences, key_path)
+          result = compare_objects(value1, value2, opts, differences,
+                                   key_path)
           all_equivalent = false unless result == Comparison::EQUIVALENT
         end
 
@@ -138,6 +150,8 @@ module Canon
         all_equivalent = true
         arr1.each_with_index do |elem1, index|
           elem2 = arr2[index]
+          next if deep_equal?(elem1, elem2)
+
           elem_path = "#{path}[#{index}]"
           result = compare_objects(elem1, elem2, opts, differences,
                                    elem_path)
@@ -165,6 +179,16 @@ module Canon
           Comparison::UNEQUAL_PRIMITIVES
         end
       end
+
+      # Deep-equal with identical key order — compare_objects returns
+      # EQUIVALENT without consulting the path for such pairs, which
+      # is what makes lazy path construction in the hash/array walks
+      # behavior-identical.
+      def self.deep_equal?(obj1, obj2)
+        obj1 == obj2 && (!obj1.is_a?(Hash) || obj1.keys == obj2.keys)
+      end
+
+      EMPTY_KEYS = [].freeze
 
       # Add a Ruby object difference
       #
