@@ -54,6 +54,7 @@ module Canon
     class ElementMatcher
       # Default attributes used to identify elements
       DEFAULT_IDENTITY_ATTRS = %w[id ref name key class].freeze
+      EMPTY_PATH = [].freeze
 
       # Represents the result of matching an element across two DOM trees
       #
@@ -143,6 +144,21 @@ module Canon
         @matches = []
         match_level(children1, children2, [], recursive: false)
         @matches
+      end
+
+      # Public: true when both lists pair positionally (equal length,
+      # equal name/ns/identity at every index). ChildComparison uses
+      # this to skip MatchResult allocation on the common same-structure
+      # path.
+      def self.positionally_paired?(elems1, elems2)
+        return false if elems1.length != elems2.length || elems1.empty?
+
+        new.paired_positionally?(elems1, elems2)
+      end
+
+      # Instance form of .positionally_paired?
+      def paired_positionally?(elems1, elems2)
+        pairwise_corresponding?(elems1, elems2)
       end
 
       private
@@ -295,7 +311,11 @@ module Canon
       def record_positional_matches(elems1, elems2, path, recursive:)
         elems1.each_index do |i|
           elem1 = elems1[i]
-          elem_path = element_path(path, elem1)
+          # match_children_only never reads path; keep a shared empty
+          # for the non-recursive entry so we do not allocate one
+          # [name] array per element. Recursive match_trees still
+          # builds real paths for its public API.
+          elem_path = recursive || !path.empty? ? element_path(path, elem1) : EMPTY_PATH
           @matches << MatchResult.new(
             status: :matched,
             elem1: elem1,

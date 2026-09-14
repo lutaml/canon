@@ -26,12 +26,12 @@ module Canon
         return false unless Canon::XmlBackend.moxml? &&
           Canon::XmlParsing.moxml_adapter_name == :leptris
 
-        # Node#digest is the 1.9.144 surface; feature-detect it on a
-        # throwaway document rather than probing the class.
+        # moxml Node#digest (moxml#173) wraps leptris Node#digest;
+        # feature-detect on a throwaway document.
         doc = Canon::XmlParsing.moxml_context.parse("<r/>", readonly: true,
                                                             strict: false)
         root = doc.root
-        digestable = !root.native.digest(drop_ws: true).nil?
+        digestable = !root.digest(drop_ws_text: true).nil?
         doc.free
         digestable
       rescue StandardError
@@ -85,7 +85,7 @@ module Canon
           when Moxml::Text then child.content.strip.empty? ? nil : child.to_s
           end
         end
-        [root.native.digest(drop_ws: true), skeleton]
+        [root.digest(drop_ws_text: true), skeleton]
       ensure
         doc&.free
       end

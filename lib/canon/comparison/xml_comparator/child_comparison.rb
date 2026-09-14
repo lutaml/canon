@@ -75,6 +75,17 @@ module Canon
           # Use ElementMatcher for semantic comparison
           def use_element_matcher_comparison(children1, children2, parent_node, comparator,
                                              opts, child_opts, diff_children, differences)
+            # FAST PATH: positionally paired children — compare pairwise
+            # with zero MatchResult allocation. Same pairing the matcher
+            # would emit; pos1==pos2 so position_changed? never fires.
+            if Canon::Xml::ElementMatcher.positionally_paired?(children1,
+                                                               children2)
+              return compare_positionally_paired(
+                children1, children2, comparator, opts, child_opts,
+                diff_children, differences
+              )
+            end
+
             # Single-level matching: the comparator itself descends via
             # compare_nodes below, so nested matches would be discarded.
             matches = Canon::Xml::ElementMatcher.new
@@ -90,6 +101,24 @@ module Canon
 
             process_matches(matches, children1, children2, parent_node, comparator,
                             opts, child_opts, diff_children, differences)
+          end
+
+          # Pairwise compare when ElementMatcher.positionally_paired?
+          # has already proved the pairing. No MatchResult objects.
+          def compare_positionally_paired(children1, children2, comparator,
+                                          _opts, child_opts, diff_children,
+                                          differences)
+            all_equivalent = true
+            i = 0
+            while i < children1.length
+              result = comparator.compare_nodes(
+                children1[i], children2[i],
+                child_opts, child_opts, diff_children, differences
+              )
+              all_equivalent = false unless result == Comparison::EQUIVALENT
+              i += 1
+            end
+            all_equivalent ? Comparison::EQUIVALENT : Comparison::UNEQUAL_ELEMENTS
           end
 
           # Process ElementMatcher results
