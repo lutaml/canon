@@ -33,6 +33,15 @@ RSpec.describe "XML digest-gate fast path" do
     expect(equivalent?(compact_doc, changed)).to be false
   end
 
+  it "does not false-positive when digests are unavailable" do
+    # Adapter-level nil digest (Opal / non-leptris) must never make two
+    # different documents look equal via [nil, skeleton] == [nil, skeleton].
+    a = %(<root><a>1</a></root>)
+    b = %(<root><a>2</a></root>)
+    expect(Canon::Xml::DigestGate.equal?(a, b)).to be false
+    expect(equivalent?(a, b)).to be false
+  end
+
   it "sees document-level comment differences (skeleton)" do
     expect(equivalent?(%(<!--c--><r><a/></r>), %(<r><a/></r>))).to be false
   end

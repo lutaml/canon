@@ -85,7 +85,13 @@ module Canon
           when Moxml::Text then child.content.strip.empty? ? nil : child.to_s
           end
         end
-        [root.digest(drop_ws_text: true), skeleton]
+        digest = root.digest(drop_ws_text: true)
+        # nil digest means the adapter has no Merkle support — never
+        # treat two nils as equal (that would false-positive under
+        # Opal / non-leptris backends where every tree digests nil).
+        return nil if digest.nil?
+
+        [digest, skeleton]
       ensure
         doc&.free
       end
