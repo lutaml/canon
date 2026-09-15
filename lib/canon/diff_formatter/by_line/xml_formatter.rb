@@ -59,8 +59,53 @@ module Canon
             grouping_lines: @diff_grouping_lines,
           )
 
+          # #85/#86: DiffNodes the enricher could not locate were
+          # previously dropped silently — the absorption mechanism.
+          # Their serialized content renders as a trailing context so
+          # the change is always visible, without perturbing the
+          # located walk's line accounting.
+          append_unlocated_context(report)
+
           # Layer 6: Format the report
           format_report(report, doc1, doc2)
+        end
+
+        # Trailing context for DiffNodes with no located char ranges
+        # (multiline reflowed text, relocated content): one removed
+        # DiffLine per serialized_before line, one added per
+        # serialized_after line. Nil positions render as blank line
+        # numbers.
+        def append_unlocated_context(report)
+          unlocated = @differences.select do |dn|
+            dn.char_ranges.nil? || dn.char_ranges.empty?
+          end
+          return if unlocated.empty?
+
+          unlocated = unlocated.reject do |dn|
+            (@show_diffs == :normative && !dn.normative?) ||
+              (@show_diffs == :informative && !dn.informative?)
+          end
+          return if unlocated.empty?
+
+          lines = []
+          unlocated.each do |dn|
+            fmt = dn.formatting?
+            dn.serialized_before&.split("\n")&.each do |line|
+              lines << Canon::Diff::DiffLine.new(
+                line_number: nil, new_position: nil, content: line,
+                type: :removed, diff_node: dn, formatting: fmt
+              )
+            end
+            next unless dn.serialized_after
+
+            dn.serialized_after.split("\n").each do |line|
+              lines << Canon::Diff::DiffLine.new(
+                line_number: nil, new_position: nil, content: line,
+                type: :added, diff_node: dn, formatting: fmt
+              )
+            end
+          end
+          report.contexts << Canon::Diff::DiffContext.new(lines: lines)
         end
 
         # Format a DiffReport for display
@@ -100,12 +145,12 @@ module Canon
           context.lines.each do |diff_line|
             case diff_line.type
             when :unchanged
-              old_num = diff_line.line_number + 1
-              new_num = (diff_line.new_position || diff_line.line_number) + 1
+              old_num = diff_line.line_number&.+(1)
+              new_num = (diff_line.new_position || diff_line.line_number)&.+(1)
               output << format_unified_line(old_num, new_num, " ",
                                             diff_line.content)
             when :removed
-              line_num = diff_line.line_number + 1
+              line_num = diff_line.line_number&.+(1)
               formatting = diff_line.formatting?
               informative = diff_line.informative?
 
@@ -147,7 +192,7 @@ module Canon
                                               theme_color(:removed, :content))
                         end
             when :added
-              line_num = (diff_line.new_position || diff_line.line_number) + 1
+              line_num = (diff_line.new_position || diff_line.line_number)&.+(1)
               formatting = diff_line.formatting?
               informative = diff_line.informative?
 
@@ -255,8 +300,8 @@ module Canon
         # Format a changed diff line using DiffCharRanges for character-level highlighting.
         # Reads pre-computed char ranges from the DiffLine — NO tokenization, NO LCS.
         def format_changed_line(diff_line, _lines1)
-          old_line_num = diff_line.line_number + 1
-          new_line_num = (diff_line.new_position || diff_line.line_number) + 1
+          old_line_num = diff_line.line_number&.+(1)
+          new_line_num = (diff_line.new_position || diff_line.line_number)&.+(1)
           formatting = diff_line.formatting?
           informative = diff_line.informative?
           old_content = diff_line.old_content || diff_line.content
