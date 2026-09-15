@@ -72,9 +72,11 @@ module Canon
 
           output = []
 
-          # Detect non-ASCII characters
-          all_text = (lines1 + lines2).join
-          non_ascii = Legend.detect_non_ascii(all_text, @visualization_map)
+          # Detect non-ASCII characters — scan the source strings
+          # directly; joining the split lines back into one document
+          # per render was pure garbage.
+          non_ascii = Legend.detect_non_ascii(doc1, @visualization_map)
+          non_ascii.merge!(Legend.detect_non_ascii(doc2, @visualization_map))
 
           # Add Unicode legend if needed
           unless non_ascii.empty?

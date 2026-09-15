@@ -225,6 +225,13 @@ compare_against: nil)
       failure_means: "Slow formatting affects serialization performance. C14N is critical for digital signatures and XML canonicalization.",
       compare_against: "Previous branch (main).",
     },
+    by_line_rendering: {
+      name: "By-Line Rendering",
+      icon: "🖨️",
+      description: "Verbose by_line diff rendering (enricher, line builder, formatters). Referees the #86 rendering lane.",
+      failure_means: "Slow diff display affects developer-facing CLI output and CI failure reports.",
+      compare_against: "Previous branch (main). Inputs: documents with scattered value differences.",
+    },
     data_comparison: {
       name: "Data Comparison",
       icon: "🧮",
@@ -271,6 +278,9 @@ compare_against: nil)
       { name: "XML C14N", method: :xml_c14n_format, desc: "Canonical XML" },
       { name: "JSON", method: :json_format, desc: "JSON formatting" },
       { name: "YAML", method: :yaml_format, desc: "YAML formatting" },
+    ],
+    by_line_rendering: [
+      { name: "XML", method: :by_line_render_xml, desc: "by_line XML render" },
     ],
     data_comparison: [
       { name: "JSON", method: :json_compare_equivalent,
@@ -568,6 +578,18 @@ compare_against: nil)
       yaml = DataGenerator.generate_yaml(items: @items)
       data = YAML.safe_load(yaml, permitted_classes: [Time])
       measure { Canon.format_yaml(data) }
+    when :by_line_render_xml
+      xml1 = DataGenerator.generate_xml(items: @items)
+      xml2 = DataGenerator.generate_xml(items: @items)
+      formatter = Canon::DiffFormatter.new(mode: :by_line,
+                                           display_preprocessing: :pretty_print,
+                                           use_color: false)
+      result = Canon::Comparison.equivalent?(xml1, xml2, format: :xml,
+                                                         verbose: true)
+      measure do
+        formatter.format(result.differences, :xml,
+                         doc1: xml1, doc2: xml2)
+      end
     when :json_compare_equivalent
       json1 = DataGenerator.generate_json(items: @items)
       json2 = DataGenerator.generate_json(items: @items)
