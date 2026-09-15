@@ -19,8 +19,8 @@ module Canon
           lines2 = doc2.split("\n", -1)
 
           # Detect non-ASCII characters in the diff
-          all_text = (lines1 + lines2).join
-          non_ascii = Legend.detect_non_ascii(all_text, @visualization_map)
+          non_ascii = Legend.detect_non_ascii(doc1, @visualization_map)
+          non_ascii.merge!(Legend.detect_non_ascii(doc2, @visualization_map))
 
           # Add Unicode legend if any non-ASCII characters detected
           unless non_ascii.empty?
