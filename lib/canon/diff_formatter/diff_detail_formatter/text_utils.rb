@@ -113,8 +113,7 @@ module Canon
         def self.needs_escaping?(text)
           return false if text.nil?
 
-          text.each_char.any? do |c|
-            codepoint = c.ord
+          text.each_codepoint.any? do |codepoint|
             codepoint < 32 || codepoint >= 127 || codepoint == 34 || codepoint == 92
           end
         end

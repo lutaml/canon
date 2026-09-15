@@ -1019,7 +1019,9 @@ module Canon
         opener = /<#{element_name}[>\s]/
         occurrences = SourceLocator.locate_all(value, text, line_map)
         occurrences.each do |occ|
-          count = text[0...occ[:char_offset]].scan(opener).length
+          count = count_elements_before_position_open(text,
+                                                      occ[:char_offset],
+                                                      opener)
           return occ if count == target_index
         end
 
@@ -1445,9 +1447,29 @@ range_start, range_end)
       # @param char_offset [Integer] character offset to check before
       # @param element_name [String] name of element to count
       # @return [Integer] element index (0-based) of the element containing the position
+      # Occurrence count with offsets AT the element's own opening
+      # tag (no inside-the-element correction — see
+      # locate_element_at_index).
+      def count_elements_before_position_open(text, char_offset, opener)
+        count = 0
+        pos = 0
+        while (hit = text.index(opener, pos)) && hit < char_offset
+          count += 1
+          pos = hit + 1
+        end
+        count
+      end
+
       def count_elements_before_position(text, char_offset, element_name)
-        prefix = text[0...char_offset]
-        count = prefix.scan(/<#{element_name}[>\s]/).length
+        # Index loop instead of copying the prefix per call — the
+        # copy was O(offset) on every occurrence check.
+        opener = /<#{element_name}[>\s]/
+        count = 0
+        pos = 0
+        while (hit = text.index(opener, pos)) && hit < char_offset
+          count += 1
+          pos = hit + 1
+        end
         # Subtract 1 because the count includes the element we are inside
         [count - 1, 0].max
       end
