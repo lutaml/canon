@@ -3,8 +3,10 @@
 require "spec_helper"
 
 # Native leptris C14N 1.1 vs canon's Ruby processor: byte-identical
-# output is the gate for the native lane in C14n.canonicalize
-# (opt-in via CANON_C14N_BACKEND=leptris until leptris#1015 closes).
+# output is the gate for the native lane in C14n.canonicalize. The
+# lane is DEFAULT since libleptris 1.9.164 (all but one leptris#1015
+# family closed); documents with document-level PIs are guarded back
+# to the Ruby lane inside canonicalize.
 CORPUS = {
   "simple doc" => %(<?xml version="1.0"?><root><a>1</a><b>2</b></root>),
   "escapes basic" => %(<r a="&lt;&amp;&quot;">t &amp; u</r>),
@@ -17,6 +19,11 @@ CORPUS = {
   "empty elements" => %(<r><a/><b></b><c/></r>),
   "xml attributes" => %(<r xml:lang="en" xml:space="default"><a xml:id="x1"/></r>),
   "attribute ordering" => %(<e z="1" a="2" m="3" x:n="4" xmlns:x="urn:x"/>),
+  "prefixed element under mixed default+prefixed ns" => %(<root xmlns="urn:r" xmlns:x="urn:x"><x:b/></root>),
+  "right angle escaping" => "<r>t &gt; w</r>",
+  "tab escaping in attributes" => %(<unicode><x y="&#9;">z</x></unicode>),
+  "prefix rebinding" => %(<r xmlns:p="urn:1"><p:a><b xmlns:p="urn:2"><p:c/></b></p:a></r>),
+  "doc-level comments" => %(<!-- before --><r/><!-- after -->),
 }.freeze
 
 # rubocop:disable-next Style/StringConcatenation -- fixture assembly
@@ -25,17 +32,10 @@ BIG_DOC = '<?xml version="1.0"?><root xmlns="urn:r" xmlns:x="urn:x">' +
   "</root>"
 
 # Upstream-tracked divergences (leptris native C14N 1.1 vs canon's
-# Ruby processor). When these pass, the default flips per the gate.
+# Ruby processor). The default lane guards around them; when these
+# pass, the guard narrows to nothing.
 # "attribute ordering" moved to CORPUS: fixed in libleptris 1.9.144.1.
 PENDING_UPSTREAM = {
-  "prefixed element under mixed default+prefixed ns" => ['<root xmlns="urn:r" xmlns:x="urn:x"><x:b/></root>',
-                                                         "leptris#1015 — native serializes <b> losing the x: prefix"],
-  "right angle escaping" => ["<r>t &gt; w</r>",
-                             "leptris#1015 — native emits raw > in text; C14N escapes it"],
-  "tab escaping in attributes" => ['<unicode><x y="&#9;">z</x></unicode>',
-                                   "leptris#1015 — native emits raw \\t; C14N writes &#x9;"],
-  "prefix rebinding" => ['<r xmlns:p="urn:1"><p:a><b xmlns:p="urn:2"><p:c/></b></p:a></r>',
-                         "leptris#1015 — prefix-loss family: <p:a>/<p:c> serialized unprefixed"],
   "document-level PIs" => ['<?xml version="1.0"?><?target data?><r/><?after d2?>',
                            "leptris#1015 — native drops prolog/epilog PIs"],
   "CR reference preservation" => ["<r><e>&#xD;</e>text</r>",
@@ -92,10 +92,12 @@ RSpec.describe "C14N engine parity" do
   it "is not active unless forced" do
     old = ENV.fetch("CANON_C14N_BACKEND", nil)
     ENV["CANON_C14N_BACKEND"] = nil
+    Canon::Xml::C14n.reset_native_probe!
     begin
       expect(Canon::Xml::C14n.native_canonicalize("<r/>", false)).to be_nil
     ensure
       ENV["CANON_C14N_BACKEND"] = old
+      Canon::Xml::C14n.reset_native_probe!
     end
   end
 end

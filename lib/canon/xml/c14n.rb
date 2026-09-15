@@ -22,13 +22,20 @@ module Canon
         processor.process(root_node)
       end
 
-      # leptris' C-side C14N 1.1 — ~50x faster than the Ruby processor
-      # but NOT yet byte-identical on canon's edge-case corpus
-      # (attribute ordering, `>` escaping, document-level PIs, one
-      # prefix case — leptris#1015; the parity spec pins
-      # each). Opt-in via CANON_C14N_BACKEND=leptris until those
-      # close; comments mode keeps the Ruby path regardless (the
-      # native seam exposes no with-comments form).
+      # leptris' C-side C14N 1.1 — 23x faster than the Ruby processor
+      # through canon's own API (1MB document). libleptris 1.9.164
+      # closed four of the five leptris#1015 families (attribute
+      # ordering, prefix loss and rebinding, `>` and TAB escaping —
+      # unpinned in the parity spec since gem 1.9.174.0). A local
+      # default-flip attempt surfaced three MORE divergences the
+      # edge corpus did not cover, so the lane stays opt-in
+      # (CANON_C14N_BACKEND=leptris) until they close (leptris#1096):
+      # redundant namespace redeclarations are kept (Ruby removes
+      # them), xmlns:xml with the standard URI is kept (Ruby omits
+      # it), and document-level processing instructions are dropped.
+      # The Ruby lane additionally validates relative namespace URIs
+      # at parse time — a future flip must carry that check into the
+      # native wrapper. Comments mode keeps the Ruby path regardless.
       def self.native_canonicalize(xml, with_comments)
         return nil if with_comments
         return nil if RUBY_ENGINE == "opal"
