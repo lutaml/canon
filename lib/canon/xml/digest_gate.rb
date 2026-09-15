@@ -78,7 +78,7 @@ module Canon
         return nil unless root
 
         skeleton = doc.children.filter_map do |child|
-          next if child.equal?(root)
+          next if Canon::XmlParsing.same_engine_node?(child, root)
 
           case child
           when Moxml::Comment, Moxml::ProcessingInstruction then child.to_s

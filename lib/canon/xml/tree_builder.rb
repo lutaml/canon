@@ -149,7 +149,7 @@ module Canon
       def add_document_children(root, children, document_element,
                                 skip_types = [])
         children.each do |child|
-          next if child.equal?(document_element)
+          next if Canon::XmlParsing.same_engine_node?(child, document_element)
           next if skip_types.any? { |type| child.is_a?(type) }
 
           node = yield child
