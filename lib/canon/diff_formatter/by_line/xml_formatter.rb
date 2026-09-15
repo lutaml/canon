@@ -87,25 +87,91 @@ module Canon
           end
           return if unlocated.empty?
 
-          lines = []
+          # Place each unlocated node's context after the report
+          # context containing its nearest preceding LOCATED node
+          # (@differences is comparator-walk order = document order),
+          # so the change reads in position instead of trailing.
           unlocated.each do |dn|
-            fmt = dn.formatting?
-            dn.serialized_before&.split("\n")&.each do |line|
-              lines << Canon::Diff::DiffLine.new(
-                line_number: nil, new_position: nil, content: line,
-                type: :removed, diff_node: dn, formatting: fmt
-              )
-            end
-            next unless dn.serialized_after
+            context = Canon::Diff::DiffContext.new(
+              lines: unlocated_lines(dn),
+            )
+            anchor_index = context_index_after(report, preceding_located(dn))
+            report.contexts.insert(anchor_index, context)
+          end
+        end
 
-            dn.serialized_after.split("\n").each do |line|
+        # Mini-diff of one unlocated node's serialized sides: shared
+        # lines render as :unchanged context instead of remove-all +
+        # add-all. Blank line numbers throughout — no located position.
+        def unlocated_lines(diff_node)
+          before = diff_node.serialized_before&.split("\n") || []
+          after = diff_node.serialized_after&.split("\n") || []
+          fmt = diff_node.formatting?
+          lines = []
+          require "diff/lcs" unless defined?(::Diff::LCS)
+
+          ::Diff::LCS.sdiff(before, after).each do |change|
+            case change.action
+            when "="
               lines << Canon::Diff::DiffLine.new(
-                line_number: nil, new_position: nil, content: line,
-                type: :added, diff_node: dn, formatting: fmt
+                line_number: nil, new_position: nil,
+                content: change.old_element, type: :unchanged,
+                diff_node: diff_node
+              )
+            when "-"
+              lines << Canon::Diff::DiffLine.new(
+                line_number: nil, new_position: nil,
+                content: change.old_element, type: :removed,
+                diff_node: diff_node, formatting: fmt
+              )
+            when "+"
+              lines << Canon::Diff::DiffLine.new(
+                line_number: nil, new_position: nil,
+                content: change.new_element, type: :added,
+                diff_node: diff_node, formatting: fmt
+              )
+            when "!"
+              lines << Canon::Diff::DiffLine.new(
+                line_number: nil, new_position: nil,
+                content: change.old_element, type: :removed,
+                diff_node: diff_node, formatting: fmt
+              )
+              lines << Canon::Diff::DiffLine.new(
+                line_number: nil, new_position: nil,
+                content: change.new_element, type: :added,
+                diff_node: diff_node, formatting: fmt
               )
             end
           end
-          report.contexts << Canon::Diff::DiffContext.new(lines: lines)
+          lines
+        end
+
+        # The nearest preceding node (in @differences walk order)
+        # that the enricher DID locate.
+        def preceding_located(diff_node)
+          index = @differences.index(diff_node)
+          return nil unless index
+
+          (index - 1).downto(0) do |i|
+            dn = @differences[i]
+            return dn if dn.char_ranges && !dn.char_ranges.empty?
+          end
+          nil
+        end
+
+        # Index into report.contexts for inserting an unlocated
+        # context: after the context holding the anchor node's lines,
+        # or at the front when the anchor is nil (nothing precedes).
+        def context_index_after(report, anchor_node)
+          return 0 if anchor_node.nil?
+
+          report.contexts.each_with_index do |context, idx|
+            has_anchor = context.lines.any? do |dl|
+              dl.diff_node&.equal?(anchor_node)
+            end
+            return idx + 1 if has_anchor
+          end
+          report.contexts.length
         end
 
         # Format a DiffReport for display
