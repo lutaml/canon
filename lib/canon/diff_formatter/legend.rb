@@ -12,12 +12,23 @@ module Canon
       # @param visualization_map [Hash] Character visualization map
       # @return [Hash] Hash of characters with their metadata
       def self.detect_non_ascii(text, visualization_map)
+        # each_char allocates a 1-char String per character — over two
+        # full documents per render that is the presentation stage's
+        # biggest allocation source. ASCII-only text (the common case)
+        # needs no scan at all; otherwise scan codepoints and
+        # materialize the character String only at non-ASCII offsets.
+        return {} if text.ascii_only?
+
         detected = {}
         category_map = DiffFormatter::CHARACTER_CATEGORY_MAP
         metadata = DiffFormatter::CHARACTER_METADATA
 
-        text.each_char do |char|
-          next if char.ord <= 127
+        index = -1
+        text.each_codepoint do |codepoint|
+          index += 1
+          next if codepoint <= 127
+
+          char = text[index, 1]
           next if detected.key?(char)
 
           visualization = visualization_map.fetch(char, char)
