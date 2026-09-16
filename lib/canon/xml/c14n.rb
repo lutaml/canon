@@ -23,19 +23,24 @@ module Canon
       end
 
       # leptris' C-side C14N 1.1 — 23x faster than the Ruby processor
-      # through canon's own API (1MB document). libleptris 1.9.164
-      # closed four of the five leptris#1015 families (attribute
-      # ordering, prefix loss and rebinding, `>` and TAB escaping —
-      # unpinned in the parity spec since gem 1.9.174.0). A local
-      # default-flip attempt surfaced three MORE divergences the
-      # edge corpus did not cover, so the lane stays opt-in
-      # (CANON_C14N_BACKEND=leptris) until they close (leptris#1096):
-      # redundant namespace redeclarations are kept (Ruby removes
-      # them), xmlns:xml with the standard URI is kept (Ruby omits
-      # it), and document-level processing instructions are dropped.
-      # The Ruby lane additionally validates relative namespace URIs
-      # at parse time — a future flip must carry that check into the
-      # native wrapper. Comments mode keeps the Ruby path regardless.
+      # through canon's own API (1MB document) and byte-identical on
+      # the parity corpus, but OPT-IN (CANON_C14N_BACKEND=leptris)
+      # pending three families verified against libxml2 ground truth
+      # (leptris#1096 follow-up): (1) whitespace-only text between
+      # elements is preserved — the Ruby lane's parse drops it and
+      # compact bytes are canon's product for every pretty-printed
+      # document; (2) whitespace-only processing-instruction data is
+      # retained (libxml2 drops it); (3) document-level nodes carry
+      # no "\n" separators (the Ruby lane, like libxml2, inserts
+      # them). libleptris 1.9.176/177 (gem 1.9.177.0) closed the
+      # earlier families — attribute ordering, prefix loss and
+      # rebinding, `>`/TAB escaping, redundant namespace
+      # redeclarations, xmlns:xml omission — and document-level PIs
+      # now serialize in document order (the Ruby processor's
+      # root-first order is non-conformant for prolog PIs).
+      # Relative namespace URIs raise exactly as the Ruby lane does.
+      # Comments mode keeps the Ruby path (the native seam exposes no
+      # with-comments form).
       def self.native_canonicalize(xml, with_comments)
         return nil if with_comments
         return nil if RUBY_ENGINE == "opal"
@@ -43,6 +48,8 @@ module Canon
         return nil unless Canon::XmlBackend.moxml? &&
           Canon::XmlParsing.moxml_adapter_name == :leptris
         return nil unless native_c14n_available?
+
+        validate_relative_namespaces!(xml)
 
         doc = Canon::XmlParsing.moxml_context.parse(xml, readonly: true,
                                                          strict: false)
@@ -56,6 +63,25 @@ module Canon
         # Malformed inputs are the Ruby path's domain (recovery parse
         # + parse_errors surfacing), not the native lane's.
         nil
+      end
+
+      # Canon::Error parity with the Ruby lane, whose parse rejects
+      # relative namespace URIs. A declaration-shaped scan; a
+      # relative-URI-shaped string inside CDATA is the only false
+      # positive this can produce.
+      RELATIVE_NS_DECL = /xmlns(?::[\w.-]+)?="([^"]*)"/
+      URI_SCHEME = %r{\A[a-zA-Z][a-zA-Z0-9+.-]*:}
+
+      def self.validate_relative_namespaces!(xml)
+        return unless xml.is_a?(String)
+
+        xml.scan(RELATIVE_NS_DECL) do |(uri)|
+          next if uri.nil? || uri.empty?
+
+          unless uri.match?(URI_SCHEME)
+            raise Canon::Error, "Relative namespace URI not allowed: #{uri}"
+          end
+        end
       end
 
       def self.native_c14n_available?

@@ -24,6 +24,8 @@ CORPUS = {
   "tab escaping in attributes" => %(<unicode><x y="&#9;">z</x></unicode>),
   "prefix rebinding" => %(<r xmlns:p="urn:1"><p:a><b xmlns:p="urn:2"><p:c/></b></p:a></r>),
   "doc-level comments" => %(<!-- before --><r/><!-- after -->),
+  "redundant namespace redeclaration" => %(<root xmlns:a="http://a.com"><child xmlns:a="http://a.com"/></root>),
+  "xml namespace omission" => %(<root xmlns:xml="http://www.w3.org/XML/1998/namespace"/>),
 }.freeze
 
 # rubocop:disable-next Style/StringConcatenation -- fixture assembly
