@@ -15,23 +15,51 @@ module Canon
     #   SourceLocator.locate("line2", "line1\nline2\nline3", line_map)
     #   # => { char_offset: 6, line_number: 1, col: 0 }
     class SourceLocator
+      # Line offset map: two flat Integer arrays (starts, ends) — a
+      # hash-per-line was one allocation per document line on every
+      # enrichment, the presentation stage's quiet constant.
+      class LineMap
+        attr_reader :starts, :ends
+
+        def initialize(starts, ends)
+          @starts = starts
+          @ends = ends
+        end
+
+        def empty?
+          @starts.empty?
+        end
+
+        def line_count
+          @starts.length
+        end
+
+        def start_at(index)
+          @starts[index]
+        end
+
+        def end_at(index)
+          @ends[index]
+        end
+      end
+
       # Build a line offset map from source text.
-      # Each entry records the start and end character offset of a line.
       #
       # @param text [String] the full source text
-      # @return [Array<Hash>] array of { start_offset:, end_offset: } hashes,
-      #   one per line (0-indexed)
+      # @return [LineMap] flat offset arrays, one entry per line
+      #   (0-indexed)
       def self.build_line_map(text)
-        return [] if text.nil? || text.empty?
+        return LineMap.new([], []) if text.nil? || text.empty?
 
-        map = []
+        starts = []
         offset = 0
         text.each_line do |line|
-          line_end = offset + line.length
-          map << { start_offset: offset, end_offset: line_end }
-          offset = line_end
+          starts << offset
+          offset += line.length
         end
-        map
+        ends = starts[1..] || []
+        ends << text.length
+        LineMap.new(starts, ends)
       end
 
       # Locate a substring within source text and return its position.
@@ -55,7 +83,7 @@ module Canon
         line_idx = find_line_for_offset(char_offset, line_map)
         return nil if line_idx.nil?
 
-        col = char_offset - line_map[line_idx][:start_offset]
+        col = char_offset - line_map.start_at(line_idx)
 
         { char_offset: char_offset, line_number: line_idx, col: col }
       end
@@ -77,7 +105,7 @@ module Canon
           line_idx = find_line_for_offset(pos, line_map)
           break if line_idx.nil?
 
-          col = pos - line_map[line_idx][:start_offset]
+          col = pos - line_map.start_at(line_idx)
           results << { char_offset: pos, line_number: line_idx, col: col }
           offset = pos + 1
         end
@@ -92,8 +120,8 @@ module Canon
         # @param line_map [Array<Hash>] the line offset map
         # @return [Integer, nil] the 0-based line index, or nil
         def find_line_for_offset(char_offset, line_map)
-          line_map.bsearch_index do |entry|
-            entry[:end_offset] > char_offset
+          line_map.ends.bsearch_index do |end_offset|
+            end_offset > char_offset
           end
         end
       end
