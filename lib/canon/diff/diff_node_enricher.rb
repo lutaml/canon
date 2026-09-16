@@ -41,6 +41,11 @@ module Canon
         # Track occurrences for text_content dimension to find correct element instance
         @text_occurrence1 = Hash.new(0)
         @text_occurrence2 = Hash.new(0)
+        # Opener-offset caches: one scan per unique element name per
+        # document replaces the per-call regex walk (which was also
+        # quadratic on repeated element names).
+        @opener_offsets1 = {}
+        @opener_offsets2 = {}
       end
 
       def enrich
@@ -1461,27 +1466,44 @@ range_start, range_end)
       # tag (no inside-the-element correction — see
       # locate_element_at_index).
       def count_elements_before_position_open(text, char_offset, opener)
-        count = 0
-        pos = 0
-        while (hit = text.index(opener, pos)) && hit < char_offset
-          count += 1
-          pos = hit + 1
-        end
-        count
+        count_openers_before(opener_offsets(text, opener), char_offset)
       end
 
       def count_elements_before_position(text, char_offset, element_name)
-        # Index loop instead of copying the prefix per call — the
-        # copy was O(offset) on every occurrence check.
-        opener = /<#{element_name}[>\s]/
-        count = 0
+        # Subtract 1 because the count includes the element we are inside
+        [count_openers_before(opener_offsets(text, opener_for(element_name)),
+                              char_offset) - 1, 0].max
+      end
+
+      # Count of opener offsets strictly before char_offset — binary
+      # search over the cached, ascending offset array.
+      def count_openers_before(offsets, char_offset)
+        idx = offsets.bsearch_index { |offset| offset >= char_offset }
+        idx || offsets.length
+      end
+
+      # All opener offsets for one opener regex in one document,
+      # cached per text (one linear scan per unique element name per
+      # document — callers previously re-scanned per occurrence
+      # check, which was also quadratic on repeated element names).
+      def opener_offsets(text, opener)
+        if text.equal?(@text1)
+          (@opener_offsets1[opener.source] ||= scan_opener_offsets(text, opener))
+        elsif text.equal?(@text2)
+          (@opener_offsets2[opener.source] ||= scan_opener_offsets(text, opener))
+        else
+          scan_opener_offsets(text, opener)
+        end
+      end
+
+      def scan_opener_offsets(text, opener)
+        offsets = []
         pos = 0
-        while (hit = text.index(opener, pos)) && hit < char_offset
-          count += 1
+        while (hit = text.index(opener, pos))
+          offsets << hit
           pos = hit + 1
         end
-        # Subtract 1 because the count includes the element we are inside
-        [count - 1, 0].max
+        offsets
       end
     end
   end
