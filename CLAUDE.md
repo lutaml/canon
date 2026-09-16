@@ -145,7 +145,7 @@ Engine A/B testing: `CANON_XML_BACKEND=nokogiri bundle exec rspec` (or `=moxml` 
 
 ### C14N Engines
 
-`Canon::Xml::C14n.canonicalize` stays on canon's Ruby C14N 1.1 processor by default. leptris' native C-side C14N 1.1 is ~50x faster on large documents and byte-identical on the main corpus, but diverges from the spec on edge cases (attribute ordering, prefix preservation, `>`/tab escaping, document-level PIs — leptris#1015, all pinned in `spec/canon/xml/c14n_engine_parity_spec.rb`). `CANON_C14N_BACKEND=leptris` opts in; when the parity gate runs clean the default flips. `canonicalize_subset` and `with_comments: true` always use the Ruby processor.
+`Canon::Xml::C14n.canonicalize` uses leptris' native C-side C14N 1.1 by DEFAULT (since libleptris 1.9.178 / gem 1.9.178.0) — 23x faster than the Ruby processor through canon's API (1MB document). The native parse runs `noblanks: true` (compact bytes, matching the Ruby lane's product), relative namespace URIs raise identically, and document-level PIs serialize in spec-correct document order (the Ruby processor's root-first order was non-conformant for prolog PIs). `CANON_C14N_BACKEND=ruby` forces the Ruby processor. `canonicalize_subset` and `with_comments: true` always use the Ruby processor. The parity spec (`spec/canon/xml/c14n_engine_parity_spec.rb`) pins byte-identity; its pending cases track intentional divergences (document-order PIs) and the canon-side CR-reference finding.
 
 ### YAML Engines
 

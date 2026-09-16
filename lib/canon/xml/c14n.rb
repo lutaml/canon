@@ -23,39 +23,37 @@ module Canon
       end
 
       # leptris' C-side C14N 1.1 — 23x faster than the Ruby processor
-      # through canon's own API (1MB document) and byte-identical on
-      # the parity corpus, but OPT-IN (CANON_C14N_BACKEND=leptris)
-      # pending three families verified against libxml2 ground truth
-      # (leptris#1096 follow-up): (1) whitespace-only text between
-      # elements is preserved — the Ruby lane's parse drops it and
-      # compact bytes are canon's product for every pretty-printed
-      # document; (2) whitespace-only processing-instruction data is
-      # retained (libxml2 drops it); (3) document-level nodes carry
-      # no "\n" separators (the Ruby lane, like libxml2, inserts
-      # them). libleptris 1.9.176/177 (gem 1.9.177.0) closed the
-      # earlier families — attribute ordering, prefix loss and
-      # rebinding, `>`/TAB escaping, redundant namespace
-      # redeclarations, xmlns:xml omission — and document-level PIs
-      # now serialize in document order (the Ruby processor's
-      # root-first order is non-conformant for prolog PIs).
-      # Relative namespace URIs raise exactly as the Ruby lane does.
-      # Comments mode keeps the Ruby path (the native seam exposes no
-      # with-comments form).
+      # through canon's own API (1MB document) and the DEFAULT lane
+      # since libleptris 1.9.178 (gem 1.9.178.0): the leptris#1117
+      # families are closed by the native parse-policy knob
+      # (`noblanks: true` — same compact bytes as the Ruby lane's
+      # parse) and by the canonicalizer itself (whitespace-only PI
+      # data dropped, document-level "\n" separators inserted). The
+      # one residual byte difference vs the Ruby lane is intentional
+      # and a correctness improvement: document-level PIs now
+      # serialize in document order (REC-xml-c14n 2.1) instead of
+      # the Ruby lane's non-conformant root-first reorder. Relative
+      # namespace URIs raise exactly as the Ruby lane does.
+      # Comments mode keeps the Ruby path regardless (the native
+      # seam exposes no with-comments form). CANON_C14N_BACKEND=ruby
+      # forces the stdlib lane.
       def self.native_canonicalize(xml, with_comments)
         return nil if with_comments
         return nil if RUBY_ENGINE == "opal"
-        return nil unless ENV["CANON_C14N_BACKEND"].to_s.casecmp("leptris").zero?
+        return nil if ENV["CANON_C14N_BACKEND"].to_s.casecmp("ruby").zero?
         return nil unless Canon::XmlBackend.moxml? &&
           Canon::XmlParsing.moxml_adapter_name == :leptris
         return nil unless native_c14n_available?
 
         validate_relative_namespaces!(xml)
 
-        doc = Canon::XmlParsing.moxml_context.parse(xml, readonly: true,
-                                                         strict: false)
+        doc = Canon::XmlParsing.moxml_context.parse(xml,
+                                                    readonly: true,
+                                                    strict: false,
+                                                    noblanks: true)
         begin
-          doc.native.canonicalize(::Leptris::XML::FFI::C14N_1_1, nil,
-                                  mode: ::Leptris::XML::FFI::C14N_MODE_CANONICAL)
+          doc.native.c14n(::Leptris::XML::FFI::C14N_1_1, nil,
+                          mode: ::Leptris::XML::FFI::C14N_MODE_CANONICAL)
         ensure
           doc.free
         end
