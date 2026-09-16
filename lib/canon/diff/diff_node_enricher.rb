@@ -927,7 +927,7 @@ module Canon
       # @return [Integer] the last line number
       def find_end_line(start_line, line_map, content)
         newline_count = content.count("\n")
-        [start_line + newline_count, line_map.length - 1].min
+        [start_line + newline_count, line_map.line_count - 1].min
       end
 
       # Find the occurrence of a value at a specific element index.
@@ -1016,7 +1016,7 @@ module Canon
         # so the prefix scan counts exactly the preceding siblings —
         # no "inside the element" correction (count_elements_before_
         # position subtracts one for text-node offsets).
-        opener = /<#{element_name}[>\s]/
+        opener = opener_for(element_name)
         occurrences = SourceLocator.locate_all(value, text, line_map)
         occurrences.each do |occ|
           count = count_elements_before_position_open(text,
@@ -1093,7 +1093,7 @@ module Canon
                                                       line_map)
         return nil unless line_idx
 
-        col = search_start - line_map[line_idx][:start_offset]
+        col = search_start - line_map.start_at(line_idx)
         { char_offset: search_start, line_number: line_idx, col: col }
       end
 
@@ -1265,7 +1265,7 @@ range_start, range_end)
                                                               line_map)
                 return nil unless line_idx
 
-                col = value_pos - line_map[line_idx][:start_offset]
+                col = value_pos - line_map.start_at(line_idx)
                 return { char_offset: value_pos, line_number: line_idx,
                          col: col }
               end
@@ -1280,7 +1280,7 @@ range_start, range_end)
                                                         line_map)
           return nil unless line_idx
 
-          col = value_pos - line_map[line_idx][:start_offset]
+          col = value_pos - line_map.start_at(line_idx)
           return { char_offset: value_pos, line_number: line_idx, col: col }
         end
 
@@ -1332,7 +1332,7 @@ range_start, range_end)
                                                             line_map)
               return nil unless line_idx
 
-              col = value_pos - line_map[line_idx][:start_offset]
+              col = value_pos - line_map.start_at(line_idx)
               return { char_offset: value_pos, line_number: line_idx, col: col }
             end
           end
@@ -1386,7 +1386,7 @@ range_start, range_end)
                                                             line_map)
               return nil unless line_idx
 
-              col = anchor_pos - line_map[line_idx][:start_offset]
+              col = anchor_pos - line_map.start_at(line_idx)
               return { char_offset: anchor_pos, line_number: line_idx,
                        col: col }
             else
@@ -1395,7 +1395,7 @@ range_start, range_end)
                                                             line_map)
               return nil unless line_idx
 
-              col = tag_end_pos - line_map[line_idx][:start_offset]
+              col = tag_end_pos - line_map.start_at(line_idx)
               return { char_offset: tag_end_pos, line_number: line_idx,
                        col: col }
             end
@@ -1447,6 +1447,15 @@ range_start, range_end)
       # @param char_offset [Integer] character offset to check before
       # @param element_name [String] name of element to count
       # @return [Integer] element index (0-based) of the element containing the position
+      # Opener regexes memoized per element name — compiling
+      # /<name[>\s]/ per call was an allocation per occurrence check.
+      OPENER_CACHE = {}.compare_by_identity
+      private_constant :OPENER_CACHE
+
+      def opener_for(element_name)
+        OPENER_CACHE[element_name] ||= /<#{element_name}[>\s]/
+      end
+
       # Occurrence count with offsets AT the element's own opening
       # tag (no inside-the-element correction — see
       # locate_element_at_index).
