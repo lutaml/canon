@@ -39,16 +39,23 @@ BIG_DOC = '<?xml version="1.0"?><root xmlns="urn:r" xmlns:x="urn:x">' +
 # "attribute ordering" moved to CORPUS: fixed in libleptris 1.9.144.1.
 PENDING_UPSTREAM = {
   "document-level PIs" => ['<?xml version="1.0"?><?target data?><r/><?after d2?>',
-                           "leptris#1015 — native drops prolog/epilog PIs"],
+                           "native emits spec-correct document order; Ruby emits root-first non-conformant"],
   "CR reference preservation" => ["<r><e>&#xD;</e>text</r>",
                                   "canon-side: the DOM records parse drops the CR text node (SAX keeps it) — native preserves &#xD; correctly per C14N"],
 }.freeze
 
 RSpec.describe "C14N engine parity" do
   def native_lane_forced?
-    ENV["CANON_C14N_BACKEND"].to_s.casecmp("leptris").zero? &&
-      Canon::XmlBackend.moxml? &&
-      Canon::XmlParsing.moxml_adapter_name == :leptris
+    ENV["CANON_C14N_BACKEND"].to_s.casecmp("leptris").zero?
+  end
+
+  def native_lane_available?
+    Canon::XmlBackend.moxml? && Canon::XmlParsing.moxml_adapter_name == :leptris &&
+      Canon::Xml::C14n.send(:native_c14n_available?)
+  end
+
+  def native_lane_active?
+    native_lane_forced? && native_lane_available?
   end
 
   def ruby_canonicalize(xml)
@@ -91,9 +98,25 @@ RSpec.describe "C14N engine parity" do
     expect(Canon::Xml::C14n.native_canonicalize("<r/>", true)).to be_nil
   end
 
-  it "is not active unless forced" do
+  it "is the default lane when available" do
     old = ENV.fetch("CANON_C14N_BACKEND", nil)
-    ENV["CANON_C14N_BACKEND"] = nil
+    ENV.delete("CANON_C14N_BACKEND")
+    Canon::Xml::C14n.reset_native_probe!
+    begin
+      if native_lane_available?
+        xml = %(<r xmlns:a="urn:a"><a:b/></r>)
+        expect(Canon::Xml::C14n.canonicalize(xml))
+          .to eq(Canon::Xml::C14n.native_canonicalize(xml, false))
+      end
+    ensure
+      ENV["CANON_C14N_BACKEND"] = old
+      Canon::Xml::C14n.reset_native_probe!
+    end
+  end
+
+  it "env=ruby forces the stdlib lane" do
+    old = ENV.fetch("CANON_C14N_BACKEND", nil)
+    ENV["CANON_C14N_BACKEND"] = "ruby"
     Canon::Xml::C14n.reset_native_probe!
     begin
       expect(Canon::Xml::C14n.native_canonicalize("<r/>", false)).to be_nil
