@@ -22,21 +22,22 @@ module Canon
       # @param text1 [String] The first document (preprocessed)
       # @param text2 [String] The second document (preprocessed)
       # @return [Array<DiffNode>] The same DiffNodes, enriched in place
-      def self.build(diff_nodes, text1, text2)
+      def self.build(diff_nodes, text1, text2, lines1: nil, lines2: nil)
         return diff_nodes if diff_nodes.nil? || diff_nodes.empty?
         return diff_nodes if text1.nil? || text2.nil?
 
-        new(diff_nodes, text1, text2).enrich
+        new(diff_nodes, text1, text2, lines1, lines2).enrich
       end
 
-      def initialize(diff_nodes, text1, text2)
+      def initialize(diff_nodes, text1, text2, lines1 = nil, lines2 = nil)
         @diff_nodes = diff_nodes
         @text1 = text1
         @text2 = text2
         @line_map1 = SourceLocator.build_line_map(text1)
         @line_map2 = SourceLocator.build_line_map(text2)
-        @lines1 = text1.split("\n")
-        @lines2 = text2.split("\n")
+        # Shared split — see DiffLineBuilder's note.
+        @lines1 = lines1 || text1.split("\n")
+        @lines2 = lines2 || text2.split("\n")
         # Track occurrences for text_content dimension to find correct element instance
         @text_occurrence1 = Hash.new(0)
         @text_occurrence2 = Hash.new(0)
