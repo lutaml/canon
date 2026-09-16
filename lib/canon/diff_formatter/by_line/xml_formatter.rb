@@ -44,12 +44,22 @@ module Canon
           # Compute line number width BEFORE formatting
           compute_line_num_width(doc1, doc2)
 
+          # The pipeline splits both documents once here; every stage
+          # downstream reuses the arrays (three redundant full-doc
+          # splits per render before).
+          @pipeline_lines1 = doc1.split("\n")
+          @pipeline_lines2 = doc2.split("\n")
+
           # Phase 1: Enrich DiffNodes with character positions
-          Canon::Diff::DiffNodeEnricher.build(@differences, doc1, doc2)
+          Canon::Diff::DiffNodeEnricher.build(@differences, doc1, doc2,
+                                              lines1: @pipeline_lines1,
+                                              lines2: @pipeline_lines2)
 
           # Phase 2: Assemble DiffLines from enriched DiffNodes
           diff_lines = Canon::Diff::DiffLineBuilder.build(@differences, doc1,
-                                                          doc2)
+                                                          doc2,
+                                                          lines1: @pipeline_lines1,
+                                                          lines2: @pipeline_lines2)
 
           # Layers 3-5: Build report through pipeline
           report = Canon::Diff::DiffReportBuilder.build(
@@ -178,8 +188,8 @@ module Canon
         def format_report(report, doc1, doc2)
           return "" if report.contexts.empty?
 
-          lines1 = doc1.split("\n")
-          lines2 = doc2.split("\n")
+          lines1 = @pipeline_lines1 || doc1.split("\n")
+          lines2 = @pipeline_lines2 || doc2.split("\n")
 
           output = []
 

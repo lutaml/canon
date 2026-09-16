@@ -21,19 +21,22 @@ module Canon
       # @param text1 [String] The first document (preprocessed)
       # @param text2 [String] The second document (preprocessed)
       # @return [Array<DiffLine>] The assembled diff lines
-      def self.build(diff_nodes, text1, text2)
+      def self.build(diff_nodes, text1, text2, lines1: nil, lines2: nil)
         return [] if diff_nodes.nil? || diff_nodes.empty?
         return [] if text1.nil? || text2.nil?
 
-        new(diff_nodes, text1, text2).build
+        new(diff_nodes, text1, text2, lines1, lines2).build
       end
 
-      def initialize(diff_nodes, text1, text2)
+      def initialize(diff_nodes, text1, text2, lines1 = nil, lines2 = nil)
         @diff_nodes = diff_nodes
         @text1 = text1
         @text2 = text2
-        @lines1 = text1.split("\n")
-        @lines2 = text2.split("\n")
+        # The caller may hand in the already-split lines (the
+        # formatter splits these documents too); re-splitting both
+        # documents per pipeline stage was ~2x the line strings.
+        @lines1 = lines1 || text1.split("\n")
+        @lines2 = lines2 || text2.split("\n")
         # Build reverse indices for efficient content lookup in gap handling.
         # Maps content string to array of line indices where that content appears.
         @line_to_indices1 = build_line_index(@lines1)
