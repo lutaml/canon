@@ -118,6 +118,13 @@ module Canon
           after = diff_node.serialized_after&.split("\n") || []
           fmt = diff_node.formatting?
           lines = []
+          header = parent_chain(diff_node.path)
+          if header
+            lines << Canon::Diff::DiffLine.new(
+              line_number: nil, new_position: nil,
+              content: header, type: :location_header
+            )
+          end
           require "diff/lcs" unless defined?(::Diff::LCS)
 
           ::Diff::LCS.sdiff(before, after).each do |change|
@@ -154,6 +161,27 @@ module Canon
             end
           end
           lines
+        end
+
+        # Display chain of a DiffNode's ancestor elements, e.g.
+        # "bibitem > formattedref" — gives the blank-numbered
+        # unlocated lines a readable home (#86).
+        def parent_chain(path)
+          return nil if path.nil?
+
+          segments = path.split("/").reject(&:empty?)
+          return nil if segments.length < 2
+
+          chain = segments[0...-1].filter_map do |seg|
+            seg[/\A(?:\{[^}]+\})?([a-zA-Z0-9_:-]+)/, 1]
+          end
+          # Comparator paths repeat the element name before the node
+          # segment ("formattedref/formattedref/text()") — collapse
+          # consecutive repeats for display.
+          collapsed = chain.each_with_object([]) do |name, acc|
+            acc << name unless acc.last == name
+          end
+          collapsed.join(" > ")
         end
 
         # The nearest preceding node (in @differences walk order)
@@ -225,6 +253,9 @@ module Canon
               new_num = (diff_line.new_position || diff_line.line_number)&.+(1)
               output << format_unified_line(old_num, new_num, " ",
                                             diff_line.content)
+            when :location_header
+              output << format_location_header(diff_line.content)
+
             when :removed
               line_num = diff_line.line_number&.+(1)
               formatting = diff_line.formatting?
@@ -989,6 +1020,18 @@ module Canon
             "#{old_str}|#{new_str} | #{colorize(content, :yellow)}"
           else
             "#{old_str}|#{new_str} | #{content}"
+          end
+        end
+
+        # Dimmed section header for unlocated-node contexts (#86):
+        # "⋯ in bibitem > formattedref"
+        def format_location_header(chain)
+          blank = " " * @line_num_width
+          text = "    ⋯ in #{chain}"
+          if @use_color
+            "#{blank}|#{blank}  | #{colorize(text, :light_black)}"
+          else
+            "#{blank}|#{blank}  | #{text}"
           end
         end
 
