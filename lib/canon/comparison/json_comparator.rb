@@ -44,12 +44,16 @@ module Canon
                                                         differences, "")
 
           if opts[:verbose]
-            json_str1 = obj1.is_a?(String) ? obj1 : JSON.pretty_generate(obj1)
-            json_str2 = obj2.is_a?(String) ? obj2 : JSON.pretty_generate(obj2)
+            preprocessed = lambda do
+              [
+                obj1.is_a?(String) ? obj1 : JSON.pretty_generate(obj1),
+                obj2.is_a?(String) ? obj2 : JSON.pretty_generate(obj2),
+              ]
+            end
 
             ComparisonResult.new(
               differences: differences,
-              preprocessed_strings: [json_str1, json_str2],
+              preprocessed_strings: preprocessed,
               format: :json,
               match_options: match_opts_hash,
             )

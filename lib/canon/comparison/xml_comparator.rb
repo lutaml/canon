@@ -131,11 +131,14 @@ module Canon
 
           if opts[:verbose]
             # Serialize parsed nodes for consistent formatting
-            # This ensures both sides formatted identically, showing only real differences
-            preprocessed = [
-              serialize_node(node1).gsub("><", ">\n<"),
-              serialize_node(node2).gsub("><", ">\n<"),
-            ]
+            # This ensures both sides formatted identically, showing only real
+            # differences. Deferred: by_object consumers never read these.
+            preprocessed = lambda do
+              [
+                serialize_node(node1).gsub("><", ">\n<"),
+                serialize_node(node2).gsub("><", ">\n<"),
+              ]
+            end
 
             ComparisonResult.new(
               differences: differences,
@@ -181,16 +184,16 @@ module Canon
         def build_trivial_equivalent_result(n1, n2, opts)
           return true unless opts[:verbose]
 
-          # Parse nodes for verbose display
-          preserve_whitespace = true
-          node1 = parse_node(n1, :none,
-                             preserve_whitespace: preserve_whitespace)
-          node2 = parse_node(n2, :none,
-                             preserve_whitespace: preserve_whitespace)
-          preprocessed = [
-            serialize_node(node1).gsub("><", ">\n<"),
-            serialize_node(node2).gsub("><", ">\n<"),
-          ]
+          # Parse nodes for verbose display — deferred with the strings:
+          # nothing but the display pair ever reads them.
+          preprocessed = lambda do
+            [
+              serialize_node(parse_node(n1, :none,
+                                        preserve_whitespace: true)).gsub("><", ">\n<"),
+              serialize_node(parse_node(n2, :none,
+                                        preserve_whitespace: true)).gsub("><", ">\n<"),
+            ]
+          end
           original1 = n1.is_a?(String) ? n1 : serialize_node(n1)
           original2 = n2.is_a?(String) ? n2 : serialize_node(n2)
 
