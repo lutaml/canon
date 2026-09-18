@@ -131,8 +131,10 @@ module Canon
           if opts[:verbose]
             ComparisonResult.new(
               differences: differences,
-              preprocessed_strings: [serialize_for_display(node1),
-                                     serialize_for_display(node2)],
+              preprocessed_strings: lambda do
+                [serialize_for_display(node1),
+                 serialize_for_display(node2)]
+              end,
               original_strings: [original_str1, original_str2],
               format: :html,
               html_version: html_version,

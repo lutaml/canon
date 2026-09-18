@@ -5,12 +5,14 @@ module Canon
     # Encapsulates the result of a comparison operation
     # Provides methods to query equivalence based on normative diffs
     class ComparisonResult
-      attr_reader :differences, :preprocessed_strings, :format, :html_version,
-                  :match_options, :algorithm, :original_strings,
+      attr_reader :differences, :format, :html_version,
+                  :match_options, :algorithm,
                   :parse_errors_expected, :parse_errors_received
 
       # @param differences [Array<DiffNode>] Array of difference nodes
-      # @param preprocessed_strings [Array<String, String>] Pre-processed content for display
+      # @param preprocessed_strings [Array<String, String>, Proc] Pre-processed
+      #   content for display, or a Proc returning the Array (materialized on
+      #   first read)
       # @param format [Symbol] Format type (:xml, :html, :json, :yaml)
       # @param html_version [Symbol, nil] HTML version (:html4 or :html5) for HTML format only
       # @param match_options [Hash, nil] Resolved match options used for comparison
@@ -23,13 +25,35 @@ html_version: nil, match_options: nil, algorithm: :dom, original_strings: nil,
 parse_errors_expected: nil, parse_errors_received: nil)
         @differences = differences
         @preprocessed_strings = preprocessed_strings
-        @original_strings = original_strings || preprocessed_strings
+        @original_strings = original_strings
         @format = format
         @html_version = html_version
         @match_options = match_options
         @algorithm = algorithm
         @parse_errors_expected = Array(parse_errors_expected)
         @parse_errors_received = Array(parse_errors_received)
+      end
+
+      # Display strings for the compared inputs. When the comparator
+      # supplied a builder Proc (the display strings require serializing
+      # both parsed documents), materialization is deferred to the first
+      # read: by_object consumers never pay it, by_line and preprocessed
+      # display trigger it exactly once.
+      #
+      # @return [Array<String, String>]
+      def preprocessed_strings
+        unless @preprocessed_strings.is_a?(Array)
+          @preprocessed_strings = @preprocessed_strings.call
+        end
+        @preprocessed_strings
+      end
+
+      # Unprocessed input strings; falls back to the preprocessed pair
+      # when the comparator did not provide originals.
+      #
+      # @return [Array<String, String>]
+      def original_strings
+        @original_strings || preprocessed_strings
       end
 
       # Whether either side reported parse errors.  Used by the diff
@@ -147,8 +171,8 @@ show_diffs: :all, diff_mode: :separate, legacy_terminal: false)
         formatter.format(
           self,
           @format,
-          doc1: @preprocessed_strings[0],
-          doc2: @preprocessed_strings[1],
+          doc1: preprocessed_strings[0],
+          doc2: preprocessed_strings[1],
           html_version: @html_version,
         )
       end

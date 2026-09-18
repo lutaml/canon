@@ -407,11 +407,11 @@ module Canon
 
         # CRITICAL: Use strategy's preprocess_for_display to ensure proper
         # line-breaking. This matches DOM diff preprocessing pattern
-        # (xml_comparator.rb:106-109).
+        # (xml_comparator.rb). Deferred via the lazy ComparisonResult seam:
+        # by_object consumers never pay the serialization.
         strategy = Comparison::Strategies::SemanticTreeMatchStrategy.new(
           format: format1, match_options: match_options_only,
         )
-        str1, str2 = strategy.preprocess_for_display(doc1, doc2)
 
         # Store tree diff data in match_options for access via result.
         enhanced_match_options = match_opts_hash.merge(
@@ -423,7 +423,7 @@ module Canon
         # Create ComparisonResult for unified handling.
         result = Canon::Comparison::ComparisonResult.new(
           differences: diff_nodes,
-          preprocessed_strings: [str1, str2],
+          preprocessed_strings: -> { strategy.preprocess_for_display(doc1, doc2) },
           original_strings: [original_str1, original_str2],
           format: format1,
           html_version: %i[html4 html5].include?(format1) ? format1 : nil,

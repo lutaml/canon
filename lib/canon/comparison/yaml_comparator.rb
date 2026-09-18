@@ -69,13 +69,17 @@ module Canon
                                                         differences, "")
 
           if opts[:verbose]
-            # Format YAML for display
-            yaml_str1 = obj1.is_a?(String) ? obj1 : Canon::YamlParsing.dump(obj1)
-            yaml_str2 = obj2.is_a?(String) ? obj2 : Canon::YamlParsing.dump(obj2)
+            # Format YAML for display — deferred until first read
+            preprocessed = lambda do
+              [
+                obj1.is_a?(String) ? obj1 : Canon::YamlParsing.dump(obj1),
+                obj2.is_a?(String) ? obj2 : Canon::YamlParsing.dump(obj2),
+              ]
+            end
 
             ComparisonResult.new(
               differences: differences,
-              preprocessed_strings: [yaml_str1, yaml_str2],
+              preprocessed_strings: preprocessed,
               format: :yaml,
               match_options: match_opts_hash,
             )
