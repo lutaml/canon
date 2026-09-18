@@ -31,13 +31,15 @@ comparison, testing, digital signatures, and human-readable output."
 
   spec.add_dependency "diff-lcs"
   spec.add_dependency "json"
-  spec.add_dependency "moxml", "~> 0.5.41"
+  spec.add_dependency "leptris", "~> 1.9.193"
+  spec.add_dependency "moxml", "~> 0.5.60"
   spec.add_dependency "nokogiri"
   spec.add_dependency "paint"
   spec.add_dependency "rainbow"
   spec.add_dependency "table_tennis"
   spec.add_dependency "thor"
   spec.add_dependency "unicode-name"
+  spec.add_dependency "yeptris", "~> 0.6.5"
 
   spec.metadata["homepage_uri"] = spec.homepage
   spec.metadata["source_code_uri"] = spec.homepage
