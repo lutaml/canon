@@ -18,6 +18,21 @@ module Canon
     # call site) — a canonicalizer treats anchors as content: yeptris
     # resolves them unconditionally, so :true keeps both engines
     # behavior-identical.
+    # Serialize a Ruby object graph to YAML. yeptris 0.6.5+'s
+    # emitter is byte-identical to Psych across canon's dump corpus
+    # (nil/Time/special-float/block-scalar/key-type families —
+    # yeptris#290/#300 closed) with header: true supplying the
+    # "---" document start Psych emits; Psych serves when yeptris
+    # is inactive (CANON_YAML_BACKEND=psych forces it for dumps as
+    # for loads).
+    def dump(obj)
+      if YamlBackend.yeptris?
+        ::Yeptris::YAML.dump(obj, header: true)
+      else
+        YAML.dump(obj)
+      end
+    end
+
     def safe_load(yaml, permitted_classes: [Symbol, Date, Time],
                   aliases: true)
       if YamlBackend.yeptris?

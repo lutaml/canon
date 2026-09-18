@@ -8,7 +8,7 @@ module Canon
     class YamlFormatter
       def self.format(yaml)
         parsed = parse(yaml)
-        sort_yaml_keys(parsed).to_yaml
+        Canon::YamlParsing.dump(sort_yaml_keys(parsed))
       end
 
       def self.parse(yaml)

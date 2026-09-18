@@ -597,8 +597,7 @@ module Canon
           require "json"
           JSON.pretty_generate(doc)
         when :yaml
-          require "yaml"
-          doc.to_yaml
+          Canon::YamlParsing.dump(doc)
         else
           doc.to_s
         end
