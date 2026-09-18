@@ -20,6 +20,7 @@ module Canon
     module Sax
       autoload :NokogiriDriver, "canon/xml/sax/nokogiri_driver"
       autoload :MoxmlDriver, "canon/xml/sax/moxml_driver"
+      autoload :Probe, "canon/xml/sax/probe"
 
       class << self
         # Drive `builder` with the runtime's SAX engine.
@@ -30,6 +31,19 @@ module Canon
             NokogiriDriver.new(builder).parse(xml_string)
           end
           nil
+        end
+
+        # Tree-free scan through the runtime's SAX engine: answers
+        # recover errors and an attribute-name-order signature for
+        # `xml_string` without building anything.
+        def probe(xml_string)
+          probe = Probe.new
+          if RUBY_ENGINE == "opal" || Canon::XmlParsing.moxml_adapter_name != :nokogiri
+            MoxmlDriver.new(probe).parse(xml_string)
+          else
+            NokogiriDriver.new(probe).parse(xml_string)
+          end
+          probe
         end
       end
     end
