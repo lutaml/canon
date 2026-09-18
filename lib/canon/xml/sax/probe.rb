@@ -45,7 +45,12 @@ module Canon
 
         def characters(_string); end
 
-        def cdata_block(_string); end
+        # The builder protocol the SAX drivers forward to is `cdata`
+        # (MoxmlDriver#on_cdata and NokogiriDriver#cdata_block both call
+        # builder.cdata); the nokogiri-style name here made every
+        # CDATA-bearing probe raise NoMethodError under the flipped
+        # leptris SAX engine.
+        def cdata(_string); end
 
         def comment(_string); end
 
