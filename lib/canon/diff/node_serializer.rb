@@ -62,12 +62,14 @@ module Canon
       # @param element [Canon::Xml::Nodes::ElementNode] Element to serialize
       # @return [String] Serialized element
       def self.serialize_element_node(element)
-        # Build opening tag with attributes
+        # Mutating build: no intermediate per attribute (one child
+        # string per element via map+join below is the remaining
+        # necessary product).
         tag = "<#{element.name}"
 
         # Add attributes
         element.sorted_attribute_nodes.each do |attr|
-          tag += " #{attr.name}=\"#{attr.value}\""
+          tag << " " << attr.name << '="' << attr.value << '"'
         end
 
         # Check if element has children
