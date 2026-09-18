@@ -71,11 +71,42 @@ module Canon
         end
       end
 
+      # The shared fingerprint ([root digest, doc-level skeleton])
+      # when both documents digest identically AND both parse clean of
+      # recover errors; nil otherwise. The verbose lane certifies
+      # before skipping the pipeline: error-bearing documents decline
+      # so the pipeline can produce the identical verbose report
+      # (parse-error banner included) it always has.
+      def certify(xml1, xml2)
+        return nil unless xml1.is_a?(String) && xml2.is_a?(String)
+
+        begin
+          return nil if xml1.include?("xml:space") || xml2.include?("xml:space")
+        rescue Encoding::CompatibilityError
+          return nil
+        end
+
+        context = Canon::XmlParsing.moxml_context
+        begin
+          left = fingerprint(context, xml1, clean: true)
+          right = fingerprint(context, xml2, clean: true)
+          return nil if left.nil? || left != right
+
+          left
+        rescue StandardError
+          nil
+        end
+      end
+
       # [root digest, doc-level skeleton] or nil when unparseable.
-      def fingerprint(context, xml)
+      # With `clean:` a document carrying recover errors also answers
+      # nil — only certify uses that; the boolean lane keeps the
+      # historical verdict for recovered-equal pairs.
+      def fingerprint(context, xml, clean: false)
         doc = context.parse(xml, readonly: true, strict: false)
         root = doc.root
         return nil unless root
+        return nil if clean && doc.parse_errors.any?
 
         skeleton = doc.children.filter_map do |child|
           next if Canon::XmlParsing.same_engine_node?(child, root)

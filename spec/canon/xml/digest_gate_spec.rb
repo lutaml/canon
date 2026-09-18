@@ -68,6 +68,48 @@ RSpec.describe "XML digest-gate fast path" do
     expect(result.equivalent?).to be true
   end
 
+  it "certifies digest-equal clean documents and declines the rest" do
+    expect(Canon::Xml::DigestGate.certify(compact_doc, pretty_doc)).to be_truthy
+    expect(
+      Canon::Xml::DigestGate.certify(compact_doc,
+                                     compact_doc.sub("Content 1", "CHANGED")),
+    ).to be_nil
+    # Recover-error documents decline so verbose reports keep the
+    # parse-error banner.
+    junk = "  <catalog/>  trailing"
+    expect(Canon::Xml::DigestGate.certify(junk, junk.dup)).to be_nil
+  end
+
+  it "serves verbose equivalent results through the gate" do
+    result = equivalent?(compact_doc, pretty_doc, verbose: true)
+    expect(result.differences).to be_empty
+    expect(result.equivalent?).to be true
+    expect(result.parse_errors?).to be false
+
+    # Materialized display strings match the full pipeline's own
+    # serialization (gate declined via strict attribute order, which
+    # these single-attribute documents ignore).
+    declined = equivalent?(compact_doc, pretty_doc, verbose: true,
+                                                    match: { attribute_order: :strict })
+    expect(result.preprocessed_strings).to eq(declined.preprocessed_strings)
+  end
+
+  it "routes error-bearing verbose pairs through the pipeline" do
+    junk = "  <catalog/>  trailing"
+    result = equivalent?(junk, junk.dup, verbose: true)
+    expect(result.parse_errors?).to be true
+    expect(result.equivalent?).to be true
+  end
+
+  it "keeps the parse-error banner for byte-equal malformed documents" do
+    # Byte-equal input skips the signature comparison, but the SAX
+    # error scan still runs: the banner must survive the shortcut.
+    dup_lang = %(<body lang="en" xml:lang="en" xml:lang="en"><div>x</div></body>)
+    result = equivalent?(dup_lang, dup_lang.dup, verbose: true)
+    expect(result.parse_errors?).to be true
+    expect(result.equivalent?).to be true
+  end
+
   it "falls through on unparseable input with normal error behavior" do
     expect(equivalent?("<r>", "<r/>")).to be true
   end
