@@ -82,14 +82,29 @@ module Canon
           # parse-time strip. Callers whose whitespace semantics
           # differ from that skip the gate: strict attribute order
           # (invisible to the digest), user-configured whitespace
-          # element lists, xml:space documents (checked inside the
-          # gate), and verbose callers who need the report.
-          if !(opts[:verbose] ||
-                 match_opts_hash[:attribute_order] == :strict ||
+          # element lists, and xml:space documents (checked inside the
+          # gate). Attribute order is invisible to the digest, so
+          # :strict always falls through for the verdict itself.
+          # Verbose reports additionally carry two digest-invisible
+          # entries: informative attribute-order DiffNodes (emitted
+          # even under :ignore for order-differing documents) and the
+          # SAX lane's parse-error banner (issue #130). The verbose
+          # lane therefore re-scans both sides through the SAX probe —
+          # identical attribute-order signatures and no recover errors
+          # prove both entries empty, and a hit returns the same shape
+          # the pipeline builds for equivalent documents (empty
+          # differences, deferred display strings) without the two
+          # full parses and the walk.
+          if !(match_opts_hash[:attribute_order] == :strict ||
                  match_opts_hash[:preserve_whitespace_elements] ||
                  match_opts_hash[:collapse_whitespace_elements] ||
                  match_opts_hash[:strip_whitespace_elements]) &&
-              Xml::DigestGate.equal?(n1, n2)
+              Xml::DigestGate.certify(n1, n2) &&
+              verbose_report_proven_empty?(n1, n2, opts)
+            if opts[:verbose]
+              return build_digest_equivalent_result(n1, n2, match_opts_hash)
+            end
+
             return true
           end
 
@@ -133,12 +148,12 @@ module Canon
             # Serialize parsed nodes for consistent formatting
             # This ensures both sides formatted identically, showing only real
             # differences. Deferred: by_object consumers never read these.
-            preprocessed = lambda do
-              [
-                serialize_node(node1).gsub("><", ">\n<"),
-                serialize_node(node2).gsub("><", ">\n<"),
-              ]
-            end
+            # node1/node2 are parsed Canon nodes, so the deferred
+            # re-parse inside is a pass-through.
+            preprocessed = deferred_preprocessed(
+              node1, node2,
+              match_opts_hash[:preprocessing], preserve_whitespace
+            )
 
             ComparisonResult.new(
               differences: differences,
@@ -180,20 +195,71 @@ module Canon
         # @param n1 [Object] First input
         # @param n2 [Object] Second input
         # @param opts [Hash] Raw options (before merge with DEFAULT_OPTS)
+        # The verbose-report half of the gate: the digest cannot see
+        # attribute order (informative DiffNodes) or SAX recover
+        # errors (parse-error banner). One tree-free probe scan per
+        # side answers both; any hit falls through to the pipeline.
+        def verbose_report_proven_empty?(n1, n2, opts)
+          return true unless opts[:verbose]
+          # Identical input parses identically — differences and
+          # attribute order coincide by construction; only the SAX
+          # recover-error surface (parse-error banner, issue #130)
+          # needs its one scan.
+          return !Xml::Sax.probe(n1).saw_error? if n1 == n2
+
+          left = Xml::Sax.probe(n1)
+          return false if left.saw_error?
+
+          right = Xml::Sax.probe(n2)
+          !right.saw_error? && left.signature == right.signature
+        end
+
+        # Digest-proven equivalence for verbose callers. The report is
+        # indistinguishable from the full pipeline's for such inputs —
+        # certify guarantees no recover errors, the digest guarantees
+        # no differences — with display strings deferred exactly like
+        # the pipeline's lazy lane.
+        #
+        # @return [ComparisonResult]
+        def build_digest_equivalent_result(n1, n2, match_opts_hash)
+          preserve_whitespace = match_opts_hash[:structural_whitespace] == :strict
+          ComparisonResult.new(
+            differences: [],
+            preprocessed_strings: deferred_preprocessed(
+              n1, n2,
+              match_opts_hash[:preprocessing], preserve_whitespace
+            ),
+            original_strings: [n1, n2],
+            format: :xml,
+            match_options: match_opts_hash,
+            algorithm: :dom,
+          )
+        end
+
+        # Deferred display-string pair. Inputs may be raw strings
+        # (trivial/digest paths — parsed on materialization with the
+        # caller's preprocessing) or already-parsed Canon nodes
+        # (compare path — NodeParser passes them through unchanged).
+        #
+        # @return [Proc] Array<String, String> on call
+        def deferred_preprocessed(n1, n2, preprocessing, preserve_whitespace)
+          lambda do
+            [
+              serialize_node(parse_node(n1, preprocessing,
+                                        preserve_whitespace: preserve_whitespace)).gsub("><", ">\n<"),
+              serialize_node(parse_node(n2, preprocessing,
+                                        preserve_whitespace: preserve_whitespace)).gsub("><", ">\n<"),
+            ]
+          end
+        end
+
         # @return [Boolean, ComparisonResult]
         def build_trivial_equivalent_result(n1, n2, opts)
           return true unless opts[:verbose]
 
           # Parse nodes for verbose display — deferred with the strings:
           # nothing but the display pair ever reads them.
-          preprocessed = lambda do
-            [
-              serialize_node(parse_node(n1, :none,
-                                        preserve_whitespace: true)).gsub("><", ">\n<"),
-              serialize_node(parse_node(n2, :none,
-                                        preserve_whitespace: true)).gsub("><", ">\n<"),
-            ]
-          end
+          preprocessed = deferred_preprocessed(n1, n2, :none, true)
           original1 = n1.is_a?(String) ? n1 : serialize_node(n1)
           original2 = n2.is_a?(String) ? n2 : serialize_node(n2)
 
