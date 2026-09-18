@@ -70,8 +70,8 @@ module Canon
 
           if opts[:verbose]
             # Format YAML for display
-            yaml_str1 = obj1.is_a?(String) ? obj1 : YAML.dump(obj1)
-            yaml_str2 = obj2.is_a?(String) ? obj2 : YAML.dump(obj2)
+            yaml_str1 = obj1.is_a?(String) ? obj1 : Canon::YamlParsing.dump(obj1)
+            yaml_str2 = obj2.is_a?(String) ? obj2 : Canon::YamlParsing.dump(obj2)
 
             ComparisonResult.new(
               differences: differences,

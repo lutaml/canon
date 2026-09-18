@@ -2,6 +2,20 @@
 
 require "spec_helper"
 
+DUMP_PARITY_CASES = {
+  "nil value" => { "z" => nil },
+  "nil seq item" => [1, nil, true],
+  "special floats" => { "inf" => Float::INFINITY, "nan" => Float::NAN },
+  "block scalar" => { "text" => "line1\nline2\n" },
+  "y-string key and value" => { "y" => "yes" },
+  "integer key" => { 1 => "int" },
+  "nil key" => { nil => "nilkey" },
+  "time" => { "t" => Time.utc(2026, 9, 7, 10, 0, 0) },
+  "date" => { "d" => Date.new(2026, 9, 7) },
+  "unicode" => { "ja" => "日本語" },
+  "nested" => { "x" => { "y" => [1, 2, { "z" => nil }] } },
+}.freeze
+
 # Parity gate between canon's YAML engines (see Canon::YamlBackend).
 # Every case must load identically through Canon::YamlParsing under
 # Psych and yeptris before the default flips off :psych. The pending
@@ -128,6 +142,18 @@ RSpec.describe "YAML engine parity" do
       expect(yeptris).to eq(stdlib)
     rescue LoadError
       skip "yeptris not installed"
+    end
+  end
+
+  # Dump-lane parity: format_yaml's emitter must stay byte-identical
+  # to Psych across the scalar/spelling families that once diverged
+  # (yeptris#290/#300 — nil rendering, .inf/.nan, block scalars,
+  # key-type quoting, Time form, doc-order header). Gates the
+  # format_yaml flip off Psych.
+
+  DUMP_PARITY_CASES.each do |name, obj|
+    it "dumps #{name} byte-identically to Psych" do
+      expect(Canon::YamlParsing.dump(obj)).to eq(YAML.dump(obj))
     end
   end
 
