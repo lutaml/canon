@@ -201,11 +201,17 @@ module Canon
         # side answers both; any hit falls through to the pipeline.
         def verbose_report_proven_empty?(n1, n2, opts)
           return true unless opts[:verbose]
+
           # Identical input parses identically — differences and
-          # attribute order coincide by construction; only the SAX
-          # recover-error surface (parse-error banner, issue #130)
-          # needs its one scan.
-          return !Xml::Sax.probe(n1).saw_error? if n1 == n2
+          # attribute order coincide by construction. Recover errors
+          # ride the fingerprint's diag check when the engine exposes
+          # them (libleptris 1.9.205+, #1200); otherwise the one SAX
+          # scan covers the parse-error banner (issue #130).
+          if n1 == n2
+            return true if Xml::DigestGate.recover_diags_available?
+
+            return !Xml::Sax.probe(n1).saw_error?
+          end
 
           left = Xml::Sax.probe(n1)
           return false if left.saw_error?
