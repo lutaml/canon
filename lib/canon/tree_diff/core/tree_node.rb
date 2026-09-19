@@ -50,12 +50,52 @@ module Canon
           @weight = nil
         end
 
+        # Signature path component (see NodeSignature): the label plus
+        # sorted attributes (and whitespace-sensitive text value) when
+        # +include_attributes+. Memoized per variant — signatures
+        # rebuild ancestor components for every node they cover, which
+        # is quadratic over the tree without it.
+        #
+        # @param include_attributes [Boolean]
+        # @return [String]
+        def signature_component(include_attributes: true)
+          if include_attributes
+            @signature_component_attrs ||= build_signature_component(true)
+          else
+            @signature_component ||= build_signature_component(false)
+          end
+        end
+
         # Check if this is a leaf node (no children)
         #
         # @return [Boolean]
         def leaf?
           children.empty?
         end
+
+        # Elements where whitespace is semantically significant; their
+        # text value participates in the signature (see NodeSignature).
+        WHITESPACE_SENSITIVE_TAGS = %w[pre code textarea script style].freeze
+
+        def build_signature_component(include_attributes)
+          component = label.to_s
+
+          # Sorted attributes distinguish same-label nodes while
+          # ignoring attribute order.
+          if include_attributes && !attributes.empty?
+            component += "{#{attributes.sort.map { |k, v| "#{k}=#{v}" }.join(',')}}" # rubocop:disable Style/StringConcatenation
+          end
+
+          if include_attributes &&
+              WHITESPACE_SENSITIVE_TAGS.include?(label.to_s.downcase) && value
+            # inspect makes whitespace visible and handles special
+            # characters.
+            component += "[text=#{value.inspect}]"
+          end
+
+          component
+        end
+        private :build_signature_component
 
         # Check if this is a text node (leaf with value)
         #
