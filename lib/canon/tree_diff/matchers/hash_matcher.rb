@@ -118,11 +118,19 @@ module Canon
 
         def subtrees_match?(node1, node2)
           return false unless nodes_match?(node1, node2)
-          return false unless node1.children.size == node2.children.size
 
-          node1.children.zip(node2.children).all? do |child1, child2|
-            subtrees_match?(child1, child2)
+          children1 = node1.children
+          children2 = node2.children
+          return false unless children1.size == children2.size
+
+          index = 0
+          while index < children1.size
+            return false unless subtrees_match?(children1[index],
+                                                children2[index])
+
+            index += 1
           end
+          true
         end
 
         def nodes_match?(node1, node2)
@@ -141,6 +149,11 @@ module Canon
 
           return true if (text1.nil? || text1.empty?) && (text2.nil? || text2.empty?)
           return false if (text1.nil? || text1.empty?) || (text2.nil? || text2.empty?)
+
+          # Identical raw text is equivalent under every mode — skips
+          # the gsub normalization for the overwhelmingly common
+          # matched-leaf case.
+          return true if text1 == text2
 
           norm1 = normalize_text(text1)
           norm2 = normalize_text(text2)

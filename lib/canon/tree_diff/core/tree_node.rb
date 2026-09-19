@@ -66,6 +66,20 @@ module Canon
           end
         end
 
+        # Signature path components from root to this node, built by
+        # parent chaining (see NodeSignature). Memoized per variant —
+        # signatures previously re-walked the ancestor chain per node.
+        #
+        # @param include_attributes [Boolean]
+        # @return [Array<String>]
+        def signature_path(include_attributes: true)
+          if include_attributes
+            @signature_path_attrs ||= build_signature_path(true)
+          else
+            @signature_path ||= build_signature_path(false)
+          end
+        end
+
         # Check if this is a leaf node (no children)
         #
         # @return [Boolean]
@@ -77,7 +91,21 @@ module Canon
         # text value participates in the signature (see NodeSignature).
         WHITESPACE_SENSITIVE_TAGS = %w[pre code textarea script style].freeze
 
+        def build_signature_path(include_attributes)
+          component = signature_component(include_attributes: include_attributes)
+          if parent
+            parent.signature_path(include_attributes: include_attributes) + [component]
+          else
+            [component]
+          end
+        end
+
         def build_signature_component(include_attributes)
+          label_str = label.to_s.downcase
+          if label.nil? || label_str.empty? || label_str == "#text" || label_str == "text"
+            return "#text"
+          end
+
           component = label.to_s
 
           # Sorted attributes distinguish same-label nodes while
@@ -95,7 +123,7 @@ module Canon
 
           component
         end
-        private :build_signature_component
+        private :build_signature_component, :build_signature_path
 
         # Check if this is a text node (leaf with value)
         #

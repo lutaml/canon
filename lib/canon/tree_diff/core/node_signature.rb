@@ -81,34 +81,7 @@ module Canon
         #
         # @return [Array<String>] Path components
         def compute_path
-          # Build path from root to node
-          ancestors = @node.ancestors.reverse
-          components = ancestors.map do |ancestor|
-            path_component(ancestor)
-          end
-
-          # Add the node itself
-          components << path_component(@node)
-
-          components
-        end
-
-        # Get path component for a node
-        #
-        # @param node [TreeNode] Node to get component for
-        # @return [String]
-        def path_component(node)
-          # For element nodes: use label with sorted attributes
-          # For text nodes: use "#text"
-          # CRITICAL: Text nodes should use "#text" not "text"
-          # Check the label - actual text nodes have no label or label == "text"
-          label_str = node.label.to_s.downcase
-          if node.label.nil? || label_str.empty? || label_str == "#text" || label_str == "text"
-            "#text"
-          else
-            # Memoized on the node — see TreeNode#signature_component.
-            node.signature_component(include_attributes: @include_attributes)
-          end
+          @node.signature_path(include_attributes: @include_attributes)
         end
 
         # Compute signature string from path
