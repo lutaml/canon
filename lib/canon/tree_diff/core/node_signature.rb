@@ -106,48 +106,9 @@ module Canon
           if node.label.nil? || label_str.empty? || label_str == "#text" || label_str == "text"
             "#text"
           else
-            component = node.label.to_s
-
-            # Include sorted attributes to distinguish nodes with same label
-            # but different attributes (while ignoring attribute order)
-            # Only include attributes if requested (for hash matching)
-            if @include_attributes && !node.attributes.empty?
-              sorted_attrs = node.attributes.sort.to_h
-              attrs_str = sorted_attrs.map { |k, v| "#{k}=#{v}" }.join(",")
-              component += "{#{attrs_str}}"
-            end
-
-            # CRITICAL: For whitespace-sensitive HTML elements, include the text value
-            # in the signature to prevent incorrect matching of nodes with different whitespace
-            if @include_attributes && whitespace_sensitive?(node) && node.value
-              # Include text value in signature for whitespace-sensitive elements
-              # Use inspect to make whitespace visible and handle special characters
-              component += "[text=#{node.value.inspect}]"
-            end
-
-            component
+            # Memoized on the node — see TreeNode#signature_component.
+            node.signature_component(include_attributes: @include_attributes)
           end
-        end
-
-        # Check if a node is in a whitespace-sensitive context
-        #
-        # HTML elements where whitespace is significant: <pre>, <code>, <textarea>, <script>, <style>
-        #
-        # @param node [TreeNode] Node to check
-        # @return [Boolean] True if node is whitespace-sensitive
-        def whitespace_sensitive?(node)
-          return false unless node
-
-          # List of HTML elements where whitespace is semantically significant
-          whitespace_sensitive_tags = %w[pre code textarea script style]
-
-          # Check if this node is whitespace-sensitive
-          if node.is_a?(TreeNode)
-            label = node.label.to_s.downcase
-            return true if whitespace_sensitive_tags.include?(label)
-          end
-
-          false
         end
 
         # Compute signature string from path
