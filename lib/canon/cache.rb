@@ -1,6 +1,11 @@
 # frozen_string_literal: true
 
-require "digest" unless RUBY_ENGINE == "opal"
+# digest/sha256 must load explicitly: `defined?(Digest::SHA256)` is
+# nil for a pending autoload (Ruby never resolves autoloads in
+# defined?), which silently routed CRuby through the per-character
+# Opal fallback — ~2 allocations per input byte on every cached
+# document-parse key.
+require "digest/sha2" unless RUBY_ENGINE == "opal"
 
 module Canon
   # Cache for expensive operations during document comparison
