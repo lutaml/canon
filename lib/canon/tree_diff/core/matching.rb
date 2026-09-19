@@ -215,9 +215,10 @@ module Canon
 
           # Check prefix closure constraint
           # If ancestors are matched, they must be matched to each other
-          node1.ancestors.each_with_index do |anc1, idx|
+          ancestors1 = node1.ancestors
+          anc2_ancestors = node2.ancestors
+          ancestors1.each_with_index do |anc1, idx|
             # Get corresponding ancestor in tree2
-            anc2_ancestors = node2.ancestors
             return false if idx >= anc2_ancestors.size
 
             anc2 = anc2_ancestors[idx]
