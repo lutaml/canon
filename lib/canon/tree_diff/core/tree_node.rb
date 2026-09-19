@@ -87,8 +87,9 @@ module Canon
           children.empty?
         end
 
-        # Elements where whitespace is semantically significant; their
-        # text value participates in the signature (see NodeSignature).
+        # Elements where whitespace is semantically significant (HTML):
+        # their text value participates in signatures and matching.
+        # Single source for the tree_diff components.
         WHITESPACE_SENSITIVE_TAGS = %w[pre code textarea script style].freeze
 
         def build_signature_path(include_attributes)
@@ -109,9 +110,17 @@ module Canon
           component = label.to_s
 
           # Sorted attributes distinguish same-label nodes while
-          # ignoring attribute order.
+          # ignoring attribute order. Built directly into the
+          # component — no intermediate sorted/map/join arrays.
           if include_attributes && !attributes.empty?
-            component += "{#{attributes.sort.map { |k, v| "#{k}=#{v}" }.join(',')}}" # rubocop:disable Style/StringConcatenation
+            component += "{"
+            first = true
+            attributes.sort.each do |k, v|
+              component << "," unless first
+              first = false
+              component << k.to_s << "=" << v.to_s
+            end
+            component << "}"
           end
 
           if include_attributes &&
@@ -165,10 +174,14 @@ module Canon
         #
         # @return [Array<TreeNode>]
         def descendants
+          # Iterative pre-order walk — the recursive form allocated an
+          # intermediate array per level.
           result = []
-          children.each do |child|
-            result << child
-            result.concat(child.descendants)
+          stack = children.reverse_each.to_a
+          until stack.empty?
+            node = stack.pop
+            result << node
+            stack.concat(node.children.reverse_each.to_a) if node.children.any?
           end
           result
         end

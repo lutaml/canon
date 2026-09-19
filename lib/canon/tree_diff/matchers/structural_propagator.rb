@@ -211,7 +211,7 @@ module Canon
           return false unless node
 
           # List of HTML elements where whitespace is semantically significant
-          whitespace_sensitive_tags = %w[pre code textarea script style]
+          whitespace_sensitive_tags = Core::TreeNode::WHITESPACE_SENSITIVE_TAGS
 
           # Check if this node is whitespace-sensitive
           if node.is_a?(Core::TreeNode)

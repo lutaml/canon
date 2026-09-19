@@ -205,8 +205,10 @@ module Canon
           attrs1 = node1.attributes
           attrs2 = node2.attributes
 
-          # Check if attribute values differ (ignoring order)
-          if attrs1.sort.to_h != attrs2.sort.to_h
+          # Check if attribute values differ (ignoring order).
+          # Identical raw hashes (order included) are trivially equal
+          # after sorting — the overwhelmingly common matched case.
+          if attrs1 != attrs2 && attrs1.sort.to_h != attrs2.sort.to_h
             # Actual attribute value differences
             changes[:attributes] = {
               old: attrs1,
@@ -611,15 +613,12 @@ module Canon
         def whitespace_sensitive?(node)
           return false unless node
 
-          # List of HTML elements where whitespace is semantically significant
-          whitespace_sensitive_tags = %w[pre code textarea script style]
-
           # Check if this node or any ancestor is whitespace-sensitive
           current = node
           while current
             if current.is_a?(Core::TreeNode)
               label = current.label.to_s.downcase
-              return true if whitespace_sensitive_tags.include?(label)
+              return true if Core::TreeNode::WHITESPACE_SENSITIVE_TAGS.include?(label)
             end
 
             current = current.is_a?(Core::TreeNode) ? current.parent : nil
