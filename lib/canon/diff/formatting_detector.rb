@@ -17,8 +17,60 @@ module Canon
         # If only one is blank, it's not just formatting
         return false if blank?(line1) || blank?(line2)
 
-        # Compare normalized versions
-        normalize_for_comparison(line1) == normalize_for_comparison(line2)
+        return true if line1 == line2
+
+        # Identical prefix/suffix bytes normalize identically — compare
+        # only the differing core, widened to tag boundaries so no tag,
+        # entity, or whitespace run spans a cut (the normalization is
+        # then compositional across the cut points).
+        core1, core2 = differing_core(line1, line2)
+        return false if core1.nil?
+
+        normalize_for_comparison(core1) == normalize_for_comparison(core2)
+      end
+
+      # The differing core of two lines: the region between the common
+      # prefix and common suffix, widened outward to just after a ">" so
+      # the cuts never split a tag, an entity reference, or a whitespace
+      # run. Returns nil when the bytes are identical (no core).
+      #
+      # @param line1 [String]
+      # @param line2 [String]
+      # @return [Array(String, String), nil]
+      def self.differing_core(line1, line2)
+        return nil if line1 == line2
+
+        size1 = line1.bytesize
+        size2 = line2.bytesize
+        limit = [size1, size2].min
+        lo = 0
+        lo += 1 while lo < limit && line1.getbyte(lo) == line2.getbyte(lo)
+
+        suffix_max = limit - lo
+        s = 0
+        s += 1 while s < suffix_max &&
+            line1.getbyte(size1 - 1 - s) == line2.getbyte(size2 - 1 - s)
+
+        # Snap the cuts to tag boundaries (the shared regions are
+        # identical, so the cuts apply to both lines alike): the left
+        # cut moves to the start of the enclosing tag so attribute
+        # normalization always sees whole tags; the right cut moves
+        # past the closing ">".
+        tag_lo = line1.rindex("<", lo)
+        lo = tag_lo if tag_lo
+
+        hi1 = size1 - s
+        hi2 = size2 - s
+        tag_hi = line1.index(">", hi1)
+        if tag_hi
+          hi1 = tag_hi + 1
+          hi2 = hi1 + (size2 - size1) # same offset within the shared tail
+        end
+
+        # Degenerate widening (empty core) — compare the full lines.
+        return [line1, line2] if lo > hi1 || hi2 < lo
+
+        [line1[lo...hi1], line2[lo...hi2]]
       end
 
       # Aggressive normalization for formatting comparison.
