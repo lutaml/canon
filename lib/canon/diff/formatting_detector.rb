@@ -107,8 +107,14 @@ module Canon
       # case-insensitive (e.g., "UTF-8" equals "utf-8").
       # The standalone declaration in XML 1.1 is also case-insensitive.
       CASE_INSENSITIVE_ATTRS = %w[encoding standalone].freeze
-      QUOTE_CHARS = ["\"", "'"].freeze
-      SKIP_CHARS = [" ", "="].freeze
+      # Byte-level scan sets — the tokenizer reads via getbyte, whose
+      # Integer results allocate nothing (String#[] mints a 1-char
+      # string per character scanned).
+      NAME_END_BYTES = [32, 47, 62].freeze # space, /, >
+      SKIP_BYTES = [32, 61].freeze         # space, =
+      QUOTE_BYTES = [34, 39].freeze        # ", '
+      SPACE_BYTE = 32
+      EMPTY_CONTENT_RE = /\A[ \t\r\n\f\v]*\z/
 
       # Normalize attribute order within XML tags so that
       # <elem b="2" a="1"> compares equal to <elem a="1" b="2">.
@@ -121,19 +127,23 @@ module Canon
         i = 0
 
         while i < text.length
-          if text[i] == "<"
-            # Handle processing instruction <?...?>, comment <!--...-->,
-            # and regular tags
-            new_i, tag_output = process_tag(text, i)
-            if new_i
-              result << tag_output
-              i = new_i
-              next
-            end
+          lt = text.index("<", i)
+          if lt.nil?
+            result << text[i..]
+            break
           end
+          result << text[i...lt] if lt > i
 
-          result << text[i]
-          i += 1
+          # Handle processing instruction <?...?>, comment <!--...-->,
+          # and regular tags
+          new_i, tag_output = process_tag(text, lt)
+          if new_i
+            result << tag_output
+            i = new_i
+          else
+            result << "<"
+            i = lt + 1
+          end
         end
 
         result
@@ -178,57 +188,59 @@ module Canon
       # @param tag_content [String] Content between < and >
       # @return [Hash, nil] { name: String, attrs: Array<{name:, value:}> }
       def self.tokenize_tag_content(tag_content)
-        return nil if tag_content.strip.empty?
+        return nil if tag_content.match?(EMPTY_CONTENT_RE)
 
         i = 0
+        length = tag_content.length
         # Find tag name (first non-whitespace word)
-        i += 1 while i < tag_content.length && tag_content[i] == " "
-        return nil if i >= tag_content.length
+        i += 1 while i < length && tag_content.getbyte(i) == SPACE_BYTE
+        return nil if i >= length
 
         name_start = i
-        i += 1 while i < tag_content.length && tag_content[i] != " " &&
-            tag_content[i] != "/" && tag_content[i] != ">"
+        i += 1 while i < length &&
+            !NAME_END_BYTES.include?(tag_content.getbyte(i))
         tag_name = tag_content[name_start...i]
 
         # Skip whitespace
-        i += 1 while i < tag_content.length && tag_content[i] == " "
+        i += 1 while i < length && tag_content.getbyte(i) == SPACE_BYTE
 
         # Parse attributes
         attrs = []
-        while i < tag_content.length
+        while i < length
           # Skip whitespace
-          i += 1 while i < tag_content.length && tag_content[i] == " "
-          break if i >= tag_content.length
+          i += 1 while i < length && tag_content.getbyte(i) == SPACE_BYTE
+          break if i >= length
 
           # Read attribute name
           attr_start = i
-          i += 1 while i < tag_content.length && tag_content[i] != "=" &&
-              tag_content[i] != " " && tag_content[i] != "/" &&
-              tag_content[i] != ">"
-          break if i >= tag_content.length || i == attr_start
+          i += 1 while i < length &&
+              !NAME_END_BYTES.include?(tag_content.getbyte(i)) &&
+              tag_content.getbyte(i) != 61
+          break if i >= length || i == attr_start
 
           attr_name = tag_content[attr_start...i]
 
           # Skip whitespace and =
-          i += 1 while i < tag_content.length &&
-              SKIP_CHARS.include?(tag_content[i])
-          break if i >= tag_content.length
+          i += 1 while i < length &&
+              SKIP_BYTES.include?(tag_content.getbyte(i))
+          break if i >= length
 
           # Read quoted value
-          quote = tag_content[i]
-          break unless QUOTE_CHARS.include?(quote)
+          quote = tag_content.getbyte(i)
+          break unless QUOTE_BYTES.include?(quote)
 
           i += 1
           value_start = i
-          while i < tag_content.length && tag_content[i] != quote
+          while i < length && tag_content.getbyte(i) != quote
             i += 1
           end
-          break if i >= tag_content.length
+          break if i >= length
 
           attr_value = tag_content[value_start...i]
           i += 1 # skip closing quote
 
-          attrs << { name: attr_name, value: "#{quote}#{attr_value}#{quote}" }
+          quote_char = quote.chr
+          attrs << { name: attr_name, value: "#{quote_char}#{attr_value}#{quote_char}" }
         end
 
         { name: tag_name, attrs: attrs }
@@ -241,9 +253,9 @@ module Canon
       # @param i [Integer] Position of '<'
       # @return [Array(Integer, String), nil] [new_position, tag_string] or nil
       def self.process_tag(text, pos)
-        if text[pos + 1] == "?"
+        if text.getbyte(pos + 1) == 63 # ?
           process_processing_instruction(text, pos)
-        elsif text[pos + 1] == "!" && text[(pos + 2)...(pos + 4)] == "--"
+        elsif text.getbyte(pos + 1) == 33 && text[(pos + 2)...(pos + 4)] == "--" # !
           process_comment(text, pos)
         else
           process_regular_tag(text, pos)
