@@ -642,6 +642,23 @@ module Canon
         #
         # @param token [String] The token to apply visualization to
         # @param color [Symbol, nil] Optional color to apply
+        # Whole-string gsub through the map — the previous
+        # chars.map.fetch.join minted two arrays and one 1-char string
+        # per character of every displayed line.
+        def visualize(token)
+          return token if @visualization_map.empty?
+
+          token.gsub(visualization_union, @visualization_map)
+        end
+
+        # Longer keys first so "\r\n" wins over "\r"/"\n" at the
+        # same position.
+        def visualization_union
+          @visualization_union ||= Regexp.union(
+            @visualization_map.keys.sort_by(&:length).reverse,
+          )
+        end
+
         # @return [String] Visualized and optionally colored token
         def apply_visualization(token, color = nil)
           return "" if token.nil?
@@ -649,9 +666,7 @@ module Canon
           visual = if @character_visualization == :content_only
                      visualize_content_only(token.to_s)
                    else
-                     token.to_s.chars.map do |char|
-                       @visualization_map.fetch(char, char)
-                     end.join
+                     visualize(token.to_s)
                    end
 
           if color && @use_color
