@@ -44,6 +44,10 @@ module Canon
                                     name: :comments,
                                     valid_behaviors: %i[strict ignore],
                                   ),
+                                  Dimension.new(
+                                    name: :namespace_prefix,
+                                    valid_behaviors: %i[significant ignore],
+                                  ),
                                 ]),
 
           json: DimensionSet.new(:json, [

@@ -9,6 +9,29 @@ nav_order: 1
 
 Canon's 4-layer architecture provides powerful flexibility, but this can be overwhelming. This guide helps you choose the right configuration for your use case through decision trees, use case scenarios, and practical recommendations.
 
+== XML namespace prefixes
+
+If your documents round-trip through XML tooling (Office files, serializers,
+XSLT processors), namespace *prefixes* often churn while the resolved names
+stay identical (`xmlns:ns="http://x.example"` vs `xmlns:m="http://x.example"`). Canon's
+default treats prefix spelling as significant; choose `:ignore` when the
+binding, not the spelling, is what matters:
+
+[source,ruby]
+----
+# Per comparison
+Canon::Comparison.equivalent?(a, b,
+  format: :xml, match: { namespace_prefix: :ignore })
+
+# Or per suite via config
+Canon::Config.instance.xml.match.options[:namespace_prefix] = :ignore
+----
+
+The `spec_friendly` and `content_only` profiles already set
+`namespace_prefix: :ignore`. Canonicalization output (`Canon.format`,
+C14N) never rewrites prefixes regardless of this option — canonical bytes
+stay spec-conformant.
+
 == Quick Decision Tree
 
 [mermaid]

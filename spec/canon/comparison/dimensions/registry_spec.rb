@@ -12,7 +12,7 @@ RSpec.describe Canon::Comparison::Dimensions::Registry do
         expect(set.format).to eq(:xml)
       end
 
-      it "has 7 dimensions" do
+      it "has 8 dimensions" do
         expect(set.names).to eq(%i[
                                   text_content
                                   structural_whitespace
@@ -21,6 +21,7 @@ RSpec.describe Canon::Comparison::Dimensions::Registry do
                                   attribute_values
                                   element_position
                                   comments
+                                  namespace_prefix
                                 ])
       end
 
