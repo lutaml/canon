@@ -56,7 +56,7 @@ module Canon
             text_content: :normalize,
             structural_whitespace: :normalize,
             attribute_presence: :strict,
-            attribute_order: :strict,
+            attribute_order: :ignore,
             attribute_values: :strict,
             element_position: :strict,
             comments: :ignore,
