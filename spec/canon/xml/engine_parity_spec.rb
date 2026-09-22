@@ -3,6 +3,16 @@
 require "spec_helper"
 require "stringio"
 
+# The Nokogiri leg builds reference trees directly; nothing in the
+# leptris-default load path pulls Nokogiri in anymore. The require is
+# guarded because the nokogiri-less CI leg runs this file to prove the
+# library never needs it.
+begin
+  require "nokogiri"
+rescue LoadError
+  # skipped in the DOM-parity leg below
+end
+
 # Engine parity: Nokogiri vs moxml's resolved adapter (leptris).
 #
 # This spec is the gate for flipping Canon::XmlBackend's default to
@@ -59,6 +69,10 @@ RSpec.describe "XML engine parity", :xml_engine_parity do
   end
 
   describe "DOM conversion parity (canon-owned seam)" do
+    before do
+      skip "nokogiri not installed (nokogiri-less leg)" unless defined?(Nokogiri)
+    end
+
     it "matches on well-formed documents with namespaces, entities, and inline PIs" do
       xml = <<~XML
         <catalog version="2.0" xmlns:x="http://x.example" xmlns="http://def.example">
