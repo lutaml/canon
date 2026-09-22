@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require "nokogiri" unless RUBY_ENGINE == "opal"
+Canon::NokogiriLoader.require!("the Nokogiri SAX driver")
 
 module Canon
   module Xml

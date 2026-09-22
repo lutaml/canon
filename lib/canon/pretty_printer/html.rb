@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require "nokogiri" unless RUBY_ENGINE == "opal"
+Canon::NokogiriLoader.require!("HTML pretty-printing")
 require "stringio"
 
 module Canon

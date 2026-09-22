@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require "nokogiri" unless RUBY_ENGINE == "opal"
-
 module Canon
   module PrettyPrinter
     class Xml
@@ -28,6 +26,7 @@ module Canon
       private
 
       def nokogiri_format(xml_string)
+        Canon::NokogiriLoader.require!("Nokogiri-engine XML pretty-printing")
         doc = Nokogiri::XML(xml_string, &:noblanks)
         if @indent_type == "tab"
           doc.to_xml(indent: 1, indent_text: "\t", encoding: "UTF-8")

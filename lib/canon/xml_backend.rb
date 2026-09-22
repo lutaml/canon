@@ -54,6 +54,12 @@ module Canon
                 "Must be one of: #{VALID_BACKENDS.join(', ')}"
         end
 
+        # The raw :nokogiri engine executes raw Nokogiri::XML calls —
+        # with nokogiri optional, fail here (at selection) with the
+        # actionable message rather than NameError at first parse.
+        Canon::NokogiriLoader.require!("CANON_XML_BACKEND=nokogiri") if
+          backend == :nokogiri
+
         backend
       end
 

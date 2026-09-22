@@ -27,7 +27,7 @@ module Canon
         line = nil
         column = nil
 
-        if error.is_a?(Nokogiri::XML::SyntaxError)
+        if defined?(Nokogiri) && error.is_a?(Nokogiri::XML::SyntaxError)
           line = error.line
           column = error.column
         elsif error.message =~ /line[:\s]+(\d+)/i

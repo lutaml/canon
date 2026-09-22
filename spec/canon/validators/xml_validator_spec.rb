@@ -57,7 +57,7 @@ RSpec.describe Canon::Validators::XmlValidator do
         end
       end
 
-      it "raises ValidationError with line information" do
+      it "raises ValidationError with line information", :requires_nokogiri do
         xml = <<~XML
           <root>
             <child>value

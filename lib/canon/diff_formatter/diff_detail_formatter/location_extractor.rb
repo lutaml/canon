@@ -64,7 +64,7 @@ module Canon
 
           while current
             name = case current
-                   when Canon::Xml::Node, Nokogiri::XML::Node
+                   when Canon::Xml::Node, *(defined?(Nokogiri) ? [Nokogiri::XML::Node] : [])
                      current.name
                    else
                      break
@@ -75,13 +75,13 @@ module Canon
             parts.unshift("#{name}[#{index}]")
 
             current = case current
-                      when Canon::Xml::Node, Nokogiri::XML::Node
+                      when Canon::Xml::Node, *(defined?(Nokogiri) ? [Nokogiri::XML::Node] : [])
                         current.parent
                       else
                         break
                       end
 
-            break if current.is_a?(Nokogiri::XML::Document) ||
+            break if (defined?(Nokogiri) && current.is_a?(Nokogiri::XML::Document)) ||
               current.is_a?(Canon::Xml::Nodes::RootNode)
           end
 
@@ -95,17 +95,17 @@ module Canon
         # @return [Integer] 1-based index
         def self.calculate_sibling_index(node, name)
           parent = case node
-                   when Canon::Xml::Node, Nokogiri::XML::Node
+                   when Canon::Xml::Node, *(defined?(Nokogiri) ? [Nokogiri::XML::Node] : [])
                      node.parent
                    end
 
           return 1 unless parent
 
           siblings = case parent
-                     when Canon::Xml::Node, Nokogiri::XML::Node
+                     when Canon::Xml::Node, *(defined?(Nokogiri) ? [Nokogiri::XML::Node] : [])
                        parent.children.select do |n|
                          case n
-                         when Canon::Xml::Node, Nokogiri::XML::Node
+                         when Canon::Xml::Node, *(defined?(Nokogiri) ? [Nokogiri::XML::Node] : [])
                            n.name == name
                          else
                            false

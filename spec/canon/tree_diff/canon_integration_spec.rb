@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 require "spec_helper"
-require "nokogiri"
+require "nokogiri" if Canon::NokogiriLoader.available?
 
 RSpec.describe "Canon TreeDiff Integration" do
   describe "XML comparison with semantic_diff enabled" do

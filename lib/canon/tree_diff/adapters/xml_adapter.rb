@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require "nokogiri" unless RUBY_ENGINE == "opal"
-
 module Canon
   module TreeDiff
     module Adapters
@@ -49,7 +47,11 @@ module Canon
             return to_tree_from_canon_comment(node)
           end
 
-          # Fallback to Nokogiri (legacy support)
+          # Fallback to raw engine documents (legacy support). Nokogiri
+          # is optional — under the moxml/leptris engine a raw Nokogiri
+          # object cannot exist, so the constants stay unresolved.
+          return unless defined?(Nokogiri)
+
           case node
           when Nokogiri::XML::Document
             # Start from root element
@@ -70,6 +72,7 @@ module Canon
         # @param doc [Nokogiri::XML::Document] Optional document to use
         # @return [Nokogiri::XML::Document, Nokogiri::XML::Element]
         def from_tree(tree_node, doc = nil)
+          Canon::NokogiriLoader.require!("XML tree reconstruction")
           doc ||= Nokogiri::XML::Document.new
 
           element = build_element(tree_node, doc)

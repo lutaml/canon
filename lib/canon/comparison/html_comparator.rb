@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 require "set"
-require "nokogiri" unless RUBY_ENGINE == "opal"
+Canon::NokogiriLoader.require!("HTML comparison")
 
 module Canon
   module Comparison

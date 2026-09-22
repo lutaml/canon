@@ -2,7 +2,11 @@
 
 require "canon/version"
 require "canon/errors"
-require "nokogiri" unless RUBY_ENGINE == "opal"
+# Nokogiri is optional: loaded lazily by Canon::NokogiriLoader only for
+# HTML support and the raw CANON_XML_BACKEND=nokogiri engine. XML runs on
+# moxml's resolved adapter (leptris), which ships native gems for every
+# platform nokogiri does not.
+require "canon/nokogiri_loader"
 require "canon/xml_backend"
 require "canon/xml_parsing"
 require "canon/yaml_backend"

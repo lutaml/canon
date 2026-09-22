@@ -424,7 +424,7 @@ expand_difference: false)
           case node
           when Canon::Xml::Node
             node.node_type == :element
-          when Nokogiri::XML::Node
+          when *(defined?(Nokogiri) ? [Nokogiri::XML::Node] : [])
             node.element?
           else
             false

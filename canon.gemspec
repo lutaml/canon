@@ -31,9 +31,13 @@ comparison, testing, digital signatures, and human-readable output."
 
   spec.add_dependency "diff-lcs"
   spec.add_dependency "json"
+  # Nokogiri is deliberately NOT a runtime dependency: canon's XML engine
+  # runs on moxml's leptris adapter, which ships native gems for every
+  # platform (nokogiri has no prebuilt for aarch64-mingw-ucrt and friends).
+  # Nokogiri is loaded lazily by Canon::NokogiriLoader, only for HTML
+  # support and the CANON_XML_BACKEND=nokogiri engine.
   spec.add_dependency "leptris", "~> 1.9.216"
   spec.add_dependency "moxml", "~> 0.5.71"
-  spec.add_dependency "nokogiri"
   spec.add_dependency "paint"
   spec.add_dependency "rainbow"
   spec.add_dependency "table_tennis"
