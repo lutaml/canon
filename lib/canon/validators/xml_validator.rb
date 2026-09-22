@@ -1,14 +1,13 @@
 # frozen_string_literal: true
 
-require "nokogiri" unless RUBY_ENGINE == "opal"
-
 module Canon
   module Validators
     # Validator for XML input
     #
-    # Validates XML input using Nokogiri's strict parsing mode.
-    # Raises detailed ValidationError with line and column information
-    # when malformed XML is detected.
+    # Validates XML input with strict parsing when nokogiri is available
+    # (detailed line/column errors). Without nokogiri, validation parses
+    # through the active engine (moxml/leptris), which still rejects
+    # malformed input — only the location detail is coarser.
     class XmlValidator < BaseValidator
       # Validate XML input
       #
@@ -18,11 +17,42 @@ module Canon
       def self.validate!(input)
         return if input.nil? || input.strip.empty?
 
-        # Parse with strict error handling
+        if Canon::NokogiriLoader.available?
+          nokogiri_validate!(input)
+        else
+          engine_validate!(input)
+        end
+      end
+
+      # Parse with strict error handling
+      #
+      # @param input [String] The XML string to validate
+      # @raise [Canon::ValidationError] If XML is malformed
+      # @return [void]
+      def self.nokogiri_validate!(input)
         Nokogiri::XML(input) do |config|
           config.strict.nonet
         end
       rescue Nokogiri::XML::SyntaxError => e
+        location = extract_location(e)
+        raise Canon::ValidationError.new(
+          e.message.split("\n").first,
+          format: :xml,
+          line: location[:line],
+          column: location[:column],
+          details: extract_details(e),
+        )
+      end
+
+      # Validate by parsing through the engine selected by
+      # Canon::XmlBackend (never raw nokogiri).
+      #
+      # @param input [String] The XML string to validate
+      # @raise [Canon::ValidationError] If XML is malformed
+      # @return [void]
+      def self.engine_validate!(input)
+        Canon::XmlParsing.parse(input)
+      rescue StandardError => e
         location = extract_location(e)
         raise Canon::ValidationError.new(
           e.message.split("\n").first,

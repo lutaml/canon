@@ -5,8 +5,11 @@ require "canon/comparison"
 require "canon/diff_formatter"
 require "canon/config"
 require "canon/rebaseliner"
-require "canon/pretty_printer/xml"
-require "canon/pretty_printer/html"
+# PrettyPrinter::Xml/Html are NOT required here: Html loads nokogiri at
+# its top (lazy via the Canon::PrettyPrinter autoload registry), and a
+# nokogiri-less host must be able to load canon's matchers — the HTML
+# printer surfaces the actionable Canon::Error only when the HTML matcher
+# actually formats output.
 
 begin
   require "rspec/expectations"

@@ -1,0 +1,58 @@
+# Nokogiri-optional contract gate: canon must install, load, and run its
+# XML core with nokogiri ABSENT (the aarch64-mingw-ucrt class of
+# platforms has no nokogiri prebuilt). The simulation makes every
+# `require "nokogiri"` fail like a missing gem while the gem itself stays
+# installed for bundler. See CLAUDE.md, "Nokogiri is an OPTIONAL runtime
+# dependency".
+
+name: nokogiri-less
+
+permissions:
+  contents: read
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: "${{ github.workflow }}-${{ github.ref }}"
+  cancel-in-progress: true
+
+jobs:
+  rspec:
+    name: Suite without nokogiri (${{ matrix.os }} ${{ matrix.ruby-version }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest, ruby-version: "3.3" }
+          - { os: ubuntu-latest, ruby-version: "4.0" }
+          - { os: windows-latest, ruby-version: "3.4" }
+    env:
+      CANON_SIMULATE_NO_NOKOGIRI: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ruby/setup-ruby@master
+        with:
+          ruby-version: ${{ matrix.ruby-version }}
+          bundler-cache: true
+
+      - name: Prove nokogiri is not required by the library
+        shell: bash
+        run: |
+          bundle exec ruby -e '
+            require "canon"
+            abort "FAIL: nokogiri got loaded by canon" if defined?(Nokogiri)
+            c = Canon::Xml::C14n.canonicalize("<a x=\"1\"><b>z</b></a>",
+                                              with_comments: false)
+            abort "FAIL: canonicalization" unless c.include?("<b>z</b>")
+            abort "FAIL: comparison" unless
+              Canon::Comparison.equivalent?("<a><b>1</b></a>", "<a><b>1</b></a>")
+            puts "nokogiri-less load smoke OK (engine=#{Canon::XmlBackend.active})"
+          '
+
+      - run: bundle exec rspec

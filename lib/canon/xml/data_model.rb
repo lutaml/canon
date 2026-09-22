@@ -1,6 +1,5 @@
 # frozen_string_literal: true
 
-require "nokogiri" unless RUBY_ENGINE == "opal"
 require "set"
 
 module Canon
@@ -119,6 +118,7 @@ module Canon
       # --- Nokogiri path ---
 
       def self.from_nokogiri_xml(xml_string, preserve_whitespace:)
+        Canon::NokogiriLoader.require!("Nokogiri-engine XML parsing")
         doc = Nokogiri::XML(xml_string, &:nonet)
         check_for_relative_namespace_uris(doc)
         result = build_from_nokogiri(doc,

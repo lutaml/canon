@@ -6,6 +6,7 @@ source "https://rubygems.org"
 gemspec
 
 gem "benchmark-ips"
+gem "nokogiri" # dev only: raw CANON_XML_BACKEND=nokogiri engine + HTML specs
 gem "openssl", "~> 3.0"
 gem "rake"
 gem "rspec"

@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 require "spec_helper"
-require "nokogiri"
+require "nokogiri" if Canon::NokogiriLoader.available?
 require "canon/pretty_printer/html"
 
 # Regression test for https://github.com/lutaml/canon/issues/116

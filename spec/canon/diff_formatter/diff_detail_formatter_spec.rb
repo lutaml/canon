@@ -856,7 +856,7 @@ RSpec.describe "DiffDetailFormatter helpers" do
 
     describe "Nokogiri text node with element parent" do
       let(:diff) do
-        require "nokogiri"
+        require "nokogiri" if Canon::NokogiriLoader.available?
         frag = Nokogiri::XML.fragment(
           "<div id=\"A\"><a id=\"x\"/>\n   <a id=\"y\"/></div>",
         )

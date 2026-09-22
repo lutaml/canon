@@ -590,7 +590,7 @@ module Canon
           ),
         ]
       when :html
-        require "nokogiri"
+        Canon::NokogiriLoader.require!("HTML diff formatting")
         [
           parse_and_format_html(expected),
           parse_and_format_html(actual),
@@ -623,10 +623,11 @@ module Canon
     # @param html [Object] HTML content
     # @return [String] Formatted HTML
     def parse_and_format_html(html)
-      return html.to_html if html.is_a?(Nokogiri::HTML::Document) ||
+      return html.to_html if (defined?(Nokogiri) &&
+        html.is_a?(Nokogiri::HTML::Document)) ||
         html.is_a?(Nokogiri::HTML5::Document)
 
-      require "nokogiri"
+      Canon::NokogiriLoader.require!("HTML normalization")
       Nokogiri::HTML(html).to_html
     rescue StandardError
       html.to_s
@@ -1080,7 +1081,7 @@ show_received: true)
     # Normalizes attribute order, void elements, and optional end tags consistently.
     # Falls back to the original string on any parse error.
     def safe_html_normalize(doc)
-      require "nokogiri"
+      Canon::NokogiriLoader.require!("HTML normalization")
       Nokogiri::HTML5(doc.to_s).to_html(encoding: "UTF-8")
     rescue StandardError
       doc.to_s

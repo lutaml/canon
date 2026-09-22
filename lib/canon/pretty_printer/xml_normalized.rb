@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require "nokogiri" unless RUBY_ENGINE == "opal"
-
 module Canon
   module PrettyPrinter
     # Mixed-content-aware XML serializer for diff display preprocessing.
@@ -162,8 +160,10 @@ module Canon
               end
         lines = []
 
-        if !@html_mode && doc.version
-          enc = doc.encoding ? " encoding=\"#{doc.encoding}\"" : ""
+        # Moxml documents (the nokogiri-less fallback) answer neither
+        # #version nor #encoding.
+        if !@html_mode && doc.respond_to?(:version) && doc.version
+          enc = doc.respond_to?(:encoding) && doc.encoding ? " encoding=\"#{doc.encoding}\"" : ""
           lines << "<?xml version=\"#{doc.version}\"#{enc}?>"
         end
 

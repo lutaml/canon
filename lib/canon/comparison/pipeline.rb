@@ -252,8 +252,12 @@ module Canon
           case obj
           when String
             obj
-          when Nokogiri::XML::Document, Nokogiri::HTML::Document,
-               Nokogiri::XML::DocumentFragment, Nokogiri::HTML::DocumentFragment
+          when *(if defined?(Nokogiri)
+                   [Nokogiri::XML::Document, Nokogiri::HTML::Document,
+                    Nokogiri::XML::DocumentFragment, Nokogiri::HTML::DocumentFragment]
+                 else
+                   []
+                 end)
             obj.to_html
           else
             if Canon::XmlParsing.xml_node?(obj) || obj.is_a?(Canon::Xml::Node)

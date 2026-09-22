@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 require "spec_helper"
-require "nokogiri"
+require "nokogiri" if Canon::NokogiriLoader.available?
 require_relative "../../../../lib/canon/tree_diff"
 
 RSpec.describe Canon::TreeDiff::Adapters::HTMLAdapter do

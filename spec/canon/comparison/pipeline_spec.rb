@@ -163,7 +163,7 @@ RSpec.describe Canon::Comparison::Pipeline do
       expect(s1).to include("root")
     end
 
-    it "falls back to to_s for unknown types" do
+    it "falls back to to_s for unknown types", :requires_nokogiri do
       obj = Struct.new(:value) do
         def to_s
           value

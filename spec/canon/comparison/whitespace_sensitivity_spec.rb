@@ -313,7 +313,7 @@ RSpec.describe Canon::Comparison::WhitespaceSensitivity do
 
   describe ".inline_whitespace_significant?" do
     it "returns true for whitespace between inline elements" do
-      require "nokogiri"
+      require "nokogiri" if Canon::NokogiriLoader.available?
       frag = Nokogiri::HTML4.fragment("<span>Hello</span> <span>World</span>")
       text_node = frag.children[1] # the space between spans
       expect(described_class.inline_whitespace_significant?(text_node)).to be true

@@ -78,7 +78,7 @@ RSpec.describe Canon::Comparison do
       end
 
       let(:html_parsed) do
-        require "nokogiri"
+        require "nokogiri" if Canon::NokogiriLoader.available?
         Nokogiri::HTML(html_raw).to_html
       end
 
