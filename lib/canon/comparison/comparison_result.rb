@@ -56,6 +56,23 @@ parse_errors_expected: nil, parse_errors_received: nil)
         @original_strings || preprocessed_strings
       end
 
+      # The lazy display-string builder is a Proc, which Marshal (and
+      # every serializing test-distribution tool) cannot dump.
+      # Materialize first — the restored copy carries plain strings
+      # and round-trips exactly like the pre-lazy results.
+      def marshal_dump
+        preprocessed_strings
+        [@differences, @preprocessed_strings, @original_strings,
+         @format, @html_version, @match_options, @algorithm,
+         @parse_errors_expected, @parse_errors_received]
+      end
+
+      def marshal_load(data)
+        @differences, @preprocessed_strings, @original_strings,
+          @format, @html_version, @match_options, @algorithm,
+          @parse_errors_expected, @parse_errors_received = data
+      end
+
       # Whether either side reported parse errors.  Used by the diff
       # formatter to decide whether to render the parse-error banner.
       #

@@ -122,6 +122,23 @@ module Canon
           end
 
           # Process ElementMatcher results
+          # Position differences carry element identity — a bare
+          # "position 0 vs position 1" next to identical-looking
+          # Expected/Actual payloads reads as a canon false positive
+          # when the real change is sibling order (e.g. id="1" and
+          # id="2" swapped).
+          def position_reason(elem, pos)
+            return "position #{pos}" if elem.nil?
+
+            label = elem.name.to_s
+            attrs = Canon::Diff::NodeSerializer.extract_attributes(elem)
+            return "position #{pos}" if attrs.nil? || attrs.empty?
+
+            id_like = %w[id href name].filter_map { |k| attrs[k] && "#{k}=#{attrs[k]}" }
+            id_like << attrs.first.then { |k, v| "#{k}=#{v}" } if id_like.empty?
+            "#{label}[#{id_like.first}] at position #{pos}"
+          end
+
           def process_matches(matches, _children1, _children2, _parent_node, comparator,
                              opts, child_opts, diff_children, differences)
             all_equivalent = true
@@ -137,7 +154,8 @@ module Canon
                   # Only create DiffNode if element_position is not :ignore
                   if position_behavior != :ignore
                     comparator.add_difference(match.elem1, match.elem2,
-                                              "position #{match.pos1}", "position #{match.pos2}",
+                                              position_reason(match.elem1, match.pos1),
+                                              position_reason(match.elem2, match.pos2),
                                               :element_position, opts, differences)
                     all_equivalent = false if position_behavior == :strict
                   end

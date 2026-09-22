@@ -21,10 +21,9 @@ Key features:
    installed — Nokogiri otherwise and for HTML; both byte-compatible, engine
    parity is spec-gated
 ** JSON on https://github.com/leptris/yeptris[libyeptris]' strict JSON surface
-   whenever the native materializer is installed (`gem install yeptris` —
-   platform gems, zero compilation), the stdlib JSON extension otherwise
-** YAML on yeptris opt-in (`CANON_YAML_BACKEND=yeptris`, ~3x Psych loads);
-   Psych otherwise
+   (yeptris is a required gem — platform gems, zero compilation)
+** YAML on yeptris (default — byte-parity with Psych, gated by the dump
+   corpus in the suite); Psych via `CANON_YAML_BACKEND=psych`
 
 == When to use formatting vs comparison
 
