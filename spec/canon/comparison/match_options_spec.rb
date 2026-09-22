@@ -103,6 +103,7 @@ RSpec.describe Canon::Comparison::MatchOptions::Xml do
                                                         attribute_values
                                                         element_position
                                                         comments
+                                                        namespace_prefix
                                                       ])
     end
 
@@ -131,6 +132,7 @@ RSpec.describe Canon::Comparison::MatchOptions::Xml do
         element_position: :ignore,
         comments: :ignore,
         whitespace_type: :strict,
+        namespace_prefix: :significant,
       )
     end
 
@@ -145,6 +147,7 @@ RSpec.describe Canon::Comparison::MatchOptions::Xml do
         element_position: :strict,
         comments: :strict,
         whitespace_type: :strict,
+        namespace_prefix: :significant,
       )
     end
   end
@@ -161,6 +164,7 @@ RSpec.describe Canon::Comparison::MatchOptions::Xml do
         element_position: :strict,
         comments: :strict,
         whitespace_type: :strict,
+        namespace_prefix: :significant,
       )
     end
 
@@ -175,6 +179,7 @@ RSpec.describe Canon::Comparison::MatchOptions::Xml do
         element_position: :strict,
         comments: :ignore,
         whitespace_type: :strict,
+        namespace_prefix: :significant,
       )
     end
 
@@ -189,6 +194,7 @@ RSpec.describe Canon::Comparison::MatchOptions::Xml do
         element_position: :ignore,
         comments: :ignore,
         whitespace_type: :strict,
+        namespace_prefix: :ignore,
       )
     end
 
@@ -203,6 +209,7 @@ RSpec.describe Canon::Comparison::MatchOptions::Xml do
         element_position: :ignore,
         comments: :ignore,
         whitespace_type: :strict,
+        namespace_prefix: :ignore,
       )
     end
   end
@@ -222,6 +229,7 @@ RSpec.describe Canon::Comparison::MatchOptions::Xml do
           element_position: :ignore,
           comments: :ignore,
           whitespace_type: :strict,
+          namespace_prefix: :significant,
         )
       end
 
@@ -238,6 +246,7 @@ RSpec.describe Canon::Comparison::MatchOptions::Xml do
           element_position: :strict,
           comments: :strict,
           whitespace_type: :strict,
+          namespace_prefix: :significant,
         )
       end
 
@@ -254,6 +263,7 @@ RSpec.describe Canon::Comparison::MatchOptions::Xml do
           element_position: :strict,
           comments: :strict,
           whitespace_type: :strict,
+          namespace_prefix: :significant,
         )
       end
     end
@@ -276,6 +286,7 @@ RSpec.describe Canon::Comparison::MatchOptions::Xml do
           element_position: :ignore,
           comments: :ignore,
           whitespace_type: :strict,
+          namespace_prefix: :ignore,
         )
       end
     end
@@ -309,6 +320,7 @@ RSpec.describe Canon::Comparison::MatchOptions::Xml do
           element_position: :strict,
           comments: :ignore,
           whitespace_type: :strict,
+          namespace_prefix: :significant,
         )
       end
 
@@ -413,6 +425,7 @@ RSpec.describe Canon::Comparison::MatchOptions::Xml do
         element_position: :strict,
         comments: :ignore,
         whitespace_type: :strict,
+        namespace_prefix: :significant,
       )
     end
 

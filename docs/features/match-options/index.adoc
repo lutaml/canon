@@ -486,6 +486,33 @@ Canon::Comparison.equivalent?(html1, html2,
 
 `:strict`:: Namespace URIs must match (default and only supported behavior)
 
+=== namespace_prefix
+
+**Applies to**: XML only
+
+**Purpose**: Controls whether namespace *prefix spelling* is significant.
+Per XML Namespaces, the prefix is a binding convenience — `xmlns:ns="http://x.example"`
+and `xmlns:m="http://x.example"` bind to the same URI, so `<ns:e>` and `<m:e>` are the
+same `{uri}local` name. Documents that round-trip through XML tooling (Office,
+serializers) often churn prefixes; with `:ignore`, such documents compare
+equivalent as long as the *set of declared URIs* matches. Namespace
+declarations that resolve differently still report differences.
+
+**Behaviors**:
+
+`:significant`:: Prefix spelling matters — `xmlns:ns` and `xmlns:m` are
+different declarations (default; `strict` and `rendered` profiles)
+
+`:ignore`:: Only the set of declared namespace URIs matters
+(`spec_friendly` and `content_only` profiles)
+
+[source,ruby]
+----
+Canon::Comparison.equivalent?(xml1, xml2,
+  format: :xml,
+  match: { namespace_prefix: :ignore })
+----
+
 **Note**: This dimension is always `:strict` for XML. Namespace prefixes are not significant - only the namespace URI matters. Elements with different prefixes but the same namespace URI are considered equivalent.
 
 .Namespace URI comparison
@@ -600,6 +627,12 @@ Each format has sensible defaults based on typical usage:
 |`:ignore`
 |—
 |`:strict`
+
+|`namespace_prefix`
+|`:significant`
+|`:significant`
+|—
+|—
 
 |`namespace_uri`
 |`:strict`

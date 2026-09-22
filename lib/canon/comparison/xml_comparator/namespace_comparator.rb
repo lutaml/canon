@@ -20,6 +20,22 @@ module Canon
           # Most element pairs declare nothing — skip the set algebra.
           return Comparison::EQUIVALENT if ns_decls1.empty? && ns_decls2.empty?
 
+          # namespace_prefix: :ignore — prefix spelling is cosmetic;
+          # what resolves differently is the set of declared URIs
+          # (XML Namespaces: the prefix is a binding convenience, the
+          # {uri}local name is the name).
+          if opts[:match_opts][:namespace_prefix] == :ignore
+            uris1 = ns_decls1.values.uniq.sort
+            uris2 = ns_decls2.values.uniq.sort
+            return Comparison::EQUIVALENT if uris1 == uris2
+
+            missing = (ns_decls1.values.uniq - ns_decls2.values).sort
+            extra = (ns_decls2.values.uniq - ns_decls1.values).sort
+            add_namespace_uri_difference(node1, node2, missing, extra,
+                                         opts, differences)
+            return Comparison::UNEQUAL_ATTRIBUTES
+          end
+
           # Find missing, extra, and changed namespace declarations
           missing = ns_decls1.keys - ns_decls2.keys  # In node1 but not node2
           extra = ns_decls2.keys - ns_decls1.keys    # In node2 but not node1
@@ -123,6 +139,27 @@ module Canon
 
         def self.namespace_declaration?(attr_name)
           Canon::Xml::NamespaceHelper.namespace_declaration?(attr_name)
+        end
+
+        # URI-flavored difference for namespace_prefix: :ignore —
+        # reports the URIs that resolve differently, not the prefix
+        # spellings.
+        def self.add_namespace_uri_difference(node1, node2, missing, extra,
+                                              opts, differences)
+          reasons = []
+          reasons << "removed URIs: #{missing.join(', ')}" if missing.any?
+          reasons << "added URIs: #{extra.join(', ')}" if extra.any?
+
+          diff_node = Canon::Comparison::DiffNodeBuilder.build(
+            node1: node1,
+            node2: node2,
+            diff1: Comparison::UNEQUAL_ATTRIBUTES,
+            diff2: Comparison::UNEQUAL_ATTRIBUTES,
+            dimension: :namespace_declarations,
+            **opts,
+          )
+          diff_node.reason = reasons.join("; ") if diff_node && reasons.any?
+          differences << diff_node if diff_node
         end
 
         # Add a namespace declaration difference

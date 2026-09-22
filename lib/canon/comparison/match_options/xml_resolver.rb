@@ -23,6 +23,7 @@ module Canon
             element_position: :ignore,
             comments: :ignore,
             whitespace_type: :strict,
+            namespace_prefix: :significant,
           },
           xml: {
             preprocessing: :none,
@@ -34,6 +35,7 @@ module Canon
             element_position: :strict,
             comments: :strict,
             whitespace_type: :strict,
+            namespace_prefix: :significant,
           },
         }.freeze
 
@@ -49,6 +51,7 @@ module Canon
             element_position: :strict,
             comments: :strict,
             whitespace_type: :strict,
+            namespace_prefix: :significant,
           },
 
           rendered: {
@@ -61,6 +64,7 @@ module Canon
             element_position: :strict,
             comments: :ignore,
             whitespace_type: :strict,
+            namespace_prefix: :significant,
           },
 
           html4: {
@@ -97,6 +101,7 @@ module Canon
             element_position: :ignore,
             comments: :ignore,
             whitespace_type: :strict,
+            namespace_prefix: :ignore,
           },
 
           content_only: {
@@ -109,6 +114,7 @@ module Canon
             element_position: :ignore,
             comments: :ignore,
             whitespace_type: :strict,
+            namespace_prefix: :ignore,
           },
         }.freeze
 
