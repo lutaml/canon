@@ -24,7 +24,14 @@ module Canon
       # Maximum number of entries per cache category
       MAX_CACHE_SIZE = 100
 
-      # Fetch a value from cache, or compute and cache it
+      LOCK = Mutex.new
+
+      # Fetch a value from cache, or compute and cache it.
+      #
+      # The lock covers the cache operations only — never the compute
+      # block — so concurrent parses stay parallel; duplicate computes
+      # for the same key may race (last write wins), which any
+      # check-then-compute cache accepts.
       #
       # @param category [Symbol] Cache category (:document_parse, :format_detect, etc.)
       # @param key [String] Cache key
@@ -33,24 +40,24 @@ module Canon
       def fetch(category, key)
         cache = cache_for(category)
 
-        # Check if key exists
-        if cache.key?(key)
-          # Update access time for LRU
-          cache[key][:accessed] = Time.now
-          return cache[key][:value]
+        LOCK.synchronize do
+          if cache.key?(key)
+            @clock = (@clock || 0) + 1
+            cache[key][:accessed] = @clock
+            return cache[key][:value]
+          end
         end
 
-        # Compute and cache the value
         value = yield
 
-        # Evict oldest entry if cache is full
-        if cache.size >= MAX_CACHE_SIZE
-          oldest_key = cache.min_by { |_, v| v[:accessed] }&.first
-          cache.delete(oldest_key) if oldest_key
+        LOCK.synchronize do
+          if cache.size >= MAX_CACHE_SIZE
+            oldest_key = cache.min_by { |_, v| v[:accessed] }&.first
+            cache.delete(oldest_key) if oldest_key
+          end
+          @clock = (@clock || 0) + 1
+          cache[key] = { value: value, accessed: @clock }
         end
-
-        @clock = (@clock || 0) + 1
-        cache[key] = { value: value, accessed: @clock }
         value
       end
 
@@ -58,8 +65,10 @@ module Canon
       #
       # Useful for tests or when memory needs to be freed
       def clear_all
-        @caches&.each_value(&:clear)
-        @caches = nil
+        LOCK.synchronize do
+          @caches&.each_value(&:clear)
+          @caches = nil
+        end
       end
 
       # Clear a specific cache category
