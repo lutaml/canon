@@ -342,6 +342,17 @@ puts "Defaults: #{resolver.defaults.inspect}"
 puts "Source of algorithm: #{resolver.source_for(:algorithm)}"
 ----
 
+=== Engine digests: LEPTRIS_DIGEST_ATTR_ORDER
+
+Canon's XML digest gate reads one *engine-level* variable that belongs to
+libleptris, not to canon. Canon never sets it — the host decides:
+
+`LEPTRIS_DIGEST_ATTR_ORDER=1`:: Makes attribute order identity-bearing in
+libleptris' structural digests. Canon detects this and skips the SAX
+signature probe in verbose diff reports — attribute-order identity is then
+proven by the digest itself. Digest *values* change process-wide, so enable
+it only if nothing in your process persists leptris digests across restarts.
+
 == See also
 
 * link:size-limits/[Size Limits] - File size and node count limits

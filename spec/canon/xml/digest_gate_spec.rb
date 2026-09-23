@@ -94,6 +94,19 @@ RSpec.describe "XML digest-gate fast path" do
     expect(result.preprocessed_strings).to eq(declined.preprocessed_strings)
   end
 
+  it "skips the signature probe when the host enables order-sensitive digests" do
+    ENV["LEPTRIS_DIGEST_ATTR_ORDER"] = "1"
+    begin
+      result = equivalent?(compact_doc, pretty_doc, verbose: true)
+      expect(result.equivalent?).to be true
+      expect(result.differences).to be_empty
+      expect(Canon::Xml::DigestGate.attr_order_digest?).to be true
+    ensure
+      ENV.delete("LEPTRIS_DIGEST_ATTR_ORDER")
+    end
+    expect(Canon::Xml::DigestGate.attr_order_digest?).to be false
+  end
+
   it "routes error-bearing verbose pairs through the pipeline" do
     junk = "  <catalog/>  trailing"
     result = equivalent?(junk, junk.dup, verbose: true)

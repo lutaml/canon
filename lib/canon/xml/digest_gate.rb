@@ -30,6 +30,17 @@ module Canon
         !doc.parse_diagnostics.empty?
       end
 
+      # Whether the HOST opted into attribute-order-sensitive digests
+      # (libleptris 1.9.228 honors LEPTRIS_DIGEST_ATTR_ORDER per
+      # digest call; leptris#1297). Canon reads the env — never
+      # writes it: the flag re-spaces digest values process-wide, so
+      # enabling it is the host's call, not a library's. When set,
+      # digest equality proves attribute-order identity too, and the
+      # verbose lane's signature probe becomes redundant.
+      def attr_order_digest?
+        ENV["LEPTRIS_DIGEST_ATTR_ORDER"] == "1"
+      end
+
       def available?
         return false if RUBY_ENGINE == "opal"
         return false unless Canon::XmlBackend.moxml? &&
