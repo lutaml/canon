@@ -21,26 +21,13 @@ module Canon
     module DigestGate
       module_function
 
-      # libleptris 1.9.205+ records duplicate-attribute recover
-      # events on the parsed document (#1200): read through the
-      # FFI diag counter. Evaluated lazily at call time — a load-time
-      # constant would freeze before leptris loads (defined? never
-      # resolves pending autoloads). When the adapter is not leptris
-      # (or the binding predates the surface), the verbose lane
-      # falls back to the SAX probe for its error scan.
-      def recover_diags_available?
-        defined?(::Leptris::XML::FFI) &&
-          ::Leptris::XML::FFI.respond_to?(:leptris_document_parse_diag_count)
-      rescue StandardError
-        false
-      end
-
+      # moxml 0.5.76+ (moxml#271) surfaces the engine's recover
+      # diagnostics — duplicate-attribute events and the like (#1200)
+      # — as Document#parse_diagnostics. The direct-leptris-FFI
+      # reach-in this replaced was the gate's one documented seam
+      # exception; the wrapper ends it.
       def recover_diags?(doc)
-        return false unless recover_diags_available?
-
-        native = doc.native
-        native = native.c_ptr if native.respond_to?(:c_ptr)
-        ::Leptris::XML::FFI.leptris_document_parse_diag_count(native).positive?
+        !doc.parse_diagnostics.empty?
       end
 
       def available?
