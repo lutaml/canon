@@ -206,6 +206,10 @@ module Canon
           # already declined any recover-error document through the
           # wrapper's parse_diagnostics — the banner cannot be lost.
           return true if n1 == n2
+          # With order-sensitive digests (host-set flag), attribute
+          # order is digest-proven as well — the signature probe has
+          # nothing left to answer.
+          return true if Xml::DigestGate.attr_order_digest?
 
           left = Xml::Sax.probe(n1)
           return false if left.saw_error?
