@@ -57,13 +57,20 @@ module Canon
         #
         # @param node [Object] Node to extract namespace declarations from
         # @return [Hash] Hash of prefix => URI mappings
+        # Most elements declare no namespaces — their extract result
+        # is this shared frozen hash, not a per-call allocation.
+        NO_DECLARATIONS = {}.freeze
+
         def self.extract_declarations(node)
           declarations = {}
 
           if node.is_a?(Canon::Xml::Node)
             if node.namespace_nodes
-              return extract_from_namespace_nodes(node.namespace_nodes,
-                                                  declarations)
+              return declarations.empty? ? NO_DECLARATIONS : declarations if
+                extract_from_namespace_nodes(node.namespace_nodes,
+                                             declarations).empty?
+
+              return declarations
             end
 
             raw_attrs = node.attribute_nodes
@@ -77,7 +84,7 @@ module Canon
             extract_from_hash_attributes(raw_attrs, declarations)
           end
 
-          declarations
+          declarations.empty? ? NO_DECLARATIONS : declarations
         end
 
         # Extract from Canon::Xml::Node namespace_nodes

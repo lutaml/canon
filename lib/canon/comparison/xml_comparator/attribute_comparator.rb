@@ -14,6 +14,18 @@ module Canon
         # @param differences [Array] Array to append differences to
         # @return [Symbol] Comparison result
         def self.compare(node1, node2, opts, differences)
+          # FAST PATH: identical raw attribute lists on canon element
+          # pairs — same names, values, namespaces, in the same
+          # order — are trivially equivalent after any filtering or
+          # normalization: name- and content-based ignores drop both
+          # sides alike, and identical values process identically
+          # under every value behavior. Skips the per-pair
+          # filtered-hash rebuilds entirely.
+          if canon_elements?(node1, node2) &&
+              node1.attribute_nodes == node2.attribute_nodes
+            return Comparison::EQUIVALENT
+          end
+
           # Get attributes using the appropriate method for each node type
           raw_attrs1 = get_raw_attributes(node1)
           raw_attrs2 = get_raw_attributes(node2)
@@ -192,6 +204,11 @@ differences)
               node.attributes
             end
           end
+        end
+
+        def self.canon_elements?(node1, node2)
+          node1.is_a?(Canon::Xml::Nodes::ElementNode) &&
+            node2.is_a?(Canon::Xml::Nodes::ElementNode)
         end
       end
     end
