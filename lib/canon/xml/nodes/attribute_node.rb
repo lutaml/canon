@@ -19,6 +19,18 @@ module Canon
           :attribute
         end
 
+        # Value equality for the comparison fast paths: name, value,
+        # namespace URI, and prefix — never parent or object
+        # identity. Only == (not eql?/hash): attribute nodes are
+        # never hash keys.
+        def ==(other)
+          other.is_a?(AttributeNode) &&
+            name == other.name &&
+            value == other.value &&
+            namespace_uri == other.namespace_uri &&
+            prefix == other.prefix
+        end
+
         def local_name
           name
         end
