@@ -20,7 +20,12 @@ module Canon
       class TreeNode
         attr_accessor :label, :value, :children, :parent, :attributes,
                       :signature, :weight, :xid, :source_node
-        attr_reader :metadata
+
+        # Lazy — no reader exists in canon and most nodes never
+        # carry metadata; the eager {} cost one allocation per node.
+        def metadata
+          @metadata ||= {}
+        end
 
         # Initialize a new TreeNode
         #
@@ -40,7 +45,6 @@ module Canon
           @attributes = attributes
           @xid = xid
           @source_node = source_node
-          @metadata = {}
 
           # Set this node as parent for all children
           @children.each { |child| child.parent = self }
