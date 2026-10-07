@@ -63,7 +63,6 @@ RSpec.describe Canon::PrettyPrinter::Xml do
     end
   end
 
-
   # leptris#1564: the comparison pretty-printer receives HTML
   # producers' output (Asciidoctor: void elements, unclosed tags,
   # inline JS with bare <). The strict-XML parse must not kill the
@@ -72,6 +71,8 @@ RSpec.describe Canon::PrettyPrinter::Xml do
   # and nokogiri adapters alike). Malformed XML that is NOT
   # HTML-shaped stays loud.
   describe "HTML-tolerant fallback" do
+    subject { described_class.new }
+
     let(:html_content) do
       <<~HTML
         <!DOCTYPE html>
@@ -80,8 +81,6 @@ RSpec.describe Canon::PrettyPrinter::Xml do
         <script>if (a < b) { c(); }</script></body></html>
       HTML
     end
-
-    subject { described_class.new }
 
     it "formats HTML producers' output instead of raising" do
       expect { subject.format(html_content) }.not_to raise_error
