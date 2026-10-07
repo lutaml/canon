@@ -28,6 +28,21 @@ module Canon
       def nokogiri_format(xml_string)
         Canon::NokogiriLoader.require!("Nokogiri-engine XML pretty-printing")
         doc = Nokogiri::XML(xml_string, &:noblanks)
+
+        # The loud/tolerant contract, Nokogiri-lane edition: the
+        # non-strict parse recovers malformed input and records the
+        # errors — non-HTML malformed input stays loud, HTML-shaped
+        # input falls back to the HTML parser (mirrors
+        # XmlParsing.parse_with_html_fallback).
+        if doc.errors.any?
+          unless Canon::XmlParsing.html_shaped?(xml_string)
+            raise Moxml::ParseError,
+                  doc.errors.map(&:message).join("; ")
+          end
+
+          doc = Nokogiri::HTML4(xml_string, &:noblanks)
+        end
+
         if @indent_type == "tab"
           doc.to_xml(indent: 1, indent_text: "\t", encoding: "UTF-8")
         else

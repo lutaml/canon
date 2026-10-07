@@ -53,7 +53,21 @@ module Canon
       # >= 1.9.80 and nokogiri alike). Anything else re-raises:
       # malformed XML stays loud.
       def parse_with_html_fallback(xml_string, options = {})
-        moxml_context.parse(xml_string, options)
+        doc = moxml_context.parse(xml_string, options)
+
+        # Engines differ in how strict:false treats malformed input —
+        # some raise, some recover and record. The loud/tolerant
+        # contract keys off the RECORD, not the raise: non-HTML
+        # malformed input stays loud; HTML-shaped input falls back to
+        # the HTML parser. Engine-independent by construction.
+        recorded = doc.respond_to?(:parse_errors) ? doc.parse_errors : []
+        if recorded.any?
+          raise Moxml::ParseError, recorded.join("; ") unless html_shaped?(xml_string)
+
+          return moxml_context.parse_html(xml_string)
+        end
+
+        doc
       rescue Moxml::ParseError
         raise unless html_shaped?(xml_string)
 
