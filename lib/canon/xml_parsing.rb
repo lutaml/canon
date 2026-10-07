@@ -71,11 +71,23 @@ module Canon
 
       # Conservative HTML sniff on the document head: the fallback
       # must never swallow a genuinely malformed XML comparison —
-      # only content that declares itself HTML.
+      # only content that declares itself HTML. Index-based scan,
+      # no regex: the previous regex form was polynomial on
+      # uncontrolled data (CodeQL).
       def html_shaped?(xml_string)
-        head = xml_string.to_s[0, 2048].downcase
-        head.include?("<!doctype html") ||
-          head.match?(%r{\A\s*(?:<\?xml.*?\?>\s*)?(?:<!doctype.*?>\s*)*<html[\s>]})
+        head = xml_string.to_s.slice(0, 2048).downcase
+        return true if head.include?("<!doctype html")
+
+        root = head.lstrip
+        return false unless root.start_with?("<?xml")
+
+        close = root.index("?>")
+        return false unless close
+
+        root = root[(close + 2)..].lstrip
+        delimiter = root[5]
+        root.start_with?("<html") &&
+          (delimiter.nil? || " \t\n\r\f>/'\"".include?(delimiter))
       end
 
       # --- Serialization ---

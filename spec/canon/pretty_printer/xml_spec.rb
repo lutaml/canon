@@ -90,6 +90,14 @@ RSpec.describe Canon::PrettyPrinter::Xml do
       expect(subject.format(html_content)).to include("<title>t</title>")
     end
 
+    it "accepts an XHTML-rooted document without a doctype" do
+      xhtml = <<~XML
+        <?xml version="1.0"?>
+        <html xmlns="http://www.w3.org/1999/xhtml"><body><p>br<br>x</p></body></html>
+      XML
+      expect { subject.format(xhtml) }.not_to raise_error
+    end
+
     it "keeps non-HTML malformed input loud" do
       expect { subject.format("<root><unclosed></root>") }
         .to raise_error(Moxml::ParseError)
