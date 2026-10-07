@@ -62,4 +62,38 @@ RSpec.describe Canon::PrettyPrinter::Xml do
       end
     end
   end
+
+
+  # leptris#1564: the comparison pretty-printer receives HTML
+  # producers' output (Asciidoctor: void elements, unclosed tags,
+  # inline JS with bare <). The strict-XML parse must not kill the
+  # comparison — HTML-shaped content routes to the engine's
+  # tolerant HTML mode (moxml Context#parse_html, leptris >= 1.9.80
+  # and nokogiri adapters alike). Malformed XML that is NOT
+  # HTML-shaped stays loud.
+  describe "HTML-tolerant fallback" do
+    let(:html_content) do
+      <<~HTML
+        <!DOCTYPE html>
+        <html><head><meta charset="utf-8"><title>t</title></head>
+        <body><p>hello<br>world<img src="x.png"><ul><li>one<li>two</ul>
+        <script>if (a < b) { c(); }</script></body></html>
+      HTML
+    end
+
+    subject { described_class.new }
+
+    it "formats HTML producers' output instead of raising" do
+      expect { subject.format(html_content) }.not_to raise_error
+    end
+
+    it "emits the parsed HTML structure" do
+      expect(subject.format(html_content)).to include("<title>t</title>")
+    end
+
+    it "keeps non-HTML malformed input loud" do
+      expect { subject.format("<root><unclosed></root>") }
+        .to raise_error(Moxml::ParseError)
+    end
+  end
 end

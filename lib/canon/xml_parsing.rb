@@ -44,6 +44,22 @@ module Canon
         end
       end
 
+      # leptris#1564: HTML producers' output (void elements, unclosed
+      # tags, inline JS with bare <) is not well-formed XML, but the
+      # comparison pretty-printer still needs a tree. HTML-SHAPED
+      # content — a <!DOCTYPE html> declaration or an <html> root —
+      # parses through the engine's tolerant HTML mode (moxml
+      # Context#parse_html; adapters with an engine HTML mode, leptris
+      # >= 1.9.80 and nokogiri alike). Anything else re-raises:
+      # malformed XML stays loud.
+      def parse_with_html_fallback(xml_string, options = {})
+        moxml_context.parse(xml_string, options)
+      rescue Moxml::ParseError => e
+        raise unless html_shaped?(xml_string)
+
+        moxml_context.parse_html(xml_string)
+      end
+
       def parse_fragment(xml_string)
         if XmlBackend.nokogiri?
           Nokogiri::XML.fragment(xml_string).children.to_a
@@ -51,6 +67,15 @@ module Canon
           doc = moxml_context.parse("<__frag__>#{xml_string}</__frag__>", readonly: true)
           doc.root.children.to_a
         end
+      end
+
+      # Conservative HTML sniff on the document head: the fallback
+      # must never swallow a genuinely malformed XML comparison —
+      # only content that declares itself HTML.
+      def html_shaped?(xml_string)
+        head = xml_string.to_s[0, 2048].downcase
+        head.include?("<!doctype html") ||
+          head.match?(%r{\A\s*(?:<\?xml.*?\?>\s*)?(?:<!doctype.*?>\s*)*<html[\s>]})
       end
 
       # --- Serialization ---

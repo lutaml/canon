@@ -37,8 +37,12 @@ module Canon
 
       def moxml_format(xml_string)
         # noblanks mutates the tree (strips whitespace-only text), so
-        # the document cannot be readonly.
-        doc = Canon::XmlParsing.moxml_context.parse(xml_string, noblanks: true)
+        # the document cannot be readonly. HTML producers' output
+        # (Asciidoctor cover pages) routes through the tolerant HTML
+        # mode instead of failing the comparison (leptris#1564).
+        doc = Canon::XmlParsing.parse_with_html_fallback(
+          xml_string, noblanks: true
+        )
         if @indent_type == "tab"
           doc.to_xml(declaration: true, encoding: "UTF-8",
                      indent: 1, indent_text: "\t", expand_empty: false)
