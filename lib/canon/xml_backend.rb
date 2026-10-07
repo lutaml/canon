@@ -6,8 +6,11 @@ module Canon
   # Two independent concerns, deliberately separated (MECE):
   # - XML engine — :nokogiri (raw) or :moxml (adapter-mediated). Drives DOM
   #   parsing and serialization of XML (see Canon::XmlParsing).
-  # - HTML support — always Nokogiri on CRuby; moxml has no HTML adapter and
-  #   leptris no HTML parser (see Canon::Html::NokogiriSupport).
+  # - HTML support — the dedicated HTML pipeline stays on Nokogiri
+  #   (see Canon::Html::NokogiriSupport); the XML lane additionally
+  #   accepts HTML-shaped content through moxml's Context#parse_html
+  #   (engine HTML modes: leptris >= 1.9.80, nokogiri) — see
+  #   XmlParsing.parse_with_html_fallback (leptris#1564).
   #
   # SSOT: moxml owns adapter preference (Moxml::Config prefers leptris
   # when installed; see XmlParsing.moxml_adapter_name). Both engines
