@@ -54,7 +54,7 @@ module Canon
       # malformed XML stays loud.
       def parse_with_html_fallback(xml_string, options = {})
         moxml_context.parse(xml_string, options)
-      rescue Moxml::ParseError => e
+      rescue Moxml::ParseError
         raise unless html_shaped?(xml_string)
 
         moxml_context.parse_html(xml_string)
