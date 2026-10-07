@@ -325,16 +325,24 @@ strip_doctype: false)
         result
       end
 
-      # Parse a QName into prefix and local name
+      # Parse a QName into prefix and local name. Memoized per
+      # builder — document qnames repeat massively (tens of calls per
+      # distinct name), and each uncached call allocates the result
+      # array plus split parts. Callers only destructure, so sharing
+      # the frozen pair is safe.
       #
       # @param qname [String] QName like "prefix:local" or "local"
       # @return [Array<(String, String)>] [prefix, local_name] - prefix may be nil
       def parse_qname(qname)
-        if qname.include?(":")
-          parts = qname.split(":", 2)
-          [parts[0], parts[1]]
-        else
-          [nil, qname]
+        cache = (@qname_cache ||= {})
+        cache.fetch(qname) do
+          pair = if qname.include?(":")
+                   parts = qname.split(":", 2)
+                   [parts[0], parts[1]]
+                 else
+                   [nil, qname]
+                 end
+          cache[qname] = pair.freeze
         end
       end
 
