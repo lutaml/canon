@@ -1,5 +1,5 @@
 # frozen_string_literal: true
 
 module Canon
-  VERSION = "0.3.79"
+  VERSION = "0.3.80"
 end
