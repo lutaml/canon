@@ -179,13 +179,19 @@ module Canon
         # @return [Array<TreeNode>]
         def descendants
           # Iterative pre-order walk — the recursive form allocated an
-          # intermediate array per level.
+          # intermediate array per level; the explicit stack allocates
+          # nothing per visited node.
           result = []
           stack = children.reverse_each.to_a
           until stack.empty?
             node = stack.pop
             result << node
-            stack.concat(node.children.reverse_each.to_a) if node.children.any?
+            kids = node.children
+            i = kids.length - 1
+            while i >= 0
+              stack << kids[i]
+              i -= 1
+            end
           end
           result
         end

@@ -137,8 +137,17 @@ module Canon
           return false unless node1.label == node2.label
           return false unless text_equivalent?(node1, node2)
 
-          # Check attribute KEYS match, not values — value diffs are reported as UPDATE
-          return false unless node1.attributes.keys == node2.attributes.keys
+          # Attribute KEYS match, not values — value diffs are reported
+          # as UPDATE. Canon AttributeNode lists compare by value, so
+          # identical raw lists prove equal keys without the per-pair
+          # keys-array allocations.
+          attrs1 = node1.attributes
+          attrs2 = node2.attributes
+          if attrs1.is_a?(Array) && attrs1.first.is_a?(Canon::Xml::Nodes::AttributeNode)
+            return false unless attrs1 == attrs2
+          elsif node1.attributes.keys != node2.attributes.keys
+            return false
+          end
 
           true
         end
