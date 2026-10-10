@@ -41,7 +41,7 @@ comparison, testing, digital signatures, and human-readable output."
   spec.add_dependency "paint"
   spec.add_dependency "rainbow"
   spec.add_dependency "table_tennis"
-  spec.add_dependency "thor"
+  spec.add_dependency "thor", "~> 1.4"
   spec.add_dependency "unicode-name"
   spec.add_dependency "yeptris", "~> 0.6.31"
 
