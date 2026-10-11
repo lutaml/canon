@@ -53,14 +53,22 @@ module Canon
           html_string.include?('xmlns="http://www.w3.org/1999/xhtml"')
       end
 
+      # XHTML is XML: the shared XML pretty-printer lane owns it (the
+      # leptris serializer under the default engine — Nokogiri serving
+      # only the forced-fallback engine), keeping the XML loud/tolerant
+      # parse contract and the engine's byte-faithful serializer.
+      #
+      # This replaces a direct Nokogiri::XML call whose serializer
+      # INJECTED a <meta http-equiv="Content-Type"> element into <head>
+      # of XHTML PUBLIC-doctype documents at serialization time — a
+      # pretty-printer must never invent content. Intentional byte
+      # changes vs the Nokogiri lane: the phantom meta is gone;
+      # body-level PIs/comments indent like every other child; void
+      # elements self-close without a space (<br/>).
       def format_as_xhtml(html_string)
-        doc = Nokogiri::XML(html_string, &:noblanks)
-
-        out = if @indent_type == "tab"
-                doc.to_xml(indent: 1, indent_text: "\t", encoding: "UTF-8")
-              else
-                doc.to_xml(indent: @indent, encoding: "UTF-8")
-              end
+        out = Canon::PrettyPrinter::Xml.new(
+          indent: @indent, indent_type: @indent_type,
+        ).format(html_string)
 
         expand_non_void_self_closing(out)
       end
