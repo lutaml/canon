@@ -278,13 +278,6 @@ preserve_whitespace: false)
         # consumes them synchronously before the next record reuses
         # the buffer.
         moxml_element.materialize_fields do |kind, qname, prefix, namespace_uri, namespaces, attributes, text, depth|
-          # The record contract is root-subtree-only since moxml 0.5.11
-          # (moxml#140). Older 0.5.x releases — still allowed by canon's
-          # gemspec floor — leaked epilog document-level records at depth
-          # 0, which the document-children enumeration also covers; one
-          # integer compare per record keeps those working.
-          next if depth.zero? && kind != :element
-
           # Relative-namespace validation rides the stream (the
           # namespaces buffer is the element's own declarations) — no
           # separate wrapper-tree walk per parse.

@@ -60,7 +60,7 @@ module Canon
         # contract keys off the RECORD, not the raise: non-HTML
         # malformed input stays loud; HTML-shaped input falls back to
         # the HTML parser. Engine-independent by construction.
-        recorded = doc.respond_to?(:parse_errors) ? doc.parse_errors : []
+        recorded = doc.parse_errors
         if recorded.any?
           raise Moxml::ParseError, recorded.join("; ") unless html_shaped?(xml_string)
 
@@ -114,31 +114,11 @@ module Canon
         end
       end
 
-      # Same underlying engine node? Wrapper identity first (correct
-      # everywhere wrappers are unified). Fallback: moxml 0.5.36-0.5.39
-      # wrap Document#root and Document#children entries in DIFFERENT
-      # wrapper classes for one node (NativeNode vs the FFI Element —
-      # moxml#216), so identity fails exactly where consumers exclude
-      # the document element from children; the shared C pointer
-      # address is the stable identity. Inert once wrappers unify.
+      # Same underlying engine node? Wrappers are unified on every
+      # moxml the gemspec floor allows (moxml#219 landed in 0.5.40), so
+      # object identity is the whole answer.
       def same_engine_node?(left, right)
-        return true if left.equal?(right)
-        return false unless defined?(::Moxml::Node) &&
-          left.is_a?(::Moxml::Node) && right.is_a?(::Moxml::Node)
-
-        address_left = moxml_node_address(left)
-        address_right = moxml_node_address(right)
-        !address_left.nil? && address_left == address_right
-      end
-
-      def moxml_node_address(wrapper)
-        native = wrapper.native
-        case native
-        when ::Leptris::XML::NativeNode then native.address
-        when ::Leptris::XML::Node then native.c_ptr.address
-        end
-      rescue StandardError
-        nil
+        left.equal?(right)
       end
 
       # --- Type checks (any recognized engine node) ---
