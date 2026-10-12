@@ -490,19 +490,21 @@ RSpec.describe Canon::Comparison do
 
     context "parse_html method" do
       context "with format parameter" do
-        it "parses HTML5 with HTML5.fragment when format is :html5" do
+        it "parses HTML5 into a Canon tree when format is :html5" do
           html = '<span lang="en" xml:lang="en">text</span>'
           result = described_class.parse_html(html, :html5)
 
-          expect(result).to be_a(Nokogiri::HTML5::DocumentFragment)
-          expect(result.at_css("span").attributes.keys).to eq(%w[lang xml:lang])
+          expect(result).to be_a(Canon::Xml::Nodes::RootNode)
+          span = result.children.find { |c| c.is_a?(Canon::Xml::Nodes::ElementNode) }
+          expect(span.attribute_nodes.map(&:qname).sort).to eq(%w[lang
+                                                                  xml:lang])
         end
 
-        it "parses HTML4 with HTML4.fragment when format is :html4" do
+        it "parses HTML4 into a Canon tree when format is :html4" do
           html = '<span lang="en" xml:lang="en">text</span>'
           result = described_class.parse_html(html, :html4)
 
-          expect(result).to be_a(Nokogiri::HTML4::DocumentFragment)
+          expect(result).to be_a(Canon::Xml::Nodes::RootNode)
         end
 
         it "returns already-parsed documents as-is" do
@@ -516,14 +518,14 @@ RSpec.describe Canon::Comparison do
           html = "<!DOCTYPE html><span>text</span>"
           result = described_class.parse_html(html, :html)
 
-          expect(result).to be_a(Nokogiri::HTML5::DocumentFragment)
+          expect(result).to be_a(Canon::Xml::Nodes::RootNode)
         end
 
-        it "defaults to HTML4 when format is :html and no DOCTYPE" do
+        it "defaults to WHATWG parsing when format is :html and no DOCTYPE" do
           html = "<span>text</span>"
           result = described_class.parse_html(html, :html)
 
-          expect(result).to be_a(Nokogiri::HTML4::DocumentFragment)
+          expect(result).to be_a(Canon::Xml::Nodes::RootNode)
         end
       end
     end
