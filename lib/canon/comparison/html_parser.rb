@@ -16,19 +16,28 @@ module Canon
     #   HtmlParser.detect_and_parse("<!DOCTYPE html><html>...</html>")
     class HtmlParser
       class << self
-        # Parse HTML string into Nokogiri document with the correct parser
+        # Parse HTML string into the comparison tree.
+        #
+        # The engine lane (moxml Context#parse_html_fragment, moxml#353
+        # riding leptris' WHATWG fragment parsing) builds a Canon tree
+        # through the same TreeBuilder walk the XML lane uses: same
+        # tree construction as Nokogiri::HTML5.fragment (the #118
+        # html4/html5 unification semantics), native named-entity
+        # decoding, and a ~5x faster parse. The Nokogiri fragment
+        # path remains for runtimes without the engine surface.
         #
         # @param content [String, Object] Content to parse (returns as-is if not a string)
         # @param format [Symbol] HTML format (:html, :html4, :html5)
-        # @return [Nokogiri::HTML::Document, Nokogiri::HTML5::Document, Nokogiri::HTML::DocumentFragment, Object]
+        # @return [Canon::Xml::Nodes::RootNode, Object] Canon tree or content
         def parse(content, format)
           return content unless content.is_a?(String)
-          return content if already_parsed?(content)
 
           # Normalize HTML to ensure consistent parsing by HTML4.fragment
           # The key issue is that HTML4.fragment treats newlines after </head>
           # differently than no newlines, causing inconsistent parsing
           content = normalize_html_for_parsing(content)
+
+          return engine_fragment(content) if engine_html_fragments?
 
           begin
             case format
@@ -45,6 +54,39 @@ module Canon
             # Fallback to raw string if parsing fails (maintains backward compatibility)
             content
           end
+        end
+
+        # Parse an HTML string through the engine's WHATWG fragment
+        # parsing and build a Canon tree from the fragment children.
+        # Whitespace text nodes are preserved unconditionally — HTML
+        # whitespace significance is the comparison profile's decision
+        # (#112/#137 ride on stray whitespace surviving the parse),
+        # unlike the XML DOM lane's parse-time policy. Top-level
+        # element children convert through the materialize-records
+        # fast path; the wrapper walk serves the rare non-element
+        # top-level nodes (text, comments).
+        def engine_fragment(html)
+          frag = Canon::XmlParsing.moxml_context.parse_html_fragment(html)
+          root = Canon::Xml::Nodes::RootNode.new
+          frag.children.each do |child|
+            node =
+              if child.is_a?(Moxml::Element)
+                Canon::Xml::DataModel.build_moxml_subtree_from_records(
+                  child, preserve_whitespace: true
+                )
+              else
+                Canon::Xml::DataModel.walk_moxml(child, preserve_whitespace: true)
+              end
+            root.add_child(node) if node
+          end
+          root
+        end
+
+        # Engine HTML fragments are served by adapters with an engine
+        # HTML mode (leptris, nokogiri) — moxml#353 pins WHATWG tree
+        # construction on both.
+        def engine_html_fragments?
+          %i[leptris nokogiri].include?(Canon::XmlParsing.moxml_adapter_name)
         end
 
         # Check if content is already a parsed HTML document/fragment

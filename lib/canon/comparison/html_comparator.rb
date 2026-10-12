@@ -310,13 +310,12 @@ module Canon
 
         # Parse a node from string or return as-is
         # Applies preprocessing transformation before parsing if specified
-        # Returns Nokogiri nodes for DOM comparison (preserves original behavior)
+        # Canon trees walk directly (engine HTML lane, semantic handoff);
+        # Nokogiri nodes and strings keep their existing paths.
         def parse_node(node, preprocessing = :none, match_opts = {})
-          # If already a Canon::Xml::Node, convert to Nokogiri for DOM path
           if node.is_a?(Canon::Xml::Node)
-            # Canon nodes used in semantic diff path, convert to Nokogiri for DOM path
-            xml_str = Canon::Xml::DataModel.serialize(node)
-            node = xml_str
+            apply_datamodel_preprocessing!(node, preprocessing, match_opts)
+            return node
           end
 
           # If already a Nokogiri node, check for incompatible XML documents
@@ -404,6 +403,102 @@ module Canon
         def normalize_html_style_script_comments_datamodel(root)
           # Walk the tree to find style/script elements
           find_and_normalize_style_script(root)
+        end
+
+        # Post-parse preprocessing for Canon trees (engine HTML lane,
+        # semantic handoff) — the canon-tree mirror of the Nokogiri
+        # fragment normalizers at the bottom of this module, applied at
+        # the same preprocessing points (:normalize/:format get the
+        # style/script pass and whitespace-only removal; :rendered adds
+        # whitespace collapsing).
+        def apply_datamodel_preprocessing!(root, preprocessing, match_opts)
+          return root unless %i[normalize format rendered].include?(preprocessing)
+
+          normalize_html_style_script_comments_datamodel(root)
+          if preprocessing == :rendered
+            normalize_rendered_whitespace_datamodel(root, match_opts)
+          end
+          remove_whitespace_only_text_nodes_datamodel(root)
+          root
+        end
+
+        # Canon-tree mirror of normalize_rendered_whitespace: collapse
+        # whitespace runs in text nodes under non-preserving ancestors
+        # and trim edge-child text. Mutates TextNode#value in place.
+        def normalize_rendered_whitespace_datamodel(root, match_opts = {})
+          return if match_opts[:text_content] == :strict
+
+          preserve_set = WhitespaceSensitivity
+            .format_default_preserve_elements(match_opts)
+            .to_set(&:to_s)
+          name_cache = {}
+          whitespace_result_cache = {}
+
+          each_datamodel_text_node(root) do |text|
+            next if ancestor_preserves_whitespace?(text.parent, preserve_set,
+                                                   name_cache,
+                                                   whitespace_result_cache)
+
+            content = text.value
+            normalized = if content.match?(/[\t\n\r\f\v]/) || content.include?(" ")
+                           content.tr("\t\n\r\f\v", " ").squeeze(" ")
+                         else
+                           content
+                         end
+
+            siblings = text.parent.children
+            if siblings.first.equal?(text) || siblings.last.equal?(text)
+              normalized = normalized.strip
+            end
+            text.value = normalized
+          end
+        end
+
+        # Canon-tree mirror of remove_whitespace_only_text_nodes:
+        # drop whitespace-only text under non-preserving ancestors,
+        # keeping NBSP-bearing and inline-significant nodes. Removals
+        # are batched per parent (writers go through children=).
+        def remove_whitespace_only_text_nodes_datamodel(root)
+          preserve_set = WhitespaceSensitivity
+            .format_default_preserve_elements(format: :html)
+            .to_set(&:to_s)
+          name_cache = {}
+          whitespace_result_cache = {}
+          to_remove = []
+
+          each_datamodel_text_node(root) do |text|
+            next if ancestor_preserves_whitespace?(text.parent, preserve_set,
+                                                   name_cache,
+                                                   whitespace_result_cache)
+
+            content = text.value
+            next if content.include?("\u00A0")
+            next if WhitespaceSensitivity.inline_whitespace_significant?(text)
+
+            to_remove << text if content.strip.empty?
+          end
+
+          to_remove.each do |text|
+            parent = text.parent
+            parent.children = parent.children.reject { |c| c.equal?(text) }
+          end
+        end
+
+        # Yield every TextNode in the tree in document order
+        # (pre-order walk — mirrors xpath(".//text()") order).
+        def each_datamodel_text_node(root)
+          stack = [root]
+          until stack.empty?
+            node = stack.pop
+            yield node if node.is_a?(Canon::Xml::Nodes::TextNode)
+
+            children = node.children
+            i = children.size
+            while i.positive?
+              i -= 1
+              stack.push(children[i])
+            end
+          end
         end
 
         def find_and_normalize_style_script(node)
