@@ -100,7 +100,15 @@ module Canon
         limit = attributes.size
         while base < limit
           attr_name = attributes[base]
+          attr_prefix = attributes[base + 3]
+          # The xml prefix is bound by definition to the XML namespace
+          # (XML Namespaces 3): when a feed delivers the prefix without
+          # the URI — the HTML fragment records lane, moxml#367 — the
+          # constant is the one legal binding.
           attr_namespace_uri = attributes[base + 2]
+          if attr_namespace_uri.nil? && attr_prefix == "xml"
+            attr_namespace_uri = "http://www.w3.org/XML/1998/namespace"
+          end
           duplicate = false
           prior = 0
           while prior < base

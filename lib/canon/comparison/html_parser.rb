@@ -65,6 +65,14 @@ module Canon
         # element children convert through the materialize-records
         # fast path; the wrapper walk serves the rare non-element
         # top-level nodes (text, comments).
+        #
+        # NOTE: the fragment record buffer delivers a nil namespace
+        # URI for prefixed attributes on HTML-parsed trees (xml:lang
+        # arrives as name="lang", prefix="xml", uri=nil) where the
+        # wrapper API reports the bound URI — moxml#367. The TreeBuilder
+        # covers the xml prefix (the one legal binding); other
+        # foreign-content prefixes keep nil URIs on this lane until
+        # the records gap closes.
         def engine_fragment(html)
           frag = Canon::XmlParsing.moxml_context.parse_html_fragment(html)
           root = Canon::Xml::Nodes::RootNode.new
