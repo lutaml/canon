@@ -36,8 +36,8 @@ comparison, testing, digital signatures, and human-readable output."
   # platform (nokogiri has no prebuilt for aarch64-mingw-ucrt and friends).
   # Nokogiri is loaded lazily by Canon::NokogiriLoader, only for HTML
   # support and the CANON_XML_BACKEND=nokogiri engine.
-  spec.add_dependency "leptris", "~> 1.9.356"
-  spec.add_dependency "moxml", "~> 0.5.137"
+  spec.add_dependency "leptris", "~> 1.9.361"
+  spec.add_dependency "moxml", "~> 0.5.138"
   spec.add_dependency "paint"
   spec.add_dependency "rainbow"
   spec.add_dependency "table_tennis"
