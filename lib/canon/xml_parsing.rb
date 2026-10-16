@@ -44,6 +44,17 @@ module Canon
         end
       end
 
+      # Recovery records across both engine surfaces: `parse_errors`
+      # (the legacy surface) and `parse_diagnostics` (moxml#271).
+      # leptris 1.9.362 moved recovery recording entirely to the
+      # diagnostics surface — `parse_errors` comes back empty on
+      # recovered parses — so the loudness contract and the banner
+      # carry-through must read both. Deduped by message: stacks that
+      # record on both surfaces would otherwise double-report.
+      def recover_records(doc)
+        (doc.parse_errors + doc.parse_diagnostics.map { |d| d[:message].to_s }).uniq
+      end
+
       # leptris#1564: HTML producers' output (void elements, unclosed
       # tags, inline JS with bare <) is not well-formed XML, but the
       # comparison pretty-printer still needs a tree. HTML-SHAPED
@@ -60,7 +71,7 @@ module Canon
         # contract keys off the RECORD, not the raise: non-HTML
         # malformed input stays loud; HTML-shaped input falls back to
         # the HTML parser. Engine-independent by construction.
-        recorded = doc.parse_errors
+        recorded = recover_records(doc)
         if recorded.any?
           raise Moxml::ParseError, recorded.join("; ") unless html_shaped?(xml_string)
 
