@@ -82,7 +82,7 @@ RSpec.describe Canon::Comparison do
         Nokogiri::HTML(html_raw).to_html
       end
 
-      it "treats parsed and raw HTML as equivalent" do
+      it "treats parsed and raw HTML as equivalent", :requires_nokogiri do
         opts = {
           match: {
             text_content: :normalize,
