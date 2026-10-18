@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-Canon::NokogiriLoader.require!("HTML validation")
-
 module Canon
   module Validators
     # Validator for HTML input
@@ -44,19 +42,30 @@ module Canon
       # @param input [String] The XHTML string to validate
       # @raise [Canon::ValidationError] If XHTML is malformed
       # @return [void]
+      # XHTML is XML: the engine strict parse is the validator. The
+      # engine reports the failure position as a byte offset embedded
+      # in the error message; line/column derive from it.
       def self.validate_xhtml!(input)
-        Nokogiri::XML(input) do |config|
-          config.strict.nonet
-        end
-      rescue Nokogiri::XML::SyntaxError => e
-        location = extract_location(e)
+        Canon::XmlParsing.moxml_context.parse(input, strict: true)
+      rescue Moxml::ParseError => e
+        location = extract_engine_location(e, input)
         raise Canon::ValidationError.new(
           e.message.split("\n").first,
           format: :html,
           line: location[:line],
           column: location[:column],
-          details: "XHTML validation failed: #{extract_details(e)}",
+          details: "XHTML validation failed",
         )
+      end
+
+      # Derive line/column from the engine error's "at byte N" offset.
+      def self.extract_engine_location(error, input)
+        byte = error.message[/at byte (\d+)/, 1].to_i
+        before = input.byteslice(0, byte) || ""
+        line = before.count("\n") + 1
+        last_nl = before.rindex("\n")
+        column = last_nl ? byte - (last_nl + 1) : byte
+        { line: line, column: column }
       end
 
       # Validate HTML5 input
@@ -65,6 +74,11 @@ module Canon
       # @raise [Canon::ValidationError] If HTML5 is malformed
       # @return [void]
       def self.validate_html5!(input)
+        # The HTML5 lint layer stays on Nokogiri/gumbo: the WHATWG
+        # parser never fails, so the engine has no parse-error token
+        # stream to classify (filed as leptris#1771 - the ask carries
+        # canon's acceptance protocol).
+        Canon::NokogiriLoader.require!("HTML5 validation (leptris#1771)")
         doc = Nokogiri::HTML5(input, max_errors: 100)
 
         # Check for parse errors
@@ -126,7 +140,7 @@ module Canon
 
       private_class_method :xhtml?, :validate_xhtml!, :validate_html5!,
                            :extract_details, :build_error_details,
-                           :doctype_or_warning?
+                           :doctype_or_warning?, :extract_engine_location
     end
   end
 end

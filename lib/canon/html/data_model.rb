@@ -50,11 +50,62 @@ module Canon
         root
       end
 
+      # Elements whose inner whitespace is always significant.
+      WHITESPACE_PRESERVING = %w[pre textarea script style].freeze
+
       # Deterministic single-line engine formatting for the :format
-      # string preprocessor — parse + re-serialize as a pure function
-      # of the parsed tree.
+      # string preprocessor: parse + strip whitespace-only text that
+      # is insignificant between block siblings + re-serialize — a
+      # pure function of the parsed tree, so equivalent inputs
+      # converge to identical bytes regardless of source indentation.
+      # Inline-significant whitespace (between two inline siblings,
+      # inside whitespace-preserving elements) survives.
       def self.engine_html_format(html)
-        Canon::XmlParsing.moxml_context.parse_html(html).to_html
+        doc = engine_html_parse(html)
+        strip_insignificant_whitespace!(doc.root)
+        doc.to_html
+      end
+
+      # Parse a full HTML document through the engine WHATWG lane.
+      def self.engine_html_parse(html)
+        Canon::XmlParsing.moxml_context.parse_html(html)
+      end
+
+      def self.strip_insignificant_whitespace!(node)
+        return unless node.is_a?(Moxml::Element)
+
+        preserve_parent = WHITESPACE_PRESERVING.include?(node.name)
+        node.children.to_a.each do |child|
+          if child.is_a?(Moxml::Text)
+            next unless child.content.strip.empty?
+            next if preserve_parent
+            next if inline_significant?(child, node)
+
+            child.remove
+          elsif child.is_a?(Moxml::Element)
+            strip_insignificant_whitespace!(child)
+          end
+        end
+      end
+
+      # Whitespace between two inline siblings (or anchored by content)
+      # is significant — the #112 rule. Edge or block-anchored runs are
+      # formatting artifacts.
+      def self.inline_significant?(text, parent)
+        siblings = parent.children.to_a
+        idx = siblings.index(text)
+        prev = siblings[0...idx].reverse_each.find { |s| !whitespace_only?(s) }
+        nxt = siblings[(idx + 1)..].find { |s| !whitespace_only?(s) }
+        inline_node?(prev) && inline_node?(nxt)
+      end
+
+      def self.whitespace_only?(node)
+        node.is_a?(Moxml::Text) && node.content.strip.empty?
+      end
+
+      def self.inline_node?(node)
+        !node.nil? && node.is_a?(Moxml::Element) &&
+          Canon::Comparison::WhitespaceSensitivity::INLINE_ELEMENTS.include?(node.name)
       end
 
       # Alias for compatibility
