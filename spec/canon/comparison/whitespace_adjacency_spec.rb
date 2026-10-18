@@ -128,7 +128,8 @@ RSpec.describe ":whitespace_adjacency diff dimension (#137)" do
       expect(reason).to include("Whitespace inside <h1>")
     end
 
-    it "falls back to (unknown parent) when the whitespace node lacks a real parent" do
+    it "falls back to (unknown parent) when the whitespace node lacks a real parent",
+       :requires_nokogiri do
       # A bare Nokogiri text node with no parent → NodeInspector.parent
       # returns nil → whitespace_adjacency_parent_label returns "(unknown parent)".
       ni = Canon::Comparison::NodeInspector

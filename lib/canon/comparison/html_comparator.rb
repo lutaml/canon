@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 require "set"
-Canon::NokogiriLoader.require!("HTML comparison")
 
 module Canon
   module Comparison
@@ -382,6 +381,18 @@ module Canon
                           # :none, :rendered or unrecognized - use as-is
                           node
                         end
+
+          # Direct comparator calls parse through the legacy XML-fragment
+          # lane: both sides of a comparison must land on the SAME tree
+          # shape, and a string paired with a user-supplied Nokogiri node
+          # must take the Nokogiri path. The pipeline preparse converts
+          # string PAIRS through the engine lane (HtmlParser.parse), so
+          # user-facing comparisons run engine-served either way.
+          # NOTE: the engine fragment parse currently drops comments
+          # that follow ignored <html>/<body> start tags (filed
+          # upstream — moxml#389) — the pipeline lane's comment
+          # handling for strict comments rides that fix.
+          Canon::NokogiriLoader.require!("the HTML comparison legacy lane")
 
           frag = Html::NokogiriSupport.xml_fragment(
             decode_html_named_entities(html_string),

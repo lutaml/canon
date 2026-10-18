@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-Canon::NokogiriLoader.require!("HTML comparison")
-
 module Canon
   module Comparison
     # HTML parsing service with version detection and fragment support
@@ -38,6 +36,11 @@ module Canon
           content = normalize_html_for_parsing(content)
 
           return engine_fragment(content) if engine_html_fragments?
+
+          # Nokogiri fallback lane (runtimes without the engine HTML
+          # surface): Nokogiri is required lazily, at use — the engine
+          # lane above keeps HTML comparison nokogiri-less.
+          Canon::NokogiriLoader.require!("the HTML fallback lane")
 
           begin
             case format

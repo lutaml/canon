@@ -36,26 +36,36 @@ RSpec.configure do |config|
     # Spec files that REQUIRE nokogiri at load time (HTML support, the
     # raw-nokogiri legacy paths, engine-parity fixtures) must be excluded
     # from LOADING — metadata filters only run after load.
-    # exclude_pattern takes a GLOB (not a regex): these spec trees need
-    # nokogiri at load time (HTML support, fixture-integrity byte gates,
-    # the refactored-comparison suite).
+    # exclude_pattern takes a GLOB (not a regex): the enumerated trees
+    # below load libs with load-time nokogiri requires. HTML COMPARISON
+    # is engine-served (moxml WHATWG fragments → Canon trees) and runs
+    # nokogiri-less: html_comparator_spec, whitespace_adjacency_spec,
+    # html_compare_profile_spec, html4_html5_whitespace_parity_spec,
+    # comparison_html_spec, html/matcher_spec and html/
+    # rendered_whitespace_spec are deliberately NOT excluded.
     # file_glob_from wraps this comma-separated list in one brace group.
     config.exclude_pattern =
-      "spec/**/*{html,comparison_refactored,fixtures_integrity}*, spec/**/html/*"
+      "spec/**/*{comparison_refactored,fixtures_integrity}*, " \
+      "spec/canon/pretty_printer/html*_spec.rb, " \
+      "spec/canon/html/formatter_spec.rb, " \
+      "spec/canon/tree_diff/adapters/html_adapter_spec.rb, " \
+      "spec/canon/diff_formatter/by_line/html_formatter_spec.rb, " \
+      "spec/canon/validators/html_validator_spec.rb"
     # Spec trees that construct raw Nokogiri objects or exercise
-    # nokogiri-only pipelines (HTML support, engine parity, display
-    # preprocessing, legacy adapters).
+    # nokogiri-only pipelines (engine parity, display preprocessing,
+    # legacy adapters, the top-level comparison spec's Nokogiri-document
+    # examples, and the direct-comparator HTML specs — direct calls
+    # parse through the legacy XML-fragment lane).
     config.define_derived_metadata(
       file_path: %r{
         /spec/canon/(
-          html/|
-          comparison/html_|comparison_html_|comparison_spec|
-          comparison/(node_inspector|comments_asymmetry|whitespace_adjacency|
+          html/formatter_spec|
+          comparison_spec|
+          comparison/(html_comparator_spec|node_inspector|comments_asymmetry|
                       whitespace_sensitivity|diff_node_builder|
                       parse_error_surface|pipeline_spec)|
-          validators/html_|validators/xml_validator_spec|
-          formatters/html|diff_formatter/by_line/html|
-          pretty_printer/html|pretty_printer/xml_normalized_spec|
+          validators/xml_validator_spec|
+          pretty_printer/xml_normalized_spec|
           xml/engine_parity_spec|xml/tree_builder_spec|
           diff/(node_serializer|path_builder|
                 xml_serialization_formatter)|
