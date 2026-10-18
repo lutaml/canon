@@ -1,6 +1,5 @@
 # frozen_string_literal: true
 
-Canon::NokogiriLoader.require!("HTML pretty-printing")
 require "stringio"
 
 module Canon
@@ -37,7 +36,14 @@ module Canon
       end
 
       def format(html_string)
-        return format_fixture_ready(html_string) if @fixture_ready
+        if @fixture_ready
+          # The fixture-ready display mode is the one Nokogiri lane
+          # left (libxml FORMAT|AS_XHTML save flags — moxml#390 filed
+          # for an engine XHTML mode); everything else is engine-
+          # served.
+          Canon::NokogiriLoader.require!("HTML fixture-ready display")
+          return format_fixture_ready(html_string)
+        end
 
         if xhtml?(html_string)
           format_as_xhtml(html_string)
@@ -73,13 +79,15 @@ module Canon
         expand_non_void_self_closing(out)
       end
 
+      # Engine serialization with the #354 indent knobs — the engine's
+      # own nested layout (a deliberate byte change vs the Nokogiri
+      # lane: synthesis shape differs, e.g. no empty <head></head>).
       def format_as_html(html_string)
-        doc = Nokogiri::HTML5(html_string)
-
+        doc = Canon::Html::DataModel.engine_html_parse(html_string)
         if @indent_type == "tab"
-          doc.to_html(indent: 1, indent_text: "\t", encoding: "UTF-8")
+          doc.to_html(indent: 1, indent_text: "\t")
         else
-          doc.to_html(indent: @indent, encoding: "UTF-8")
+          doc.to_html(indent: @indent)
         end
       end
 
