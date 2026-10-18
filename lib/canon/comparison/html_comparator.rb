@@ -295,8 +295,8 @@ module Canon
                              Canon::Xml::C14n.canonicalize(html_string,
                                                            with_comments: false)
                            when :format
-                             # Pretty format
-                             Canon.format(html_string, :html)
+                             # Engine single-line structural normalizer
+                             Canon::Html::DataModel.engine_html_format(html_string)
                            else
                              # :none or unrecognized
                              html_string
@@ -375,8 +375,8 @@ module Canon
                           Canon::Xml::C14n.canonicalize(node,
                                                         with_comments: false)
                         when :format
-                          # Pretty format the HTML
-                          Canon.format(node, :html)
+                          # Engine single-line structural normalizer
+                          Canon::Html::DataModel.engine_html_format(node)
                         else
                           # :none, :rendered or unrecognized - use as-is
                           node

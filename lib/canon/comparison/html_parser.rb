@@ -60,29 +60,10 @@ module Canon
         end
 
         # Parse an HTML string through the engine's WHATWG fragment
-        # parsing and build a Canon tree from the fragment children.
-        # Whitespace text nodes are preserved unconditionally — HTML
-        # whitespace significance is the comparison profile's decision
-        # (#112/#137 ride on stray whitespace surviving the parse),
-        # unlike the XML DOM lane's parse-time policy. Top-level
-        # element children convert through the materialize-records
-        # fast path; the wrapper walk serves the rare non-element
-        # top-level nodes (text, comments).
+        # parsing and build a Canon tree. Canon::Html::DataModel owns
+        # the conversion (the single home for HTML→Canon-tree building).
         def engine_fragment(html)
-          frag = Canon::XmlParsing.moxml_context.parse_html_fragment(html)
-          root = Canon::Xml::Nodes::RootNode.new
-          frag.children.each do |child|
-            node =
-              if child.is_a?(Moxml::Element)
-                Canon::Xml::DataModel.build_moxml_subtree_from_records(
-                  child, preserve_whitespace: true
-                )
-              else
-                Canon::Xml::DataModel.walk_moxml(child, preserve_whitespace: true)
-              end
-            root.add_child(node) if node
-          end
-          root
+          Canon::Html::DataModel.engine_fragment(html)
         end
 
         # Engine HTML fragments are served by adapters with an engine

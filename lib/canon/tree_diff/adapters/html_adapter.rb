@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-Canon::NokogiriLoader.require!("HTML tree diffing")
-
 module Canon
   module TreeDiff
     module Adapters
@@ -46,17 +44,22 @@ module Canon
             return to_tree_from_canon_comment(node)
           end
 
-          # Fallback to Nokogiri (legacy support)
-          case node
-          when Nokogiri::HTML::Document, Nokogiri::HTML4::Document, Nokogiri::HTML5::Document
-            # Start from html element or root element
-            root = node.at_css("html") || node.root
-            root ? to_tree(root) : nil
-          when Nokogiri::HTML4::DocumentFragment, Nokogiri::HTML5::DocumentFragment, Nokogiri::XML::DocumentFragment
-            # For DocumentFragment, create a wrapper root node and add all fragment children
-            convert_fragment(node)
-          when Nokogiri::XML::Element
-            convert_element(node)
+          # Fallback to Nokogiri (legacy support for user-supplied
+          # nodes) — the Canon tree branches above run nokogiri-less.
+          if defined?(Nokogiri)
+            case node
+            when Nokogiri::HTML::Document, Nokogiri::HTML4::Document, Nokogiri::HTML5::Document
+              # Start from html element or root element
+              root = node.at_css("html") || node.root
+              root ? to_tree(root) : nil
+            when Nokogiri::HTML4::DocumentFragment, Nokogiri::HTML5::DocumentFragment, Nokogiri::XML::DocumentFragment
+              # For DocumentFragment, create a wrapper root node and add all fragment children
+              convert_fragment(node)
+            when Nokogiri::XML::Element
+              convert_element(node)
+            else
+              raise ArgumentError, "Unsupported node type: #{node.class}"
+            end
           else
             raise ArgumentError, "Unsupported node type: #{node.class}"
           end
@@ -68,7 +71,10 @@ module Canon
         # @param doc [Nokogiri::HTML::Document] Optional document to use
         # @return [Nokogiri::HTML::Document, Nokogiri::XML::Element]
         def from_tree(tree_node, doc = nil)
-          doc ||= Nokogiri::HTML::Document.new
+          unless doc
+            Canon::NokogiriLoader.require!("HTML tree reconstruction")
+            doc = Nokogiri::HTML::Document.new
+          end
 
           element = build_element(tree_node, doc)
 

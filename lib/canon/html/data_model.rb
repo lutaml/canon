@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-Canon::NokogiriLoader.require!("HTML support")
-
 module Canon
   module Html
     # Builds XPath data model from HTML
@@ -10,58 +8,53 @@ module Canon
     class DataModel < Canon::DataModel
       # Build XPath data model from HTML string
       #
+      # The engine lane: moxml Context#parse_html_fragment (WHATWG
+      # fragment parsing) → Canon tree. The +version:+ parameter is
+      # accepted for API compatibility — the engine serves every input
+      # through one WHATWG parse (the #118 html4/html5 unification).
+      # Full documents keep their head content at the fragment top
+      # level (the in-body rules ignore the html/body start tags but
+      # preserve every other node); the former Nokogiri body-extraction
+      # dropped head content entirely.
+      #
       # @param html_string [String] HTML content to parse
-      # @param version [Symbol] HTML version (:html4 or :html5)
+      # @param version [Symbol] accepted for compatibility; unused
       # @return [Canon::Xml::Nodes::RootNode] Root of the data model tree
+      # rubocop:disable-next Lint/UnusedMethodArgument -- API compatibility
       def self.from_html(html_string, version: :html4)
-        # Detect if this is a full document (has <html> tag) or fragment
-        # Full documents should use document parser to preserve structure
-        # Fragments should use fragment parser to avoid adding implicit wrappers
-        is_full_document = html_string.match?(%r{<html[\s>]}i)
+        engine_fragment(html_string)
+      end
 
-        # Parse with Nokogiri using appropriate parser
-        doc = if is_full_document
-                # CRITICAL FIX: For full HTML documents, parse as document first
-                # and extract the body element. This avoids Nokogiri::HTML.fragment()
-                # incorrectly moving head elements (like meta) to the body.
-                # Parse as full document to get proper structure
-                full_doc = if version == :html5
-                             Nokogiri::HTML5(html_string)
-                           else
-                             Nokogiri::HTML4(html_string)
-                           end
-                # Extract body element and create fragment from it
-                body = full_doc.at_css("body")
-                if body
-                  # Create a fragment and copy body children to it
-                  # This preserves the body structure without head elements
-                  frag = if version == :html5
-                           Nokogiri::HTML5::DocumentFragment.new(full_doc)
-                         else
-                           Nokogiri::HTML4::DocumentFragment.new(full_doc)
-                         end
-                  body.children.each do |child|
-                    frag.add_child(child.dup)
-                  end
-                  frag
-                elsif version == :html5
-                  # No body found, fall back to fragment parsing
-                  Nokogiri::HTML5.fragment(html_string)
-                else
-                  Nokogiri::HTML4.fragment(html_string)
-                end
-              elsif version == :html5
-                # Fragment - use fragment parser to avoid implicit wrappers
-                Nokogiri::HTML5.fragment(html_string)
-              else
-                Nokogiri::HTML4.fragment(html_string)
-              end
+      # Parse an HTML string through the engine's WHATWG fragment
+      # parsing and build a Canon tree from the fragment children.
+      # Whitespace text nodes are preserved unconditionally — HTML
+      # whitespace significance is the comparison profile's decision
+      # (#112/#137), unlike the XML DOM lane's parse-time policy.
+      # Top-level element children convert through the
+      # materialize-records fast path; the wrapper walk serves the
+      # rare non-element top-level nodes (text, comments).
+      def self.engine_fragment(html)
+        frag = Canon::XmlParsing.moxml_context.parse_html_fragment(html)
+        root = Canon::Xml::Nodes::RootNode.new
+        frag.children.each do |child|
+          node =
+            if child.is_a?(Moxml::Element)
+              Canon::Xml::DataModel.build_moxml_subtree_from_records(
+                child, preserve_whitespace: true
+              )
+            else
+              Canon::Xml::DataModel.walk_moxml(child, preserve_whitespace: true)
+            end
+          root.add_child(node) if node
+        end
+        root
+      end
 
-        # HTML doesn't have strict namespace requirements like XML,
-        # so skip the relative namespace URI check
-
-        # Convert to XPath data model (reuse XML infrastructure)
-        build_from_nokogiri(doc)
+      # Deterministic single-line engine formatting for the :format
+      # string preprocessor — parse + re-serialize as a pure function
+      # of the parsed tree.
+      def self.engine_html_format(html)
+        Canon::XmlParsing.moxml_context.parse_html(html).to_html
       end
 
       # Alias for compatibility
