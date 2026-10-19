@@ -3,9 +3,54 @@
 require "spec_helper"
 require "nokogiri" if Canon::NokogiriLoader.available?
 require_relative "../../../../lib/canon/tree_diff"
+require "canon/rspec_matchers"
 
 RSpec.describe Canon::TreeDiff::Adapters::XMLAdapter do
   let(:adapter) { described_class.new }
+
+  describe "processing instructions" do
+    let(:pi_xml) do
+      <<~XML
+        <?xml version="1.0"?>
+        <?chem recipe="aspirin"?>
+        <molecule id="m1"><atom id="a1"/></molecule>
+      XML
+    end
+
+    it "converts a Canon processing-instruction node" do
+      pi = Canon::Xml::Nodes::ProcessingInstructionNode.new(
+        target: "chem", data: 'recipe="aspirin"'
+      )
+
+      tree = adapter.to_tree(pi)
+
+      expect(tree).to be_a(Canon::TreeDiff::Core::TreeNode)
+      expect(tree.label).to eq("processing-instruction")
+      expect(tree.value).to eq('chem recipe="aspirin"')
+    end
+
+    it "converts a raw engine processing instruction" do
+      skip "nokogiri not available" unless Canon::NokogiriLoader.available?
+
+      doc = Nokogiri::XML(pi_xml)
+      pi = doc.children.find { |n| n.processing_instruction? }
+
+      tree = adapter.to_tree(pi)
+
+      expect(tree.label).to eq("processing-instruction")
+      expect(tree.value).to eq('chem recipe="aspirin"')
+    end
+
+    # chemicalml's round-trip matcher compares CML fixtures carrying
+    # the XML declaration and custom PIs; unsupported PI nodes used to
+    # raise ArgumentError from #to_tree instead of comparing.
+    # chemicalml's round-trip matcher compares CML fixtures carrying
+    # the XML declaration and custom PIs; unsupported PI nodes used to
+    # raise ArgumentError from #to_tree instead of comparing.
+    it "compares documents containing processing instructions" do
+      expect(pi_xml.strip).to be_xml_equivalent_to(pi_xml.strip)
+    end
+  end
 
   describe "#to_tree" do
     context "with simple XML element" do
