@@ -19,7 +19,7 @@ RSpec.describe Canon::TreeDiff::Adapters::XMLAdapter do
 
     it "converts a Canon processing-instruction node" do
       pi = Canon::Xml::Nodes::ProcessingInstructionNode.new(
-        target: "chem", data: 'recipe="aspirin"'
+        target: "chem", data: 'recipe="aspirin"',
       )
 
       tree = adapter.to_tree(pi)
@@ -33,7 +33,7 @@ RSpec.describe Canon::TreeDiff::Adapters::XMLAdapter do
       skip "nokogiri not available" unless Canon::NokogiriLoader.available?
 
       doc = Nokogiri::XML(pi_xml)
-      pi = doc.children.find { |n| n.processing_instruction? }
+      pi = doc.children.find(&:processing_instruction?)
 
       tree = adapter.to_tree(pi)
 
