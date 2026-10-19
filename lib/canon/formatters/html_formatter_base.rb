@@ -1,6 +1,5 @@
 # frozen_string_literal: true
 
-Canon::NokogiriLoader.require!("HTML formatting")
 require "set"
 
 module Canon
@@ -63,7 +62,7 @@ module Canon
       # Compiled once — building the alternation and compiling the
       # regex per format call cost more than the gsub it drives.
       BLOCK_SPACING_PATTERN =
-        Regexp.new("(</(?:#{BLOCK_ELEMENTS.join('|')})>)(<(?:#{BLOCK_ELEMENTS.join('|')})[\s>])").freeze
+        Regexp.new("(</(?:#{BLOCK_ELEMENTS.join('|')})>)(?:\n*)(<(?:#{BLOCK_ELEMENTS.join('|')})[\s>])").freeze
       # Format HTML using canonical form
       # @param html [String] HTML document to canonicalize
       # @return [String] Canonical form of HTML
@@ -82,19 +81,25 @@ module Canon
       end
 
       # Canonicalize HTML document
-      # @param doc [Nokogiri::HTML::Document] Parsed HTML document
+      # @param doc [Moxml::Document] Parsed document
+      # @param serializer [:html, :xml] XHTML input must serialize
+      #   XML-shaped (self-closed voids) so the output stays
+      #   well-formed; HTML input takes the HTML shape.
       # @return [String] Canonical HTML string
-      def self.canonicalize(doc)
+      def self.canonicalize(doc, serializer: :html)
         # Sort attributes for consistency
         sort_attributes(doc)
 
         # Normalize whitespace between elements
         normalize_whitespace(doc)
 
-        # Serialize with consistent formatting
-        html = doc.to_html(
-          save_with: Nokogiri::XML::Node::SaveOptions::NO_DECLARATION,
-        ).strip
+        # Serialize with consistent formatting — the engine emits no
+        # declaration; empty elements self-close in the XML shape.
+        html = (if serializer == :xml
+                  doc.to_xml(expand_empty: false)
+                else
+                  doc.to_html
+                end).strip
 
         # Post-process: ensure spaces between block element tags
         # This is needed because Nokogiri's serialization may remove
@@ -103,72 +108,103 @@ module Canon
       end
 
       # Sort element attributes alphabetically throughout document
-      # @param doc [Nokogiri::HTML::Document] Document to process
+      # @param doc [Moxml::Document] Parsed document
       def self.sort_attributes(doc)
-        doc.traverse do |node|
-          next unless node.element?
-          next if node.attributes.empty?
+        walk_elements(doc.root) do |element|
+          attrs = element.attributes
+          next if attrs.empty?
 
-          names = node.attributes.keys
-          # Already-sorted un-namespaced is the common case — removing
-          # and re-adding every attribute is expensive, so check first.
-          # Namespaced attributes must take the slow path: the
-          # remove/re-add below flattens their prefix, and skipping
-          # would change the canonical output.
-          next if names.each_cons(2).all? { |a, b| (a <=> b) <= 0 } &&
-            node.attributes.each_value.all? { |a| a.namespace.nil? }
+          names = attrs.map(&:name)
+          # Already-sorted is the common case — removing and re-adding
+          # every attribute is expensive, so check first.
+          next if names.each_cons(2).all? { |a, b| (a <=> b) <= 0 }
 
-          sorted_attrs = node.attributes.sort_by { |name, _| name }
-          node.attributes.each_key { |name| node.remove_attribute(name) }
-          sorted_attrs.each { |name, attr| node[name] = attr.value }
+          sorted_attrs = attrs.sort_by(&:name)
+          names.each { |name| element.remove_attribute(name) }
+          sorted_attrs.each { |attr| element[attr.name] = attr.value }
         end
+      end
+
+      # Depth-first element walk (pre-order).
+      def self.walk_elements(node, &block)
+        return unless node.is_a?(Moxml::Element)
+
+        yield(node)
+        node.children.to_a.each { |child| walk_elements(child, &block) }
       end
 
       # Normalize whitespace by removing whitespace-only text nodes
       # between elements and collapsing whitespace within text content
-      # @param doc [Nokogiri::HTML::Document] Document to process
+      # @param doc [Moxml::Document] Parsed document
       def self.normalize_whitespace(doc)
-        # Normalize whitespace in text nodes
-        doc.traverse do |node|
-          next unless node.text?
-
+        # Walk parented text nodes only — the engine's content= on a
+        # parentless node raises an opaque Invalid argument (upstream
+        # note), and parentless text has no canonical meaning anyway.
+        walk_text_nodes(doc.root) do |text, parent|
           # CRITICAL: Skip normalization for whitespace-sensitive elements
           # In elements like <pre>, <code>, etc., whitespace is semantically
           # significant and must be preserved exactly as-is
-          if whitespace_sensitive_element?(node.parent)
-            next
-          end
+          next if whitespace_sensitive_element?(parent)
 
-          # Handle whitespace-only text nodes
-          if node.text.match?(Canon::Xml::WhitespacePolicy::STRIP_ONLY) && node.parent&.element?
-            # Check if this text node is between block-level elements
-            prev_sibling = node.previous_sibling
-            next_sibling = node.next_sibling
-
-            # If between block elements, preserve one space
-            if block_element?(prev_sibling) || block_element?(next_sibling) ||
-                block_element?(node.parent)
-              node.content = " "
+          if text.content.match?(Canon::Xml::WhitespacePolicy::STRIP_ONLY)
+            # Whitespace-only text: keep one space between block
+            # elements (information-preserving canonical form),
+            # otherwise remove. The walk yields parented nodes only —
+            # the engine content= raises on parentless text upstream.
+            if block_element?(prev_element_sibling(parent, text)) ||
+                block_element?(next_element_sibling(parent, text)) ||
+                block_element?(parent)
+              text.content = " "
             else
-              # Otherwise remove it
-              node.remove
+              text.remove
             end
           else
             # Collapse multiple whitespace characters into single spaces
             # but preserve leading/trailing single spaces for inline content
-            text = node.text
-            normalized = text.gsub(/\s+/, " ")
+            content = text.content
+            normalized = content.gsub(/\s+/, " ")
             # Only strip if the entire parent chain suggests it's appropriate
             # (e.g., at document boundaries)
-            if node.parent&.name == "body" &&
-                (node.previous_sibling.nil? || node.next_sibling.nil?)
+            if parent.name == "body" &&
+                (first_real_child?(parent, text) || last_real_child?(parent, text))
               normalized = normalized.strip
             end
-            # node.content= re-parses the string — skip it when nothing
+            # content= re-parses the string — skip it when nothing
             # changed (text with no collapsible whitespace).
-            node.content = normalized unless normalized == text
+            text.content = normalized unless normalized == content
           end
         end
+      end
+
+      def self.walk_text_nodes(node, parent = nil, &block)
+        case node
+        when Moxml::Text
+          yield(node, parent) if parent
+        when Moxml::Element
+          node.children.to_a.each { |child| walk_text_nodes(child, node, &block) }
+        end
+      end
+
+      def self.prev_element_sibling(parent, text)
+        siblings = parent.children.to_a
+        idx = siblings.index(text)
+        siblings[0...idx].reverse_each.find { |s| s.is_a?(Moxml::Element) }
+      end
+
+      def self.next_element_sibling(parent, text)
+        siblings = parent.children.to_a
+        idx = siblings.index(text)
+        siblings[(idx + 1)..].find { |s| s.is_a?(Moxml::Element) }
+      end
+
+      def self.first_real_child?(parent, text)
+        siblings = parent.children.to_a
+        siblings.find { |s| !(s.is_a?(Moxml::Text) && s.content.strip.empty?) }.equal?(text)
+      end
+
+      def self.last_real_child?(parent, text)
+        siblings = parent.children.to_a
+        siblings.reverse_each.find { |s| !(s.is_a?(Moxml::Text) && s.content.strip.empty?) }.equal?(text)
       end
 
       # Ensure spacing between block element tags in serialized HTML
@@ -184,7 +220,7 @@ module Canon
       # @param node [Nokogiri::XML::Node, nil] Node to check
       # @return [Boolean] true if node is a block element
       def self.block_element?(node)
-        return false unless node&.element?
+        return false unless node.is_a?(Moxml::Element)
 
         name = node.name
         BLOCK_ELEMENT_SET.include?(name) ||
@@ -192,25 +228,18 @@ module Canon
       end
 
       # Check if a node is a whitespace-sensitive element
-      # @param node [Nokogiri::XML::Node, nil] Node to check
+      # @param node [Moxml::Element, nil] Node to check
       # @return [Boolean] true if node is whitespace-sensitive
       def self.whitespace_sensitive_element?(node)
-        return false unless node&.element?
-
-        # Check if this element or any ancestor is whitespace-sensitive
         current = node
-        while current
-          if current.element?
-            name = current.name
-            # Nokogiri lowercases HTML names — the downcase fallback
-            # only allocates for unusual mixed-case input.
-            if WHITESPACE_SENSITIVE_ELEMENTS.include?(name) ||
-                WHITESPACE_SENSITIVE_ELEMENTS.include?(name.downcase)
-              return true
-            end
+        while current.is_a?(Moxml::Element)
+          name = current.name
+          # The downcase fallback only allocates for unusual mixed-case
+          # input.
+          if WHITESPACE_SENSITIVE_ELEMENTS.include?(name) ||
+              WHITESPACE_SENSITIVE_ELEMENTS.include?(name.downcase)
+            return true
           end
-          # Stop at document root - documents don't have parents
-          break if current.is_a?(Nokogiri::XML::Document) || current.is_a?(Nokogiri::HTML5::Document)
 
           current = current.parent
         end

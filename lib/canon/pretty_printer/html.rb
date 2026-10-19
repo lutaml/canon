@@ -98,55 +98,29 @@ module Canon
       # indentation; +AS_XHTML+ produces well-shaped output (void
       # elements self-closed, non-void paired); +NO_DECLARATION+
       # suppresses the +<?xml ...?>+ prefix.
+      # Engine parse + significance-aware strip + the #354 indent
+      # knobs + a canon-side void self-closing pass for the AS_XHTML
+      # contract (an engine XHTML mode is asked upstream as moxml#390;
+      # until then the shape transform is ours).
       def format_fixture_ready(html_string)
-        doc = Nokogiri::HTML5(html_string)
-        strip_structural_whitespace!(doc)
-        io = StringIO.new
-        if @indent_type == "tab"
-          doc.write_to(io, save_with: fixture_ready_save_options,
-                           indent: 1, indent_text: "\t")
-        else
-          doc.write_to(io, save_with: fixture_ready_save_options,
-                           indent: @indent)
-        end
-        io.string
+        doc = Canon::Html::DataModel.engine_html_parse(html_string)
+        Canon::Html::DataModel.strip_insignificant_whitespace!(doc.root)
+        html = if @indent_type == "tab"
+                 doc.to_html(indent: 1, indent_text: "\t")
+               else
+                 doc.to_html(indent: @indent)
+               end
+        self_closing_voids(html)
       end
 
-      # libxml's +FORMAT+ save flag does not insert indentation around
-      # the children of any element it sees as mixed content (any
-      # non-whitespace-only text node child).  +Nokogiri::HTML5+ does
-      # not accept the +noblanks+ option that the XML parser uses to
-      # strip these inter-sibling text nodes pre-serialisation, so we
-      # do it manually here: drop whitespace-only text nodes whose
-      # parent is structural (no real text content) and not a
-      # whitespace-preserving element.  Mixed-content runs like
-      # +<p>foo <em>bar</em> baz</p>+ are left alone.
-      def strip_structural_whitespace!(doc)
-        to_remove = []
-        doc.traverse do |node|
-          next unless node.text?
-          next unless node.content.strip.empty?
+      # AS_XHTML: void elements self-closed (<br/>, <img ... />).
+      def self_closing_voids(html)
+        html.gsub(%r{<([A-Za-z][A-Za-z0-9:-]*)((?:\s+[^<>"]*(?:"[^"]*"[^<>"]*)*)?)>}) do
+          name = ::Regexp.last_match(1)
+          next ::Regexp.last_match(0) unless HtmlVoidElements.void?(name)
 
-          parent = node.parent
-          next if parent.nil?
-          next if WHITESPACE_PRESERVING_ELEMENTS.include?(parent.name)
-          next if parent_has_real_text?(parent)
-
-          to_remove << node
+          "<#{name}#{::Regexp.last_match(2)}/>"
         end
-        to_remove.each(&:remove)
-      end
-
-      def parent_has_real_text?(parent)
-        parent.children.any? do |c|
-          c.text? && !c.content.strip.empty?
-        end
-      end
-
-      def fixture_ready_save_options
-        Nokogiri::XML::Node::SaveOptions::FORMAT |
-          Nokogiri::XML::Node::SaveOptions::AS_XHTML |
-          Nokogiri::XML::Node::SaveOptions::NO_DECLARATION
       end
 
       # Rewrite +<tag …/>+ into +<tag …></tag>+ for every element name

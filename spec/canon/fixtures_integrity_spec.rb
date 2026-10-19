@@ -5,6 +5,12 @@ require "canon/pretty_printer/xml"
 require "canon/pretty_printer/json"
 require "canon/pretty_printer/html"
 
+# The HTML verification examples parse with Nokogiri as the
+# INDEPENDENT verifier (canon's own engine checking canon's own
+# formatter would be circular). Canon no longer loads Nokogiri
+# transitively — require it explicitly when available.
+require "nokogiri" if Canon::NokogiriLoader.available?
+
 RSpec.describe "Fixture Files Integrity" do
   def xhtml?(content)
     content.match?(/<!DOCTYPE\s+html\s+PUBLIC.*XHTML/i) ||
