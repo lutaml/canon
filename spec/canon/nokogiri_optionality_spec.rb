@@ -16,10 +16,13 @@ if ENV["CANON_SIMULATE_NO_NOKOGIRI"] == "1"
       expect(defined?(Nokogiri)).to be_nil
     end
 
-    it "raises a helpful Canon::Error for HTML formatting" do
-      expect do
-        Canon.format("<p>hi</p>", :html)
-      end.to raise_error(Canon::Error, /nokogiri/)
+    it "formats HTML without loading nokogiri (engine-served since
+the XHTML-validation and format_html flips)" do
+      expect(defined?(Nokogiri)).to be_nil
+
+      result = Canon.format("<p>hi</p>", :html)
+      expect(result).to include("<p>hi</p>")
+      expect(defined?(Nokogiri)).to be_nil
     end
 
     it "raises a helpful Canon::Error for the forced raw-nokogiri engine" do

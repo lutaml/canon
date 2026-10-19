@@ -68,22 +68,24 @@ RSpec.describe Canon::Formatters::HtmlFormatter do
   end
 
   describe ".parse" do
-    it "parses HTML5" do
+    it "parses HTML5 into an engine document" do
       html = "<html><body><p>test</p></body></html>"
       doc = described_class.parse(html)
-      expect(doc).to be_a(Nokogiri::HTML5::Document)
+      expect(doc).to be_a(Moxml::Document)
     end
 
-    it "parses XHTML as XML" do
+    it "parses XHTML through the XML lane" do
       xhtml = '<html xmlns="http://www.w3.org/1999/xhtml"><body><p>test</p></body></html>'
       doc = described_class.parse(xhtml)
-      expect(doc).to be_a(Nokogiri::XML::Document)
+      expect(doc).to be_a(Moxml::Document)
+      expect(doc.root.name).to eq("html")
     end
 
     it "preserves content" do
       html = "<div><p>test content</p></div>"
       doc = described_class.parse(html)
-      expect(doc.text).to include("test content")
+      # Moxml::Document#text does not descend into elements (moxml#391)
+      expect(doc.root.text).to include("test content")
     end
   end
 
