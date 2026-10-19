@@ -49,6 +49,12 @@ module Canon
             return to_tree_from_canon_processing_instruction(node)
           end
 
+          # Raw moxml documents/elements (the leptris engine's parse
+          # output) convert through the shared data model.
+          if defined?(Moxml) && node.is_a?(Moxml::Node)
+            return to_tree(Canon::Xml::DataModel.build_from_moxml(node))
+          end
+
           # Fallback to raw engine documents (legacy support). Nokogiri
           # is optional — under the moxml/leptris engine a raw Nokogiri
           # object cannot exist, so the constants stay unresolved.
@@ -200,10 +206,34 @@ module Canon
         # @param root_node [Canon::Xml::Nodes::RootNode] Root node
         # @return [Core::TreeNode, nil] Tree node for first child (document element)
         def to_tree_from_canon_root(root_node)
-          # Root node: process first child (document element)
+          # Root node: convert the document element, keeping
+          # document-level processing instructions / comments as
+          # siblings of it (before it first, then after) so they
+          # participate in the diff. The XML declaration never reaches
+          # here - it is stripped at parse time by policy.
           return nil if root_node.children.empty?
 
-          to_tree(root_node.children.first)
+          element_child = root_node.children.find do |child|
+            child.is_a?(Canon::Xml::Nodes::ElementNode)
+          end
+          return to_tree(root_node.children.first) if element_child.nil?
+
+          tree = to_tree(element_child)
+          seen_element = false
+          root_node.children.each do |child|
+            if child.equal?(element_child)
+              seen_element = true
+              next
+            end
+            next if child.is_a?(Canon::Xml::Nodes::ElementNode)
+            next if child.is_a?(Canon::Xml::Nodes::TextNode)
+
+            sibling = to_tree(child)
+            next if sibling.nil?
+
+            seen_element ? tree.children << sibling : tree.children.unshift(sibling)
+          end
+          tree
         end
 
         # Convert Canon::Xml::Nodes::ElementNode to TreeNode

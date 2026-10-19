@@ -50,6 +50,22 @@ RSpec.describe Canon::TreeDiff::Adapters::XMLAdapter do
     it "compares documents containing processing instructions" do
       expect(pi_xml.strip).to be_xml_equivalent_to(pi_xml.strip)
     end
+
+    it "detects differing document-level processing instructions" do
+      other = pi_xml.sub('recipe="aspirin"', 'recipe="menthol"')
+
+      expect(pi_xml.strip).not_to be_xml_equivalent_to(other.strip)
+    end
+
+    it "converts a raw moxml document" do
+      doc = Moxml.new.parse(pi_xml)
+
+      tree = adapter.to_tree(doc)
+
+      expect(tree.label).to eq("molecule")
+      pis = tree.children.select { |c| c.label == "processing-instruction" }
+      expect(pis.first&.value).to eq('chem recipe="aspirin"')
+    end
   end
 
   describe "#to_tree" do

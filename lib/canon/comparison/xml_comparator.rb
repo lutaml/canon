@@ -571,8 +571,8 @@ module Canon
             return Comparison::UNEQUAL_NODES_TYPES
           end
 
-          content1 = Canon::XmlParsing.xml_node?(n1) ? n1.content.to_s.strip : ""
-          content2 = Canon::XmlParsing.xml_node?(n2) ? n2.content.to_s.strip : ""
+          content1 = pi_content(n1)
+          content2 = pi_content(n2)
 
           if content1 == content2
             Comparison::EQUIVALENT
@@ -597,8 +597,60 @@ module Canon
             return Comparison::MISSING_NODE
           end
 
-          compare_nodes(root1, root2, opts, child_opts, diff_children,
-                        differences)
+          status = compare_nodes(root1, root2, opts, child_opts, diff_children,
+                                 differences)
+          compare_document_siblings(n1, n2, root1, root2, opts, differences)
+          status
+        end
+
+        # Document-level processing instructions and comments (the XML
+        # declaration never appears here - it is stripped at parse time
+        # by policy) participate in the comparison as an ordered sibling
+        # sequence around the root element.
+        def compare_document_siblings(n1, n2, root1, root2, opts, differences)
+          sibs1 = document_siblings(n1, root1)
+          sibs2 = document_siblings(n2, root2)
+
+          if sibs1.length != sibs2.length
+            add_difference(n1, n2, Comparison::MISSING_NODE,
+                           Comparison::MISSING_NODE, :text_content, opts,
+                           differences)
+            return
+          end
+
+          sibs1.zip(sibs2).each do |a, b|
+            next unless a.class != b.class ||
+                        (a.is_a?(Canon::Xml::Nodes::ProcessingInstructionNode) &&
+                         compare_processing_instruction_nodes(a, b, opts,
+                                                              differences) ==
+                         Comparison::UNEQUAL_TEXT_CONTENTS) ||
+                        (a.is_a?(Canon::Xml::Nodes::CommentNode) &&
+                         compare_comment_nodes(a, b, opts, differences) ==
+                         Comparison::UNEQUAL_COMMENTS)
+
+            add_difference(a, b, Comparison::UNEQUAL_NODES_TYPES,
+                           Comparison::UNEQUAL_NODES_TYPES, :text_content,
+                           opts, differences)
+          end
+        end
+
+        def document_siblings(doc, root)
+          return [] unless doc.respond_to?(:children)
+
+          doc.children.reject do |child|
+            child.equal?(root) || child.is_a?(Canon::Xml::Nodes::TextNode) ||
+              child.is_a?(Canon::Xml::Nodes::ElementNode)
+          end
+        end
+
+        # PI content lives in different accessors per node flavour:
+        # Canon::Xml::Nodes::ProcessingInstructionNode#data, engine
+        # processing instructions expose #content.
+        def pi_content(node)
+          return node.data.to_s if node.is_a?(Canon::Xml::Nodes::ProcessingInstructionNode)
+          return node.content.to_s if Canon::XmlParsing.xml_node?(node)
+
+          node.respond_to?(:data) ? node.data.to_s : ""
         end
 
         # Compare children of two nodes using semantic matching
