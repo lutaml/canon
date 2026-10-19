@@ -49,8 +49,8 @@ RSpec.configure do |config|
       "spec/canon/pretty_printer/html*_spec.rb, " \
       "spec/canon/html/formatter_spec.rb, " \
       "spec/canon/tree_diff/adapters/html_adapter_spec.rb, " \
-      "spec/canon/diff_formatter/by_line/html_formatter_spec.rb, " \
-      "spec/canon/validators/html_validator_spec.rb"
+      "spec/canon/diff_formatter/by_line/html_formatter_spec.rb, "
+
     # Spec trees that construct raw Nokogiri objects or exercise
     # nokogiri-only pipelines (engine parity, display preprocessing,
     # legacy adapters, the top-level comparison spec's Nokogiri-document
