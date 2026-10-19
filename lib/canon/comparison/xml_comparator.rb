@@ -620,13 +620,13 @@ module Canon
 
           sibs1.zip(sibs2).each do |a, b|
             next unless a.class != b.class ||
-                        (a.is_a?(Canon::Xml::Nodes::ProcessingInstructionNode) &&
-                         compare_processing_instruction_nodes(a, b, opts,
-                                                              differences) ==
-                         Comparison::UNEQUAL_TEXT_CONTENTS) ||
-                        (a.is_a?(Canon::Xml::Nodes::CommentNode) &&
-                         compare_comment_nodes(a, b, opts, differences) ==
-                         Comparison::UNEQUAL_COMMENTS)
+              (a.is_a?(Canon::Xml::Nodes::ProcessingInstructionNode) &&
+               compare_processing_instruction_nodes(a, b, opts,
+                                                    differences) ==
+               Comparison::UNEQUAL_TEXT_CONTENTS) ||
+              (a.is_a?(Canon::Xml::Nodes::CommentNode) &&
+               compare_comment_nodes(a, b, opts, differences) ==
+               Comparison::UNEQUAL_COMMENTS)
 
             add_difference(a, b, Comparison::UNEQUAL_NODES_TYPES,
                            Comparison::UNEQUAL_NODES_TYPES, :text_content,
