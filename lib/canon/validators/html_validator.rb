@@ -4,7 +4,9 @@ module Canon
   module Validators
     # Validator for HTML input
     #
-    # Validates HTML input (HTML4, HTML5, or XHTML) using Nokogiri.
+    # Validates HTML input (HTML4, HTML5, or XHTML) through the
+    # engine (strict XML parse for XHTML; the WHATWG parse-lint
+    # surface for HTML5 — leptris#1771).
     # Automatically detects the HTML type and applies appropriate validation.
     # Raises detailed ValidationError with line and column information
     # when malformed HTML is detected.
@@ -73,74 +75,44 @@ module Canon
       # @param input [String] The HTML5 string to validate
       # @raise [Canon::ValidationError] If HTML5 is malformed
       # @return [void]
+      # The HTML5 lint layer is engine-served (leptris#1771 delivered
+      # the §13.2.5 parse-error token stream: machine-readable code +
+      # line + column, RECOVER class). Engine-direct call — the
+      # documented seam exception (moxml's parse_html does not forward
+      # the collect_errors option yet; ask filed upstream).
       def self.validate_html5!(input)
-        # The HTML5 lint layer stays on Nokogiri/gumbo: the WHATWG
-        # parser never fails, so the engine has no parse-error token
-        # stream to classify (filed as leptris#1771 - the ask carries
-        # canon's acceptance protocol).
-        Canon::NokogiriLoader.require!("HTML5 validation (leptris#1771)")
-        doc = Nokogiri::HTML5(input, max_errors: 100)
+        doc = Leptris::XML.parse_html(input, mode: :whatwg,
+                                             collect_errors: true)
+        errors = doc.errors
+        return if errors.empty?
 
-        # Check for parse errors
-        return unless doc.errors.any?
-
-        # Find first significant error (level 2 = error, level 1 = warning)
-        # Filter out doctype warnings and other non-critical issues
-        significant_errors = doc.errors.select do |e|
-          e.level >= 2 && !doctype_or_warning?(e)
-        end
-
-        return if significant_errors.empty?
-
-        error = significant_errors.first
-        location = extract_location(error)
+        error = errors.first
         raise Canon::ValidationError.new(
-          error.message,
+          "[#{error.code}] #{error.message}",
           format: :html,
-          line: location[:line],
-          column: location[:column],
-          details: build_error_details(significant_errors),
+          line: error.line,
+          column: error.column,
+          details: build_error_details(errors),
         )
-      end
-
-      # Extract additional error details
-      #
-      # @param error [Nokogiri::XML::SyntaxError] The syntax error
-      # @return [String, nil] Additional details about the error
-      def self.extract_details(_error)
-        nil
       end
 
       # Build error details from multiple errors
       #
-      # @param errors [Array<Nokogiri::XML::SyntaxError>] Array of errors
+      # @param errors [Array<Leptris::XML::SyntaxError>] Array of errors
       # @return [String, nil] Combined error details
       def self.build_error_details(errors)
         return nil if errors.size <= 1
 
-        significant = errors.select { |e| e.level >= 2 }
-        return nil if significant.empty?
-
-        details = significant[1..3].map do |e|
-          loc = extract_location(e)
+        errors[1..3].map do |e|
           msg = e.message
-          msg += " (line #{loc[:line]})" if loc[:line]
+          msg += " (line #{e.line})" if e.respond_to?(:line) && e.line
           msg
-        end
-        details.join("; ")
-      end
-
-      # Check if error is a doctype or other non-critical warning
-      #
-      # @param error [Nokogiri::XML::SyntaxError] The error to check
-      # @return [Boolean] true if error is non-critical
-      def self.doctype_or_warning?(error)
-        error.message.match?(/doctype|Expected a doctype token/i)
+        end.join("; ")
       end
 
       private_class_method :xhtml?, :validate_xhtml!, :validate_html5!,
-                           :extract_details, :build_error_details,
-                           :doctype_or_warning?, :extract_engine_location
+                           :build_error_details,
+                           :extract_engine_location
     end
   end
 end

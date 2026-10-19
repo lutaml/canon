@@ -98,29 +98,24 @@ module Canon
       # indentation; +AS_XHTML+ produces well-shaped output (void
       # elements self-closed, non-void paired); +NO_DECLARATION+
       # suppresses the +<?xml ...?>+ prefix.
-      # Engine parse + significance-aware strip + the #354 indent
-      # knobs + a canon-side void self-closing pass for the AS_XHTML
-      # contract (an engine XHTML mode is asked upstream as moxml#390;
-      # until then the shape transform is ours).
+      # Engine parse + significance-aware strip + the engine's
+      # XHTML serialization mode (moxml#390 delivered to_xhtml /
+      # to_html(xhtml: true)): void elements self-closed, non-void
+      # paired — the AS_XHTML contract, engine-served.
       def format_fixture_ready(html_string)
         doc = Canon::Html::DataModel.engine_html_parse(html_string)
         Canon::Html::DataModel.strip_insignificant_whitespace!(doc.root)
         html = if @indent_type == "tab"
-                 doc.to_html(indent: 1, indent_text: "\t")
+                 doc.to_xhtml(indent: 1, indent_text: "\t")
                else
-                 doc.to_html(indent: @indent)
+                 doc.to_xhtml(indent: @indent)
                end
-        self_closing_voids(html)
-      end
-
-      # AS_XHTML: void elements self-closed (<br/>, <img ... />).
-      def self_closing_voids(html)
-        html.gsub(%r{<([A-Za-z][A-Za-z0-9:-]*)((?:\s+[^<>"]*(?:"[^"]*"[^<>"]*)*)?)>}) do
-          name = ::Regexp.last_match(1)
-          next ::Regexp.last_match(0) unless HtmlVoidElements.void?(name)
-
-          "<#{name}#{::Regexp.last_match(2)}/>"
-        end
+        # The AS_XHTML contract pairs empty NON-void elements (<a .../>)
+        # for browser-safe pasting; the engine's to_xhtml self-closes
+        # every empty element. The existing transform restores the
+        # pairing for non-voids while voids stay self-closed — the
+        # #135 regression pins it.
+        expand_non_void_self_closing(html)
       end
 
       # Rewrite +<tag …/>+ into +<tag …></tag>+ for every element name
