@@ -45,6 +45,8 @@ module Canon
             return to_tree_from_canon_text(node)
           when Canon::Xml::Nodes::CommentNode
             return to_tree_from_canon_comment(node)
+          when Canon::Xml::Nodes::ProcessingInstructionNode
+            return to_tree_from_canon_processing_instruction(node)
           end
 
           # Fallback to raw engine documents (legacy support). Nokogiri
@@ -61,6 +63,8 @@ module Canon
             to_tree(root)
           when Nokogiri::XML::Element
             convert_element(node)
+          when Nokogiri::XML::ProcessingInstruction
+            to_tree_from_canon_processing_instruction(node)
           else
             raise ArgumentError, "Unsupported node type: #{node.class}"
           end
@@ -268,6 +272,29 @@ module Canon
             attributes: {},
             children: [],
             source_node: comment_node,
+          )
+        end
+
+        # Convert Canon::Xml::Nodes::ProcessingInstructionNode (or a raw
+        # engine processing instruction) to TreeNode. The value carries
+        # both target and data so differing targets diff.
+        #
+        # @param pi_node [Canon::Xml::Nodes::ProcessingInstructionNode,
+        #   Nokogiri::XML::ProcessingInstruction] Processing instruction
+        # @return [Core::TreeNode] Tree node
+        def to_tree_from_canon_processing_instruction(pi_node)
+          target = pi_node.respond_to?(:target) ? pi_node.target : pi_node.name
+          data = if pi_node.respond_to?(:data)
+                   pi_node.data
+                 else
+                   pi_node.content.to_s
+                 end
+          Core::TreeNode.new(
+            label: "processing-instruction",
+            value: "#{target} #{data}".strip,
+            attributes: {},
+            children: [],
+            source_node: pi_node,
           )
         end
 
