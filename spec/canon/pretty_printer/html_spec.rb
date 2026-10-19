@@ -117,10 +117,10 @@ RSpec.describe Canon::PrettyPrinter::Html do
 
         result = subject.format(input)
 
-        # The engine layout (single-child elements stay inline — the
-        # #1647 heuristic): nesting breaks where structure warrants.
+        # The engine layout: full nesting (the 1.9.369+ indent
+        # heuristic breaks single-child elements onto their lines).
         expect(result.lines.length).to be > 5
-        expect(result).to match(/<body>\s*\n\s+<div><p>x<\/p><\/div>/)
+        expect(result).to match(/<body>\s*\n\s+<div>\s*\n\s+<p>x<\/p>/)
       end
 
       it "indents XHTML-shaped input" do
@@ -129,9 +129,8 @@ RSpec.describe Canon::PrettyPrinter::Html do
 
         result = subject.format(input)
 
-        # The engine layout keeps the single-child body inline.
-        expect(result.lines.length).to be >= 3
-        expect(result).to include("<body><p>x</p></body>")
+        expect(result.lines.length).to be > 3
+        expect(result).to match(/<body>\s*\n\s+<p>x<\/p>/)
       end
 
       it "preserves element count through the round-trip" do
@@ -208,8 +207,8 @@ RSpec.describe Canon::PrettyPrinter::Html do
 
         expect(result).to match(%r{<body>\s*\n\s+<div class="a">})
         expect(result).to match(%r{<br\s*/>})
-        expect(result).to match(%r{<br\s*/>\s*<div class="b">})
-        expect(result).to include('<div class="c"><p>z</p></div>')
+        expect(result).to match(%r{<br\s*/>\s*\n\s+<div class="b">})
+        expect(result).to match(%r{<div class="c">\s*\n\s+<p>z</p>})
       end
 
       it "preserves significant inline whitespace inside mixed-content runs" do
