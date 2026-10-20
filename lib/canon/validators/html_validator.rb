@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+require "leptris" # a hard runtime dependency — the HTML5 lint lane
+# uses the engine's parse-lint face (leptris#1771)
+
 module Canon
   module Validators
     # Validator for HTML input
@@ -75,6 +78,15 @@ module Canon
       # @param input [String] The HTML5 string to validate
       # @raise [Canon::ValidationError] If HTML5 is malformed
       # @return [void]
+      # Doctype-presence codes: fragments are first-class input and
+      # the old gumbo lane filtered doctype warnings — the engine's
+      # spec-correct tokens for the same condition are warnings here.
+      DOCTYPE_CLASS_CODES = %w[
+        expected-doctype-but-got-start-tag
+        expected-doctype-but-got-chars
+        expected-doctype-token
+      ].freeze
+
       # The HTML5 lint layer is engine-served (leptris#1771 delivered
       # the §13.2.5 parse-error token stream: machine-readable code +
       # line + column, RECOVER class). Engine-direct call — the
@@ -83,7 +95,9 @@ module Canon
       def self.validate_html5!(input)
         doc = Leptris::XML.parse_html(input, mode: :whatwg,
                                              collect_errors: true)
-        errors = doc.errors
+        errors = doc.errors.reject do |e|
+          DOCTYPE_CLASS_CODES.include?(e.code)
+        end
         return if errors.empty?
 
         error = errors.first
@@ -101,9 +115,12 @@ module Canon
       # @param errors [Array<Leptris::XML::SyntaxError>] Array of errors
       # @return [String, nil] Combined error details
       def self.build_error_details(errors)
-        return nil if errors.size <= 1
+        significant = errors.reject do |e|
+          DOCTYPE_CLASS_CODES.include?(e.code)
+        end
+        return nil if significant.size <= 1
 
-        errors[1..3].map do |e|
+        significant[1..3].map do |e|
           msg = e.message
           msg += " (line #{e.line})" if e.respond_to?(:line) && e.line
           msg
