@@ -1354,4 +1354,56 @@ RSpec.describe Canon::RSpecMatchers do
       expect { matcher.failure_message }.not_to raise_error(SystemStackError)
     end
   end
+
+  # Issue #277: batched comparisons reported one document growing
+  # sibling roots across matcher invocations (five rfc roots at the
+  # document level in a single diff report). The invariant: repeating
+  # a comparison — with other comparisons interleaved, under the
+  # batch profile's :format preprocessing — answers the same
+  # document-level locations and one root per document.
+  describe "comparison state across batched invocations" do
+    let(:expected) do
+      '<rfc xmlns="urn:x"><?rfc sortrefs="yes"?>' \
+        "<front><title>t</title></front>" \
+        "<middle><t>a</t></middle></rfc>"
+    end
+
+    it "keeps document-level difference locations stable across a batch" do
+      actual = expected.sub(">a<", ">b<")
+      other = expected.sub("<title>t</title>", "<title>u</title>")
+
+      locations = Array.new(5) do
+        # interleave a different comparison, as a batch does
+        Canon::Comparison.equivalent?(
+          expected, other, verbose: true, preprocessing: :format,
+                           match_profile: :spec_friendly
+        )
+        result = Canon::Comparison.equivalent?(
+          expected, actual, verbose: true, preprocessing: :format,
+                            match_profile: :spec_friendly
+        )
+        result.differences.map do |diff|
+          Canon::Diff::PathBuilder.build(diff.node1)
+        end
+      end
+
+      expect(locations.uniq.size).to eq(1),
+                                     "difference locations drifted across " \
+                                     "batched comparisons: " \
+                                     "#{locations.uniq.inspect}"
+      expect(locations.first).to all(start_with("/#document[0]/rfc[0]"))
+    end
+
+    it "keeps one root per document after repeated comparisons" do
+      xml = '<rfc xmlns="urn:x"><?rfc sortrefs="yes"?>' \
+            "<middle><t>a</t></middle></rfc>"
+      5.times do
+        Canon::Comparison.equivalent?(xml, xml.sub(">a<", ">b<"),
+                                      preprocessing: :format)
+      end
+      doc = Canon::Xml::DataModel.from_xml(Canon.format(xml, :xml))
+      roots = doc.children.grep(Canon::Xml::Nodes::ElementNode)
+      expect(roots.size).to eq(1)
+    end
+  end
 end
