@@ -87,42 +87,42 @@ module Canon
         expected-doctype-token
       ].freeze
 
-      # The HTML5 lint layer is engine-served (leptris#1771 delivered
-      # the §13.2.5 parse-error token stream: machine-readable code +
-      # line + column, RECOVER class). Engine-direct call — the
-      # documented seam exception (moxml's parse_html does not forward
-      # the collect_errors option yet; ask filed upstream).
+      # The HTML5 lint layer goes through the moxml facade: the
+      # leptris adapter forwards collect_errors (leptris#1771's
+      # §13.2.5 token stream) and Document#parse_diagnostics answers
+      # the machine-readable code plus line/column, so canon no
+      # longer reaches into the engine.
       def self.validate_html5!(input)
-        doc = Leptris::XML.parse_html(input, mode: :whatwg,
-                                             collect_errors: true)
-        errors = doc.errors.reject do |e|
-          DOCTYPE_CLASS_CODES.include?(e.code)
+        doc = Moxml.new.parse_html(input, mode: :whatwg,
+                                          collect_errors: true)
+        errors = doc.parse_diagnostics.reject do |e|
+          DOCTYPE_CLASS_CODES.include?(e[:code])
         end
         return if errors.empty?
 
         error = errors.first
         raise Canon::ValidationError.new(
-          "[#{error.code}] #{error.message}",
+          "[#{error[:code]}] #{error[:message]}",
           format: :html,
-          line: error.line,
-          column: error.column,
+          line: error[:line],
+          column: error[:column],
           details: build_error_details(errors),
         )
       end
 
       # Build error details from multiple errors
       #
-      # @param errors [Array<Leptris::XML::SyntaxError>] Array of errors
+      # @param errors [Array<Hash>] moxml parse diagnostics
       # @return [String, nil] Combined error details
       def self.build_error_details(errors)
         significant = errors.reject do |e|
-          DOCTYPE_CLASS_CODES.include?(e.code)
+          DOCTYPE_CLASS_CODES.include?(e[:code])
         end
         return nil if significant.size <= 1
 
         significant[1..3].map do |e|
-          msg = e.message
-          msg += " (line #{e.line})" if e.respond_to?(:line) && e.line
+          msg = e[:message]
+          msg += " (line #{e[:line]})" if e[:line]
           msg
         end.join("; ")
       end
