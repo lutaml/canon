@@ -84,8 +84,7 @@ RSpec.describe Canon::Formatters::HtmlFormatter do
     it "preserves content" do
       html = "<div><p>test content</p></div>"
       doc = described_class.parse(html)
-      # Moxml::Document#text does not descend into elements (moxml#391)
-      expect(doc.root.text).to include("test content")
+      expect(doc.text).to include("test content")
     end
   end
 
