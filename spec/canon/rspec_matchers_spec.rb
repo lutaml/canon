@@ -1339,6 +1339,7 @@ RSpec.describe Canon::RSpecMatchers do
       end
     end
   end
+
   describe "processing instructions in diffs" do
     it "formats differences on PI-bearing documents without recursing" do
       expected = '<rfc><?rfc sortrefs="yes"?><middle><t>a</t></middle></rfc>'
