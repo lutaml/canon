@@ -1339,4 +1339,18 @@ RSpec.describe Canon::RSpecMatchers do
       end
     end
   end
+  describe "processing instructions in diffs" do
+    it "formats differences on PI-bearing documents without recursing" do
+      expected = '<rfc><?rfc sortrefs="yes"?><middle><t>a</t></middle></rfc>'
+      actual = '<rfc><?rfc sortrefs="yes"?><middle><t>b</t></middle></rfc>'
+
+      # a prior comparison must not poison the next one
+      expect(actual).to be_xml_equivalent_to(actual)
+
+      matcher = be_xml_equivalent_to(expected)
+      expect(matcher.matches?(actual)).to be(false)
+      expect { matcher.failure_message }.not_to raise_error
+      expect { matcher.failure_message }.not_to raise_error(SystemStackError)
+    end
+  end
 end
