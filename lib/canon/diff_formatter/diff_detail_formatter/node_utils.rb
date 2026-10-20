@@ -125,6 +125,8 @@ module Canon
             CGI.escapeHTML(node.value.to_s)
           when Canon::Xml::Nodes::CommentNode
             "<!--#{CGI.escapeHTML(node.value.to_s)}-->"
+          when Canon::Xml::Nodes::ProcessingInstructionNode
+            "<?#{node.name} #{node.data}?>".rstrip
           when Canon::Xml::Nodes::ElementNode
             serialize_element_compact(node)
           else
@@ -229,7 +231,10 @@ module Canon
             if defined?(Nokogiri) && node.is_a?(Nokogiri::XML::Node)
               serialize_nokogiri_node_compact(node)
             elsif node.is_a?(Canon::Xml::Node)
-              serialize_node_compact(node)
+              # unhandled Canon node kinds degrade to their text; recursing
+              # into serialize_node_compact here looped forever for any
+              # subclass the compact case does not know (e.g. PIs)
+              get_node_text(node)
             else
               get_node_text(node)
             end
