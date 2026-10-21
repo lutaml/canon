@@ -139,7 +139,17 @@ RSpec.describe "YAML engine parity" do
       rescue StandardError
         :raised
       end
-      expect(yeptris).to eq(stdlib)
+      lane = begin
+        native = defined?(Yeptris::Native) ? "yes" : "no"
+        marshal = Yeptris::FFI::MARSHAL_STRICT_DUP
+        "yeptris=#{Gem.loaded_specs['yeptris']&.version} json=#{JSON::VERSION} " \
+          "Native=#{native} MARSHAL_STRICT_DUP=#{marshal}"
+      rescue StandardError
+        "lane diagnostics unavailable"
+      end
+      expect(yeptris).to eq(stdlib),
+                         "duplicate-key verdict drift (#{lane}): " \
+                         "stdlib=#{stdlib.inspect} yeptris=#{yeptris.inspect}"
     rescue LoadError
       skip "yeptris not installed"
     end
