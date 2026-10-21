@@ -11,13 +11,9 @@ module Canon
         end
       end
 
-      def self.parse(xml)
+      def self.parse(xml, options = {})
         Canon::Validators::XmlValidator.validate!(xml)
-        if XmlBackend.nokogiri?
-          Nokogiri::XML(xml)
-        else
-          XmlParsing.parse(xml)
-        end
+        XmlParsing.parse(xml, options)
       end
     end
   end

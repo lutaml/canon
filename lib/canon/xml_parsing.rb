@@ -303,11 +303,14 @@ module Canon
 
       # --- Moxml engine ---
 
-      # Readonly: canon only ever reads engine documents (conversion,
+      # Readonly by default: canon reads engine documents (conversion,
       # serialization) — leptris memoizes reads on readonly documents,
       # and mutation is refused loudly rather than silently corrupting.
-      def moxml_parse(xml_string, _options)
-        moxml_context.parse(xml_string, readonly: true)
+      # Mutating lanes (the attribute sorter, TODO.sota/03) opt out
+      # explicitly with readonly: false.
+      def moxml_parse(xml_string, options)
+        readonly = options.fetch(:readonly, true)
+        moxml_context.parse(xml_string, readonly: readonly)
       end
 
       def moxml_node_type(node)
