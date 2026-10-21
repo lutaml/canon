@@ -15,6 +15,7 @@ module Canon
   # Canon::Xml::Nodes.
   module Xml
     autoload :AttributeHandler, "canon/xml/attribute_handler"
+    autoload :AttributeSorter, "canon/xml/attribute_sorter"
     autoload :C14n, "canon/xml/c14n"
     autoload :DigestGate, "canon/xml/digest_gate"
     autoload :CharacterEncoder, "canon/xml/character_encoder"

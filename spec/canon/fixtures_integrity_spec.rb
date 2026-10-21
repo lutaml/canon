@@ -26,9 +26,14 @@ RSpec.describe "Fixture Files Integrity" do
           # Format with c14n mode
           formatted_content = Canon.format(original_content, :xml)
 
-          # Use Canon's own XML comparison with :normalize to ignore formatting differences
+          # Use Canon's own XML comparison ignoring formatting and
+          # attribute ORDER — XML attribute order is not information
+          # (XML InfoSet: attributes are unordered), and the canonical
+          # form sorts attributes (TODO.sota/03, the
+          # equivalence-respect property). Information = presence +
+          # values, which stays strict.
           # rubocop:disable-next Layout/LineLength
-          expect(formatted_content).to be_xml_equivalent_to(original_content).with_match(structural_whitespace: :normalize)
+          expect(formatted_content).to be_xml_equivalent_to(original_content).with_match(structural_whitespace: :normalize, attribute_order: :ignore)
         end
       end
     end

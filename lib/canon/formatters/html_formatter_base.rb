@@ -63,6 +63,12 @@ module Canon
       # regex per format call cost more than the gsub it drives.
       BLOCK_SPACING_PATTERN =
         Regexp.new("(</(?:#{BLOCK_ELEMENTS.join('|')})>)(?:\n*)(<(?:#{BLOCK_ELEMENTS.join('|')})[\s>])").freeze
+      # Engine-inserted newlines after a block close, before ANY next
+      # tag (the serializer's indent model breaks lines where canon's
+      # normalize step kept no text node) — folded to the canonical
+      # single space so serialization is idempotent.
+      AFTER_BLOCK_NEWLINE_PATTERN =
+        Regexp.new("(</(?:#{BLOCK_ELEMENTS.join('|')})>)(\n+)(<(?!/))").freeze
       # Format HTML using canonical form
       # @param html [String] HTML document to canonicalize
       # @return [String] Canonical form of HTML
@@ -108,21 +114,10 @@ module Canon
       end
 
       # Sort element attributes alphabetically throughout document
+      # (the shared canonical attribute order — TODO.sota/03)
       # @param doc [Moxml::Document] Parsed document
       def self.sort_attributes(doc)
-        walk_elements(doc.root) do |element|
-          attrs = element.attributes
-          next if attrs.empty?
-
-          names = attrs.map(&:name)
-          # Already-sorted is the common case — removing and re-adding
-          # every attribute is expensive, so check first.
-          next if names.each_cons(2).all? { |a, b| (a <=> b) <= 0 }
-
-          sorted_attrs = attrs.sort_by(&:name)
-          names.each { |name| element.remove_attribute(name) }
-          sorted_attrs.each { |attr| element[attr.name] = attr.value }
-        end
+        Canon::Xml::AttributeSorter.sort!(doc)
       end
 
       # Depth-first element walk (pre-order).
@@ -211,9 +206,17 @@ module Canon
       # @param html [String] Serialized HTML string
       # @return [String] HTML with proper spacing between block elements
       def self.ensure_block_element_spacing(html)
-        # Add space between closing and opening block element tags
+        # Space between closing and opening block element tags
         # (pattern compiled once — see BLOCK_SPACING_PATTERN)
-        html.gsub(BLOCK_SPACING_PATTERN, '\1 \2')
+        html = html.gsub(BLOCK_SPACING_PATTERN, '\1 \2')
+        # The engine's serializer inserts its own newlines after a
+        # block close when the tree has no whitespace text node there
+        # (normalize_whitespace keeps a single space only where one
+        # existed). Collapse those self-inserted newlines to the same
+        # canonical space — without this, format is not idempotent:
+        # pass 1 emits "</p>\n<br>", pass 2 answers "</p> <br>"
+        # (the property suite, TODO.sota/03).
+        html.gsub(AFTER_BLOCK_NEWLINE_PATTERN, '\1 \3')
       end
 
       # Check if a node is a block-level element
