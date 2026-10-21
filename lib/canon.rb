@@ -32,6 +32,7 @@ module Canon
   autoload :Cli, "canon/cli"
   autoload :ColorDetector, "canon/color_detector"
   autoload :DiffFormatter, "canon/diff_formatter"
+  autoload :Json, "canon/json"
 
   SUPPORTED_FORMATS = %i[xml yaml json html html4 html5 string].freeze
 
