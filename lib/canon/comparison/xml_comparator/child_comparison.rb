@@ -198,6 +198,12 @@ module Canon
           )
             has_mismatch = false
 
+            # The ORIGINAL direction, captured before
+            # determine_mismatch_children returns reduced sets of equal
+            # length — deriving the side from the reduced sets reports
+            # every mid-content removal as an insertion (canon#285).
+            before_longer = children1.length > children2.length
+
             # Length check
             unless children1.length == children2.length
               has_mismatch = true
@@ -228,7 +234,7 @@ module Canon
               else
                 mismatched_children.each do |child|
                   child_dim = comparator.determine_node_dimension(child)
-                  if children1.length > children2.length
+                  if before_longer
                     comparator.add_difference(child, nil,
                                               Comparison::MISSING_NODE,
                                               Comparison::MISSING_NODE,
