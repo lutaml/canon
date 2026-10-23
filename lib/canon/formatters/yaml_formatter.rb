@@ -25,9 +25,14 @@ module Canon
         when Hash
           # Single pass: sorted keys once, one rebuilt hash (the
           # transform_values + sort.to_h form rebuilt every container
-          # twice).
+          # twice). YAML mapping keys are heterogeneous by nature
+          # (strings, symbols, integers, nil, complex collections) —
+          # the canonical order is the TOTAL order over [class, to_s];
+          # homogeneous String keys sort exactly as before.
           sorted = {}
-          obj.keys.sort.each { |key| sorted[key] = sort_yaml_keys(obj[key]) }
+          obj.keys.sort_by { |key| [key.class.name, key.to_s] }.each do |key|
+            sorted[key] = sort_yaml_keys(obj[key])
+          end
           sorted
         when Array
           obj.map { |item| sort_yaml_keys(item) }
