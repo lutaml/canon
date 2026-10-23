@@ -1,0 +1,52 @@
+= The JCS canonical profile (W6.1, RFC 8785)
+
+This document specifies canon's JSON JCS canonical form as shipped
+by `Canon::Json::JCS`. Reviewed against the implementation by
+`spec/canon/docs/jcs_spec_review.rb` (the W6.3 review-gate
+pattern).
+
+== 1. Scope
+
+RFC 8785 — the I-JSON Canonicalization Scheme. Input must be I-JSON
+(RFC 7493): valid UTF-8 without lone surrogates, no duplicate
+object keys, numbers expressible as IEEE 754 doubles. Violations
+raise `Canon::Json::JCS::Error`.
+
+== 2. The canonical laws
+
+* *Strings* (`escape_string`): RFC 8785 §3.2.2.2 — the
+  JSON.stringify escaping set: short forms for `\b \t \n \f \r`
+  (the SHORT_ESCAPES table), two-hex lowercase `\u00xx` for the
+  remaining C0 controls, `\"` and `\\`; every other code point
+  emits verbatim as UTF-8 (DEL U+007F is NOT escaped).
+
+* *Numbers* (`es6_number`): ECMAScript `Number::toString`
+  serialization — the shortest round-tripping decimal, fixed
+  notation inside [1e-6, 1e21), exponential outside; integers
+  via `ijson_integer` (the I-JSON 2^53 range).
+
+* *Object keys* (`write_object`): sorted by their
+  UTF-16 code units (`utf16_code_units` — the RFC's sort is over
+  UTF-16 code units, not code points, so surrogate pairs and BMP
+  characters interleave per the RFC's examples; e.g. the key
+  U+1D160 (a surrogate pair, code units 0xD834 0xDD60) sorts
+  BEFORE U+20AC (a single BMP code unit 0x20AC), which sorts
+  BEFORE "a" (0x0061)).
+
+* *Containers*: arrays comma-separated in order; objects
+  comma-separated in sorted key order; no whitespace anywhere.
+
+== 3. Entry points
+
+`canonicalize(json)` accepts a JSON string (parsed through
+`JSON.parse`) or an already-parsed Ruby graph; `serialize(value)`
+skips the parse. The canonical form is byte-stable across
+platforms and suitable for hashing and signing.
+
+== 4. Fixed point and parity
+
+JCS output re-parses to the same graph, and the form is a fixed
+point. The phase 02 property suite (JSON/YAML equivalence legs)
+and the diff-display corpus pin the behavior; the JCS spec
+vectors (RFC 8785 §3.2.3 examples) pin the number and sorting
+laws.

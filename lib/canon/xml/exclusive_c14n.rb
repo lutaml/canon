@@ -55,12 +55,30 @@ module Canon
       # — every node in the subtrees rooted at pfx:name. Returns
       # [prefix, local_name], or nil for anything else.
       def self.c14n_selection_idiom(xpath)
-        # the suite's .xpath files are XML documents wrapping the
-        # expression (with prefix declarations and inline comments)
-        text = xpath.sub(/\A<\?xml[^?]*\?>/, "")
-          .gsub(/<!--[\s\S]*?-->/, "")
-          .gsub(/<[^>]*>/, " ")
-          .squeeze(" ")
+        # The suite's .xpath files are XML documents wrapping the
+        # expression (with prefix declarations and inline comments).
+        # Extraction is index-based string surgery — the CodeQL
+        # polynomial-redos query flags the gsub-chain form.
+        close_tag = xpath.rindex("</XPath>")
+        text = close_tag ? xpath[0...close_tag] : xpath.dup
+        # drop the XML declaration and the <XPath> open tag: each
+        # ends at the first '>' at/after its '<'
+        if (decl = text.index("<"))
+          gt = text.index(">", decl)
+          if (xopen = text.index("<XPath", decl)) && (xopen < gt)
+            gt = text.index(">", xopen)
+          end
+          text = text[(gt + 1)..] if gt
+        end
+        # strip <!-- --> comments by index (no regex backtracking)
+        loop do
+          open_c = text.index("<!--")
+          break unless open_c
+
+          close_c = text.index("-->", open_c + 4)
+          text = close_c ? text[0...open_c] + text[(close_c + 3)..] : text[0...open_c]
+        end
+        text = text.squeeze(" ")
         m = text.match(%r{\(//\.\s*\|\s*//@\*\s*\|\s*//namespace::\*\)\s*\[\s*ancestor-or-self::([A-Za-z_][\w.-]*)(?::([\w.-]+))?\s*\]\s*\z})
         return nil unless m
 
