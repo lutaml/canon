@@ -5,11 +5,14 @@ module Canon
     # C14N 1.1 processor
     # Processes XPath data model and generates canonical form
     class Processor
-      def initialize(with_comments: false)
+      def initialize(with_comments: false, namespace_handler: nil,
+                     inherit_xml_attributes: true)
         @with_comments = with_comments
         @encoder = CharacterEncoder.new
-        @namespace_handler = NamespaceHandler.new(@encoder)
-        @attribute_handler = AttributeHandler.new(@encoder)
+        @namespace_handler = namespace_handler || NamespaceHandler.new(@encoder)
+        @attribute_handler = AttributeHandler.new(
+          @encoder, inherit_xml_attributes: inherit_xml_attributes
+        )
         @xml_base_handler = XmlBaseHandler.new
       end
 
