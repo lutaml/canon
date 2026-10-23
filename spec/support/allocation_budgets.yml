@@ -1,0 +1,19 @@
+# Allocation budgets (TODO.sota/04, W3.3): the median GC.stat
+# :total_allocated_objects delta per lane, measured over 15 runs
+# after one warmup. The committed number is the CEILING — the gate
+# fails when a lane's median exceeds it. Object counting is exact,
+# but the median carries ±1-run jitter between processes, so each
+# ceiling bakes in ~5% headroom over the measured baseline.
+#
+# Re-baseline with CANON_BUDGET_UPDATE=1 bundle exec rspec
+# spec/canon/allocation_budgets_spec.rb (after verifying the delta
+# is intentional and updating the entry's comment).
+format_xml: 48
+format_json: 48
+format_yaml: 132
+format_html: 199
+parse_xml: 31
+equiv_xml: 483
+equiv_json: 71
+equiv_yaml: 100
+jcs: 67
