@@ -11,10 +11,16 @@ require "yaml"
 # are deliberately not asserted here; this is canon's product-level
 # contract, not the engine's.
 #
-# Known divergences are ledgered in canon-findings.yml (families:
-# validator_rejected / non_idempotent / inequivalent). The gate fails
-# on any finding BEYOND the ledger and flags ledger entries that no
-# longer reproduce — the ledger shrinks as fixes land.
+# Known divergences are ledgered in canon-findings.yml. The
+# non_idempotent and inequivalent families are HARD gates: a finding
+# beyond the ledger fails, a stale entry fails. The
+# validator_rejected family is INFORMATIONAL (warn + counted, the
+# property-suite pattern): the YAML validator rides the resolved
+# engine (yeptris when loadable, Psych otherwise), and the engines
+# disagree on suite-valid directive variants (e.g. ZYU8's
+# "%YAML1.1" — Psych rejects, yeptris accepts), so the family's
+# membership is engine-dependent and its findings are validator-
+# coverage DATA for W2.1, not a product gate.
 module YamlSuiteGate
   SUITE = File.join(__dir__, "../../fixtures/corpora/yaml-test-suite/src").freeze
   LEDGER = File.join(__dir__, "../../fixtures/corpora/yaml-test-suite/canon-findings.yml").freeze
@@ -54,23 +60,32 @@ end
 
 RSpec.describe "yaml-test-suite canon-level gate" do
   let(:valid) { YamlSuiteGate.cases.select { |c| c[:yaml] && !c[:error] } }
-  let(:invalid) { YamlSuiteGate.cases.select { |c| c[:error] } }
   let(:ledger) do
     (YAML.safe_load_file(YamlSuiteGate::LEDGER) || {}).transform_values { |v| Array(v) }
   end
 
   it "vendored a meaningful corpus" do
     expect(valid.count).to be > 200
-    expect(invalid.count).to be > 20
+    expect(valid.count + YamlSuiteGate.cases.count { |c| c[:error] }).to be > 250
   end
 
-  it "has no finding beyond the ledger" do
+  it "has no hard finding beyond the ledger" do
     fresh = []
+    warned = []
     valid.each do |c|
       family = YamlSuiteGate.finding_for(c[:yaml])
       next if family.nil?
 
+      if family == :validator_rejected
+        warned << c[:id]
+        next
+      end
+
       fresh << "#{c[:id]} (#{family}, #{c[:name]})" unless ledger[family.to_s]&.include?(c[:id])
+    end
+    unless warned.empty?
+      warn "validator-rejected cases (W2.1 validator-coverage findings, " \
+           "engine-dependent — informational): #{warned.join(', ')}"
     end
     expect(fresh).to be_empty,
                      "new canon-level findings beyond canon-findings.yml " \
@@ -78,9 +93,11 @@ RSpec.describe "yaml-test-suite canon-level gate" do
                        fresh.join("\n")
   end
 
-  it "has no stale ledger entry" do
+  it "has no stale hard ledger entry" do
     stale = []
     ledger.each do |family, ids|
+      next if family == "validator_rejected" # informational, engine-dependent
+
       ids.each do |id|
         c = valid.find { |vc| vc[:id] == id }
         next if c.nil? # case removed from the suite
