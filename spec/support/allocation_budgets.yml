@@ -2,18 +2,24 @@
 # :total_allocated_objects delta per lane, measured over 15 runs
 # after one warmup. The committed number is the CEILING — the gate
 # fails when a lane's median exceeds it. Object counting is exact,
-# but the median carries ±1-run jitter between processes, so each
-# ceiling bakes in ~5% headroom over the measured baseline.
+# but the median shifts with the resolved engine and the Ruby
+# version's stdlib (yeptris vs Psych, JSON/Psych per-version), so
+# each ceiling bakes in ~10% headroom over the measured baseline —
+# a real allocation regression moves whole percentage points of
+# document-scale allocations and still gates.
+#
+# The nokogiri-less lane merges its own overrides
+# (allocation_budgets.nokogiri-less.yml).
 #
 # Re-baseline with CANON_BUDGET_UPDATE=1 bundle exec rspec
 # spec/canon/allocation_budgets_spec.rb (after verifying the delta
 # is intentional and updating the entry's comment).
-format_xml: 48
-format_json: 48
-format_yaml: 132
-format_html: 199
-parse_xml: 31
-equiv_xml: 483
-equiv_json: 71
-equiv_yaml: 100
-jcs: 67
+format_xml: 50
+format_json: 50
+format_yaml: 138
+format_html: 208
+parse_xml: 32
+equiv_xml: 507
+equiv_json: 74
+equiv_yaml: 105
+jcs: 70
