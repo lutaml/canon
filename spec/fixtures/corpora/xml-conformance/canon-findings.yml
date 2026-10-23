@@ -1,0 +1,6 @@
+# Canon-level findings over the vendored XML corpus (TODO.sota/06).
+# The gate fails on a finding beyond this ledger and flags entries
+# that no longer reproduce.
+inequivalent:
+- c14n/xmlbase-c14n11spec-102.xml
+- c14n/xmlbase-c14n11spec2-102.xml
