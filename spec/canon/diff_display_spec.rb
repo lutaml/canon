@@ -166,8 +166,8 @@ RSpec.describe "Line-by-line diff display" do
       lines = diff.split("\n")
 
       # Count delete and insert markers
-      delete_count = lines.count { |l| l =~ /\|\s*[\d\s]*-\s*\|/ }
-      insert_count = lines.count { |l| l =~ /\|\s*[\d\s]*\+\s*\|/ }
+      delete_count = lines.count { |l| l =~ /\|[^|-]*- *\|/ }
+      insert_count = lines.count { |l| l =~ /\|[^|-]*\+ *\|/ }
 
       # For a simple text change in one element, we expect at most 1 delete and 1 insert
       # If we see 2 deletes and 1 insert (or more), it means closing tags are being
@@ -202,7 +202,7 @@ RSpec.describe "Line-by-line diff display" do
       # A closing tag should not appear as a SEPARATE deleted line.
       # It's OK for </p> to appear in a changed line's content (same line as <p>),
       # but it should never be the sole content of a deleted line.
-      deleted_lines = lines.grep(/\|\s*[\d\s]*-\s*\|/)
+      deleted_lines = lines.grep(/\| *(?:\d+ *)*-+ *\\|/)
 
       deleted_lines.each do |line|
         # Extract the content after the "| - | " marker
