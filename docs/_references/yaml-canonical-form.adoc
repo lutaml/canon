@@ -1,0 +1,45 @@
+= The YAML canonical form (W1.4)
+
+This document specifies canon's YAML canonical form as shipped by
+`Canon::Formatters::YamlFormatter`. Reviewed against the
+implementation by `spec/canon/docs/canonical_form_spec.rb` (the
+W6.3 review-gate pattern).
+
+== 1. Pipeline
+
+format(input):
+
+1. *Validate* through the YAML validator (engine-resolved: yeptris
+when loadable, Psych otherwise; a validator rejection is a
+Canon::ValidationError with position information).
+2. *Parse* to the Ruby object graph (`safe_load`, aliases enabled).
+3. *Sort* every mapping's keys (the law below).
+4. *Dump* through the engine's emitter (the engine-dump byte-parity
+is pinned by the YAML engine-parity spec).
+
+== 2. The key-order law
+
+Every mapping's keys sort under the TOTAL order over
+`[key.class.name, key.to_s]`:
+
+* Homogeneous String keys sort exactly as a plain string sort.
+* Heterogeneous keys (strings, symbols, integers, nil, complex
+  collections — YAML mappings allow any key type) order by class
+  name first, then string form: the order is deterministic and
+  total, and the sort cannot raise on mixed types (the pre-0.3.113
+  `keys.sort` crashed on the yaml-test-suite's mixed-key shapes).
+
+The sort is applied recursively: nested mappings, and mappings
+inside arrays, sort by the same law.
+
+== 3. Equivalence contract
+
+The canonical form respects key order: two documents differing only
+in mapping key order produce identical canonical bytes (pinned by
+the property suite's shuffled-YAML leg).
+
+== 4. Fixed point
+
+format(format(x)) == format(x) for every accepted document (the
+property suite pins this across the generated corpus and the
+yaml-test-suite gate across the vendored suite).

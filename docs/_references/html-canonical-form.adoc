@@ -36,25 +36,29 @@ Every other text node normalizes:
 
 *Block elements* (the formatter's BLOCK_ELEMENTS registry):
 address, article, aside, blockquote, dd, details, dialog, div, dl,
-dt, fieldset, figcaption, figure, footer, form, h1-h6, header,
-hgroup, hr, li, main, nav, ol, p, pre, section, table, tbody, td,
-tfoot, th, thead, tr, ul.
+dt, fieldset, figcaption, figure, footer, form, h1, h2, h3, h4, h5,
+h6, header, hgroup, hr, li, main, nav, ol, p, pre, section, table,
+tbody, td, tfoot, th, thead, tr, ul.
 
 == 3. Attribute order
 
 Attributes sort by name (the shared `Canon::Xml::AttributeSorter`
-walk — the canonical order matches the XML lane's sorter).
+walk — the canonical order matches the XML lane's sorter; the
+formatter's `sort_attributes` delegates to it).
 
 == 4. Post-serialize spacing
 
-Two serialization laws, applied in order:
+Two serialization laws, applied in order (the formatter's compiled
+constants carry the same names):
 
-* *Block spacing*: a block close tag followed by newlines and a
-  block open tag re-spells exactly one newline between them.
-* *After-block fold*: a block close tag followed by a newline run
-  and any open tag folds the run to a single space when the follower
-  is not a close tag (the engine-inserted newlines after block
-  closes fold to the canonical single space).
+* *Block spacing* (`BLOCK_SPACING_PATTERN`): a block close tag
+  followed by newlines and a block open tag re-spells exactly one
+  newline between them.
+* *After-block fold* (`AFTER_BLOCK_NEWLINE_PATTERN`): a block close
+  tag followed by a newline run and any open tag folds the run to a
+  single space when the follower is not a close tag (the
+  engine-inserted newlines after block closes fold to the canonical
+  single space).
 
 == 5. Idempotence
 
