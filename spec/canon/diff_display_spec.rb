@@ -33,7 +33,7 @@ RSpec.describe "Line-by-line diff display" do
 
         # Extract potential line numbers
         # The format is like: "17537|17537  |" or "     |8291+ |"
-        if line =~ /\|\s*(\d+)\+\s*\|/
+        if line =~ /\| *(\d+)\+ *\|/
           new_line_num = $1.to_i
           # New line numbers should be reasonable (not giant numbers that look like byte offsets)
           # In a small test file, line numbers should be < 1000
@@ -99,13 +99,13 @@ RSpec.describe "Line-by-line diff display" do
       # Find changed/deleted/added lines
       changed_indices = []
       lines.each_with_index do |line, idx|
-        changed_indices << idx if /\|[\s\d]*[+-]\s*\|/.match?(line)
+        changed_indices << idx if /\|[ \d]*[+-] *\|/.match?(line)
       end
 
       # Find context (unchanged) lines
       context_indices = []
       lines.each_with_index do |line, idx|
-        context_indices << idx if line =~ /\A\s*\d+\|\d+\s+\|/ && line !~ /[+-]\s*\|/
+        context_indices << idx if line =~ /\A\s*\d+\|\d+ +\|/ && line !~ /[+-] *\|/
       end
 
       # Changed lines should be adjacent to context lines with correct alignment
@@ -166,8 +166,26 @@ RSpec.describe "Line-by-line diff display" do
       lines = diff.split("\n")
 
       # Count delete and insert markers
-      delete_count = lines.count { |l| l =~ /\|[^|-]*- *\|/ }
-      insert_count = lines.count { |l| l =~ /\|[^|-]*\+ *\|/ }
+      # Cell-split inspection (CodeQL's polynomial-redos query flags
+      # even provably-linear pipe/dash regex adjacency): a marker row
+      # is pipe, number cell, then a '-'/'+' marker cell.
+      marker_rows = lines.count do |l|
+        cells = l.split("|", -1)
+        cells.size >= 3 && cells[1].strip.match?(/\A\d*\z/) &&
+          cells[2].strip.start_with?("-", "+")
+      end
+      delete_count = lines.count do |l|
+        cells = l.split("|", -1)
+        cells.size >= 3 && cells[1].strip.match?(/\A\d*\z/) &&
+          cells[2].strip.start_with?("-")
+      end
+      insert_count = lines.count do |l|
+        cells = l.split("|", -1)
+        cells.size >= 3 && cells[1].strip.match?(/\A\d*\z/) &&
+          cells[2].strip.start_with?("+")
+      end
+      raise "marker_rows disagrees with the split counts" if
+        marker_rows != delete_count + insert_count
 
       # For a simple text change in one element, we expect at most 1 delete and 1 insert
       # If we see 2 deletes and 1 insert (or more), it means closing tags are being

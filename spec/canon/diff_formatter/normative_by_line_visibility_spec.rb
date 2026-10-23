@@ -52,8 +52,14 @@ RSpec.describe "Normative diffs visible in by_line mode" do
       # A removed line for the second biblio-tag must be present —
       # count the removed markers: the NBSP change contributes one
       # removed line, the deletion contributes another.
-      removed_lines = output.scan(/^\s*\|? *\d+ *\| *- *\|/m)
-      expect(removed_lines.length).to eq(2)
+      # Cell-split inspection (the polynomial-redos-free form): a
+      # removed marker row is a number cell then a '-' marker cell.
+      removed_lines = output.lines.count do |l|
+        cells = l.split("|")
+        idx = cells.index { |seg| seg.strip.match?(/\A\d+\z/) }
+        idx && cells[idx + 1].to_s.strip.start_with?("-")
+      end
+      expect(removed_lines).to eq(2)
     end
   end
 
