@@ -1,9 +1,0 @@
-# Budget overrides for the nokogiri-less lane
-# (CANON_SIMULATE_NO_NOKOGIRI=1): without nokogiri the lazy XML/HTML
-# load paths resolve differently and the object counts shift. Only
-# the lanes that measurably differ live here; every other lane falls
-# through to allocation_budgets.yml. Measured on the CI lane
-# (ubuntu-latest), with the same ~10% headroom convention.
-format_xml: 59
-format_html: 235
-parse_xml: 70

@@ -1,0 +1,37 @@
+# Allocation-budget reference lane (TODO.sota/04, W3.3): the budgets
+# are REFERENCE-LANE numbers — object counts shift with the platform,
+# the Ruby version's stdlib, and the engine resolution — so the gate
+# runs ONLY here (one pinned lane) and skips in every other leg
+# (the spec self-skips unless CANON_BUDGET_LANE=1).
+
+name: allocation-budgets
+
+permissions:
+  contents: read
+
+on:
+  push:
+    branches: [ master, main ]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: "${{ github.workflow }}-${{ github.ref }}"
+  cancel-in-progress: true
+
+jobs:
+  budgets:
+    name: Allocation budgets (reference lane)
+    runs-on: ubuntu-latest
+    env:
+      CANON_BUDGET_LANE: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ruby/setup-ruby@master
+        with:
+          ruby-version: "3.4"
+          bundler-cache: true
+
+      - name: Measure the lanes against the committed ceilings
+        run: bundle exec rspec spec/canon/allocation_budgets_spec.rb
