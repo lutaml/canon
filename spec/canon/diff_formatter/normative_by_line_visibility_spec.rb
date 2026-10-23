@@ -52,7 +52,7 @@ RSpec.describe "Normative diffs visible in by_line mode" do
       # A removed line for the second biblio-tag must be present —
       # count the removed markers: the NBSP change contributes one
       # removed line, the deletion contributes another.
-      removed_lines = output.scan(/^\s*\|?\s*\d+\s*\|\s*-\s*\|/m)
+      removed_lines = output.scan(/^\s*\|? *\d+ *\| *- *\|/m)
       expect(removed_lines.length).to eq(2)
     end
   end

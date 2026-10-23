@@ -1,0 +1,63 @@
+= The HTML canonical form (W1.3)
+
+This document specifies canon's HTML canonical form as shipped by
+`Canon::Formatters::HtmlFormatter` (and the html4/html5 variants).
+It is reviewed against the implementation by
+`spec/canon/docs/canonical_form_spec.rb` (the W6.3 review-gate
+pattern: law tokens asserted against the formatter's constants and
+methods).
+
+== 1. Pipeline
+
+format(input):
+
+1. *Parse* through the engine HTML adapter (WHATWG fragment
+parsing; the fixture materialization keeps whitespace text nodes —
+whitespace significance is the comparison profile's decision, not
+the parser's).
+2. *Canonicalize the tree* (attribute order, whitespace law below).
+3. *Serialize* through the engine's HTML serializer.
+4. *Post-serialize spacing* (the two regex laws below).
+
+== 2. Whitespace law
+
+*Whitespace-sensitive elements* — `pre`, `code`, `textarea`,
+`script`, `style` — are never normalized: their text content rides
+verbatim.
+
+Every other text node normalizes:
+
+* *Whitespace-only text* between/inside block elements collapses to
+  one space (the information-preserving canonical form);
+  whitespace-only text elsewhere is removed.
+* *Text with content*: whitespace runs collapse to single spaces;
+  leading/trailing strips only at `body` boundaries (first/last
+  real child).
+
+*Block elements* (the formatter's BLOCK_ELEMENTS registry):
+address, article, aside, blockquote, dd, details, dialog, div, dl,
+dt, fieldset, figcaption, figure, footer, form, h1-h6, header,
+hgroup, hr, li, main, nav, ol, p, pre, section, table, tbody, td,
+tfoot, th, thead, tr, ul.
+
+== 3. Attribute order
+
+Attributes sort by name (the shared `Canon::Xml::AttributeSorter`
+walk — the canonical order matches the XML lane's sorter).
+
+== 4. Post-serialize spacing
+
+Two serialization laws, applied in order:
+
+* *Block spacing*: a block close tag followed by newlines and a
+  block open tag re-spells exactly one newline between them.
+* *After-block fold*: a block close tag followed by a newline run
+  and any open tag folds the run to a single space when the follower
+  is not a close tag (the engine-inserted newlines after block
+  closes fold to the canonical single space).
+
+== 5. Idempotence
+
+The form is a fixed point: format(format(x)) == format(x). The
+property suite (canonical-form invariants) and the corpus gates pin
+this per release.
