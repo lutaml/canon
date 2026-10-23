@@ -4,9 +4,10 @@
 # fails when a lane's median exceeds it. Object counting is exact,
 # but the median shifts with the resolved engine and the Ruby
 # version's stdlib (yeptris vs Psych, JSON/Psych per-version), so
-# each ceiling bakes in ~10% headroom over the measured baseline —
-# a real allocation regression moves whole percentage points of
-# document-scale allocations and still gates.
+# each ceiling is the OBSERVED-WORST lane plus ~10% headroom (the
+# HTML and YAML lanes shift most across platforms: 189->215,
+# 125->138) — a real allocation regression moves whole percentage
+# points of document-scale allocations and still gates.
 #
 # The nokogiri-less lane merges its own overrides
 # (allocation_budgets.nokogiri-less.yml).
@@ -16,8 +17,8 @@
 # is intentional and updating the entry's comment).
 format_xml: 50
 format_json: 50
-format_yaml: 138
-format_html: 208
+format_yaml: 152
+format_html: 237
 parse_xml: 32
 equiv_xml: 507
 equiv_json: 74
