@@ -18,6 +18,15 @@ module Canon
       def self.validate!(input)
         return if input.nil?
         return if input.is_a?(Hash) || input.is_a?(Array) # Already parsed
+        # The malformed-bytes corpus (JSONTestSuite n_*) carries
+        # invalid UTF-8: strip/compare would raise
+        # Encoding::CompatibilityError instead of a validation error
+        unless input.valid_encoding?
+          raise Canon::ValidationError.new(
+            "invalid byte sequence in #{input.encoding}",
+            format: :json,
+          )
+        end
         return if input.strip.empty?
 
         Canon::JsonParsing.parse(input)

@@ -9,6 +9,14 @@ module Canon
       def self.format(json)
         parsed = parse(json)
         JSON.pretty_generate(sort_json_keys(parsed))
+      rescue JSON::GeneratorError => e
+        # overflow numbers parse to ±Infinity, which JSON cannot
+        # represent: the rejection is canon's, so raise own error
+        # (the i_number_real_*_overflow corpus family)
+        raise Canon::ValidationError.new(
+          "JSON cannot represent #{e.message[/\S+/]}: number out of range",
+          format: :json,
+        )
       end
 
       def self.parse(json)
