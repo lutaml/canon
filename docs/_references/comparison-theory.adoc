@@ -1,0 +1,289 @@
+= Canon comparison theory: dimensions, profiles, and the two algorithms
+:toc:
+
+This document is the specification of canon's comparison semantics.
+It is REVIEWED AGAINST THE IMPLEMENTATION by
+`spec/canon/docs/comparison_theory_spec.rb`: every dimension,
+behavior, and profile row cited here must exist in the dimension
+registry and the profile resolvers, and everything the registry
+defines must appear here (docs match shipped behavior — the W6.3
+standing rule).
+
+== 1. The four-layer pipeline
+
+Comparison flows through four independent layers. Each layer's
+output is the next layer's input; no layer sees another layer's
+options.
+
+[cols="1,3,2"]
+|===
+|Layer |Decides |Resolved from
+
+|1. Preprocessing
+|What byte form enters the parse (`:none`, `:c14n`, `:normalize`,
+`:format`, `:rendered`)
+|The profile's `preprocessing` key
+
+|2. Algorithm
+|The comparison engine: `:dom` (position-based recursive descent) or
+`:semantic` (signature matching producing insert/update/delete/move)
+|`diff_algorithm:` (default `:dom`); the two are distinct by design
+and are never merged
+
+|3. Matching
+|How nodes are deemed equal: one behavior per dimension
+|The profile (or explicit per-dimension options) resolved through
+the format's resolver
+
+|4. Presentation
+|How results are spelled (`by_line`, `by_object`, normative-only
+filtering)
+|`show_diffs:` and the formatter choice
+|===
+
+== 2. Dimensions
+
+A *dimension* is one axis along which two nodes may differ. The
+dimension registry (`Canon::Comparison::Dimensions::Registry`)
+defines, per format, each dimension's name and its *valid
+behaviors* — closed sets; an option outside the set raises at
+resolution. HTML aliases (`html`, `html4`, `html5`) resolve to the
+XML dimension set.
+
+=== 2.1 XML and HTML (the `:xml` set)
+
+[cols="1,2,3"]
+|===
+|Dimension |Behaviors |Semantics
+
+|`text_content`
+|`strict`, `normalize`, `ignore`
+|`strict`: character-exact text comparison. `normalize`:
+whitespace runs collapse to a single space and leading/trailing
+whitespace strips before comparison. `ignore`: text content never
+differs.
+
+|`structural_whitespace`
+|`strict`, `normalize`, `ignore`
+|Whitespace-only text nodes between elements. `strict`: they are
+content (normative: a `strict`-only dimension — a non-strict
+behavior can never make documents inequivalent on its own).
+`normalize`: whitespace-only nodes are equivalent regardless of
+shape. `ignore`: whitespace-only nodes are dropped before the walk.
+
+|`attribute_presence`
+|`strict`, `ignore`
+|Whether an attribute exists. `ignore` drops all attributes before
+comparison.
+
+|`attribute_order`
+|`strict`, `ignore`
+|`strict`: attribute order is significant. `ignore`: attributes
+compare as a set.
+
+|`attribute_values`
+|`strict`, `strip`, `compact`, `normalize`, `ignore`
+|`strict`: character-exact values. `strip`: leading/trailing
+whitespace strips. `compact`: internal whitespace runs collapse
+(verify: the value is compared after whitespace compaction).
+`normalize`: both strip and collapse. `ignore`: values compare
+equal regardless.
+
+|`element_position`
+|`strict`, `ignore`
+|`strict`: child order is significant. `ignore`: children match by
+identity (the ElementMatcher's id-attribute matching), not position.
+
+|`comments`
+|`strict`, `ignore`
+|Comment nodes: content-compared or dropped.
+
+|`namespace_prefix`
+|`significant`, `ignore`
+|`significant`: the written prefix is part of the node's identity.
+`ignore`: only the namespace URI matters; the prefix is spelling.
+|===
+
+=== 2.2 JSON (the `:json` set)
+
+[cols="1,2,3"]
+|===
+|Dimension |Behaviors |Semantics
+
+|`text_content`
+|`strict`, `normalize`, `ignore`
+|String values, `strict` character-exact.
+
+|`structural_whitespace`
+|`strict`, `normalize`, `ignore`
+|Whitespace between tokens outside strings. `strict`-only
+normative.
+
+|`key_order`
+|`strict`, `ignore`
+|`ignore`: objects compare as unordered maps (the canonical lane
+sorts keys).
+|===
+
+=== 2.3 YAML (the `:yaml` set)
+
+The `:json` set plus:
+
+[cols="1,2,3"]
+|===
+|Dimension |Behaviors |Semantics
+
+|`comments`
+|`strict`, `ignore`
+|YAML comments: compared or dropped before parse.
+|===
+
+== 3. Profiles and the profile algebra
+
+A *profile* is a named total assignment: one behavior per dimension
+of the format, plus a preprocessing layer. Profiles resolve through
+the format's resolver; explicit per-dimension options override a
+profile's entry for that dimension alone. XML/HTML ship FOUR
+profiles; JSON and YAML ship THREE (`:rendered` does not exist for
+them — the resolvers reject it). The resolved assignments below are
+asserted by the review spec:
+
+[cols="1,1,1"]
+|===
+|Profile |Intent |Resolved assignment
+
+|`:strict`
+|Default. Everything significant.
+|`text_content=strict`, `structural_whitespace=strict`,
+`attribute_presence=strict`, `attribute_order=strict`,
+`attribute_values=strict`, `element_position=strict`,
+`comments=strict`, `namespace_prefix=significant`,
+`whitespace_type=strict`, `preprocessing=none`.
+
+|`:spec_friendly`
+|Normative-document comparison (the spec-familiar shape).
+|`text_content=normalize`, `structural_whitespace=ignore`,
+`attribute_presence=strict`, `attribute_values=normalize`,
+`attribute_order=ignore`, `element_position=ignore`,
+`comments=ignore`, `namespace_prefix=ignore`,
+`whitespace_type=strict`, `preprocessing=rendered`.
+
+|`:rendered` (XML/HTML only)
+|The same document as rendered sources.
+|`text_content=normalize`, `structural_whitespace=normalize`,
+`attribute_presence=strict`, `attribute_order=ignore`,
+`comments=ignore`, `attribute_values=strict`,
+`element_position=strict`, `namespace_prefix=significant`,
+`whitespace_type=strict`, `preprocessing=none`.
+
+|`:content_only`
+|Ignore all spelling; compare information content.
+|`text_content=normalize`, `structural_whitespace=ignore`,
+`attribute_presence=strict`, `attribute_order=ignore`,
+`attribute_values=normalize`, `element_position=ignore`,
+`comments=ignore`, `namespace_prefix=ignore`,
+`whitespace_type=strict`, `preprocessing=c14n`.
+|===
+
+=== 3.1 JSON and YAML profile assignments
+
+JSON ships `:strict`, `:spec_friendly`, and `:content_only` (no
+`:rendered`); YAML the same plus its `comments` dimension.
+
+[cols="1,1,1"]
+|===
+|Profile |JSON |YAML
+
+|`:strict`
+|`key_order=strict`, `text_content=strict`,
+`structural_whitespace=strict`, `preprocessing=none`
+|`key_order=strict`, `text_content=strict`,
+`structural_whitespace=strict`, `comments=strict`,
+`preprocessing=none`
+
+|`:spec_friendly`
+|`key_order=ignore`, `text_content=strict`,
+`structural_whitespace=ignore`, `preprocessing=normalize`
+|`key_order=ignore`, `text_content=strict`,
+`structural_whitespace=ignore`, `comments=ignore`,
+`preprocessing=normalize`
+
+|`:content_only`
+|`key_order=ignore`, `text_content=normalize`,
+`structural_whitespace=ignore`, `preprocessing=normalize`
+|`key_order=ignore`, `text_content=normalize`,
+`structural_whitespace=ignore`, `comments=ignore`,
+`preprocessing=normalize`
+|===
+
+*Registry note (the W6.2 audit finding)*: the resolvers resolve
+one key beyond the registry's dimension sets — `whitespace_type`
+(`strict` in every shipped profile) — governing whether whitespace
+TYPE differences (space vs tab) are significant. It awaits registry
+promotion; until then it is documented here as a resolver-level
+option.
+
+Profile algebra properties:
+
+* *Totality*: a resolved profile assigns every format dimension
+exactly one behavior (the resolver raises on a gap).
+* *Monotone relaxation*: `:strict` is the identity of the algebra —
+every other profile differs from `:strict` only by relaxing
+dimensions toward `ignore`/`normalize`, never by strengthening.
+* *Non-normativity of relaxed dimensions*: with the exception of
+`text_content`, a dimension at `ignore` contributes no
+equivalence-affecting differences (the normative/informative split
+below).
+
+== 4. Normative, informative, and formatting-only differences
+
+A difference is classified when emitted:
+
+* *Normative* — affects equivalence: the documents are not
+equivalent. Produced by a dimension at a strict/significant
+behavior.
+* *Informative* — recorded but not equivalence-affecting: produced
+by a dimension at a relaxed behavior where the difference is still
+observable.
+* *Formatting-only* — the canonical forms match; the difference is
+pure spelling.
+
+`show_diffs: :normative` filters the presentation to normative
+findings. The classification is a property of the dimension's
+resolved behavior, not of the documents.
+
+== 5. The two algorithms
+
+=== 5.1 DOM (`diff_algorithm: :dom`, default)
+
+Position-based recursive descent. For each element pair: compare
+names, dimensions resolve per-dimension (attributes as sets or
+sequences per `attribute_order`, children positionally per
+`element_position` with the ElementMatcher's identity matching when
+relaxed). Complexity is linear in the sum of tree sizes. The
+intermediate representation is comparison-result codes
+(`EQUIVALENT`, `MISSING_NODE`, `UNEQUAL_TEXT_CONTENTS`, ...) which
+convert to DiffNodes.
+
+=== 5.2 Semantic (`diff_algorithm: :semantic`)
+
+Signature-based tree matching in three phases: (1) hash matching —
+identical subtrees match exactly; (2) similarity matching —
+remaining nodes pair by content similarity above
+`similarity_threshold`; (3) structural propagation — parent/child
+correspondences derive from matched ancestors. The intermediate
+representation is an operation stream (INSERT, DELETE, UPDATE,
+MOVE) converted to DiffNodes. The algorithms share preprocessing,
+configuration, match options, and output formatting; the comparison
+cores never share code (distinct by design — see CLAUDE.md, "Two
+Comparison Algorithms — Distinct by Design").
+
+== 6. Registry citation
+
+The review spec (`spec/canon/docs/comparison_theory_spec.rb`)
+asserts, at every run: for each format, every registry dimension
+name and every valid behavior token appears in this document; every
+profile row's resolved assignment equals the resolver's output for
+that profile. A dimension added to the registry without a §2 entry,
+a behavior added without its semantics row, or a profile change
+without a §3 row update, fails the battery.
