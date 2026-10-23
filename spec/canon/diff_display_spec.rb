@@ -220,7 +220,11 @@ RSpec.describe "Line-by-line diff display" do
       # A closing tag should not appear as a SEPARATE deleted line.
       # It's OK for </p> to appear in a changed line's content (same line as <p>),
       # but it should never be the sole content of a deleted line.
-      deleted_lines = lines.grep(/\| *(?:\d+ *)*-+ *\\|/)
+      deleted_lines = lines.select do |ll|
+        cells = ll.split("|", -1)
+        cells.size >= 3 && cells[1].strip.match?(/\A\d*\z/) &&
+          cells[2].strip.match?(/\A-+\z/)
+      end
 
       deleted_lines.each do |line|
         # Extract the content after the "| - | " marker
