@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "strscan"
+
 module Canon
   module Xml
     # XPath evaluation engine for C14N subset selection.

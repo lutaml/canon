@@ -5,8 +5,12 @@ module Canon
     # Attribute handler for C14N 1.1
     # Handles attribute processing per spec
     class AttributeHandler
-      def initialize(encoder)
+      def initialize(encoder, inherit_xml_attributes: true)
         @encoder = encoder
+        # C14N 1.1 inherits xml:lang/xml:base from omitted ancestors in
+        # subsets; Exclusive C14N drops all xml:* inheritance (the
+        # spec's own point) and disables it here.
+        @inherit_xml_attributes = inherit_xml_attributes
       end
 
       # Process attribute axis of an element
@@ -35,7 +39,7 @@ module Canon
         attributes = element.sorted_attribute_nodes.select(&:in_node_set?)
 
         # Add inherited simple inheritable attributes if needed
-        if omitted_ancestors.any?
+        if @inherit_xml_attributes && omitted_ancestors.any?
           inherited = collect_inherited_attributes(element, omitted_ancestors)
           attributes = merge_attributes(attributes, inherited)
         end
