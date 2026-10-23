@@ -13,6 +13,13 @@ require "yaml"
 # Re-baseline with CANON_BUDGET_UPDATE=1 after verifying a delta is
 # intentional.
 BUDGETS_FILE = File.join(__dir__, "../support/allocation_budgets.yml").freeze
+# The nokogiri-less lane's load paths shift the object counts
+# (parse_xml doubles without the nokogiri-backed lazy paths), so
+# that lane carries its own ceiling overrides; every other lane
+# falls through to the base file.
+NOKOGIRI_LESS_FILE = File.join(
+  __dir__, "../support/allocation_budgets.nokogiri-less.yml"
+).freeze
 XML_DOC = '<root a="1" b="2"><child x="10">text</child><child/><tail>z</tail></root>'
 XML_VARIANT = XML_DOC.gsub("><", ">\n<")
 JSON_DOC = '{"b":[1,2,{"c":"d"}],"a":{"x":1,"y":[true,null]},"z":"str"}'
@@ -35,7 +42,14 @@ LANES = {
 
 RSpec.describe "allocation budgets" do
   let(:lanes) { LANES }
-  let(:budgets) { YAML.safe_load_file(BUDGETS_FILE) }
+  let(:budgets) do
+    base = YAML.safe_load_file(BUDGETS_FILE)
+    if ENV["CANON_SIMULATE_NO_NOKOGIRI"] == "1"
+      base.merge(YAML.safe_load_file(NOKOGIRI_LESS_FILE))
+    else
+      base
+    end
+  end
 
   def median_allocation_delta(lane)
     call = lanes.fetch(lane)
@@ -56,6 +70,11 @@ RSpec.describe "allocation budgets" do
   end
 
   it "keeps every lane within its committed allocation ceiling" do
+    overrides = if ENV["CANON_SIMULATE_NO_NOKOGIRI"] == "1"
+                  YAML.safe_load_file(NOKOGIRI_LESS_FILE)
+                else
+                  {}
+                end
     breaches = []
     updated = {}
     budgets.each do |lane, ceiling|
@@ -71,13 +90,16 @@ RSpec.describe "allocation budgets" do
       end
     end
     unless updated.empty?
-      header = File.readlines(BUDGETS_FILE)
-        .take_while { |line| line.start_with?("#") }.join
-      body = budgets.merge(updated)
-      note = updated.map { |lane, med| "#{lane}: #{budgets[lane]} -> #{med}" }.join("; ")
-      File.write(BUDGETS_FILE,
-                 "#{header}\n# re-baselined #{Time.now.strftime('%Y-%m-%d')}: " \
-                 "#{note}\n#{YAML.dump(body)}")
+      updated.each do |lane, median|
+        file = overrides.key?(lane) ? NOKOGIRI_LESS_FILE : BUDGETS_FILE
+        header = File.readlines(file)
+          .take_while { |line| line.start_with?("#") }.join
+        body = YAML.safe_load_file(file).merge(lane => median)
+        note = "#{lane}: #{budgets[lane]} -> #{median}"
+        File.write(file,
+                   "#{header}\n# re-baselined #{Time.now.strftime('%Y-%m-%d')}: " \
+                   "#{note}\n#{YAML.dump(body)}")
+      end
     end
     expect(breaches).to be_empty, breaches.join("\n")
   end
