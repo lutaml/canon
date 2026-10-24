@@ -1,0 +1,50 @@
+= The canonical digests (W5.3)
+
+This document specifies canon's canonical digest API as shipped by
+`Canon::Digest`. Reviewed against the implementation by
+`spec/canon/docs/canonical_digests_spec.rb` (the W6.3 review-gate
+pattern), with the cross-release byte pins carried by
+`spec/canon/digest_stability_spec.rb`.
+
+== 1. The law
+
+The digest of a document is the OpenSSL hash of its CANONICAL
+FORM — the form under which the format's comparison pipeline deems
+documents equivalent. Two documents that compare equivalent produce
+identical digests; two that compare distinct produce distinct
+digests. The digest is an API over the comparison semantics, not a
+new canonicalization.
+
+== 2. Per-format canonical forms
+
+* *XML* rides Canonical XML 1.1
+  (`Canon::Xml::C14n.canonicalize`, reached as
+  `Formatters::XmlFormatter.format(pretty: false)`). The
+  pretty-printed XML form preserves attribute order and is NOT
+  canonical; the digest lane never touches it.
+* *JSON and YAML* ride the key-sorted formatter forms (the JCS
+  profile for JSON's canonical lane; the `[class, to_s]` TOTAL
+  key order for YAML).
+* *HTML* rides the whitespace-law form with sorted attributes
+  (the W1.3 specification).
+
+Equivalence consequences the digest inherits: attribute order is
+insignificant in XML and HTML; mapping key order is insignificant
+in JSON and YAML; element/sequence order is significant everywhere.
+
+== 3. Entry points
+
+`Canon::Digest.digest(content, format, algorithm: "sha256")`
+accepts any OpenSSL digest name; `canonical_form(content, format)`
+exposes the hashed bytes. Per-format shorthands
+(`Canon.digest_xml`, `digest_yaml`, `digest_json`, ...) mirror the
+format lane's shorthands.
+
+== 4. Stability contract
+
+The digests are stable across releases for as long as the
+underlying canonical form is. The stability suite pins the digest
+hex of a representative document per format; a canonical-form
+change moves a digest and MUST fail that suite, forcing a
+conscious pin update (and a release note) rather than silent drift
+for downstream dedup stores.
