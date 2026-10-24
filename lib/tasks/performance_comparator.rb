@@ -30,14 +30,31 @@ class PerformanceComparator
   DIM    = "\e[2m"
   CLEAR  = "\e[0m"
 
+  BEST_OF = Integer(ENV.fetch("CANON_PERF_BEST_OF", "3"))
+
   def run
     clone_base
-    current = run_report(REPO_ROOT, "current")
-    base = run_report(base_clone_dir, "base (#{DEFAULT_BASE})")
+    current = best_of(REPO_ROOT, "current")
+    base = best_of(base_clone_dir, "base (#{DEFAULT_BASE})")
     print_report(current, base)
     exit(1) if regressions?(current, base)
   ensure
     cleanup
+  end
+
+  # The html_parsing lanes drift up to ~27% BETWEEN SAME-CONTENT runs
+  # on shared runners (main failed against itself: run 40047205814) —
+  # single-run comparisons measure the runner, not the code. Each side
+  # runs BEST_OF times; per benchmark, the run with the highest upper
+  # bound stands (the capability estimate a fair gate compares).
+  def best_of(working_dir, label)
+    runs = Array.new(BEST_OF) { |i| run_report(working_dir, "#{label} ##{i + 1}") }
+    runs.first.fetch("benchmarks").keys.each_with_object({}) do |bench, merged|
+      best = runs.max_by { |r| r.fetch("benchmarks").fetch(bench).fetch("upper").to_f }
+      merged[bench] = best.fetch("benchmarks").fetch(bench)
+    end.then do |benchmarks|
+      runs.first.merge("benchmarks" => benchmarks)
+    end
   end
 
   private
