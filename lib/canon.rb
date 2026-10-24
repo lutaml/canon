@@ -32,6 +32,7 @@ module Canon
   autoload :Cli, "canon/cli"
   autoload :ColorDetector, "canon/color_detector"
   autoload :DiffFormatter, "canon/diff_formatter"
+  autoload :Digest, "canon/digest"
   autoload :Json, "canon/json"
 
   SUPPORTED_FORMATS = %i[xml yaml json html html4 html5 string].freeze
@@ -84,5 +85,15 @@ module Canon
     define_singleton_method("format_#{format}") do |content|
       format(content, format)
     end
+
+    define_singleton_method("digest_#{format}") do |content, algorithm: Canon::Digest::DEFAULT_ALGORITHM|
+      Canon::Digest.digest(content, format, algorithm: algorithm)
+    end
+  end
+
+  # The canonical digest of a document (W5.3): the hash of its
+  # canonical form. See Canon::Digest for the stability contract.
+  def self.digest(content, format = :xml, algorithm: Canon::Digest::DEFAULT_ALGORITHM)
+    Canon::Digest.digest(content, format, algorithm: algorithm)
   end
 end
