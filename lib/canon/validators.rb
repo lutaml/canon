@@ -7,6 +7,7 @@ module Canon
     autoload :HtmlValidator, "canon/validators/html_validator"
     autoload :JsonValidator, "canon/validators/json_validator"
     autoload :XmlValidator, "canon/validators/xml_validator"
+    autoload :XsdValidator, "canon/validators/xsd_validator"
     autoload :YamlValidator, "canon/validators/yaml_validator"
   end
 end

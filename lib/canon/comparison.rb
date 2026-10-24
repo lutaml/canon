@@ -95,6 +95,7 @@ module Canon
     autoload :DiffNodeBuilder, "canon/comparison/diff_node_builder"
     autoload :Dimensions, "canon/comparison/dimensions"
     autoload :FormatDetector, "canon/comparison/format_detector"
+    autoload :SchemaGate, "canon/comparison/schema_gate"
     autoload :HtmlComparator, "canon/comparison/html_comparator"
     autoload :HtmlCompareProfile, "canon/comparison/html_compare_profile"
     autoload :HtmlParser, "canon/comparison/html_parser"
@@ -244,6 +245,33 @@ module Canon
           opts = opts.merge(diff_algorithm: :semantic)
           opts = opts.merge(match: opts[:match].except(:semantic_diff,
                                                        :semantic_tree))
+        end
+
+        # W5.1 schema gate: when a schema rides the options, both XML
+        # documents must pass the engine's XSD assessment BEFORE the
+        # diff runs — a validation failure is normative regardless of
+        # what the tree comparison would say.
+        if (xsd = opts[:xsd])
+          gate = SchemaGate.gate(obj1, obj2, xsd)
+          unless gate.empty?
+            diffs = gate.map do |side, error|
+              node = Diff::DiffNode.new(node1: side.zero? ? obj1 : obj2,
+                                        node2: side.zero? ? obj2 : obj1,
+                                        dimension: :schema_validation,
+                                        reason: error.message)
+              node.normative = true # a schema failure is normative by definition
+              node
+            end
+            return false unless opts[:verbose]
+
+            return ComparisonResult.new(
+              differences: diffs,
+              preprocessed_strings: [obj1.to_s, obj2.to_s],
+              format: opts[:format] || :xml,
+              algorithm: :dom,
+              original_strings: [obj1.to_s, obj2.to_s],
+            )
+          end
         end
 
         if %i[semantic semantic_tree].include?(opts[:diff_algorithm])
