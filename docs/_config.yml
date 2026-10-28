@@ -176,9 +176,6 @@ include:
 exclude:
   - Gemfile
   - Gemfile.lock
-  # the cross-team ops board stays in the repo, off the published site
-  # (its live URL would 404 in the PR-time link check until deploy)
-  - HANDOFF.adoc
   - node_modules
   - vendor
   - .sass-cache
