@@ -1,0 +1,175 @@
+= Cross-team handoff: the engine issue board
+
+A snapshot of the open arcs across the org repos — what is known, where
+to dig, and what has already been proven — so any team can pick an issue
+up cold. Statuses as of 2026-10-28.
+
+== lutaml/moxml
+
+[cols="1,1,2"]
+|===
+|Issue |Status |Known + first moves
+
+|moxml#474 — parent-of-attribute (`./@id/..`) returns empty through the
+Ruby engine on the leptris adapter
+|Open (filed 2026-10-27 with probes)
+|The adapter routes parent-axis expressions to the Ruby engine
+(`REVERSE_AXES` in `adapter/leptris.rb`); that lane loses attribute
+inputs. The ENGINE answers correctly since leptris v1.9.385 (both eval
+paths). Easiest: widen the native gate for parent/ancestor-after-
+attribute paths; or fix `on_axis_parent` in `xpath/compiler.rb` for
+`Wrappers::Attribute` inputs (the wrappers carry `@parent_node`).
+Unblocks metanorma-standoc's `svg_uniqueids1`.
+
+|moxml#472 — `.//*[@class]` predicate segfaults the compiled evaluator
+|Open
+|Crash in `leptris_xpath_compiled_eval` (.ips on file); the
+`attribute::class` spelling does not crash. FIRST retest against
+leptris v1.9.385 — a corrupt-attribute-table class (the cross-doc
+adopt, leptris#1869) shipped fixed there and could be the fuel. If it
+still crashes: the VM's predicate lane (`src/leptris/xpath/vm.c`,
+attribute existence inside `[...]`). Production hit: standoc's
+`svg_classupdate1`.
+
+|moxml#473 — XSD compile of large occurrence products grows unbounded
+(jetsam SIGKILL, low RSS)
+|Open
+|W3C `particlesZ034_b.xsd` repro in the issue. The compiled automaton's
+product construction needs cardinality folding (`unbounded` inner terms
+to epsilon-loops) instead of enumeration.
+|===
+
+== leptris/leptris
+
+[cols="1,1,2"]
+|===
+|Issue |Status |Known + first moves
+
+|leptris#1866 — cross-doc replace + `@id/..` + serialize
+|CLOSED (v1.9.385, #1869)
+|Shipped: the adopt copy's attribute-tail resync
+(`copy_subtree_detached`, `src/leptris/dom/element_modify.c`) and the
+evaluator-path parent-of-attribute (`apply_axis`,
+`src/leptris/xpath/evaluator_axes.c`). Pin:
+`AdoptKeepsMixedPlainAndNamespacedAttrs`. Re-verify downstream crash
+reports (moxml#472) against 1.9.385.
+
+|leptris#1842 — C-face XML parse/gen/xpath ~3-4x behind pugixml
+|Open
+|Decomposed into #1846/#1854/#1855. Use the interleaved A/B harness.
+
+|leptris#1846 — parse gap is allocator-shaped (1.0x mingw -> 4.3x old
+Intel mac, same code)
+|Open, slice 3 pending
+|Allocation profile done (the issue's wave comment). ARENA
+RIGHT-SIZING with the interleaved harness — cross-wave comparison is
+INVALID (pugixml swung 1.7x between waves; only within-run interleaved
+A/B counts). A counting-malloc interposer via `DYLD_INTERPOSE` beats
+xctrace for parse loops. Prior art: `leptris-xsitype` worktree,
+branch `perf/1846-adopt-conversion-buffer`.
+
+|leptris#1854 — `to_xml` native emission: `FFI::Pointer#+` is 37% of
+the loop
+|Open
+|An address-Integer emission API (`uintptr_t` in/out, the #408 law);
+batch per subtree, not per node.
+
+|leptris#1855 — plan-path parse ~35% FFI materialization
+|Open
+|Batched child/string asks; mirror the `children_read` bulk face
+(leptris-ruby#530).
+|===
+
+== leptris/yeptris
+
+[cols="1,1,2"]
+|===
+|Issue |Status |Known + first moves
+
+|yeptris#739 — JSON parse 2x behind yyjson
+|Open
+|The 12x WRITE gap is closed (serialize 16->221 MB/s: the one-pass
+route, the run-batched `emit_dq_json` SWAR scan, the `emit_json_value`
+walker). Parse remains; profile with the counting-malloc interposer.
+
+|yeptris#742 — YAML emit ~1.5x behind rapidyaml; CBOR decode 1.3-2.2x
+behind tinycbor
+|Open
+|13-leg matrix. The emit side shares machinery with the closed #739
+write work — reuse the walker patterns.
+
+|yeptris#474 — `parse_json_tape` 0.61x vs simdjson on arm64 (ubuntu
+1.07x, same binary)
+|Open
+|Platform-specific: diff the arm64 SIMD kernels vs the scalar fallback
+(`src/yeptris/common/simd_text*`), starting from the kernel-selection
+law.
+
+|yeptris#352 — yaml generation 1.4-1.7x behind rapidyaml (10/12
+platforms)
+|Open, partially improved
+|Remaining: scalar-route derivation cost. `benchmarks/PERF-LEDGER.md`
+has the trusted-into entries.
+|===
+
+== leptris/yeptris-ruby
+
+[cols="1,1,2"]
+|===
+|Issue |Status |Known + first moves
+
+|yeptris-ruby#322 — CBOR dump is marshaling-bound
+|Open
+|The JSON half shipped (the marshal face: 4.4x end-to-end). CBOR: a
+`yeptris_cbor_from_marshal`-style face, reusing the marshal reader's
+REGISTRY LAW and its pin (`test/unit/test_marshal_json.cpp`) — the
+registry law (who occupies an `@` slot) is the hard-won part; copy both.
+|===
+
+== Mechanics every team hits
+
+[cols="1,3"]
+|===
+|Topic |The law
+
+|Differential corpora
+|Random-tree corpora never produce repeated keys or shared references —
+shift/registration bugs survive 300/300 "green". Include linked shapes
+(users-style rows). Lock byte-level fixtures to FILES (Ruby's fstring
+interning varies per process).
+
+|Performance claims
+|Cross-wave serialbench comparison is INVALID (runner noise; pugixml
+swung 1.7x between waves). Only within-run interleaved A/B on fresh
+binaries counts. The perf gate is best-of-N per side.
+
+|Release cuts (yeptris)
+|`next_version` must be a LITERAL X.Y.Z. The release PR self-closes ~2
+min after cut if checks never start: push a PARENTED trigger commit
+(`git commit-tree -p "$sha" -m ... "$sha^{tree}"` — without `-p` the
+commit orphans and the PR creation fails) within the window, then
+approve runs gated at `conclusion == "action_required"` (the `status`
+field reads `completed` while gated). The changelog gate requires an
+`## [Unreleased]` section before EVERY cut, version-only ones included.
+
+|Release cuts (yeptris-ruby)
+|RELEASE_TOKEN unset -> the bump job's 60-min wait step always fails;
+the PR opens anyway. Hand-merge on green, then dispatch the republish
+with EMPTY next_version (reuses main's VERSION). A new gem version needs
+its C `v<c_semver>` tag to EXIST first (platform legs vendor from it).
+
+|Release cuts (leptris)
+|The same cut/trigger/approve cycle; the Unreleased section exists on
+main — keep it fed.
+
+|Formatting
+|The repos target clang-format 14+ (CI runs LLVM 18); local 11.1/22.1
+both reject the config — the CI format job is the gate.
+
+|CI flakes
+|`pull_request` events intermittently vanish for fresh PRs (yeptris,
+leptris). Fallback: `gh workflow run test.yml format.yml asan.yml --ref
+<branch>` — sha-keyed check runs satisfy required-context protection.
+A "failed" check may be CANCELLED by a concurrent push (concurrency
+groups) — read the conclusion, `gh run rerun <id> --failed`.
+|===
