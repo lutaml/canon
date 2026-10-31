@@ -37,7 +37,11 @@ comparison, testing, digital signatures, and human-readable output."
   # Nokogiri is loaded lazily by Canon::NokogiriLoader, only for HTML
   # support and the CANON_XML_BACKEND=nokogiri engine.
   spec.add_dependency "leptris", "~> 1.9.376"
-  spec.add_dependency "moxml", "~> 0.5.149"
+  # moxml 0.6.0 removed the Opal surface (lutaml/moxml#516, the
+  # cross-language program's phase 4); canon runs on the leptris
+  # adapter and is unaffected on CRuby. Owner call: forward-pin the
+  # 0.6 series alongside lutaml-model (lutaml/lutaml-model#1062).
+  spec.add_dependency "moxml", "~> 0.6.0"
   spec.add_dependency "paint"
   spec.add_dependency "rainbow"
   spec.add_dependency "table_tennis"
