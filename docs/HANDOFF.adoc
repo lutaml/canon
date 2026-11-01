@@ -152,10 +152,26 @@ file:// URLs directly. Same PR carries the pre-existing rubocop debt
 that failed docbook's own rake lane (dead `custom_data` captures).
 
 |ukiryu dependent leg (macos)
-|Transient — watch, don't fix
+|Transient — resolved
 |`bundle add lutaml-model` exit 7: the runner's rubygems compact index
 had not propagated yeptris 0.6.53.0 (released hours earlier; the
-version EXISTS with full platform coverage). Later runs resolve.
+version EXISTS with full platform coverage). Passed on the next
+dependent run.
+
+|glossarist/iev dependent legs (all OSes) + iev's own rake lane
+|Diagnosed — plurimath owner decision pending
+|22 failures, all one error: the current live `plurimath 0.10.0`
+build (sha `7b870bf0...`) requires `mml/configuration` at line 2, an
+API NO mml version ships (2.4.5 ships `context_configuration`). iev
+swallows the LoadError, leaving `Plurimath` defined without
+`Plurimath::Math`; every exporter spec dies with
+`uninitialized constant Plurimath::Math` (diag in glossarist/iev#75).
+Why 0.10.0 resolves NOW: canon 0.3.118's `moxml ~> 0.6.0` conflicts
+with plurimath 0.11.12's chain (`omml` caps `moxml < 0.6`,
+plurimath/omml), so bundler backtracks to the broken 0.10.0.
+Unblocks, in order: fix/yank the republished plurimath 0.10.0 (a bare
+yank is WORSE — resolution jumps to 0.11.12 and fails outright);
+widen omml's moxml cap to admit 0.6; then revert iev#75.
 |===
 
 == Mechanics every team hits
