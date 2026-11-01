@@ -185,13 +185,19 @@ relaton 3.0.4, expressir (admits), lutaml-model 0.8.156 (admits
 suite is the executable proof: 489/0 on the resolved modern stack.
 
 |metanorma-standoc legs: parsanol 1.3.120 removed the `mode` alias
-|Open — relaton-chain grammar follow-up
-|`Parsanol::PARG::ParseError: the grammar header keyword is edition;
-mode (the pre-1.3.113 alias) was removed` fires in
-`@bibdb.fetch_async` (relaton bibdb chain) on standoc's fresh
-resolutions. Some grammar file still says `mode`; move it to
-`edition "v1"` / `edition "v2"` per the parsanol message. Separate
-from moxml entirely.
+|Grammar side DONE (pubid-grammar main); vendor step pending — owner
+|Root-caused to pubid's VENDORED `data/parg/iso.json`: the artifact
+bake predates parsanol 1.3.121 and still carries
+`grammar PubidIso ... mode "v1"`. The grammar sources are already
+fixed on pubid-grammar main (the 1.3.121 fleet re-base, 21bcfd6);
+the remaining step is the vendor commit into pubid's `data/parg/`
+(proven mechanical: baking origin/main at 1.3.121 yields `edition 2`
+headers with bindings intact — iso 84, bsi 92, ashrae 37). The
+owner's `worktrees/grammar-rebake` is on it. standoc's severity
+question (#1318/#1324) is re-pinned in metanorma-standoc#1333:
+relaton 3.0.2 degrades `ISO 0a` to RELATON_4 at severity 3, which a
+severity-2 filter legitimately drops; that PR's CI goes green the
+moment the vendor lands.
 |===
 
 == Mechanics every team hits
