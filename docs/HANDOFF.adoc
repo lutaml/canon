@@ -159,19 +159,39 @@ version EXISTS with full platform coverage). Passed on the next
 dependent run.
 
 |glossarist/iev dependent legs (all OSes) + iev's own rake lane
-|Diagnosed — plurimath owner decision pending
-|22 failures, all one error: the current live `plurimath 0.10.0`
-build (sha `7b870bf0...`) requires `mml/configuration` at line 2, an
-API NO mml version ships (2.4.5 ships `context_configuration`). iev
-swallows the LoadError, leaving `Plurimath` defined without
-`Plurimath::Math`; every exporter spec dies with
-`uninitialized constant Plurimath::Math` (diag in glossarist/iev#75).
-Why 0.10.0 resolves NOW: canon 0.3.118's `moxml ~> 0.6.0` conflicts
-with plurimath 0.11.12's chain (`omml` caps `moxml < 0.6`,
-plurimath/omml), so bundler backtracks to the broken 0.10.0.
-Unblocks, in order: fix/yank the republished plurimath 0.10.0 (a bare
-yank is WORSE — resolution jumps to 0.11.12 and fails outright);
-widen omml's moxml cap to admit 0.6; then revert iev#75.
+|RESOLVED (2026-11-01)
+|The republished `plurimath 0.10.0` (sha `7b870bf0...`) required
+`mml/configuration` at line 2 — an API no mml version ships; iev's
+silent LoadError rescue turned that into 21x
+`uninitialized constant Plurimath::Math` (diag: glossarist/iev#75,
+filed as plurimath/plurimath#528). Fixed by the org-wide moxml-0.6
+update (below): plurimath 0.10.0 yanked, omml released with
+`moxml ~> 0.6.0`, so 0.11.12 resolves again. Full iev suite green
+(489/0) on canon 0.3.118 + moxml 0.6.1 + omml 0.2.8 +
+lutaml-model 0.8.156. iev#75 (the diag) is revert-on-sight.
+
+**Gotcha for any release: a YANKED VERSION NUMBER STAYS INVISIBLE to
+bundler's resolution index even after re-pushing the same number** —
+omml 0.2.7 published, yanked, re-pushed identically, and bundler
+still could not see it. Always release a FRESH patch number after a
+yank (0.2.8).
+
+|The org-wide moxml 0.6 sweep (owner call, 2026-11-01)
+|Shipped
+|Every org gem now rides the moxml 0.6 line: canon 0.3.118
+(`~> 0.6.0`), omml 0.2.8, dcc 0.2.2, metanorma-standoc 3.5.5,
+relaton 3.0.4, expressir (admits), lutaml-model 0.8.156 (admits
+`< 0.7`), mml (unpinned). lutaml-xsd: owner PRs #214/#215. iev's
+suite is the executable proof: 489/0 on the resolved modern stack.
+
+|metanorma-standoc legs: parsanol 1.3.120 removed the `mode` alias
+|Open — relaton-chain grammar follow-up
+|`Parsanol::PARG::ParseError: the grammar header keyword is edition;
+mode (the pre-1.3.113 alias) was removed` fires in
+`@bibdb.fetch_async` (relaton bibdb chain) on standoc's fresh
+resolutions. Some grammar file still says `mode`; move it to
+`edition "v1"` / `edition "v2"` per the parsanol message. Separate
+from moxml entirely.
 |===
 
 == Mechanics every team hits
