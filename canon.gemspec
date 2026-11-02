@@ -47,7 +47,7 @@ comparison, testing, digital signatures, and human-readable output."
   spec.add_dependency "table_tennis"
   spec.add_dependency "thor", "~> 1.4"
   spec.add_dependency "unicode-name"
-  spec.add_dependency "yeptris", "~> 0.6.54"
+  spec.add_dependency "yeptris", "~> 0.6.55"
 
   spec.metadata["homepage_uri"] = spec.homepage
   spec.metadata["source_code_uri"] = spec.homepage
