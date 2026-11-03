@@ -646,6 +646,13 @@ module Canon
           return array_diff(obj1, obj2, resolved)
         end
 
+        # Hashes (metadata dumps the equivalent-xml matcher compared
+        # generically): key-wise deep comparison through the normal
+        # pipeline.
+        if obj1.is_a?(Hash) && obj2.is_a?(Hash)
+          return hash_diff(obj1, obj2, resolved)
+        end
+
         # Detect formats (with explicit hint) and pre-parse HTML strings
         # through Nokogiri::HTML5 so html4 and html5 share HTML's
         # whitespace-sensitivity semantics (issue #118).  Pre-parsing
@@ -699,20 +706,29 @@ module Canon
       # @param format1 [Symbol]
       # @param format2 [Symbol]
       # @return [Symbol]
+      SCALAR_LEAVES = [String, Symbol, Numeric, NilClass,
+                       TrueClass, FalseClass].freeze
+
+      def scalar_leaf?(obj)
+        SCALAR_LEAVES.any? { |k| obj.is_a?(k) }
+      end
+
       def array_diff(arr1, arr2, opts = {})
         verbose = opts[:verbose]
         if arr1.size != arr2.size
           return verbose ? [:size_mismatch] : false
         end
 
-        # Elements are extracted values, not documents: strings compare
-        # literally (a matcher format hint must not turn "ref1" into an
-        # XML fragment, where every bare string parses equal), and the
-        # format hint is dropped for the recursion on other scalars.
+        # Elements are extracted values, not documents: scalar leaves
+        # compare literally (a matcher format hint must not turn "ref1"
+        # into an XML fragment, where every bare string parses equal,
+        # and the detector has no format for numbers at all); containers
+        # and nodes recurse through the normal pipeline without the
+        # format hint.
         scalar_opts = opts.except(:verbose, :format)
         diffs = []
         arr1.zip(arr2).each_with_index do |(a, b), i|
-          eq = if a.is_a?(String) && b.is_a?(String)
+          eq = if scalar_leaf?(a) && scalar_leaf?(b)
                  a == b
                else
                  equivalent?(a, b, scalar_opts)
@@ -722,6 +738,30 @@ module Canon
           return false unless verbose
 
           diffs << { index: i, difference: eq == false ? :different : eq }
+        end
+        verbose ? diffs : diffs.empty?
+      end
+
+      def hash_diff(hash1, hash2, opts = {})
+        verbose = opts[:verbose]
+        if hash1.keys.sort != hash2.keys.sort
+          return verbose ? [:key_mismatch] : false
+        end
+
+        scalar_opts = opts.except(:verbose, :format)
+        diffs = []
+        hash1.each do |key, v1|
+          v2 = hash2[key]
+          eq = if scalar_leaf?(v1) && scalar_leaf?(v2)
+                 v1 == v2
+               else
+                 equivalent?(v1, v2, scalar_opts)
+               end
+          next if eq == true
+
+          return false unless verbose
+
+          diffs << { key: key, difference: eq == false ? :different : eq }
         end
         verbose ? diffs : diffs.empty?
       end
