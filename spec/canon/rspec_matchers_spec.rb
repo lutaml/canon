@@ -50,6 +50,25 @@ RSpec.describe Canon::RSpecMatchers do
       expect(xml_original).not_to be_xml_equivalent_to(xml_different)
     end
 
+    context "with arrays of extracted values" do
+      it "matches equal arrays order-sensitively" do
+        expect(%w[ref2 ref1]).to be_xml_equivalent_to(%w[ref2 ref1])
+      end
+
+      it "does not match arrays in a different order" do
+        expect(%w[ref1 ref2]).not_to be_xml_equivalent_to(%w[ref2 ref1])
+      end
+
+      it "does not match arrays of different sizes" do
+        expect(%w[ref1]).not_to be_xml_equivalent_to(%w[ref1 ref2])
+      end
+
+      it "matches arrays of XML fragments element-wise" do
+        expect(%w[<a>1</a> <b>2</b>])
+          .to be_xml_equivalent_to(%w[<a>1</a> <b>2</b>])
+      end
+    end
+
     context "with complex XML structures" do
       let(:xml1) do
         <<~XML

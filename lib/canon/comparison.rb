@@ -637,6 +637,15 @@ module Canon
         resolved = opts.dup
         format_hint = resolved[:format]
 
+        # Arrays have no document format of their own: suites extract
+        # value lists (attributes, anchors) or node lists and compare
+        # them as arrays. Element-wise, order-sensitive, each element
+        # recursing through the normal pipeline (strings short-circuit,
+        # nodes take their own format path).
+        if obj1.is_a?(Array) && obj2.is_a?(Array)
+          return array_diff(obj1, obj2, resolved)
+        end
+
         # Detect formats (with explicit hint) and pre-parse HTML strings
         # through Nokogiri::HTML5 so html4 and html5 share HTML's
         # whitespace-sensitivity semantics (issue #118).  Pre-parsing
@@ -690,6 +699,33 @@ module Canon
       # @param format1 [Symbol]
       # @param format2 [Symbol]
       # @return [Symbol]
+      def array_diff(arr1, arr2, opts = {})
+        verbose = opts[:verbose]
+        if arr1.size != arr2.size
+          return verbose ? [:size_mismatch] : false
+        end
+
+        # Elements are extracted values, not documents: strings compare
+        # literally (a matcher format hint must not turn "ref1" into an
+        # XML fragment, where every bare string parses equal), and the
+        # format hint is dropped for the recursion on other scalars.
+        scalar_opts = opts.except(:verbose, :format)
+        diffs = []
+        arr1.zip(arr2).each_with_index do |(a, b), i|
+          eq = if a.is_a?(String) && b.is_a?(String)
+                 a == b
+               else
+                 equivalent?(a, b, scalar_opts)
+               end
+          next if eq == true
+
+          return false unless verbose
+
+          diffs << { index: i, difference: eq == false ? :different : eq }
+        end
+        verbose ? diffs : diffs.empty?
+      end
+
       def normalize_comparison_format(format1, format2)
         return format2 if format1 == :ruby_object &&
           %i[json yaml].include?(format2)
