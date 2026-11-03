@@ -727,25 +727,26 @@ module Canon
         # format hint.
         scalar_opts = opts.except(:verbose, :format)
         diffs = []
-        arr1.zip(arr2).each_with_index do |(a, b), i|
-          eq = if scalar_leaf?(a) && scalar_leaf?(b)
-                 a == b
+        arr1.zip(arr2).each_with_index do |(element_before, element_after), i|
+          eq = if scalar_leaf?(element_before) && scalar_leaf?(element_after)
+                 element_before == element_after
                else
-                 equivalent?(a, b, scalar_opts)
+                 equivalent?(element_before, element_after, scalar_opts)
                end
           next if eq == true
 
           return false unless verbose
 
-          diffs << leaf_diff(i.to_s, a, b)
+          diffs << leaf_diff(i.to_s, element_before, element_after)
         end
         verbose ? diffs : diffs.empty?
       end
 
       # Verbose ruby-object entries use the diff-code shape the
       # DiffFormatter's by-object renderers consume.
-      def leaf_diff(path, a, b)
-        { path: path, diff_code: UNEQUAL_PRIMITIVES, value1: a, value2: b }
+      def leaf_diff(path, value_before, value_after)
+        { path: path, diff_code: UNEQUAL_PRIMITIVES,
+          value1: value_before, value2: value_after }
       end
 
       def hash_diff(hash1, hash2, opts = {})
@@ -756,18 +757,18 @@ module Canon
 
         scalar_opts = opts.except(:verbose, :format)
         diffs = []
-        hash1.each do |key, v1|
-          v2 = hash2[key]
-          eq = if scalar_leaf?(v1) && scalar_leaf?(v2)
-                 v1 == v2
+        hash1.each do |key, value_before|
+          value_after = hash2[key]
+          eq = if scalar_leaf?(value_before) && scalar_leaf?(value_after)
+                 value_before == value_after
                else
-                 equivalent?(v1, v2, scalar_opts)
+                 equivalent?(value_before, value_after, scalar_opts)
                end
           next if eq == true
 
           return false unless verbose
 
-          diffs << leaf_diff(key.to_s, v1, v2)
+          diffs << leaf_diff(key.to_s, value_before, value_after)
         end
         verbose ? diffs : diffs.empty?
       end
