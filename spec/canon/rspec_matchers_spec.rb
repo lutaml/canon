@@ -69,6 +69,26 @@ RSpec.describe Canon::RSpecMatchers do
       end
     end
 
+    context "with hashes of extracted metadata" do
+      it "matches equal hashes" do
+        expect({ "a" => 1, "b" => "x" })
+          .to be_xml_equivalent_to({ "a" => 1, "b" => "x" })
+      end
+
+      it "does not match hashes with different values" do
+        expect({ "a" => 1 }).not_to be_xml_equivalent_to({ "a" => 2 })
+      end
+
+      it "does not match hashes with different keys" do
+        expect({ "a" => 1 }).not_to be_xml_equivalent_to({ "b" => 1 })
+      end
+
+      it "matches nested structures deeply" do
+        expect({ "meta" => { "list" => %w[x y], "n" => 2 } })
+          .to be_xml_equivalent_to({ "meta" => { "list" => %w[x y], "n" => 2 } })
+      end
+    end
+
     context "with complex XML structures" do
       let(:xml1) do
         <<~XML
