@@ -36,14 +36,10 @@ module Canon
       end
 
       def format(html_string)
-        if @fixture_ready
-          # The fixture-ready display mode is the one Nokogiri lane
-          # left (libxml FORMAT|AS_XHTML save flags — moxml#390 filed
-          # for an engine XHTML mode); everything else is engine-
-          # served.
-          Canon::NokogiriLoader.require!("HTML fixture-ready display")
-          return format_fixture_ready(html_string)
-        end
+        # The fixture-ready display lane is engine-served end to end
+        # (moxml 0.6.2's XHTML serialization mode — moxml#390): no
+        # Nokogiri requirement remains in this mode.
+        return format_fixture_ready(html_string) if @fixture_ready
 
         if xhtml?(html_string)
           format_as_xhtml(html_string)
@@ -91,14 +87,8 @@ module Canon
         end
       end
 
-      # Fixture-ready serialisation: parse with Nokogiri::HTML5 (so we
-      # get permissive recovery on real-world Word / XHTML5 / HTML5
-      # input shapes), then write through libxml's XML writer with
-      # +FORMAT+ + +AS_XHTML+ + +NO_DECLARATION+.  +FORMAT+ inserts
-      # indentation; +AS_XHTML+ produces well-shaped output (void
-      # elements self-closed, non-void paired); +NO_DECLARATION+
-      # suppresses the +<?xml ...?>+ prefix.
-      # Engine parse + significance-aware strip + the engine's
+      # Fixture-ready serialisation, engine-served end to end:
+      # engine HTML parse + significance-aware strip + moxml 0.6.2's
       # XHTML serialization mode (moxml#390 delivered to_xhtml /
       # to_html(xhtml: true)): void elements self-closed, non-void
       # paired — the AS_XHTML contract, engine-served.

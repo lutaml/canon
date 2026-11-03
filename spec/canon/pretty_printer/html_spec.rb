@@ -140,7 +140,7 @@ RSpec.describe Canon::PrettyPrinter::Html do
                 "<body><div><p>a</p><p>b</p><p>c</p></div></body></html>"
         result = subject.format(input)
 
-        out_count = Nokogiri::XML(result).search("p").length
+        out_count = result.scan(%r{<p[ >]}).length
         expect(out_count).to eq(3)
       end
     end

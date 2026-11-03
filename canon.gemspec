@@ -41,7 +41,7 @@ comparison, testing, digital signatures, and human-readable output."
   # cross-language program's phase 4); canon runs on the leptris
   # adapter and is unaffected on CRuby. Owner call: forward-pin the
   # 0.6 series alongside lutaml-model (lutaml/lutaml-model#1062).
-  spec.add_dependency "moxml", "~> 0.6.0"
+  spec.add_dependency "moxml", "~> 0.6.2"
   spec.add_dependency "paint"
   spec.add_dependency "rainbow"
   spec.add_dependency "table_tennis"
