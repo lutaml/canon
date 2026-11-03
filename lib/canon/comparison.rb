@@ -737,9 +737,15 @@ module Canon
 
           return false unless verbose
 
-          diffs << { index: i, difference: eq == false ? :different : eq }
+          diffs << leaf_diff(i.to_s, a, b)
         end
         verbose ? diffs : diffs.empty?
+      end
+
+      # Verbose ruby-object entries use the diff-code shape the
+      # DiffFormatter's by-object renderers consume.
+      def leaf_diff(path, a, b)
+        { path: path, diff_code: UNEQUAL_PRIMITIVES, value1: a, value2: b }
       end
 
       def hash_diff(hash1, hash2, opts = {})
@@ -761,7 +767,7 @@ module Canon
 
           return false unless verbose
 
-          diffs << { key: key, difference: eq == false ? :different : eq }
+          diffs << leaf_diff(key.to_s, v1, v2)
         end
         verbose ? diffs : diffs.empty?
       end
