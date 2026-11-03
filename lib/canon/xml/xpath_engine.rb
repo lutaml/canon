@@ -14,9 +14,14 @@ module Canon
     # - Predicates: [1] (position), [@attr], [@attr='value']
     # - Wildcards: *
     # - Union: expr1 | expr2
+    # - Self and parent steps: ., ..
+    # - Attribute steps: @attr (selects the attribute node; per C14N
+    #   law it renders only when its owner element is in the node-set,
+    #   so @attr/.. is the productive form — XPath 1.0 section 2.2
+    #   names the owner element)
     #
     # Not supported (not needed for C14N subset):
-    # - Axes other than child and descendant-or-self
+    # - Axes other than child, parent, self, descendant-or-self
     # - Functions (last(), position(), etc.)
     # - Variables
     #
@@ -56,6 +61,10 @@ module Canon
         elsif xpath.start_with?("/")
           # Absolute path
           evaluate_absolute(xpath[1..])
+        elsif xpath.start_with?("./")
+          # Document-rooted self step: the subset context is the
+          # document, so ./rest resolves from the root like /rest
+          evaluate_absolute(xpath[2..])
         else
           # Relative path — treat as descendant
           evaluate_descendant(xpath)
@@ -68,35 +77,47 @@ module Canon
         steps = parse_steps(path)
         return [] if steps.empty?
 
-        # Start from root's children
-        current_nodes = @root.children
-        apply_steps(current_nodes, steps)
+        # Start from root's children; the first element step filters
+        # this entry set directly
+        apply_steps(@root.children, steps, descend_first: false)
       end
 
       def evaluate_descendant(path)
         steps = parse_steps(path)
         return [] if steps.empty?
 
+        # ./ is transparent on the relative law: the subset context is
+        # the document, so ./rest searches descendants like rest
+        steps.shift while steps.first&.dig(:type) == :self
+        return [] if steps.empty?
+
         # Collect all descendant element nodes
         all_elements = []
         collect_elements(@root, all_elements)
 
-        # For each element, try to match the full path starting there
-        result = []
-        all_elements.each do |element|
-          first_step = steps.first
-          next unless step_matches?(element, first_step)
+        first_step = steps.first
+        remaining = steps[1..]
 
-          if steps.length == 1
-            result << element
+        context =
+          case first_step[:type]
+          when :attribute
+            # //@attr — every matching attribute in the tree
+            all_elements.flat_map do |element|
+              attribute_matches(element, first_step)
+            end
+          when :parent
+            return [] # no meaningful parents above descendants
           else
-            remaining = steps[1..]
-            matched = apply_steps(element.children, remaining)
-            result.concat(matched)
+            all_elements.select do |element|
+              step_matches?(element, first_step)
+            end
           end
-        end
+        return context.uniq if remaining.empty?
 
-        result.uniq
+        # The remaining steps run from the matches: element steps
+        # descend (block semantics), axis steps apply to the nodes
+        # themselves
+        apply_steps(context, remaining, descend_first: true).uniq
       end
 
       def collect_elements(node, result)
@@ -108,20 +129,54 @@ module Canon
         end
       end
 
-      def apply_steps(nodes, steps)
-        return nodes if steps.empty?
+      # Linear context model: each step transforms the current node
+      # set. Element steps filter one level down from the context
+      # (block semantics — the first step filters the entry set
+      # itself); parent/self/attribute steps are context steps and
+      # operate on the nodes themselves.
+      def apply_steps(nodes, steps, descend_first:)
+        steps.reduce(nodes) do |current, step|
+          break [] if current.empty?
 
-        step = steps.first
-        remaining = steps[1..]
-
-        matched = nodes.select { |n| step_matches?(n, step) }
-
-        if remaining.empty?
-          matched
-        else
-          matched.flat_map do |node|
-            apply_steps(node.children, remaining)
+          if element_step?(step)
+            level = descend_first ? descend(current) : current
+            current = level.select { |n| step_matches?(n, step) }.uniq
+          else
+            current = axis_apply(current, step)
           end
+          descend_first = true
+          current
+        end
+      end
+
+      def element_step?(step)
+        step[:type] == :element
+      end
+
+      def descend(nodes)
+        nodes.flat_map do |n|
+          next [] if n.is_a?(Nodes::AttributeNode)
+
+          n.children
+        end
+      end
+
+      # Context steps: navigate from the nodes themselves.
+      def axis_apply(nodes, step)
+        case step[:type]
+        when :parent
+          nodes.filter_map(&:parent).uniq
+        when :self
+          nodes
+        when :attribute
+          nodes.grep(Nodes::ElementNode)
+            .flat_map { |el| attribute_matches(el, step) }.uniq
+        end
+      end
+
+      def attribute_matches(element, step)
+        element.attribute_nodes.select do |a|
+          attr_name_matches?(a, step[:name])
         end
       end
 
@@ -130,6 +185,17 @@ module Canon
 
         name_matches?(node, step[:name]) &&
           predicates_match?(node, step[:predicates])
+      end
+
+      def attr_name_matches?(attr, name)
+        return true if name == "*"
+
+        if name.include?(":")
+          prefix, local = name.split(":", 2)
+          attr.prefix == prefix && attr.name == local
+        else
+          attr.name == name
+        end
       end
 
       def name_matches?(node, name)
@@ -179,7 +245,7 @@ module Canon
       # Parse a path string into an array of steps.
       #
       # @param path [String] XPath path (without leading /)
-      # @return [Array<Hash>] Array of { name:, predicates: }
+      # @return [Array<Hash>] Array of { type:, name:, predicates: }
       def parse_steps(path)
         steps = []
         scanner = StringScanner.new(path)
@@ -189,14 +255,27 @@ module Canon
           break if scanner.eos?
 
           # Skip /
-          scanner.scan(%r{/})
+          scanner.skip(%r{/})
+          scanner.skip(/\s+/)
+
+          if scanner.scan("..")
+            steps << { type: :parent, name: nil, predicates: [] }
+            next
+          elsif scanner.scan(".")
+            steps << { type: :self, name: nil, predicates: [] }
+            next
+          elsif scanner.scan(/@/)
+            name = scanner.scan(/[a-zA-Z_][\w.-]*/)
+            steps << { type: :attribute, name: name, predicates: [] }
+            next
+          end
 
           name = scan_name(scanner)
           break if name.nil?
 
           predicates = scan_predicates(scanner)
 
-          steps << { name: name, predicates: predicates }
+          steps << { type: :element, name: name, predicates: predicates }
         end
 
         steps

@@ -107,5 +107,68 @@ RSpec.describe Canon::Xml::C14n do
         expect(result).to include("<!-- inner -->")
       end
     end
+
+    describe "parent and attribute steps (XPath 1.0 section 2.2)" do
+      # The standoc svg lanes select through ./@id/.. — the attribute
+      # step names the attribute node and the parent step names its
+      # owner element (XPath 1.0: an attribute's parent is its
+      # element). The engine previously returned [] for these.
+
+      it "selects the owner element through ./@id/.." do
+        xml = "<root><x id=\"1\">t</x><y/></root>"
+        result = described_class.canonicalize_subset(xml, "/root/x/@id/..")
+        expect(result).to eq("<x id=\"1\">t</x>")
+      end
+
+      it "resolves the same owner through the . self step" do
+        xml = "<root><x id=\"1\">t</x><y/></root>"
+        result = described_class.canonicalize_subset(xml, "/root/x/./@id/..")
+        expect(result).to eq("<x id=\"1\">t</x>")
+      end
+
+      it "selects parents across descendant selection" do
+        xml = "<root><a><b id=\"1\">t</b></a><c/></root>"
+        result = described_class.canonicalize_subset(xml, "//b/@id/..")
+        expect(result).to eq("<b id=\"1\">t</b>")
+      end
+
+      it "keeps strict C14N attribute law for bare attribute selection" do
+        # An attribute node alone renders nothing: attributes render
+        # only when their owner element is in the node-set.
+        xml = "<root><x id=\"1\">t</x></root>"
+        result = described_class.canonicalize_subset(xml, "//@id")
+        expect(result).to eq("")
+      end
+
+      it "narrows by attribute step then widens with .." do
+        xml = "<root><x id=\"1\">t</x><x>y</x></root>"
+        result = described_class.canonicalize_subset(xml, "/root/x/@id/..")
+        expect(result).to eq("<x id=\"1\">t</x>")
+      end
+
+      it "selects the parent of a nested element" do
+        xml = "<root><a><b id=\"1\">t</b></a></root>"
+        result = described_class.canonicalize_subset(xml, "/root/a/b/..")
+        expect(result).to eq("<a><b id=\"1\">t</b></a>")
+      end
+
+      it "supports the parent axis after a positional predicate" do
+        # x[2]'s parent is the root element: the node-set names the
+        # whole document element, so the full document renders
+        xml = "<root><x id=\"1\">t</x><x id=\"2\">u</x></root>"
+        result = described_class.canonicalize_subset(xml,
+                                                     "/root/x[2]/..")
+        expect(result).to eq("<root><x id=\"1\">t</x><x id=\"2\">u</x></root>")
+      end
+
+      it "drops parents of root-level nodes cleanly" do
+        # The root element's parent (the document) is outside the
+        # element axis; the root ride-along still yields the document.
+        xml = "<root><a/></root>"
+        result = described_class.canonicalize_subset(xml, "/root/..")
+        # the document node rides, and C14N writes paired close tags
+        expect(result).to eq("<root><a></a></root>")
+      end
+    end
   end
 end
