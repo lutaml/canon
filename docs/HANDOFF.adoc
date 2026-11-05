@@ -5,18 +5,21 @@ published: false
 
 A snapshot of the open arcs across the org repos — what is known, where
 to dig, and what has already been proven — so any team can pick an issue
-up cold. Statuses as of 2026-11-01.
+up cold. Statuses as of 2026-11-05.
 
 == State of the world
 
-Shipped since the last board (2026-10-28): leptris 1.9.398.0 (the
-#1866 adopt + parent-of-attribute fixes and the #1846/#1854/#1855 perf
-slices), yeptris 0.6.52.0/0.6.53.0 (marshal reader #322, multibyte
-breaks #782), moxml **0.6.0** (the Opal surface deleted by the owner's
-phase-4 call, lutaml/moxml#516 — the forward Opal path is the moxml-ts
-wasm binding, lutaml/moxml#489), lutaml-model 0.8.155 (admits both
-moxml lines: `>= 0.5.139, < 0.7`), canon 0.3.118 (floors `leptris ~>
-1.9.398`, `yeptris ~> 0.6.52`, `moxml ~> 0.6.0`; Opal lane retired).
+Shipped since the last board (2026-11-01): leptris 1.9.401→**1.9.408**
+(the 1.9.407 plan ns_prefix deep-copy fix — the use-after-free behind
+lutaml-model#1126's poisoning signatures; release PR leptris#1973),
+yeptris **0.6.55**, moxml **0.6.2** (the engine XHTML display mode,
+moxml#390 — canon's fixture-ready lane is now engine-served end to
+end), lutaml-model **0.8.169** (the native emission lane fix series:
+plan poisoning #1126, the render contract #1136, the valued
+child_deferred gate #1130, xmlns retention #1131), canon 0.3.123
+(floors `leptris ~> 1.9.401`, `moxml ~> 0.6.2`, `yeptris ~> 0.6.55`;
+the subset-xpath engine grew parent/self/attribute steps, PR
+canon#308).
 
 == lutaml/canon
 
@@ -24,11 +27,12 @@ moxml lines: `>= 0.5.139, < 0.7`), canon 0.3.118 (floors `leptris ~>
 |===
 |Item |Status |Known + first moves
 
-|Floors raised (0.3.118)
+|Floors raised (0.3.123)
 |Shipped
-|`leptris ~> 1.9.398`, `yeptris ~> 0.6.52`, `moxml ~> 0.6.0` — all
-verified against exactly those engines (2744 examples, 0 failures, 25
-pending). Constraints live in the gemspec only; Gemfile/Gemfile.local
+|`leptris ~> 1.9.401`, `yeptris ~> 0.6.55`, `moxml ~> 0.6.2` — all
+verified against exactly those engines (2760 examples, 0 failures, 25
+pending, verified 2026-11-05). Constraints live in the gemspec only;
+Gemfile/Gemfile.local
 are untracked verification lanes.
 
 |Opal lane
@@ -39,11 +43,13 @@ The `RUBY_ENGINE == "opal"` branches in lib stay for the moxml-ts wasm
 migration (moxml#489).
 
 |Subset-xpath mini engine (`lib/canon/xml/xpath_engine.rb`)
-|Reported, owner decision pending
-|It silently returns `[]` for `..` and `@attr` step forms (XPath 1.0
-§2.2 names the owner element). No `lib/` caller uses those forms today
-(swept 2026-10-28); decide between implementing the steps and
-documenting/raising on unsupported forms.
+|Shipped (canon#308, 0.3.123)
+|The `..` and `@attr` step forms are implemented under a linear
+context model: element steps filter one level down (block semantics),
+parent/self/attribute steps operate on the matched nodes themselves,
+and attribute nodes render per strict C14N law (only when the owner
+element is in the node-set). The `//`-rooted and `./`-rooted relative
+forms resolve from the document root, matching the subset context.
 |===
 
 == lutaml/moxml
@@ -76,6 +82,18 @@ plan-path-FFI perf slices
 |Open (umbrella)
 |Re-baseline against 1.9.398 with the interleaved A/B harness before
 opening new slices — the old ~3-4x numbers predate the closed slices.
+
+|Plan descriptor memory safety + the 1.9.408 line
+|Shipped (1.9.407/1.9.408); #1972 open
+|1.9.407 fixes the `leptris_plan_build` use-after-free: attribute
+rows' `ns_prefix` was the one caller-anchored string NOT deep-copied,
+so the built descriptor read freed FFI anchor memory at serialize
+time (the lutaml-model#1126 empty-output / garbage-prefix
+signatures). There is no capability constant for a pure bugfix, so
+consumers gate on the version floor. 1.9.408 is the next release line
+(release PR #1973, merged 2026-11-05). Open on top: PR #1972
+(xsd: namespace-aware particle typing — substitution members ride
+attributeGroup refs).
 |===
 
 == leptris/yeptris
@@ -108,6 +126,16 @@ platforms)
 |Open, partially improved
 |Remaining: scalar-route derivation cost. `benchmarks/PERF-LEDGER.md`
 has the trusted-into entries.
+
+|yeptris#951 — plain fold emits raw lead-stripped 0x85 at a
+¥-preceded NEL run + the PS-as-break law
+|CLOSED (2026-11-05)
+|Diff 1 (the raw continuation bytes in a k=2 NEL fold) fixed by the
+engine team; Diff 2 settled as a comparator-claimed documented
+divergence — libyaml's `READ_LINE` breaks AT LS/PS but spells them as
+their raw 3 bytes (the fold law never applies since the join test
+expects `\n`), while yeptris folds the run to one `\n`. The suite is
+silent either way.
 |===
 
 == leptris/yeptris-ruby
@@ -130,17 +158,39 @@ If the CBOR face reopens, copy the registry law and its pin wholesale.
 |Item |Status |Known + first moves
 
 |moxml 0.6 admission
-|Shipped (0.8.155)
+|Shipped (0.8.156; line now at 0.8.169)
 |`>= 0.5.139, < 0.7`; the Opal boot lane pins moxml 0.5.x locally in
 `opal.yml` (Gemfile-append + plain `bundle update moxml` — bundler 4
 removed `update --version`) until the moxml-ts wasm migration.
 
+|The native emission lane fix series (the uniword corpus, 2026-11-05)
+|Shipped (0.8.165-0.8.169)
+|Four arcs, all closed: **#1126** (plans poison every later instance
+of a class) root-caused to an ENGINE use-after-free —
+`leptris_plan_build` kept a caller-anchored attribute `ns_prefix`
+pointer into freed FFI anchor memory; fixed leptris 1.9.407.
+**#1136** (render_default: false ignored — ghost `w:default="0"`
+attributes) fixed by applying the DOM lane's `rule.render?` contract
+at all three native emission sites (6fd1c0fc, 0.8.168). **#1130**
+(nested same-element recursion drops data — the bibliography's
+Author → author collapse to `<b:Author/>`) fixed by the compatibility
+gate refusing valued `:child_deferred` rows, which ride the DOM lane
+(PR #1135, 01ab5a3a, 0.8.169). **#1140** (dotx glossary TOC document
+displaces body elements across sdtContent) is the #1130 shape —
+bisect-proven fixed by the same gate; the OTHER five skip-listed dotx
+glossary shapes fail identically with the native lane OFF (DOM lane,
+engine without PLAN_OP_RAW), so they are uniword's pre-existing
+TODO.refactor/14 drift, not this lane. Also shipped: #1131 (xmlns
+declarations retained on parsed models, dbd7eb36).
+
 |update-baselines red on every main push
-|PR lutaml-model#1076
-|checkout's persisted Authorization extraheader collides with
+|Shipped (0be7a7fc + a784f452)
+|checkout's persisted Authorization extraheader collided with
 create-pull-request's token ("Duplicate header: Authorization", HTTP
-400) on the action's `git remote prune`. Fix: `persist-credentials:
-false` on that job's checkout (the documented pairing).
+400) on the action's `git remote prune`. Fixed with
+`persist-credentials: false` on that job's checkout, plus the
+`contents: write` + `pull-requests: write` grants (the git push and
+the API PR creation are separate permissions).
 
 |metanorma/docbook dependent leg (ubuntu/macos)
 |PR metanorma/docbook#15
@@ -194,10 +244,11 @@ the remaining step is the vendor commit into pubid's `data/parg/`
 (proven mechanical: baking origin/main at 1.3.121 yields `edition 2`
 headers with bindings intact — iso 84, bsi 92, ashrae 37). The
 owner's `worktrees/grammar-rebake` is on it. standoc's severity
-question (#1318/#1324) is re-pinned in metanorma-standoc#1333:
+question (#1318/#1324/#1325) is RESOLVED — re-pinned on standoc main
+directly by the owner (the dup PR #1333 was closed as superseded):
 relaton 3.0.2 degrades `ISO 0a` to RELATON_4 at severity 3, which a
-severity-2 filter legitimately drops; that PR's CI goes green the
-moment the vendor lands.
+severity-2 filter legitimately drops, and the suppression semantics
+are at-or-above N.
 |===
 
 == Mechanics every team hits
