@@ -122,11 +122,24 @@ module Canon
         XmlParsing.children(node)
       end
 
+      # Text/comment content with XML 1.0 §2.11 line-end normalization
+      # (CRLF and lone CR -> LF). Conformant parsers normalize line
+      # ends in all parsed content, but engines disagree in practice —
+      # libxml2 preserves \r inside comment data and text nodes while
+      # the leptris lane normalizes — so the comparison normalizes at
+      # this single seam to keep equivalence engine-neutral (canon#310:
+      # the svg/* corpus fixtures carry CRLF comments and text and
+      # compared inequivalent under the raw-nokogiri lane).
       def self.text_content(node)
-        return node.value.to_s if node.is_a?(Canon::Xml::Nodes::TextNode)
-        return node.text_content.to_s if node.is_a?(Canon::Xml::Node)
+        raw = if node.is_a?(Canon::Xml::Nodes::TextNode)
+                node.value.to_s
+              elsif node.is_a?(Canon::Xml::Node)
+                node.text_content.to_s
+              else
+                XmlParsing.text_content(node).to_s
+              end
 
-        XmlParsing.text_content(node).to_s
+        raw.gsub(/\r\n?/, "\n")
       end
 
       def self.node_type(node)

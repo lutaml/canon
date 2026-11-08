@@ -539,9 +539,10 @@ module Canon
           match_opts = opts[:match_opts]
           behavior = match_opts[:comments]
 
-          # Canon::Xml::Node CommentNode uses .value, Nokogiri uses .content
-          content1 = node_text(n1)
-          content2 = node_text(n2)
+          # Line ends normalized per XML 1.0 §2.11 in NodeInspector —
+          # engines disagree on \r inside comment data (canon#310).
+          content1 = NodeInspector.text_content(n1)
+          content2 = NodeInspector.text_content(n2)
 
           # Check if content differs
           contents_differ = content1 != content2
