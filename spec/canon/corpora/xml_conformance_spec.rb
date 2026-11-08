@@ -14,7 +14,29 @@ module XmlSuiteGate
   ROOT = File.join(__dir__, "../../fixtures/corpora/xml-conformance").freeze
   LEDGER = File.join(ROOT, "canon-findings.yml").freeze
 
+  # A ledger id may carry a trailing engine annotation —
+  # "case.xml (leptris)" — restricting the entry to those XML
+  # backends. Findings can be engine-specific (the xmlbase c14n
+  # pair is inequivalent only on the leptris lane; the raw-nokogiri
+  # lane compares it equivalent since the §2.11 line-end
+  # normalization, canon#310), so the gate consults only the entries
+  # naming the active backend, and untagged entries apply everywhere.
   module_function
+
+  def active_backend
+    Canon::XmlBackend.active.to_s
+  end
+
+  def entry_applies?(id)
+    m = id.match(/\(([^)]+)\)\z/)
+    return true if m.nil?
+
+    m[1].split("|").map(&:strip).include?(active_backend)
+  end
+
+  def entry_id(id)
+    id.sub(/\s*\([^)]+\)\z/, "")
+  end
 
   def cases
     Dir.glob(File.join(ROOT, "**/*.xml")).filter_map do |path|
@@ -68,7 +90,11 @@ RSpec.describe "xml-conformance canon-level gate" do
       end
       next if family.nil?
 
-      next if ledger[family.to_s]&.include?(c[:id])
+      covered = ledger[family.to_s]&.any? do |entry|
+        XmlSuiteGate.entry_applies?(entry) &&
+          XmlSuiteGate.entry_id(entry) == c[:id]
+      end
+      next if covered
 
       failures << "#{c[:id]} (#{family})"
     end
@@ -88,7 +114,10 @@ RSpec.describe "xml-conformance canon-level gate" do
     stale = []
     ledger.each do |family, ids|
       ids.each do |id|
-        c = cases.find { |cc| cc[:id] == id }
+        next unless XmlSuiteGate.entry_applies?(id)
+
+        base_id = XmlSuiteGate.entry_id(id)
+        c = cases.find { |cc| cc[:id] == base_id }
         next if c.nil? # case removed from the corpus
 
         stale << "#{id} (#{family})" if XmlSuiteGate.finding_for(c[:xml]).nil?

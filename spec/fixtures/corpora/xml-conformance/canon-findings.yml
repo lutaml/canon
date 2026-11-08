@@ -1,6 +1,17 @@
 # Canon-level findings over the vendored XML corpus (TODO.sota/06).
 # The gate fails on a finding beyond this ledger and flags entries
-# that no longer reproduce.
+# that no longer reproduce. An id may carry a trailing engine
+# annotation - "case.xml (moxml|nokogiri)" - restricting the entry
+# to those XML backends (the Canon::XmlBackend.active values);
+# untagged entries apply everywhere.
+#
+# 2026-11-08: the comparison normalizes XML 1.0 section 2.11 line
+# ends in text and comment content (libxml2 preserves carriage
+# returns in comments and text, canon#310) - the svg/* and comment6
+# corpus findings that showed only under the raw-nokogiri lane are
+# gone on every engine. These two remain, moxml-lane only (the
+# raw-nokogiri lane compares them equivalent since the
+# normalization):
 inequivalent:
-- c14n/xmlbase-c14n11spec-102.xml
-- c14n/xmlbase-c14n11spec2-102.xml
+- c14n/xmlbase-c14n11spec-102.xml (moxml)
+- c14n/xmlbase-c14n11spec2-102.xml (moxml)
