@@ -5,21 +5,27 @@ published: false
 
 A snapshot of the open arcs across the org repos — what is known, where
 to dig, and what has already been proven — so any team can pick an issue
-up cold. Statuses as of 2026-11-05.
+up cold. Statuses as of 2026-11-11.
 
 == State of the world
 
-Shipped since the last board (2026-11-01): leptris 1.9.401→**1.9.408**
-(the 1.9.407 plan ns_prefix deep-copy fix — the use-after-free behind
-lutaml-model#1126's poisoning signatures; release PR leptris#1973),
-yeptris **0.6.55**, moxml **0.6.2** (the engine XHTML display mode,
-moxml#390 — canon's fixture-ready lane is now engine-served end to
-end), lutaml-model **0.8.169** (the native emission lane fix series:
-plan poisoning #1126, the render contract #1136, the valued
-child_deferred gate #1130, xmlns retention #1131), canon 0.3.123
-(floors `leptris ~> 1.9.401`, `moxml ~> 0.6.2`, `yeptris ~> 0.6.55`;
-the subset-xpath engine grew parent/self/attribute steps, PR
-canon#308).
+Shipped since the last board (2026-11-05): leptris
+1.9.408→**1.9.416** (the #1842 perf arcs: XPath union fusion Track C,
+parse-loop field hoisting, single-pass attribute scan, the attribute
+dup-table rehash fix; all perf slices, no capability moves), yeptris
+**0.6.60/0.6.61** (the stream iterator's last-frame slice, the
+fuzz-diff classifier pins for the r185-r225 nightly wave), moxml
+**0.6.4**, lutaml-model **0.8.173** (the attribute-qualified
+doctrine for constructed models #1124 + the multi-namespace
+unordered emission gate + the dotx TOC disposition #1140 + the dead
+cgi require drop #1152), canon **0.3.125** (floors `leptris ~>
+1.9.412`, `yeptris ~> 0.6.60`, `moxml ~> 0.6.4`; the XML 1.0 §2.11
+line-end normalization at the comparison seam — canon#310, the
+raw-nokogiri A/B lane fully green). uniword aligned its wire-form
+assertions with the doctrine (f3757aa/4ff6d61) and floors
+lutaml-model 0.8.169 pending its own next dev bump; #1145's reported
+0.8.170 shapes did not reproduce on uniword@main (no-repro battery
+on the issue).
 
 == lutaml/canon
 
@@ -163,9 +169,9 @@ If the CBOR face reopens, copy the registry law and its pin wholesale.
 `opal.yml` (Gemfile-append + plain `bundle update moxml` — bundler 4
 removed `update --version`) until the moxml-ts wasm migration.
 
-|The native emission lane fix series (the uniword corpus, 2026-11-05)
-|Shipped (0.8.165-0.8.169)
-|Four arcs, all closed: **#1126** (plans poison every later instance
+|The native emission lane fix series + the constructed-model wire form (the uniword corpus, 2026-11-05/08)
+|Shipped (0.8.165-0.8.173)
+|Six arcs, all closed: **#1126** (plans poison every later instance
 of a class) root-caused to an ENGINE use-after-free —
 `leptris_plan_build` kept a caller-anchored attribute `ns_prefix`
 pointer into freed FFI anchor memory; fixed leptris 1.9.407.
@@ -181,7 +187,39 @@ bisect-proven fixed by the same gate; the OTHER five skip-listed dotx
 glossary shapes fail identically with the native lane OFF (DOM lane,
 engine without PLAN_OP_RAW), so they are uniword's pre-existing
 TODO.refactor/14 drift, not this lane. Also shipped: #1131 (xmlns
-declarations retained on parsed models, dbd7eb36).
+declarations retained on parsed models, dbd7eb36). **#1124** —
+constructed models now serialize the attribute-qualified doctrine
+(a namespace with `attribute_form_default :qualified` +
+`prefix_default` spells prefixed wire forms; 3237f6e3 et al.,
+0.8.170), and the multi-namespace UNORDERED emission refuses the
+native lane: the flat layout's slot numbering diverges from the
+engine descriptor for nested rows across namespaces — grandchildren
+rendered with the grandparent's name and prefix (a `<w:p><m:r><t>`
+shape spelled `<w:p><m:r><w:r>`) until the flat emission numbering
+matches the descriptor walk. **#1145** (reported 0.8.170 regressions)
+did not reproduce on uniword@main — full 8678-example battery green
+except the five TODO.refactor/14 glossary shapes.
+
+|canon#310 — the raw-nokogiri A/B corpus gate
+|Shipped (canon 0.3.125)
+|libxml2 preserves `\r` inside comment data and text nodes while the
+leptris lane normalizes per XML 1.0 §2.11 — the svg/* corpus
+fixtures carried CRLF comments and compared inequivalent only under
+`CANON_XML_BACKEND=nokogiri`. `NodeInspector.text_content` (the
+comparison's single content seam) now normalizes line ends;
+2765 examples green on BOTH lanes. The corpus ledger gained engine
+annotations — `case.xml (moxml|nokogiri)` restricts an entry to
+those backends; the two xmlbase-c14n11spec entries are moxml-lane
+only. The 16 parser-rejected cases are a separate raw-nokogiri
+parser-strictness question, unchanged.
+
+|leptris 1.9.412-1.9.416 — the #1842 perf arcs
+|Shipped (all perf slices, no capability moves)
+|XPath `//a | //b` union fusion (one combined walk / two-pointer
+merge), parse-loop field hoisting, single-pass attribute-name scan,
+the attribute dup-table rehash fix. Canon's floors admit every one
+(`~> 1.9.412`); both verification lanes stay 2765/0 across the
+line.
 
 |update-baselines red on every main push
 |Shipped (0be7a7fc + a784f452)
