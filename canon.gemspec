@@ -36,18 +36,18 @@ comparison, testing, digital signatures, and human-readable output."
   # platform (nokogiri has no prebuilt for aarch64-mingw-ucrt and friends).
   # Nokogiri is loaded lazily by Canon::NokogiriLoader, only for HTML
   # support and the CANON_XML_BACKEND=nokogiri engine.
-  spec.add_dependency "leptris", "~> 1.9.412"
+  spec.add_dependency "leptris", "~> 1.9.420"
   # moxml 0.6.0 removed the Opal surface (lutaml/moxml#516, the
   # cross-language program's phase 4); canon runs on the leptris
   # adapter and is unaffected on CRuby. Owner call: forward-pin the
   # 0.6 series alongside lutaml-model (lutaml/lutaml-model#1062).
-  spec.add_dependency "moxml", "~> 0.6.4"
+  spec.add_dependency "moxml", "~> 0.6.9"
   spec.add_dependency "paint"
   spec.add_dependency "rainbow"
   spec.add_dependency "table_tennis"
   spec.add_dependency "thor", "~> 1.4"
   spec.add_dependency "unicode-name"
-  spec.add_dependency "yeptris", "~> 0.6.60"
+  spec.add_dependency "yeptris", "~> 0.6.65"
 
   spec.metadata["homepage_uri"] = spec.homepage
   spec.metadata["source_code_uri"] = spec.homepage
