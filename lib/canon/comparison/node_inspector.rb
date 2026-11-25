@@ -56,6 +56,25 @@ module Canon
         end
       end
 
+      def self.processing_instruction_node?(node)
+        return false unless node
+        return node.node_type == :processing_instruction if node.is_a?(Canon::Xml::Node)
+
+        XmlParsing.processing_instruction?(node)
+      end
+
+      # [target, data] of a processing instruction. Canon PI nodes carry
+      # them natively; backend PIs expose the target as the node name
+      # and the data as the content (moxml #text is empty for PIs).
+      def self.processing_instruction_parts(node)
+        if node.is_a?(Canon::Xml::Nodes::ProcessingInstructionNode)
+          [node.target.to_s, node.data.to_s]
+        else
+          [XmlParsing.processing_instruction_target(node),
+           XmlParsing.processing_instruction_data(node)]
+        end
+      end
+
       def self.document?(node)
         return node.node_type == :root if node.is_a?(Canon::Xml::Node)
 

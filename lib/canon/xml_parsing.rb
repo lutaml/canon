@@ -176,6 +176,18 @@ module Canon
         node.is_a?(Moxml::ProcessingInstruction)
       end
 
+      # The PI target ("rfc" in <?rfc strict="yes"?>) — the node name
+      # on every backend (Nokogiri PIs carry no #target accessor).
+      def processing_instruction_target(node)
+        name(node).to_s
+      end
+
+      # The PI data ('strict="yes"' in <?rfc strict="yes"?>) — the
+      # node content on every backend (moxml #text is empty for PIs).
+      def processing_instruction_data(node)
+        node.content.to_s
+      end
+
       def document_fragment?(obj)
         defined?(Nokogiri) && obj.is_a?(Nokogiri::XML::DocumentFragment)
       end

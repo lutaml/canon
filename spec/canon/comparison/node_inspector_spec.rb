@@ -376,4 +376,40 @@ RSpec.describe Canon::Comparison::NodeInspector do
       expect(described_class.document?(node)).to be false
     end
   end
+
+  describe ".processing_instruction_node?" do
+    it "returns true for Canon ProcessingInstructionNode" do
+      node = Canon::Xml::Nodes::ProcessingInstructionNode.new(
+        target: "rfc", data: 'strict="yes"',
+      )
+      expect(described_class.processing_instruction_node?(node)).to be true
+    end
+
+    it "returns false for Canon ElementNode" do
+      node = Canon::Xml::Nodes::ElementNode.new(name: "div")
+      expect(described_class.processing_instruction_node?(node)).to be false
+    end
+
+    it "returns false for nil" do
+      expect(described_class.processing_instruction_node?(nil)).to be false
+    end
+  end
+
+  describe ".processing_instruction_parts" do
+    it "returns target and data for Canon ProcessingInstructionNode" do
+      node = Canon::Xml::Nodes::ProcessingInstructionNode.new(
+        target: "rfc", data: 'strict="yes"',
+      )
+      expect(described_class.processing_instruction_parts(node))
+        .to eq(["rfc", 'strict="yes"'])
+    end
+
+    it "returns target and data for parsed document-level PIs" do
+      tree = Canon.parse('<?rfc strict="yes"?><root/>', :xml)
+      pi = described_class.children(tree).first
+
+      expect(described_class.processing_instruction_parts(pi))
+        .to eq(["rfc", 'strict="yes"'])
+    end
+  end
 end

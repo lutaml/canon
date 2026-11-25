@@ -313,4 +313,52 @@ RSpec.describe Canon::Comparison::DiffNodeBuilder do
       expect(reason).to include("Changed")
     end
   end
+
+  describe ":text_content dimension with processing instruction nodes" do
+    # Document-level PIs have empty text content; the reason must name
+    # the PI target/data rather than report "whitespace: 0 chars vs 0
+    # chars" for genuinely different PIs (canon#318).
+    let(:pi1) do # rubocop:disable RSpec/IndexedLet
+      Canon::Xml::Nodes::ProcessingInstructionNode.new(
+        target: "rfc", data: 'strict="yes"',
+      )
+    end
+    let(:pi2) do # rubocop:disable RSpec/IndexedLet
+      Canon::Xml::Nodes::ProcessingInstructionNode.new(
+        target: "rfc", data: 'sortrefs="yes"',
+      )
+    end
+
+    it "reports the PI data when the data differs" do
+      reason = described_class.build_reason(pi1, pi2, 4, 4, :text_content)
+
+      expect(reason).to eq(
+        'Processing instruction data differs: <?rfc strict="yes"?> vs ' \
+        '<?rfc sortrefs="yes"?>',
+      )
+      expect(reason).not_to include("whitespace")
+    end
+
+    it "reports the target when the targets differ" do
+      other = Canon::Xml::Nodes::ProcessingInstructionNode.new(
+        target: "xml-stylesheet", data: 'href="a.xsl"',
+      )
+
+      reason = described_class.build_reason(pi1, other, 4, 4, :text_content)
+
+      expect(reason).to eq(
+        "Processing instruction target differs: <?rfc?> vs " \
+        "<?xml-stylesheet?>",
+      )
+    end
+
+    it "falls through to the text reason for non-PI nodes" do
+      t1 = Canon::Xml::Nodes::TextNode.new(value: "alpha")
+      t2 = Canon::Xml::Nodes::TextNode.new(value: "beta")
+
+      reason = described_class.build_reason(t1, t2, 4, 4, :text_content)
+
+      expect(reason).to eq('Text: "alpha" vs "beta"')
+    end
+  end
 end
