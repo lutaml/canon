@@ -5,27 +5,30 @@ published: false
 
 A snapshot of the open arcs across the org repos — what is known, where
 to dig, and what has already been proven — so any team can pick an issue
-up cold. Statuses as of 2026-11-11.
+up cold. Statuses as of 2026-11-25.
 
 == State of the world
 
-Shipped since the last board (2026-11-05): leptris
-1.9.408→**1.9.416** (the #1842 perf arcs: XPath union fusion Track C,
-parse-loop field hoisting, single-pass attribute scan, the attribute
-dup-table rehash fix; all perf slices, no capability moves), yeptris
-**0.6.60/0.6.61** (the stream iterator's last-frame slice, the
-fuzz-diff classifier pins for the r185-r225 nightly wave), moxml
-**0.6.4**, lutaml-model **0.8.173** (the attribute-qualified
-doctrine for constructed models #1124 + the multi-namespace
-unordered emission gate + the dotx TOC disposition #1140 + the dead
-cgi require drop #1152), canon **0.3.125** (floors `leptris ~>
-1.9.412`, `yeptris ~> 0.6.60`, `moxml ~> 0.6.4`; the XML 1.0 §2.11
-line-end normalization at the comparison seam — canon#310, the
-raw-nokogiri A/B lane fully green). uniword aligned its wire-form
-assertions with the doctrine (f3757aa/4ff6d61) and floors
-lutaml-model 0.8.169 pending its own next dev bump; #1145's reported
-0.8.170 shapes did not reproduce on uniword@main (no-repro battery
-on the issue).
+Shipped since the last board (2026-11-11): lutaml-model
+**0.8.174→0.8.181** (the map_all/element_order leptris adapter parity
+that fixed #1163/#1167/#1172's silent content loss — on 0.8.175 the
+leptris lane dropped map_all content outright — plus #1164's trailing
+map_content run fix: built mixed-content models serialize the whole
+consecutive run, verified on the shipped 0.8.181 gem), canon
+**0.3.126→0.3.128** (floors `leptris ~> 1.9.422`, `yeptris ~>
+0.6.68`, `moxml ~> 0.6.13`; the XML 1.0 §2.11 line-end normalization
+at the comparison seam — canon#310; the PI-diff display fix #319:
+processing-instruction reasons name the target/data instead of
+"whitespace: 0 chars vs 0 chars", and the detail formatter shows the
+PIs' own serialized forms instead of the parent document). The
+2026-11-24 cimas sync broke release.yml fleet-wide with a duplicated
+`types: [ do-release ]` key (GitHub rejects the file at parse time —
+canon#320, glossarist/iev#79 fix it; every other program repo audited
+clean). metanorma-ietf#318's batched-DOM-diff premise was disproven:
+the #279 invariant pin holds on moxml 0.6.x — the "phantom" diffs
+were six genuinely reordered <?rfc?> PIs whose order mismatch
+FEATURE_HDR's old serializer fingerprint; expectations aligned in
+metanorma-ietf#388 (blocked only by main's known sourcecode reds).
 
 == lutaml/canon
 
@@ -56,6 +59,23 @@ parent/self/attribute steps operate on the matched nodes themselves,
 and attribute nodes render per strict C14N law (only when the owner
 element is in the node-set). The `//`-rooted and `./`-rooted relative
 forms resolve from the document root, matching the subset context.
+
+|canon#318 — batched-comparison state accumulation "regressed" on
+moxml 0.6.x
+|CLOSED (no regression; display fixed in #319)
+|The #279 invariant pin holds on moxml 0.6.x (104/104). The
+metanorma-ietf "phantom" diffs were six genuinely reordered
+document-level <?rfc?> PIs — FEATURE_HDR carried the exact reverse of
+the transformer's PI_ORDER (the old stack's reversed prolog-PI
+serialization fingerprint; old engines compared PI-less trees
+vacuously). Canon's display made them read identical: PI diffs
+reported "whitespace: 0 chars vs 0 chars" and the ambiguous-pair
+fallback rendered the parent document. #319 routes PI pairs through
+their own reason/display (NodeInspector.processing_instruction_*,
+XmlParsing target/data queries — moxml #text is empty for PIs, the
+data rides #content). Release chain: the 2026-11-24 cimas sync left a
+duplicated `types:` key in release.yml (#320) — release dispatches
+parsed-fail until it merged.
 |===
 
 == lutaml/moxml
@@ -162,6 +182,22 @@ If the CBOR face reopens, copy the registry law and its pin wholesale.
 [cols="1,1,2"]
 |===
 |Item |Status |Known + first moves
+
+|The metanorma-document mixed-content cluster (#1163/#1164/#1167/#1172)
+|CLOSED (0.8.177-0.8.181)
+|**#1163/#1167/#1172** were fixed by the adapter-parity window (on
+0.8.175 the leptris lane lost map_all content outright — `<block/>`
+from content-bearing input; 0.8.180 populates element_order and
+map_all_content identically across adapters, byte-identical map_all
+emission; #1167's element+map_all_content root refuses the plan lane,
+a2592647). **#1164** was still live on 0.8.180: `apply_mixed_content`
+interleaves content entries into element-shaped slots, so a trailing
+run of consecutive map_content entries had no slots and dropped
+silently ("First" of ["First","Second"]); fixed in #1196/0.8.181 —
+entries beyond the slots append after the last child; verified on the
+shipped gem. Side finding: running the shared mixed-content examples
+against LeptrisAdapter (never done before) exposes 11 pre-existing
+entity/encoding divergences — its own follow-up issue.
 
 |moxml 0.6 admission
 |Shipped (0.8.156; line now at 0.8.169)
