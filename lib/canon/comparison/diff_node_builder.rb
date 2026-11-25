@@ -59,9 +59,14 @@ module Canon
         when :attribute_values
           build_attribute_values_reason(node1, node2)
         when :text_content
-          build_text_difference_reason(
-            extract_text_content(node1), extract_text_content(node2)
-          )
+          if NodeInspector.processing_instruction_node?(node1) &&
+              NodeInspector.processing_instruction_node?(node2)
+            build_pi_difference_reason(node1, node2)
+          else
+            build_text_difference_reason(
+              extract_text_content(node1), extract_text_content(node2)
+            )
+          end
         when :attribute_order
           build_attribute_order_reason(node1, node2)
         when :comments
@@ -189,6 +194,23 @@ module Canon
         end
 
         "Text: \"#{visualize_whitespace(text1)}\" vs \"#{visualize_whitespace(text2)}\""
+      end
+
+      # --- Processing instruction reason -------------------------------------
+
+      # PIs have no text content, so the text-difference reason would
+      # report "whitespace: 0 chars vs 0 chars" for genuinely different
+      # PIs (canon#318). The serialized form carries target and data.
+      def self.build_pi_difference_reason(node1, node2)
+        t1, d1 = NodeInspector.processing_instruction_parts(node1)
+        t2, d2 = NodeInspector.processing_instruction_parts(node2)
+
+        if t1 != t2
+          return "Processing instruction target differs: <?#{t1}?> vs <?#{t2}?>"
+        end
+
+        "Processing instruction data differs: " \
+          "<?#{t1} #{d1}?> vs <?#{t2} #{d2}?>"
       end
 
       # --- Comment reason ----------------------------------------------------

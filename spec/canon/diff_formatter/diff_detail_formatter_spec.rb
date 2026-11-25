@@ -424,6 +424,50 @@ RSpec.describe "DiffDetailFormatter helpers" do
       end
     end
 
+    describe ".format_text_content_details with processing instruction nodes" do
+      # Document-level PIs: the ambiguous-pair parent fallback would
+      # serialize the document node and show the whole document as the
+      # diff payload (canon#318). The PIs' own forms are shown instead.
+      let(:pi1) do # rubocop:disable RSpec/IndexedLet
+        Canon::Xml::Nodes::ProcessingInstructionNode.new(
+          target: "rfc", data: 'strict="yes"',
+        )
+      end
+      let(:pi2) do # rubocop:disable RSpec/IndexedLet
+        Canon::Xml::Nodes::ProcessingInstructionNode.new(
+          target: "rfc", data: 'sortrefs="yes"',
+        )
+      end
+      let(:diff) do
+        Canon::Diff::DiffNode.new(node1: pi1, node2: pi2,
+                                  dimension: :text_content,
+                                  reason: "PI data differs")
+      end
+
+      it "renders the PIs' serialized forms" do
+        detail1, detail2, = df.format_text_content_details(diff, false)
+
+        # whitespace-visualised like text content: space -> ·
+        expect(detail1).to include('<?rfc·strict="yes"?>')
+        expect(detail2).to include('<?rfc·sortrefs="yes"?>')
+      end
+
+      it "does not fall back to the parent document serialization" do
+        # PIs parented under an element carrying body text — the
+        # ambiguous-pair fallback would render the parent's subtree
+        holder1 = element_node("rfc", children: [pi1, text_node("body text")])
+        holder2 = element_node("rfc", children: [pi2, text_node("body text")])
+
+        expect(holder1.children.first).to equal(pi1) # parents assigned
+        expect(holder2.children.first).to equal(pi2)
+
+        detail1, detail2, = df.format_text_content_details(diff, false)
+
+        expect(detail1).not_to include("body")
+        expect(detail2).not_to include("body")
+      end
+    end
+
     describe ".format_fallback_details with compact:" do
       let(:node1) { element_node("strong", children: [text_node("A")]) } # rubocop:disable RSpec/IndexedLet
       let(:node2) { element_node("strong", children: [text_node("B")]) } # rubocop:disable RSpec/IndexedLet

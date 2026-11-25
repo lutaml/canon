@@ -357,6 +357,15 @@ expand_difference: false)
             return format_text_content_one_sided(node1, node2, use_color)
           end
 
+          # Document-level PIs have empty text content; the ambiguous-pair
+          # parent fallback below would serialize the document node and
+          # render the whole document as the diff payload (canon#318).
+          # The PIs' own serialized forms are the informative view.
+          if Canon::Comparison::NodeInspector.processing_instruction_node?(node1) &&
+              Canon::Comparison::NodeInspector.processing_instruction_node?(node2)
+            return format_pi_content_details(node1, node2, use_color)
+          end
+
           text1 = NodeUtils.node_to_display(node1, compact: compact)
           text2 = NodeUtils.node_to_display(node2, compact: compact)
 
@@ -408,6 +417,26 @@ expand_difference: false)
                                              use_color)
                       end
           end
+
+          changes = "Content differs: #{detail1} → #{detail2}"
+
+          [detail1, detail2, changes]
+        end
+
+        # Processing-instruction content: the PIs' serialized forms
+        # (<?target data?>), whitespace-visualised like text content.
+        def self.format_pi_content_details(node1, node2, use_color)
+          t1, d1 = Canon::Comparison::NodeInspector.processing_instruction_parts(node1)
+          t2, d2 = Canon::Comparison::NodeInspector.processing_instruction_parts(node2)
+
+          detail1 = ColorHelper.colorize(
+            TextUtils.visualize_whitespace("<?#{t1} #{d1}?>".rstrip),
+            :red, use_color
+          )
+          detail2 = ColorHelper.colorize(
+            TextUtils.visualize_whitespace("<?#{t2} #{d2}?>".rstrip),
+            :green, use_color
+          )
 
           changes = "Content differs: #{detail1} → #{detail2}"
 
